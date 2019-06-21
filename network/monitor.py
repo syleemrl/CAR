@@ -3,7 +3,7 @@ import time
 import matplotlib
 import matplotlib.pyplot as plt
 
-class Env(object):
+class Monitor(object):
 	def __init__(self, motion, num_slaves, load=False, directory=None, plot=True):
 		self.env = Env(motion, num_slaves, load)
 		self.num_slaves = self.env.num_slaves
@@ -50,8 +50,8 @@ class Env(object):
 	
 	def step(self, actions):
 		states, rewards, dones, nan_count =  self.env.step(actions)
-		#TODO: update only nonterminal states
-		states = self.RMS.apply(states)
+		states_updated = self.RMS.apply(states[~np.array(self.terminated)])
+		states[~np.array(self.terminated)] = states_updated
 		self.num_nan_per_iteration += nan_count
 		for i in range(num_slaves):
 			if not terminated[i] and rewards[i] is not None:
@@ -61,7 +61,6 @@ class Env(object):
 				self.num_transitions_per_iteration += 1
 				if dones[i]:
 					self.num_episodes_per_iteration += 1
-
 
 		rewards = rewards[:][0]
 		return states, rewards, dones

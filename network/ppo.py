@@ -198,6 +198,7 @@ class PPO(object):
 				values = self.critic.getValue(states)
 				next_states, rewards, dones = self.env.step(actions)
 
+				terminated_count = 0
 				for j in range(self.num_slaves):
 					if not self.getTerminated(j):
 						if rewards[j] is not None:
@@ -212,9 +213,12 @@ class PPO(object):
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
+								terminated_count += 1
+					else:
+						terminated_count += 1
 
 				if local_step >= self.steps_per_iteration:
-					if all(t is True for t in terminated):
+					if terminated_count == self.num_slaves:
 						print('{}/{} : {}/{}'.format(it+1, num_iteration, local_step, self.steps_per_iteration),end='\r')
 						break
 				if last_print + 100 < local_step: 
