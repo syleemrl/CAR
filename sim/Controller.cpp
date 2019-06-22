@@ -4,12 +4,14 @@
 #include <fstream>
 
 namespace DPhy
+{	
+Controller::Controller(std::string motion)
+	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mControlCount(0)
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
+	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-Controller::Controller()
-	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mActions(Eigen::VectorXd::Zero(0)),
-	,w_p(0.2),w_v(0.1),w_ee(0.2),w_com(0.25),w_root_ori(0.1),w_root_av(0.05),
-	,terminationReason(-1),mIsNanAtTerminal(false)
-{
+	this->mSimPerCon = mSimulationHz / mControlHz;
+
 	this->mWorld = std::make_shared<dart::simulation::World>();
 	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
 
@@ -17,24 +19,17 @@ Controller::Controller()
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
 	dynamic_cast<dart::constraint::BoxedLcpConstraintSolver*>(mWorld->getConstraintSolver())->setBoxedLcpSolver(std::make_shared<dart::constraint::PgsBoxedLcpSolver>());
 	
-	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(DPHY_DIR)+std::string("/character/ground.xml"));
+	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(DCAR_DIR)+std::string("/character/ground.xml"));
 	this->mGround->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
 	this->mWorld->addSkeleton(this->mGround->GetSkeleton());
 
-	this->mCharacter = new Character::LoadBVHMap(std::string(DPHY_DIR)+std::string("/character/humanoid_new.xml"));
+	this->mCharacter = Character::LoadBVHMap(std::string(DCAR_DIR)+std::string("/character/humanoid_new.xml"));
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
-	this->mPositionUpperLimits = this->mCharacter->GetSkeleton()->getPositionUpperLimits();
-	this->mPositionLowerLimits = this->mCharacter->GetSkeleton()->getPositionLowerLimits();
-	this->mActionRange = (this->mPositionUpperLimits - this->mPositionLowerLimits)*0.1;
-
-	this->mMaxJoint = Eigen::VectorXd::Constant(this->mCharacter->GetSkeleton()->getNumDofs(), -20.);
-	this->mMinJoint = Eigen::VectorXd::Constant(this->mCharacter->GetSkeleton()->getNumDofs(), 20.);
-
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
+	
 	kp.setZero();
-
-	kv = kp * 0.1;
+	kv.setZero();
 	this->mCharacter->SetPDParameters(kp,kv);
 
 	mInterestedBodies.clear();
@@ -42,12 +37,12 @@ Controller::Controller()
 	mInterestedBodies.push_back("Neck");
 	mInterestedBodies.push_back("Head");
 
-	mInterestedBodies.push_back("ForeArmL");
 	mInterestedBodies.push_back("ArmL");
+	mInterestedBodies.push_back("ForeArmL");
 	mInterestedBodies.push_back("HandL");
 
-	mInterestedBodies.push_back("ForeArmR");
 	mInterestedBodies.push_back("ArmR");
+	mInterestedBodies.push_back("ForeArmR");
 	mInterestedBodies.push_back("HandR");
 
 	mInterestedBodies.push_back("FemurL");
@@ -62,6 +57,7 @@ Controller::Controller()
 
 	mRewardBodies.clear();
 	mRewardBodies.push_back("Torso");
+	
 	mRewardBodies.push_back("FemurR");
 	mRewardBodies.push_back("TibiaR");
 	mRewardBodies.push_back("FootR");
@@ -100,37 +96,38 @@ Controller::Controller()
 	mEndEffectors.push_back("Head");
 
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
+
+	this->SetReference(motion);
 	this->mTargetPositions = Eigen::VectorXd::Zero(dof);
 	this->mTargetVelocities = Eigen::VectorXd::Zero(dof);
 
-	this->mRootCOMAtTerminal.setZero();
-	this->mRootCOMAtTerminalRef.setZero();
-
-	this->mIsTerminal = false;
-	this->mIsNanAtTerminal = false;
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
-	torques.clear();
+	
+	this->torques.clear();
 }
-void Controller::SetReference(std::string file) 
+void 
+Controller::
+SetReference(std::string motion) 
 {
 	this->mBVH = new BVH();
-	this->mBVH->Parse(file);
+	std::string path = std::string(DPHY_DIR) + std::string("/motion/") + motion + std::string(".bvh");
+	this->mBVH->Parse(path);
 	this->mCharacter->InitializeBVH(this->mBVH);
 }
-void Controller::Step()
+void 
+Controller::
+Step()
 {
-	int per = mSimulationHz/mControlHz;
 	if(IsTerminalState())
 		return;
 	
 	// set action target pos
 	int num_body_nodes = this->mInterestedBodies.size();
-	double pd_gain_offset = 0;
 
 	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
-	this->mTargetPositions = std::get<0>(target_tuple);
-	this->mTargetVelocities = std::get<1>(target_tuple);
+	this->mTargetPositions = std::get<0>(p_v_target);
+	this->mTargetVelocities = std::get<1>(p_v_target);
 	this->mModifiedTargetPositions = this->mTargetPositions;
 	this->mModifiedTargetVelocities = this->mTargetVelocities;
 
@@ -146,13 +143,11 @@ void Controller::Step()
 
 	// set pd gain action
 	Eigen::VectorXd kp(mCharacter->GetSkeleton()->getNumDofs()), kv(mCharacter->GetSkeleton()->getNumDofs());
-
-	kp.setConstant(500);
-	kp.segment<6>(0).setZero();
+	kp.setZero();
 
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		if(mInterestedBodies[i] == "Spine1" || mInterestedBodies[i] == "FemurR" || mInterestedBodies[i] == "FemurL"){
+		if(mInterestedBodies[i] == "Spine" || mInterestedBodies[i] == "FemurR" || mInterestedBodies[i] == "FemurL"){
 			kp.segment<3>(idx) = Eigen::Vector3d::Constant(1000);
 		}
 		else{
@@ -160,12 +155,12 @@ void Controller::Step()
 		}
 	}
 
-	// kv = (kp.array() * 2).sqrt();
-	kv = KV_RATIO*kp;
-	mCharacter->SetPDParameters(kp,kv);
-	for(int i=0;i<per;i+=2){
+	// KV_RATIO from CharacterConfiguration.h
+	kv = KV_RATIO * kp;
+	mCharacter->SetPDParameters(kp, kv);
+	for(int i = 0; i < this->mSimPerCon; i += 2){
 		Eigen::VectorXd torque = mCharacter->GetSPDForces(mModifiedTargetPositions,mModifiedTargetVelocities);
-		for(int j=0;j<2;j++)
+		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step();
@@ -175,9 +170,32 @@ void Controller::Step()
 	this->mControlCount++;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 }
-void Controller::Reset(bool RSI)
+void
+Controller::
+FollowBvh()
+{	
+	if(IsTerminalState())
+		return;
+	auto& skel = mCharacter->GetSkeleton();
+
+	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
+	mTargetPositions = p_v_target.first;
+	mTargetVelocities = p_v_target.second;
+
+	for(int i=0;i<per;i++)
+	{
+		skel->setPositions(mTargetPositions);
+		skel->setVelocities(mTargetVelocities);
+		skel->computeForwardKinematics(true, true, false);
+	}
+	this->mControlCount++;
+	this->mTimeElapsed += 1.0 / this->mControlHz;
+
+}
+void 
+Controller::
+Reset(bool RSI)
 {
-	this->mFrame = 0;
 	this->mWorld->reset();
 	auto& skel = mCharacter->GetSkeleton();
 	Eigen::VectorXd p = skel->getPositions();
@@ -193,21 +211,17 @@ void Controller::Reset(bool RSI)
 
 	//RSI
 	if(RSI) {
-		this->mTimeElapsed = dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() - 0.51 - 1.0/this->mControlHz);
+		this->mTimeElapsed = dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() - 10 /this->mControlHz);
 		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
-
 	}
 	else {
 		this->mTimeElapsed = 0.0;
 		this->mControlCount = 0;
 	}
-	mStartTime = mTimeElapsed;
 
 	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
-	this->mTargetPositions = std::get<0>(target_tuple);
-	this->mTargetVelocities = std::get<1>(target_tuple);
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()*3);
-	mActions.setZero();
+	this->mTargetPositions = std::get<0>(p_v_target);
+	this->mTargetVelocities = std::get<1>(p_v_target);
 
 	auto& skel = mCharacter->GetSkeleton();
 	skel->setPositions(mTargetPositions);
@@ -226,77 +240,52 @@ IsTerminalState()
 {
 	if(mIsTerminal)
 		return true;
-
+	
 	auto& skel = mCharacter->GetSkeleton();
 
 	Eigen::VectorXd p = skel->getPositions();
 	Eigen::VectorXd v = skel->getVelocities();
 	Eigen::Vector3d root_pos = skel->getPositions().segment<3>(3);
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
-
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
-	Eigen::Vector3d root_v = skel->getBodyNode(0)->getCOMLinearVelocity();
-	double root_v_norm = root_v.norm();
-	Eigen::Vector3d root_pos_diff = this->mTargetPositions.segment<3>(3) - root_pos;
 
 	skel->setPositions(this->mTargetPositions);
 	skel->computeForwardKinematics(true, false, false);
 	Eigen::Isometry3d root_diff = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
-	skel->setPositions(p);
-	skel->computeForwardKinematics(true, false, false);
-
+	
 	Eigen::AngleAxisd root_diff_aa(root_diff.linear());
 	double angle = RadianClamp(root_diff_aa.angle());
 
+	skel->setPositions(p);
+	skel->computeForwardKinematics(true, false, false);
+
 	// check nan
 	if(dart::math::isNan(p)){
-		// std::cout << "p nan" << std::endl;
 		mIsNanAtTerminal = true;
 		mIsTerminal = true;
 		terminationReason = 3;
 		return mIsTerminal;
 	}
 	if(dart::math::isNan(v)){
-		// std::cout << "v nan" << std::endl;
 		mIsNanAtTerminal = true;
 		mIsTerminal = true;
-
 		terminationReason = 4;
 		return mIsTerminal;
 	}
-	//ET
+	//characterConfigration
 	if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
-			// std::cout << "root fall" << std::endl;
-			mIsNanAtTerminal = false;
-			// this->ComputeRootCOMDiff();
-			mIsTerminal = true;
-			terminationReason = 1;
+		mIsTerminal = true;
+		terminationReason = 1;
 	}
-	else if(std::abs(root_pos[0]) > 4990){
-			mIsNanAtTerminal = false;
-			// this->ComputeRootCOMDiff();
-			mIsTerminal = true;
-			terminationReason = 9;
-	}
-	else if(std::abs(root_pos[2]) > 4990){
-			mIsNanAtTerminal = false;
-			// this->ComputeRootCOMDiff();
-			mIsTerminal = true;
-			terminationReason = 9;
-	}
-	else if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
-		 	mIsNanAtTerminal = false;
-		 	// this->ComputeRootCOMDiff();
-		 	mIsTerminal = true;
-		 	terminationReason = 2;
+	else if(root_diff.translation().norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+		 mIsTerminal = true;
+		 terminationReason = 2;
 	}
 	else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
-			mIsNanAtTerminal = false;
-			mIsTerminal = true;
-			terminationReason = 5;
+		mIsTerminal = true;
+		terminationReason = 5;
 	}
-	else if(this->mTimeElapsed > this->mBVH->GetMaxTime()-0.51-1.0/this->mControlHz){
-		mIsNanAtTerminal = false;
+	else if(this->mTimeElapsed > this->mBVH->GetMaxTime()-1.0/this->mControlHz){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -314,6 +303,12 @@ GetNumAction()
 {
 	return this->mNumAction;
 }
+void 
+Controller::
+SetAction(const Eigen::VectorXd& action)
+{
+	this->mActions = action;
+}
 double
 Controller::
 GetReward()
@@ -321,7 +316,6 @@ GetReward()
 	std::vector<double> ret = this->GetRewardByParts();
 	return ret[0];
 }
-
 std::vector<double>
 Controller::
 GetRewardByParts()
@@ -334,24 +328,22 @@ GetRewardByParts()
 	//Velocity Differences
 	Eigen::VectorXd v_diff = skel->getVelocityDifferences(this->mTargetVelocities, skel->getVelocities());
 
-	Eigen::VectorXd p_diff_lower, v_diff_lower;
+	Eigen::VectorXd p_diff_reward, v_diff_reward;
 	Eigen::Vector3d root_ori_diff;
 	Eigen::Vector3d root_av_diff;
 	
-	int index_torso   = skel->getBodyNode("Torso")->getParentJoint()->getIndexInSkeleton(0);	
-	int num_lower_body_nodes = this->mRewardBodies.size();
+	int num_reward_body_nodes = this->mRewardBodies.size();
 
-	root_ori_diff = p_diff.segment<3>(index_torso);
-	root_av_diff = v_diff.segment<3>(index_torso);
+	root_ori_diff = p_diff.segment<3>(0);
+	root_av_diff = v_diff.segment<3>(0);
 
+	p_diff_reward.resize(num_reward_body_nodes*3);
+	v_diff_reward.resize(num_reward_body_nodes*3);
 
-	p_diff_lower.resize(num_lower_body_nodes*3);
-	v_diff_lower.resize(num_lower_body_nodes*3);
-
-	for(int i = 0; i < num_lower_body_nodes; i++){
+	for(int i = 0; i < num_reward_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		p_diff_lower.segment<3>(3*i) = p_diff.segment<3>(idx);
-		v_diff_lower.segment<3>(3*i) = v_diff.segment<3>(idx);
+		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
+		v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
 	}
 
 	//End-effector position and COM Differences
@@ -361,8 +353,7 @@ GetRewardByParts()
 
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
-	Eigen::VectorXd ee_ori_diff(mEndEffectors.size()*3);
-	Eigen::Vector3d com_diff, com_v_diff;
+	Eigen::Vector3d com_diff;
 
 
 	for(int i=0;i<mEndEffectors.size();i++){
@@ -370,8 +361,6 @@ GetRewardByParts()
 	}
 	
 	com_diff = skel->getCOM();
-	com_v_diff = skel->getCOMLinearVelocity();
-
 
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
@@ -380,17 +369,13 @@ GetRewardByParts()
 	for(int i=0;i<mEndEffectors.size();i++){
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
-		ee_ori_diff.segment<3>(3*i) = QuaternionToDARTPosition(Eigen::Quaterniond(diff.linear()));
 	}
 
 	com_diff -= skel->getCOM();
-	com_v_diff -= skel->getCOMLinearVelocity();
-
 
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
-
 
 	double foot_contact_match_l = 0;
 	double foot_contact_match_r = 0;
@@ -429,50 +414,13 @@ GetRewardByParts()
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
 
-	double sig_com_v = 0.2 * scale;		// 5
-	double sig_ori = 0.8 * scale;		// 6
-	double sig_av = 4.0 * scale;		// 7
-	double sig_ee_ori = 1.2 * scale;	// 9
-
-	w_p = 0.35;
-	w_v = 0.1;
-
-
-	w_com = 0.3;
-	double w_com_v = 0.00;
-	w_root_ori = 0.00;
-	w_root_av = 0.00;
-
-	w_ee = 0.25;
-	double w_ee_ori = 0.0;
-
-	// w_goal = 0.0;
-	// double w_p_g = 0.0;
-
 	double r_p = exp_of_squared(p_diff_lower,sig_p);
 	double r_v = exp_of_squared(v_diff_lower,sig_v);
-
-	double r_ori = exp_of_squared(root_ori_diff, sig_ori);
-	double r_av = exp_of_squared(root_av_diff, sig_av);
-	// double r_p_g = exp_of_squared(p_global_diff, sig_p_g);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
-	double r_ee_ori = exp_of_squared(ee_ori_diff,sig_ee_ori);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_com_v = exp_of_squared(com_v_diff,sig_com_v);
-	// double r_mass = exp_of_squared(mass_diff,sig_mass);
-	// double r_goal = exp_of_squared(local_goal,sig_goal);
-	// double r_tot = w_p*r_p 
-	// 				+ w_v*r_v 
-	// 				+ w_com*r_com
-	// 				+ w_ee*r_ee;
+
 	double r_tot = r_p*r_v*r_com*r_ee;
-	// double r_tot = (w_p*r_p 
-	// 				+ w_v*r_v 
-	// 				+ w_root_ori*r_ori 
-	// 				+ w_root_av*r_av
-	// 				+ w_ee*r_ee 
-	// 				+ w_goal*r_goal)	
-	// 				* r_com;
+
 
 	std::vector<double> ret;
 	ret.clear();
@@ -489,4 +437,156 @@ GetRewardByParts()
 	ret.push_back(r_ee);
 
 	return ret;
+}
+
+Eigen::VectorXd 
+Controller::
+GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel) {
+	Eigen::VectorXd ret;
+
+	auto& skel = mCharacter->GetSkeleton();
+	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
+	Eigen::Isometry3d cur_root_inv = root->getWorldTransform().inverse();
+
+	// int num_body_nodes = mInterestedBodies.size();
+	int num_ee = mEndEffectors.size();
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+
+	skel->setPositions(pos);
+	skel->setVelocities(vel);
+	skel->computeForwardKinematics(true, true, false);
+
+	ret.resize((num_ee)*9+12);
+	for(int i=0;i<num_ee;i++)
+	{
+		Eigen::Isometry3d transform = cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond(transform.linear()));
+		ret.segment<6>(6*i) << rot, transform.translation();
+	}
+
+
+	for(int i=0;i<num_ee;i++)
+	{
+	    int idx = skel->getBodyNode(mEndEffectors[i])->getParentJoint()->getIndexInSkeleton(0);
+		ret.segment<3>(6*num_ee + 3*i) << vel.segment<3>(idx);
+	}
+
+	// root diff with target com
+	Eigen::Isometry3d transform = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
+	Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond(transform.linear()));
+	Eigen::Vector3d root_angular_vel_relative = cur_root_inv.linear() * skel->getRootBodyNode()->getAngularVelocity();
+	Eigen::Vector3d root_linear_vel_relative = cur_root_inv.linear() * skel->getRootBodyNode()->getCOMLinearVelocity();
+	ret.tail<12>() << rot, transform.translation(), root_angular_vel_relative, root_linear_vel_relative;
+
+	// restore
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true, true, false);
+
+	return ret;
+}
+
+bool
+Controller::
+CheckCollisionWithGround(std::string bodyName){
+	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
+	dart::collision::CollisionOption option;
+	dart::collision::CollisionResult result;
+	if(bodyName == "FootR"){
+		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGG.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "FootL"){
+		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGG.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "FootEndR"){
+		bool isCollide = collisionEngine->collide(this->mCGER.get(), this->mCGG.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "FootEndL"){
+		bool isCollide = collisionEngine->collide(this->mCGEL.get(), this->mCGG.get(), option, &result);
+		return isCollide;
+	}
+	else{ // error case
+		std::cout << "check collision : bad body name" << std::endl;
+		return false;
+	}
+}
+
+Eigen::VectorXd 
+Controller::
+GetState()
+{
+	if(mIsTerminal)
+		return Eigen::VectorXd::Zero(this->mNumState);
+	auto& skel = mCharacter->GetSkeleton();
+	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
+	int num_body_nodes = mInterestedBodies.size();
+
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+
+	std::vector<Eigen::VectorXd> tp_vec;
+	tp_vec.clear();
+	std::vector<int> tp_times;
+	tp_times.clear();
+	tp_times.push_back(0);
+	
+	for(auto dt : tp_times){
+		int t = std::max(0, this->mControlCount + dt);
+		auto target_tuple = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t * this->mSimPerCon);
+		Eigen::VectorXd p = std::get<0>(target_tuple);
+		Eigen::VectorXd v = std::get<1>(target_tuple);
+		tp_vec.push_back(GetEndEffectorStatePosAndVel(p, v));
+	}
+
+	Eigen::VectorXd tp_concatenated;
+	tp_concatenated.resize(tp_vec.size()*tp_vec[0].rows());
+	for(int i = 0; i < tp_vec.size(); i++){
+		tp_concatenated.segment(i*tp_vec[0].rows(), tp_vec[0].rows()) = tp_vec[i];
+	}
+
+	Eigen::VectorXd p,v;
+	p.resize(p_save.rows()-6);
+	p = p_save.tail(p_save.rows()-6);
+	v = v_save/10.0;
+
+	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
+	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
+
+	Eigen::VectorXd state;
+
+	// root height
+	double root_height = skel->getRootBodyNode()->getCOM()[1];
+	double foot_l_height = skel->getBodyNode("FootL")->getCOM()[1];
+	double foot_r_height = skel->getBodyNode("FootR")->getCOM()[1];
+	double foot_end_l_height = skel->getBodyNode("FootEndL")->getCOM()[1];
+	double foot_end_r_height = skel->getBodyNode("FootEndR")->getCOM()[1];
+
+	double foot_r_contact = -1;
+	double foot_end_r_contact = -1;
+	double foot_l_contact = -1;
+	double foot_end_l_contact = -1;
+	
+	if( this->CheckCollisionWithGround("FootR")){
+		foot_r_contact = 1;
+	}
+	if( this->CheckCollisionWithGround("FootEndR")){
+		foot_end_r_contact = 1;
+	}
+	if( this->CheckCollisionWithGround("FootL")){
+		foot_l_contact = 1;
+	}
+	if( this->CheckCollisionWithGround("FootEndL")){
+		foot_end_l_contact = 1;
+	}
+
+	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+1+5+6);
+	state<<p, v, tp_concatenated, up_vec_angle,
+			root_height, foot_l_height, foot_r_height, foot_end_l_height, foot_end_r_height,
+			this->mRefFoot[0], this->mRefFoot[1], foot_l_contact, foot_end_l_contact, foot_r_contact, foot_end_r_contact;
+
+	return state;
 }

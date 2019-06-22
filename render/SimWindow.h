@@ -3,9 +3,8 @@
 #include "Camera.h"
 #include "GLUTWindow.h"
 #include "GLfunctions.h"
+#include "Controller.h"
 #include "DART_interface.h"
-#include "BVH.h"
-#include "Character.h"
 #include <string>
 /**
 *
@@ -17,10 +16,7 @@ class SimWindow : public GUI::GLUTWindow
 {
 public:
 	/// Constructor.
-	SimWindow();
-
-	/// Constructor.
-	SimWindow(std::string filename);
+	SimWindow(std::string motion);
 
 	/// World object pointer
 	dart::simulation::WorldPtr mWorld;
@@ -48,11 +44,9 @@ protected:
 	/// Reaction to window resizing.
 	void Reshape(int w, int h) override;
 
-	/// 
 	void Timer(int value) override;
 
-	/// Screenshot. The png file will be stored as ./frames/Capture/[number].png
-	void Screenshot();
+	void Step();
 
 	/// Set the skeleton positions in mWorld to the positions at n frame.
 	void SetFrame(int n);
@@ -60,37 +54,19 @@ protected:
 	/// Set the skeleton positions in mWorld to the postions at the next frame.
 	void NextFrame();
 
-	/// set the skeleton positions in mWorld to the postions at 1/30 sec later.
-	void NextFrameRealTime();
-
 	/// Set the skeleton positions in mWorld to the postions at the previous frame.
 	void PrevFrame();
+
 	bool mIsRotate;
 	bool mIsAuto;
-	bool mIsCapture;
-	bool mShowCharacter;
-	bool mShowRef;
-	bool mShowMod;
-	bool mShowRootTraj;
 	bool mTrackCamera;
 	double mTimeStep;
 	int mCurFrame;
 	int mTotalFrame;
-	bool mIsVelExist;
-	bool mIsRefExist;
-	bool mIsModExist;
-	bool mIsGoalExist;
-	bool mIsFootExist;
-	std::vector<Eigen::VectorXd> mRecords, mRefRecords, mModRecords;
-	std::vector<Eigen::Vector3d> mVelRecords, mGoalRecords;
-	std::vector<Eigen::Vector3d> mRootTrajectories, mRootTrajectoriesRef;
-	std::vector<Eigen::Vector2d> mFootRecords, mRefFootRecords;
-    std::vector<Eigen::Vector3d> mBasketBallRecords;
+	
+	std::vector<Eigen::VectorXd> mMemory1;
 
-	DPhy::Character* mCharacter;
-
-	int mSkeletonDrawType;
-	DPhy::BVH* mBVH;
+	DPhy::Controller* mController;
 };
 
 #endif
