@@ -18,6 +18,7 @@ Controller();
 
 	void Step(bool record=false);
 	void Reset(bool RSI=true);
+	void SetReference(std::string file);
 	bool IsTerminalState();
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
 	bool IsTimeEnd(){

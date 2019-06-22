@@ -8,13 +8,12 @@ SimEnv::
 SimEnv(int num_slaves, std::string motion_file)
 	:mNumSlaves(num_slaves)
 {
-	mReference = new Dphy::ReferenceManager(motion_file);
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
 		for(int i =0;i<num_slaves;i++)
 	{
 		mSlaves.push_back(new DPhy::Controller());
-		mSlaves.at(i)->setReference(mReference);
+		mSlaves.at(i)->setReference(motion_file);
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -112,19 +111,6 @@ Resets(bool RSI)
 }
 np::ndarray
 SimEnv::
-IsTerminalStates()
-{
-	std::vector<bool> is_terminate_vector(mNumSlaves);
-
-	for (int id = 0; id < mNumSlaves; ++id)
-	{
-		is_terminate_vector[id] = IsTerminalState(id);
-	}
-
-	return DPhy::toNumPyArray(is_terminate_vector);
-}
-np::ndarray
-SimEnv::
 GetStates()
 {
 	Eigen::MatrixXd states(mNumSlaves,mNumState);
@@ -185,14 +171,12 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetNumAction",&SimEnv::GetNumAction)
 		.def("Step",&SimEnv::Step)
 		.def("Reset",&SimEnv::Reset)
-		.def("IsTerminalState",&SimEnv::IsTerminalState)
 		.def("GetState",&SimEnv::GetState)
 		.def("SetAction",&SimEnv::SetAction)
 		.def("GetReward",&SimEnv::GetReward)
 		.def("GetRewardByParts",&SimEnv::GetRewardByParts)
 		.def("Steps",&SimEnv::Steps)
 		.def("Resets",&SimEnv::Resets)
-		.def("IsTerminalStates",&SimEnv::IsTerminalStates)
 		.def("IsNanAtTerminal",&SimEnv::IsNanAtTerminal)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)

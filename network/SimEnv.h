@@ -45,7 +45,6 @@ public:
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;
-	Dphy::ReferenceManager* mReference;
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
