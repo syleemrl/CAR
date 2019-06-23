@@ -1,7 +1,6 @@
 #ifndef __DEEP_PHYSICS_H__
 #define __DEEP_PHYSICS_H__
 #include "Controller.h"
-#include "ReferenceManager.h"
 #include <vector>
 #include <string>
 #include <boost/python.hpp>
@@ -22,21 +21,18 @@ public:
 	int GetNumAction();
 
 	//For each slave
-	void Step(int id,bool record);
+	void Step(int id);
 	void Reset(int id,bool RSI);
-	bool IsTerminalState(int id);
 	p::tuple IsNanAtTerminal(int id);
 
 	np::ndarray GetState(int id);
-	np::ndarray GetDecomposedPositions(int id);
 	void SetAction(np::ndarray np_array,int id);
 	double GetReward(int id);
 	np::ndarray GetRewardByParts(int id);
 	//For all slaves
 
-	void Steps(bool record);
+	void Steps();
 	void Resets(bool RSI);
-	np::ndarray IsTerminalStates();
 
 	np::ndarray GetStates();
 	void SetActions(np::ndarray np_array);

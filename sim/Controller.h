@@ -1,6 +1,10 @@
 #ifndef __DEEP_PHYSICS_CONTROLLER_H__
 #define __DEEP_PHYSICS_CONTROLLER_H__
 #include "dart/dart.hpp"
+#include "BVH.h"
+#include "CharacterConfigurations.h"
+#include "SkeletonBuilder.h"
+#include "Functions.h"
 namespace DPhy
 {
 class Character;
@@ -30,7 +34,7 @@ Controller(std::string motion);
 	}
 	int GetNumState();
 	int GetNumAction();
-	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd& pv);
+	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
 
 	bool CheckCollisionWithGround(std::string bodyName);
 	Eigen::VectorXd GetState();

@@ -56,7 +56,9 @@ protected:
 
 	/// Set the skeleton positions in mWorld to the postions at the previous frame.
 	void PrevFrame();
-
+	void MemoryClear();
+	void Save();
+	
 	bool mIsRotate;
 	bool mIsAuto;
 	bool mTrackCamera;

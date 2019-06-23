@@ -226,7 +226,7 @@ void
 SimWindow::
 Step()
 {
-	this->mController->FollowBVH();
+	this->mController->FollowBvh();
 
 	this->mCurFrame++;
 	this->Save();

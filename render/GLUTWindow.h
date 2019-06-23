@@ -96,7 +96,7 @@ GLuint createShader(const char* src, GLenum type) {
 }
 
 void createProgram(){
-  std::string vertex_file = std::string(DPHY_DIR)+std::string("/render/vertexshader.txt");
+  std::string vertex_file = std::string(CAR_DIR)+std::string("/render/vertexshader.txt");
   FILE *f = fopen(vertex_file.c_str(), "rb");
   fseek(f, 0, SEEK_END);
   long fsize = ftell(f);
@@ -108,7 +108,7 @@ void createProgram(){
 
   vert[fsize] = 0;
 
-  std::string frag_file = std::string(DPHY_DIR)+std::string("/render/fragshader.txt");
+  std::string frag_file = std::string(CAR_DIR)+std::string("/render/fragshader.txt");
   f = fopen(frag_file.c_str(), "rb");
   fseek(f, 0, SEEK_END);
   fsize = ftell(f);

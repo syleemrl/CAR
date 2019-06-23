@@ -12,8 +12,7 @@ SimEnv(int num_slaves, std::string motion_file)
 	omp_set_num_threads(num_slaves);
 		for(int i =0;i<num_slaves;i++)
 	{
-		mSlaves.push_back(new DPhy::Controller());
-		mSlaves.at(i)->setReference(motion_file);
+		mSlaves.push_back(new DPhy::Controller(motion_file));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -37,7 +36,7 @@ void
 SimEnv::
 Step(int id)
 {
-	if(IsTerminalState(id)==true){
+	if(mSlaves[id]->IsTerminalState()==true){
 		return;
 	}
 	mSlaves[id]->Step();
@@ -87,16 +86,16 @@ GetRewardByParts(int id)
 }
 void
 SimEnv::
-Steps(bool record)
+Steps()
 {
 	if( mNumSlaves == 1){
-		this->Step(0,record);
+		this->Step(0);
 	}
 	else{
 #pragma omp parallel for
 		for (int id = 0; id < mNumSlaves; ++id)
 		{
-			this->Step(id,record);
+			this->Step(id);
 		}
 	}
 }
@@ -181,5 +180,5 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
-		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts)
+		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

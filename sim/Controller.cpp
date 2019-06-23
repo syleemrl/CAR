@@ -6,7 +6,7 @@
 namespace DPhy
 {	
 Controller::Controller(std::string motion)
-	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mControlCount(0)
+	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mControlCount(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
@@ -19,11 +19,11 @@ Controller::Controller(std::string motion)
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
 	dynamic_cast<dart::constraint::BoxedLcpConstraintSolver*>(mWorld->getConstraintSolver())->setBoxedLcpSolver(std::make_shared<dart::constraint::PgsBoxedLcpSolver>());
 	
-	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(DCAR_DIR)+std::string("/character/ground.xml"));
-	this->mGround->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
-	this->mWorld->addSkeleton(this->mGround->GetSkeleton());
+	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/ground.xml"));
+	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
+	this->mWorld->addSkeleton(this->mGround);
 
-	this->mCharacter = Character::LoadBVHMap(std::string(DCAR_DIR)+std::string("/character/humanoid_new.xml"));
+	this->mCharacter = new DPhy::Character(std::string(CAR_DIR)+std::string("/character/humanoid_new.xml"));
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
@@ -83,7 +83,7 @@ Controller::Controller(std::string motion)
 	this->mCGR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootR"));
 	this->mCGEL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootEndL"));
 	this->mCGER = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootEndR"));
-	this->mCGG = collisionEngine->createCollisionGroup(this->mGround->GetSkeleton().get());
+	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
 	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()*3);
 	mActions.setZero();
@@ -111,7 +111,7 @@ Controller::
 SetReference(std::string motion) 
 {
 	this->mBVH = new BVH();
-	std::string path = std::string(DPHY_DIR) + std::string("/motion/") + motion + std::string(".bvh");
+	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mCharacter->InitializeBVH(this->mBVH);
 }
@@ -182,7 +182,7 @@ FollowBvh()
 	mTargetPositions = p_v_target.first;
 	mTargetVelocities = p_v_target.second;
 
-	for(int i=0;i<per;i++)
+	for(int i=0;i<this->mSimPerCon;i++)
 	{
 		skel->setPositions(mTargetPositions);
 		skel->setVelocities(mTargetVelocities);
@@ -223,7 +223,6 @@ Reset(bool RSI)
 	this->mTargetPositions = std::get<0>(p_v_target);
 	this->mTargetVelocities = std::get<1>(p_v_target);
 
-	auto& skel = mCharacter->GetSkeleton();
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
@@ -414,8 +413,8 @@ GetRewardByParts()
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
 
-	double r_p = exp_of_squared(p_diff_lower,sig_p);
-	double r_v = exp_of_squared(v_diff_lower,sig_v);
+	double r_p = exp_of_squared(p_diff_reward,sig_p);
+	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
@@ -539,7 +538,7 @@ GetState()
 		auto target_tuple = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t * this->mSimPerCon);
 		Eigen::VectorXd p = std::get<0>(target_tuple);
 		Eigen::VectorXd v = std::get<1>(target_tuple);
-		tp_vec.push_back(GetEndEffectorStatePosAndVel(p, v));
+		tp_vec.push_back(this->GetEndEffectorStatePosAndVel(p, v));
 	}
 
 	Eigen::VectorXd tp_concatenated;
@@ -589,4 +588,5 @@ GetState()
 			this->mRefFoot[0], this->mRefFoot[1], foot_l_contact, foot_end_l_contact, foot_r_contact, foot_end_r_contact;
 
 	return state;
+}
 }
