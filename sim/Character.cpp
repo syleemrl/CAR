@@ -164,7 +164,6 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,double t)
 	int dof = mSkeleton->getPositions().rows();
 	Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
 	Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
-
 	//Set p
 	bvh->SetMotion(t);
 	for(auto ss :mBVHMap)

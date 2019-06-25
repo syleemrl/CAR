@@ -23,7 +23,9 @@ Controller::Controller(std::string motion)
 	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
 	this->mWorld->addSkeleton(this->mGround);
 
-	this->mCharacter = new DPhy::Character(std::string(CAR_DIR)+std::string("/character/humanoid_new.xml"));
+	std::string path = std::string(CAR_DIR)+std::string("/character/humanoid_new.xml");
+	this->mCharacter = new DPhy::Character(path);
+	this->mCharacter->LoadBVHMap(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
@@ -114,6 +116,7 @@ SetReference(std::string motion)
 	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mCharacter->InitializeBVH(this->mBVH);
+	std::cout << "mapping done" << std::endl;
 }
 void 
 Controller::
@@ -170,12 +173,12 @@ Step()
 	this->mControlCount++;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 }
-void
+bool
 Controller::
 FollowBvh()
 {	
 	if(IsTerminalState())
-		return;
+		return false;
 	auto& skel = mCharacter->GetSkeleton();
 
 	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
@@ -190,7 +193,7 @@ FollowBvh()
 	}
 	this->mControlCount++;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
-
+	return true;
 }
 void 
 Controller::
@@ -200,6 +203,7 @@ Reset(bool RSI)
 	auto& skel = mCharacter->GetSkeleton();
 	Eigen::VectorXd p = skel->getPositions();
 	Eigen::VectorXd v = skel->getVelocities();
+
 	p.setZero();
 	v.setZero();
 	skel->setPositions(p);
@@ -208,7 +212,6 @@ Reset(bool RSI)
 	skel->clearInternalForces();
 	skel->clearExternalForces();
 	skel->computeForwardKinematics(true,true,false);
-
 	//RSI
 	if(RSI) {
 		this->mTimeElapsed = dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() - 10 /this->mControlHz);
@@ -226,7 +229,7 @@ Reset(bool RSI)
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
-	
+
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
@@ -523,10 +526,8 @@ GetState()
 	auto& skel = mCharacter->GetSkeleton();
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	int num_body_nodes = mInterestedBodies.size();
-
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
-
 	std::vector<Eigen::VectorXd> tp_vec;
 	tp_vec.clear();
 	std::vector<int> tp_times;
@@ -536,6 +537,7 @@ GetState()
 	for(auto dt : tp_times){
 		int t = std::max(0, this->mControlCount + dt);
 		auto target_tuple = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t * this->mSimPerCon);
+
 		Eigen::VectorXd p = std::get<0>(target_tuple);
 		Eigen::VectorXd v = std::get<1>(target_tuple);
 		tp_vec.push_back(this->GetEndEffectorStatePosAndVel(p, v));
@@ -568,7 +570,7 @@ GetState()
 	double foot_end_r_contact = -1;
 	double foot_l_contact = -1;
 	double foot_end_l_contact = -1;
-	
+
 	if( this->CheckCollisionWithGround("FootR")){
 		foot_r_contact = 1;
 	}

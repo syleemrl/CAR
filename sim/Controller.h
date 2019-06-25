@@ -23,7 +23,7 @@ Controller(std::string motion);
 	void Step();
 	void Reset(bool RSI=true);
 	void SetReference(std::string motion);
-	void FollowBvh();
+	bool FollowBvh();
 	bool IsTerminalState();
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
 	bool IsTimeEnd(){

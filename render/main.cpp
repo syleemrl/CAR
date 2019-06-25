@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <GL/glut.h>
-
+#include "BVH.h"
 int main(int argc,char** argv)
 {
 	if( argc < 2 ) {
@@ -21,4 +21,10 @@ int main(int argc,char** argv)
 	glutInit(&argc, argv);
 	simwindow->InitWindow(1600,900,"Render");
 	glutMainLoop();
+	/*std::vector<int> index;
+	index.push_back(0);
+	index.push_back(0);
+
+	DPhy::AddZeroToBvh(index, CAR_DIR+"/motion/cartwheel.bvh");*/
+	return 0;
 }

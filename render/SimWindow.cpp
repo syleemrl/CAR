@@ -18,7 +18,8 @@ SimWindow(std::string motion)
 	this->mWorld = this->mController->GetWorld();
 
 	DPhy::SetSkeletonColor(this->mWorld->getSkeleton("Humanoid"), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
-	this->mController->Reset();
+
+	this->mController->Reset(false);
 
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
@@ -100,12 +101,13 @@ void
 SimWindow::
 Display() 
 {
-glClearColor(0.8, 0.8, 0.8, 1);
+	glClearColor(1.0, 1.0, 1.0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
 	Eigen::Vector3d com_root = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
 	Eigen::Vector3d com_front = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getTransform()*Eigen::Vector3d(0.0, 0.0, 2.0);
+
 	if(this->mTrackCamera){
 		Eigen::Vector3d com = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
 		Eigen::Isometry3d transform = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getTransform();
@@ -135,6 +137,7 @@ glClearColor(0.8, 0.8, 0.8, 1);
 	DrawSkeletons();
 	glDisable(GL_BLEND);
 
+	glUseProgram(0);
 	glutSwapBuffers();
 
 }
@@ -145,8 +148,8 @@ Keyboard(unsigned char key,int x,int y)
 	switch(key)
 	{
 		case '`' :mIsRotate= !mIsRotate;break;
-		case '[': this->PrevFrame();break;
-		case ']': this->NextFrame();break;
+		case '[': mIsAuto=false;this->PrevFrame();break;
+		case ']': mIsAuto=false;this->NextFrame();break;
 		case 'o': this->mCurFrame-=99; this->PrevFrame();break;
 		case 'p': this->mCurFrame+=99; this->NextFrame();break;
 		case 's': std::cout << this->mCurFrame << std::endl;break;
@@ -226,10 +229,11 @@ void
 SimWindow::
 Step()
 {
-	this->mController->FollowBvh();
-
-	this->mCurFrame++;
-	this->Save();
+	if(this->mController->FollowBvh()) 
+	{
+		this->mCurFrame++;
+		this->Save();
+	}
 	this->SetFrame(this->mCurFrame);
 		
 }
@@ -243,7 +247,7 @@ Timer(int value)
           Step();
 	} else if( mIsAuto && this->mCurFrame < this->mTotalFrame - 1){
         this->mCurFrame++;
-        SetFrame(this->mCurFrame);
+        // SetFrame(this->mCurFrame);
         	
     }
 

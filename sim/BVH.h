@@ -24,7 +24,6 @@ public:
 	}; 
 	static std::map<std::string,DPhy::BVHNode::CHANNEL> CHANNEL_NAME;
 
-
 	BVHNode(const std::string& name,BVHNode* parent);
 	void SetChannel(int c_offset,std::vector<std::string>& c_name);
 	void Set(const Eigen::VectorXd& m_t);
@@ -33,6 +32,7 @@ public:
 
 	void AddChild(BVHNode* child);
 	BVHNode* GetNode(const std::string& name);
+	std::string GetName();
 private:
 	BVHNode* mParent;
 	std::vector<BVHNode*> mChildren;
@@ -49,6 +49,7 @@ class BVH
 
 public:
 	BVH();
+
 	void AddMapping(const std::string& body_node,const std::string& bvh_node);
 
 	void SetMotion(double t);

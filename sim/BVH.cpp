@@ -104,13 +104,19 @@ GetNode(const std::string& name)
 
 	return nullptr;
 }
-
+std::string
+BVHNode::
+GetName()
+{
+	return mName;
+}
 
 BVH::
 BVH()
 {
 
 }
+
 void
 BVH::
 AddMapping(const std::string& body_node,const std::string& bvh_node)
@@ -130,7 +136,6 @@ SetMotion(double t)
 	//R0
 	for(auto& bn: mMap)
 		bn.second->Set(mMotions[k]);
-
 	for(auto& bn:mMap)
 		R_0.push_back(bn.second->Get());
 
@@ -157,7 +162,7 @@ SetMotion(double t)
 
 	mRootCOM.setZero();
 	mRootCOM = (root_k*(1-dt) + root_k1*dt - mRootCOMOffset)*0.01;
-
+	
 	// double remain = (double)(mNumTotalFrames-1-k);
 	// double residual = std::max(1.0-remain/num_interpolate,0.0);
 	// Eigen::VectorXd m_t =mMotions[k]+residual*mMotionDiff;
