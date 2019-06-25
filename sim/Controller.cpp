@@ -169,158 +169,15 @@ Step()
 			mWorld->step();
 		}
 	}
-
 	this->mControlCount++;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
+
+	this->UpdateReward();
+	this->UpdateTerminalInfo();
 }
-bool
+void
 Controller::
-FollowBvh()
-{	
-	if(IsTerminalState())
-		return false;
-	auto& skel = mCharacter->GetSkeleton();
-
-	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
-	mTargetPositions = p_v_target.first;
-	mTargetVelocities = p_v_target.second;
-
-	for(int i=0;i<this->mSimPerCon;i++)
-	{
-		skel->setPositions(mTargetPositions);
-		skel->setVelocities(mTargetVelocities);
-		skel->computeForwardKinematics(true, true, false);
-	}
-	this->mControlCount++;
-	this->mTimeElapsed += 1.0 / this->mControlHz;
-	return true;
-}
-void 
-Controller::
-Reset(bool RSI)
-{
-	this->mWorld->reset();
-	auto& skel = mCharacter->GetSkeleton();
-	Eigen::VectorXd p = skel->getPositions();
-	Eigen::VectorXd v = skel->getVelocities();
-
-	p.setZero();
-	v.setZero();
-	skel->setPositions(p);
-	skel->setVelocities(v);
-	skel->clearConstraintImpulses();
-	skel->clearInternalForces();
-	skel->clearExternalForces();
-	skel->computeForwardKinematics(true,true,false);
-	//RSI
-	if(RSI) {
-		this->mTimeElapsed = dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() - 10 /this->mControlHz);
-		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
-	}
-	else {
-		this->mTimeElapsed = 0.0;
-		this->mControlCount = 0;
-	}
-
-	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
-	this->mTargetPositions = std::get<0>(p_v_target);
-	this->mTargetVelocities = std::get<1>(p_v_target);
-
-	skel->setPositions(mTargetPositions);
-	skel->setVelocities(mTargetVelocities);
-	skel->computeForwardKinematics(true,true,false);
-
-	this->mIsNanAtTerminal = false;
-	this->mIsTerminal = false;
-	this->mTimeElapsed += 1.0 / this->mControlHz;
-	this->mControlCount++;
-
-}
-bool
-Controller::
-IsTerminalState()
-{
-	if(mIsTerminal)
-		return true;
-	
-	auto& skel = mCharacter->GetSkeleton();
-
-	Eigen::VectorXd p = skel->getPositions();
-	Eigen::VectorXd v = skel->getVelocities();
-	Eigen::Vector3d root_pos = skel->getPositions().segment<3>(3);
-	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
-	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
-
-	skel->setPositions(this->mTargetPositions);
-	skel->computeForwardKinematics(true, false, false);
-	Eigen::Isometry3d root_diff = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
-	
-	Eigen::AngleAxisd root_diff_aa(root_diff.linear());
-	double angle = RadianClamp(root_diff_aa.angle());
-
-	skel->setPositions(p);
-	skel->computeForwardKinematics(true, false, false);
-
-	// check nan
-	if(dart::math::isNan(p)){
-		mIsNanAtTerminal = true;
-		mIsTerminal = true;
-		terminationReason = 3;
-		return mIsTerminal;
-	}
-	if(dart::math::isNan(v)){
-		mIsNanAtTerminal = true;
-		mIsTerminal = true;
-		terminationReason = 4;
-		return mIsTerminal;
-	}
-	//characterConfigration
-	if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
-		mIsTerminal = true;
-		terminationReason = 1;
-	}
-	else if(root_diff.translation().norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
-		 mIsTerminal = true;
-		 terminationReason = 2;
-	}
-	else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
-		mIsTerminal = true;
-		terminationReason = 5;
-	}
-	else if(this->mTimeElapsed > this->mBVH->GetMaxTime()-1.0/this->mControlHz){
-		mIsTerminal = true;
-		terminationReason =  8;
-	}
-	return mIsTerminal;
-}
-int
-Controller::
-GetNumState()
-{
-	return this->mNumState;
-}
-int
-Controller::
-GetNumAction()
-{
-	return this->mNumAction;
-}
-void 
-Controller::
-SetAction(const Eigen::VectorXd& action)
-{
-	this->mActions = action;
-}
-double
-Controller::
-GetReward()
-{
-	std::vector<double> ret = this->GetRewardByParts();
-	return ret[0];
-}
-std::vector<double>
-Controller::
-GetRewardByParts()
+UpdateReward()
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 
@@ -424,23 +281,152 @@ GetRewardByParts()
 	double r_tot = r_p*r_v*r_com*r_ee;
 
 
-	std::vector<double> ret;
-	ret.clear();
+	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
-		ret.resize(8, 0.0);
-		return ret;
+		mRewardParts.resize(5, 0.0);
+	}
+	else {
+		mRewardParts.push_back(r_tot);
+		mRewardParts.push_back(r_p);
+		mRewardParts.push_back(r_v);
+		mRewardParts.push_back(r_com);
+		mRewardParts.push_back(r_ee);
+	}
+}
+void
+Controller::
+UpdateTerminalInfo()
+{	
+	auto& skel = mCharacter->GetSkeleton();
+
+	Eigen::VectorXd p = skel->getPositions();
+	Eigen::VectorXd v = skel->getVelocities();
+	Eigen::Vector3d root_pos = skel->getPositions().segment<3>(3);
+	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
+	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
+
+	skel->setPositions(this->mTargetPositions);
+	skel->computeForwardKinematics(true, false, false);
+	Eigen::Isometry3d root_diff = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
+	
+	Eigen::AngleAxisd root_diff_aa(root_diff.linear());
+	double angle = RadianClamp(root_diff_aa.angle());
+
+	skel->setPositions(p);
+	skel->computeForwardKinematics(true, false, false);
+
+	// check nan
+	if(dart::math::isNan(p)){
+		mIsNanAtTerminal = true;
+		mIsTerminal = true;
+		terminationReason = 3;
+		return mIsTerminal;
+	}
+	if(dart::math::isNan(v)){
+		mIsNanAtTerminal = true;
+		mIsTerminal = true;
+		terminationReason = 4;
+		return mIsTerminal;
+	}
+	//characterConfigration
+	if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+		mIsTerminal = true;
+		terminationReason = 1;
+	}
+	else if(root_diff.translation().norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+		 mIsTerminal = true;
+		 terminationReason = 2;
+	}
+	else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
+		mIsTerminal = true;
+		terminationReason = 5;
+	}
+	else if(this->mTimeElapsed > this->mBVH->GetMaxTime()-1.0/this->mControlHz){
+		mIsTerminal = true;
+		terminationReason =  8;
+	}
+}
+bool
+Controller::
+FollowBvh()
+{	
+	if(IsTerminalState())
+		return false;
+	auto& skel = mCharacter->GetSkeleton();
+
+	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
+	mTargetPositions = p_v_target.first;
+	mTargetVelocities = p_v_target.second;
+
+	for(int i=0;i<this->mSimPerCon;i++)
+	{
+		skel->setPositions(mTargetPositions);
+		skel->setVelocities(mTargetVelocities);
+		skel->computeForwardKinematics(true, true, false);
+	}
+	this->mControlCount++;
+	this->mTimeElapsed += 1.0 / this->mControlHz;
+	return true;
+}
+void 
+Controller::
+Reset(bool RSI)
+{
+	this->mWorld->reset();
+	auto& skel = mCharacter->GetSkeleton();
+	Eigen::VectorXd p = skel->getPositions();
+	Eigen::VectorXd v = skel->getVelocities();
+
+	p.setZero();
+	v.setZero();
+	skel->setPositions(p);
+	skel->setVelocities(v);
+	skel->clearConstraintImpulses();
+	skel->clearInternalForces();
+	skel->clearExternalForces();
+	skel->computeForwardKinematics(true,true,false);
+	//RSI
+	if(RSI) {
+		this->mTimeElapsed = dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() - 10 /this->mControlHz);
+		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
+	}
+	else {
+		this->mTimeElapsed = 0.0;
+		this->mControlCount = 0;
 	}
 
-	ret.push_back(r_tot);
+	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
+	this->mTargetPositions = std::get<0>(p_v_target);
+	this->mTargetVelocities = std::get<1>(p_v_target);
 
-	ret.push_back(r_p);
-	ret.push_back(r_v);
-	ret.push_back(r_com);
-	ret.push_back(r_ee);
+	skel->setPositions(mTargetPositions);
+	skel->setVelocities(mTargetVelocities);
+	skel->computeForwardKinematics(true,true,false);
 
-	return ret;
+	this->mIsNanAtTerminal = false;
+	this->mIsTerminal = false;
+	this->mTimeElapsed += 1.0 / this->mControlHz;
+	this->mControlCount++;
+
 }
-
+int
+Controller::
+GetNumState()
+{
+	return this->mNumState;
+}
+int
+Controller::
+GetNumAction()
+{
+	return this->mNumAction;
+}
+void 
+Controller::
+SetAction(const Eigen::VectorXd& action)
+{
+	this->mActions = action;
+}
 Eigen::VectorXd 
 Controller::
 GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel) {
@@ -488,7 +474,6 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 
 	return ret;
 }
-
 bool
 Controller::
 CheckCollisionWithGround(std::string bodyName){
@@ -516,7 +501,6 @@ CheckCollisionWithGround(std::string bodyName){
 		return false;
 	}
 }
-
 Eigen::VectorXd 
 Controller::
 GetState()
@@ -556,38 +540,39 @@ GetState()
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
+	double root_height = skel->getRootBodyNode()->getCOM()[1];
+
+	const dart::dynamics::BodyNode *bnL, *bnEL, *bnR, *bnER;
+	bnL = skel->getBodyNode("FootL");
+	bnEL = skel->getBodyNode("FootEndL");
+	bnR = skel->getBodyNode("FootR");
+	bnER = skel->getBodyNode("FootEndR");
+
+	Eigen::Vector3d p0 = Eigen::Vector3d(0.04, -0.025, -0.065);
+	Eigen::Vector3d p1 = Eigen::Vector3d(-0.04, -0.025, -0.065);
+	Eigen::Vector3d p2 = Eigen::Vector3d(0.04, -0.025, 0.035);
+	Eigen::Vector3d p3 = Eigen::Vector3d(-0.04, -0.025, 0.035);
+
+	Eigen::Vector3d p0_l = bnL->getWorldTransform()*p0;
+	Eigen::Vector3d p1_l = bnL->getWorldTransform()*p1;
+	Eigen::Vector3d p2_l = bnEL->getWorldTransform()*p2;
+	Eigen::Vector3d p3_l = bnEL->getWorldTransform()*p3;
+
+	Eigen::Vector3d p0_r = bnR->getWorldTransform()*p0;
+	Eigen::Vector3d p1_r = bnR->getWorldTransform()*p1;
+	Eigen::Vector3d p2_r = bnER->getWorldTransform()*p2;
+	Eigen::Vector3d p3_r = bnER->getWorldTransform()*p3;
+
+	Eigen::VectorXd foot_corner_heights;
+	foot_corner_heights.resize(8);
+	foot_corner_heights << p0_l[1], p1_l[1], p2_l[1], p3_l[1], 
+							p0_r[1], p1_r[1], p2_r[1], p3_r[1];
+	foot_corner_heights *= 10;
 
 	Eigen::VectorXd state;
-
-	// root height
-	double root_height = skel->getRootBodyNode()->getCOM()[1];
-	double foot_l_height = skel->getBodyNode("FootL")->getCOM()[1];
-	double foot_r_height = skel->getBodyNode("FootR")->getCOM()[1];
-	double foot_end_l_height = skel->getBodyNode("FootEndL")->getCOM()[1];
-	double foot_end_r_height = skel->getBodyNode("FootEndR")->getCOM()[1];
-
-	double foot_r_contact = -1;
-	double foot_end_r_contact = -1;
-	double foot_l_contact = -1;
-	double foot_end_l_contact = -1;
-
-	if( this->CheckCollisionWithGround("FootR")){
-		foot_r_contact = 1;
-	}
-	if( this->CheckCollisionWithGround("FootEndR")){
-		foot_end_r_contact = 1;
-	}
-	if( this->CheckCollisionWithGround("FootL")){
-		foot_l_contact = 1;
-	}
-	if( this->CheckCollisionWithGround("FootEndL")){
-		foot_end_l_contact = 1;
-	}
-
-	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+1+5+6);
+	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+1+1+8);
 	state<<p, v, tp_concatenated, up_vec_angle,
-			root_height, foot_l_height, foot_r_height, foot_end_l_height, foot_end_r_height,
-			this->mRefFoot[0], this->mRefFoot[1], foot_l_contact, foot_end_l_contact, foot_r_contact, foot_end_r_contact;
+			root_height, foot_corner_heights;
 
 	return state;
 }

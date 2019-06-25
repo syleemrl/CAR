@@ -21,10 +21,12 @@ public:
 Controller(std::string motion);
 
 	void Step();
+	void UpdateReward();
+	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
 	void SetReference(std::string motion);
 	bool FollowBvh();
-	bool IsTerminalState();
+	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
 	bool IsTimeEnd(){
 		if(this->terminationReason == 8)
@@ -39,8 +41,8 @@ Controller(std::string motion);
 	bool CheckCollisionWithGround(std::string bodyName);
 	Eigen::VectorXd GetState();
 	void SetAction(const Eigen::VectorXd& action);
-	double GetReward();
-	std::vector<double> GetRewardByParts();
+	double GetReward() {return mRewardParts[0]; }
+	std::vector<double> GetRewardByParts() {return mRewardParts; }
 	const dart::simulation::WorldPtr& GetWorld() {return mWorld;}
 
 	double GetCurrentTime(){return this->mTimeElapsed;}
@@ -68,14 +70,11 @@ protected:
 
 	Eigen::VectorXd mActions;
 
-	Eigen::Vector2d mFoot, mRefFoot;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
-	std::vector<std::string> mRewardUpperBodies;
 
-	std::vector<std::string> mEndEffectors, mRewardEndEffectors;
-
+	std::vector<double> mRewardParts;
 	// for foot collision, left, right foot, ground
 	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG; 
 

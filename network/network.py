@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+import numpy as np
 activ = tf.nn.relu
 kernel_initialize_func = tf.contrib.layers.xavier_initializer()
 actor_layer_size = 1024
@@ -73,7 +73,7 @@ class Critic(object):
 	def __init__(self, sess, scope, state):
 		self.sess = sess
 		self.scope = scope
-		self.value = self.CreateNetwork(state, False, None)
+		self.value = self.createNetwork(state, False, None)
 
 	def createNetwork(self, state, reuse, is_training):	
 		with tf.variable_scope(self.scope, reuse=reuse):

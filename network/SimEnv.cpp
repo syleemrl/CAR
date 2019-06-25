@@ -5,14 +5,14 @@
 #include <iostream>
 
 SimEnv::
-SimEnv(int num_slaves, std::string motion_file)
+SimEnv(int num_slaves, std::string motion)
 	:mNumSlaves(num_slaves)
 {
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
-		for(int i =0;i<num_slaves;i++)
+	for(int i =0;i<num_slaves;i++)
 	{
-		mSlaves.push_back(new DPhy::Controller(motion_file));
+		mSlaves.push_back(new DPhy::Controller(motion));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -36,7 +36,7 @@ void
 SimEnv::
 Step(int id)
 {
-	if(mSlaves[id]->IsTerminalState()==true){
+	if(mSlaves[id]->IsTerminalState()){
 		return;
 	}
 	mSlaves[id]->Step();
