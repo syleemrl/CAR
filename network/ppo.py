@@ -9,7 +9,9 @@ import pickle
 import datetime
 import os
 import time
+from IPython import embed
 from copy import deepcopy
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 class PPO(object):
 	def __init__(self, env, name, pretrain, evaluation,
@@ -96,7 +98,6 @@ class PPO(object):
 			self.GAE = tf.placeholder(tf.float32, shape=[None], name='GAE')
 			self.old_neglogp = tf.placeholder(tf.float32, shape=[None], name='old_neglogp')
 			self.learning_rate_ph = tf.placeholder(tf.float32, shape=[], name='learning_rate')
-
 			self.cur_neglogp = self.actor.neglogp(self.action)
 			self.ratio = tf.exp(self.old_neglogp-self.cur_neglogp)
 			clipped_ratio = tf.clip_by_value(self.ratio, 1.0 - self.epsilon, 1.0 + self.epsilon)
@@ -124,35 +125,34 @@ class PPO(object):
 		self.critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
 
 	def update(self, tuples):
-		if len(tuples) < self.batch_size:
+		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
+		if len(state_batch) < self.batch_size:
 			return
-		tuples = self.computeTDandGAE(tuples)
+		GAE_batch = (GAE_batch - GAE_batch.mean())/(GAE_batch.std() + 1e-5)
 
-		GAE = tuples[:,key_to_idx['GAE']]
-		GAE = (GAE - GAE.mean())/(GAE.std() + 1e-5)
-
-		ind = np.arange(len(GAE))
+		ind = np.arange(len(state_batch))
 		np.random.shuffle(ind)
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
-			batch = tuples[selectedIndex]
-
 			self.sess.run([self.actor_train_op, self.critic_train_op], 
 				feed_dict={
-					self.state:batch[:,key_to_idx['S']], 
-					self.TD:batch[:,key_to_idx['TD']], 
-					self.action:batch[:,key_to_idx['A']], 
-					self.old_neglogprobs:batch[:,key_to_idx['neglogprob']], 
-					self.GAE:GAE[selectedIndex],
+					self.state: state_batch[selectedIndex], 
+					self.TD: TD_batch[selectedIndex], 
+					self.action: action_batch[selectedIndex], 
+					self.old_neglogp: neglogp_batch[selectedIndex], 
+					self.GAE: GAE_batch[selectedIndex],
 					self.learning_rate_ph:self.learning_rate_actor
 				}
 			)
 				
 	def computeTDandGAE(self, tuples):
-		result = []
+		state_batch = []
+		action_batch = []
+		TD_batch = []
+		neglogp_batch = []
+		GAE_batch = []
 		for data in tuples:
-			size = len(data)
-		
+			size = len(data)		
 			# get values
 			states, actions, rewards, values, neglogprobs = zip(*data)
 			values = np.concatenate((values, [0]), axis=0)
@@ -166,8 +166,12 @@ class PPO(object):
 
 			TD = values[:size] + advantages
 			for i in range(size):
-				result.append([states[i], actions[i], rewards[i], values[i], neglogprobs[i], TD[i], advantages[i]])
-		return np.array(result)
+				state_batch.append(states[i])
+				action_batch.append(actions[i])
+				TD_batch.append(TD[i])
+				neglogp_batch.append(neglogprobs[i])
+				GAE_batch.append(advantages[i])
+		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
 	def save(self):
 		self.saver.save(self.sess, self.directory + "_network", global_step = 0)
@@ -176,29 +180,24 @@ class PPO(object):
 		self.saver.restore(self.sess, path)
 
 	def train(self, num_iteration):
-
+		epi_info_iter = []
+		
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 
 			states = self.env.getStates()
-
-			actions = [None]*self.num_slaves
-			rewards = [None]*self.num_slaves
-			episodes = [None]*self.num_slaves
 				
 			local_step = 0
 			last_print = 0
-		
-			epi_info_iter = []
+			
 			epi_info = [[] for _ in range(self.num_slaves)]	
+
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
 				values = self.critic.getValue(states)
 				rewards, dones = self.env.step(actions)
-
-				terminated_count = 0
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
 						if rewards[j] is not None:
@@ -206,36 +205,37 @@ class PPO(object):
 							local_step += 1
 
 						if dones[j]:
-							epi_info_iter.append(deepcopy(epi_info[j]))
-
+							if len(epi_info[j]) != 0:
+								epi_info_iter.append(deepcopy(epi_info[j]))
+							
 							if local_step < self.steps_per_iteration:
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
-								terminated_count += 1
-					else:
-						terminated_count += 1
 
 				if local_step >= self.steps_per_iteration:
-					if terminated_count == self.num_slaves:
-						print('{}/{} : {}/{}'.format(it+1, num_iteration, local_step, self.steps_per_iteration),end='\r')
+					if self.env.getAllTerminated():
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
 						break
 				if last_print + 100 < local_step: 
-					print('{}/{} : {}/{}'.format(it+1, num_iteration, local_step, self.steps_per_iteration),end='\r')
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
 					last_print = local_step
 
 				states = self.env.getStates()
-
 			print('')
-			self.update(epi_info_iter) 
 
-		if self.learning_rate > 1e-5:
-			self.learning_rate = self.learning_rate * self.learning_rate_decay
+			if it % 10 == 9:
+				self.update(epi_info_iter) 
 
-		if self.directory is not None:
-			self.save()
-		self.env.printSummary()
+				if self.learning_rate_actor > 1e-5:
+					self.learning_rate_actor = self.learning_rate_actor * self.learning_rate_decay
+
+				if self.directory is not None:
+					self.save()
+				self.env.printSummary()
+
+				epi_info_iter = []
 
 	def eval(self):
 		pass
@@ -252,6 +252,8 @@ if __name__=="__main__":
 	parser.add_argument("--evaluation", type=bool, default=False)
 	parser.add_argument("--nslaves", type=int, default=4)
 	parser.add_argument("--save", type=bool, default=True)
+	parser.add_argument("--no-plot", dest='plot', action='store_false')
+	parser.set_defaults(plot=True)
 	args = parser.parse_args()
 
 	directory = None
@@ -264,8 +266,8 @@ if __name__=="__main__":
 			os.mkdir(directory)
 	
 	if args.pretrain != "":
-		env = Monitor(motion=args.motion, num_slaves=args.nslaves, load=True, directory=directory)
+		env = Monitor(motion=args.motion, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot)
 	else:
-		env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory)
+		env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory, plot=args.plot)
 	ppo = PPO(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
 	ppo.train(args.ntimesteps)

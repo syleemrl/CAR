@@ -236,37 +236,6 @@ UpdateReward()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	double foot_contact_match_l = 0;
-	double foot_contact_match_r = 0;
-	bool foot_l_contact = false;
-	bool foot_r_contact = false;
-	if( this->CheckCollisionWithGround("FootL")){
-		foot_l_contact = true;
-	}
-	if( this->CheckCollisionWithGround("FootEndL")){
-		foot_l_contact = true;
-	}
-	if(this->mRefFoot[0] > 0 && foot_l_contact){
-		foot_contact_match_l = 1;
-	}
-	if(this->mRefFoot[0] < 0 && !foot_l_contact){
-		foot_contact_match_l = 1;
-	}
-
-
-	if( this->CheckCollisionWithGround("FootR")){
-		foot_r_contact = true;
-	}
-	if( this->CheckCollisionWithGround("FootEndR")){
-		foot_r_contact = true;
-	}
-	if(this->mRefFoot[1] > 0 && foot_r_contact){
-		foot_contact_match_r = 1;
-	}
-	if(this->mRefFoot[1] < 0 && !foot_r_contact){
-		foot_contact_match_r = 1;
-	}
-
 	double scale = 1.0;
 	double sig_p = 0.1 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
@@ -320,13 +289,11 @@ UpdateTerminalInfo()
 		mIsNanAtTerminal = true;
 		mIsTerminal = true;
 		terminationReason = 3;
-		return mIsTerminal;
 	}
 	if(dart::math::isNan(v)){
 		mIsNanAtTerminal = true;
 		mIsTerminal = true;
 		terminationReason = 4;
-		return mIsTerminal;
 	}
 	//characterConfigration
 	if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){

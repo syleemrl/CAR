@@ -53,8 +53,8 @@ IsNanAtTerminal(int id)
 {
 	bool t = mSlaves[id]->IsTerminalState();
 	bool n = mSlaves[id]->IsNanAtTerminal();
-	bool e = mSlaves[id]->IsTimeEnd();
-	return p::make_tuple(t, n, e);
+	int e = mSlaves[id]->GetCurrentCount();
+	return p::make_tuple(t, n, e-1);
 }
 np::ndarray
 SimEnv::

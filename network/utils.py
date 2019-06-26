@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 class RunningMeanStd(object):
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm

@@ -73,6 +73,7 @@ protected:
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
+	std::vector<std::string> mEndEffectors;
 
 	std::vector<double> mRewardParts;
 	// for foot collision, left, right foot, ground

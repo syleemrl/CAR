@@ -1,9 +1,11 @@
 from env import Env
 import time
+import datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from utils import RunningMeanStd
+from IPython import embed
 
 class Monitor(object):
 	def __init__(self, motion, num_slaves, directory, load=False, plot=True, verbose=True):
@@ -28,6 +30,7 @@ class Monitor(object):
 		self.num_episodes = 0
 		self.num_transitions = 0
 		self.total_rewards = []
+		self.max_episode_length = 0
 		self.total_rewards_by_parts = np.array([[]]*5)
 		self.transition_per_episodes = []
 		self.num_nan_per_iteration = 0
@@ -37,41 +40,56 @@ class Monitor(object):
 		self.rewards_by_part_per_iteration = []
 
 		self.terminated = [False]*self.num_slaves
-
+		self.states = [0]*self.num_slaves
 		if self.plot:
 			plt.ion()
 
 	def getStates(self):
-		return self.sim_env.GetStates()
+		return self.states
 
 	def setTerminated(self, idx):
 		self.terminated[idx] = True
 	
 	def getTerminated(self, idx):
 		return self.terminated[idx]
-
+	
+	def getAllTerminated(self):
+		for i in range(self.num_slaves):
+			if not self.terminated[i]:
+				return False
+		return True 
+	
 	def reset(self, i):
 		self.env.reset(i)
+		state = np.array([self.sim_env.GetState(i)])
+		self.states[i] = self.RMS.apply(state)[0]
+		self.terminated[i] = False
 	
 	def step(self, actions):
-		states, rewards, dones, time_ends, nan_count =  self.env.step(actions)
-		states_updated = self.RMS.apply(states[~np.array(self.terminated)])
-		states[~np.array(self.terminated)] = states_updated
+		self.states, rewards, dones, times, nan_count =  self.env.step(actions)
+		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
+		self.states[~np.array(self.terminated)] = states_updated
 		self.num_nan_per_iteration += nan_count
 		for i in range(self.num_slaves):
-			if not self.terminated[i] and rewards[i] is not None:
+			if not self.terminated[i] and rewards[i][0] is not None:
 				self.rewards_per_iteration += rewards[i][0]
 				self.rewards_by_part_per_iteration.append(rewards[i])
 				
 				self.num_transitions_per_iteration += 1
 				if dones[i]:
 					self.num_episodes_per_iteration += 1
+					if times[i] > self.max_episode_length:
+						self.max_episode_length = times[i]
+			
+		rewards = [rewards[i][0] for i in range(len(rewards))]
 
-		rewards = rewards[:][0]
 		return rewards, dones
 
-	def plot(y_list, title, num_fig=1, ylim=True, path=None):
-		plt.figure(num_fig, clear=True, figsize=(5.5, 4))
+	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
+		if self.plot:
+			plt.figure(num_fig, clear=True, figsize=(5.5, 4))
+		else:
+			plt.figure(num_fig, figsize=(5.5, 4))
 		plt.title(title)
 
 		i = 0
@@ -80,10 +98,11 @@ class Monitor(object):
 			i+= 1
 
 		plt.legend(loc=2)
-		plt.show()
-		if ylim:
-			plt.ylim([0,1])
-		plt.pause(0.001)
+		if self.plot:
+			plt.show()
+			if ylim:
+				plt.ylim([0,1])
+			plt.pause(0.001)
 		if path is not None:
 			plt.savefig(path, format="png")
 
@@ -91,9 +110,9 @@ class Monitor(object):
 		self.num_transitions += self.num_transitions_per_iteration
 		self.num_episodes += self.num_episodes_per_iteration
 		self.num_evaluation += 1
-		self.total_rewards.append(self.reward_per_iteration/self.num_episodes_per_iteration)
+		self.total_rewards.append(self.rewards_per_iteration/self.num_episodes_per_iteration)
 		self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
-			np.asarray(self.reward_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
+			np.asarray(self.rewards_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
 
 		print_list = []
 		print_list.append('===============================================================')
@@ -117,6 +136,7 @@ class Monitor(object):
 
 		print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
 		print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
+		print_list.append('max episode length : {}'.format(self.max_episode_length))
 
 		if self.num_nan_per_iteration != 0:
 			print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
@@ -140,13 +160,13 @@ class Monitor(object):
 						[np.asarray(self.total_rewards_by_parts[2]), 'v'], 
 						[np.asarray(self.total_rewards_by_parts[3]), 'com'],
 						[np.asarray(self.total_rewards_by_parts[4]), 'ee']]
-			self.plot(y_list, "rewards" , 1, False, path=self.directory+"result.png")
+			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
 			y_list = y_list[1:]
 			for i in range(len(y_list)):
 				y_list[i][0] = np.array(y_list[i][0])/np.array(self.transition_per_episodes)
 
-			self.plot(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
+			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0

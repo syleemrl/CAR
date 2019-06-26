@@ -1,7 +1,7 @@
 from utils import RunningMeanStd
 import numpy as np
 import simEnv
-import pickle
+import time
 class Env(object):
 	def __init__(self, motion, num_slaves):
 		self.num_slaves = num_slaves
@@ -17,25 +17,24 @@ class Env(object):
 	def step(self, actions):
 		rewards = []
 		dones = []
-		time_ends = []
+		times = []
 		nan_count = 0
 		
 		self.sim_env.SetActions(actions)
 		self.sim_env.Steps()
-
 		for j in range(self.num_slaves):
-			is_terminal, nan_occur, time_end = self.sim_env.IsNanAtTerminal(j)
+			is_terminal, nan_occur, time_elapsed = self.sim_env.IsNanAtTerminal(j)
 			if not nan_occur:
 				r = self.sim_env.GetRewardByParts(j)
 				rewards.append(r)
 				dones.append(is_terminal)
-				time_ends.append(time_end)
+				times.append(time_elapsed)
 			else:
-				rewards.append(None)
+				rewards.append([None])
 				dones.append(True)
-				time_ends.append(time_end)
+				times.append(time_elapsed)
 				nan_count += 1
 		
 		states = self.sim_env.GetStates()
 
-		return states, np.array(rewards), dones, time_ends, nan_count 
+		return states, rewards, dones, times, nan_count 
