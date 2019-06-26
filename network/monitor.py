@@ -151,7 +151,7 @@ class Monitor(object):
 				out.write(s+'\n')
 			out.close()
 
-			self.RMS.save(self.directory+'_rms')
+			self.RMS.save(self.directory+'rms')
 
 		if self.plot:
 			y_list = [[np.asarray(self.transition_per_episodes), 'steps'], 

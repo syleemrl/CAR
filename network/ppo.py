@@ -174,7 +174,7 @@ class PPO(object):
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
 	def save(self):
-		self.saver.save(self.sess, self.directory + "_network", global_step = 0)
+		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 
 	def load(self, path):
 		self.saver.restore(self.sess, path)
