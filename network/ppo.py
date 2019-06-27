@@ -237,11 +237,12 @@ class PPO(object):
 
 				epi_info_iter = []
 
+	def run(self):
+		pass
+		
 	def eval(self):
 		pass
 
-	def run(self):
-		pass
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()

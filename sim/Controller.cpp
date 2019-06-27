@@ -5,6 +5,7 @@
 
 namespace DPhy
 {	
+
 Controller::Controller(std::string motion)
 	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mControlCount(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
@@ -116,7 +117,6 @@ SetReference(std::string motion)
 	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mCharacter->InitializeBVH(this->mBVH);
-	std::cout << "mapping done" << std::endl;
 }
 void 
 Controller::

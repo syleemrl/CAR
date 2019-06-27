@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <GL/glut.h>
-#include "BVH.h"
+
 int main(int argc,char** argv)
 {
 	if( argc < 2 ) {
@@ -16,8 +16,13 @@ int main(int argc,char** argv)
 	std::cout<<"C : Capture"<<std::endl;
 	std::cout<<"SPACE : Play"<<std::endl;
 	std::cout<<"ESC : exit"<<std::endl;
-	SimWindow* simwindow = new SimWindow(std::string(argv[1]));
-
+	SimWindow* simwindow;
+	if( argc == 2 ) {
+		simwindow = new SimWindow(std::string(argv[1]));
+	}
+	else {
+		simwindow = new SimWindow(std::string(argv[1]), std::string(argv[2]));
+	}
 	glutInit(&argc, argv);
 	simwindow->InitWindow(1600,900,"Render");
 	glutMainLoop();

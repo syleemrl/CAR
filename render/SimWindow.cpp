@@ -11,16 +11,34 @@ using namespace dart::simulation;
 using namespace dart::dynamics;
 
 SimWindow::
-SimWindow(std::string motion)
-	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false)
+SimWindow(std::string motion, std::string network)
+	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
+	mDrawOutput(true), mDrawRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
 {
+	if(network.compare("") == 0) {
+		mDrawOutput = false;
+		mRunPPO = false;
+	}
+
 	this->mController = new DPhy::Controller(motion);
 	this->mWorld = this->mController->GetWorld();
 
+	std::string path = std::string(CAR_DIR)+std::string("/character/humanoid_new.xml");
+	this->mRef = new DPhy::Character(path);
+	this->mRef->LoadBVHMap(path);
+	
+	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
+	this->mBVH = new DPhy::BVH();
+	this->mBVH->Parse(path);
+	this->mRef->InitializeBVH(this->mBVH);
+
 	DPhy::SetSkeletonColor(this->mWorld->getSkeleton("Humanoid"), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
+	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
 	this->mController->Reset(false);
-
+	auto p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
+	mRef->GetSkeleton()->setPositions(p_v_target.first);
+	
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->mDisplayTimeout = 33;
@@ -32,14 +50,15 @@ SimWindow(std::string motion)
 void 
 SimWindow::
 MemoryClear() {
-    mMemory1.clear();
+    mMemory.clear();
+    mMemoryRef.clear();
 }
 void 
 SimWindow::
 Save() {
     SkeletonPtr humanoidSkel = this->mWorld->getSkeleton("Humanoid");
-    mMemory1.emplace_back(humanoidSkel->getPositions());
- 
+    mMemory.emplace_back(humanoidSkel->getPositions());
+    mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     this->mTotalFrame++;
 }
 
@@ -53,13 +72,13 @@ SetFrame(int n)
 	 	return;
 	 }
 
-	 if (mMemory1.size() <= n){
+	 if (mMemory.size() <= n){
 	     return;
 	 }
 
-	int dof_index = 0;
     SkeletonPtr humanoidSkel = this->mWorld->getSkeleton("Humanoid");
-    humanoidSkel->setPositions(mMemory1[n]);
+    humanoidSkel->setPositions(mMemory[n]);
+    mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 
 }
 void
@@ -86,14 +105,22 @@ void
 SimWindow::
 DrawSkeletons()
 {
-	GUI::DrawSkeleton(this->mWorld->getSkeleton("Humanoid"), 0);
+	if(this->mDrawOutput)
+		GUI::DrawSkeleton(this->mWorld->getSkeleton("Humanoid"), 0);
+	if(this->mDrawRef)
+		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
 
 }
 void
 SimWindow::
 DrawGround()
 {
-	Eigen::Vector3d com_root = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
+	Eigen::Vector3d com_root;
+	if(this->mDrawOutput)
+		com_root = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
+	else 
+		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
+
 	double ground_height = this->mWorld->getSkeleton("Ground")->getRootBodyNode()->getCOM()[1]+0.5;
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], ground_height);
 }
@@ -105,12 +132,17 @@ Display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	Eigen::Vector3d com_root = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
-	Eigen::Vector3d com_front = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getTransform()*Eigen::Vector3d(0.0, 0.0, 2.0);
+	dart::dynamics::SkeletonPtr skel;
+	if(this->mDrawOutput)
+		skel = this->mWorld->getSkeleton("Humanoid");
+	else
+		skel = this->mRef->GetSkeleton();
+	Eigen::Vector3d com_root = skel->getRootBodyNode()->getCOM();
+	Eigen::Vector3d com_front = skel->getRootBodyNode()->getTransform()*Eigen::Vector3d(0.0, 0.0, 2.0);
 
 	if(this->mTrackCamera){
-		Eigen::Vector3d com = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
-		Eigen::Isometry3d transform = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getTransform();
+		Eigen::Vector3d com = skel->getRootBodyNode()->getCOM();
+		Eigen::Isometry3d transform = skel->getRootBodyNode()->getTransform();
 		com[1] = 0.8;
 
 		Eigen::Vector3d camera_pos;
@@ -155,6 +187,8 @@ Keyboard(unsigned char key,int x,int y)
 		case 's': std::cout << this->mCurFrame << std::endl;break;
 		case 'r': this->mCurFrame=0;this->SetFrame(this->mCurFrame);break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
+		case '2': mDrawRef = !mDrawRef;break;
+		case '1': if(this->mRunPPO) mDrawOutput = !mDrawOutput;break;
 		case ' ':
 			mIsAuto = !mIsAuto;
 			break;
@@ -229,11 +263,19 @@ void
 SimWindow::
 Step()
 {
-	if(this->mController->FollowBvh()) 
+	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime()) 
 	{
+		if(this->mRunPPO)
+		{
+
+		}
+		auto p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame * this->mTimeStep);
+		mRef->GetSkeleton()->setPositions(p_v_target.first);
+		
 		this->mCurFrame++;
 		this->Save();
 	}
+
 	this->SetFrame(this->mCurFrame);
 		
 }
@@ -247,14 +289,14 @@ Timer(int value)
           Step();
 	} else if( mIsAuto && this->mCurFrame < this->mTotalFrame - 1){
         this->mCurFrame++;
-        // SetFrame(this->mCurFrame);
+        SetFrame(this->mCurFrame);
         	
     }
 
 	std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
-	double elasped = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000.;
+	double elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000.;
 	
-	glutTimerFunc(std::max(0.0,mDisplayTimeout-elasped), TimerEvent,1);
+	glutTimerFunc(std::max(0.0,mDisplayTimeout-elapsed), TimerEvent,1);
 	glutPostRedisplay();
 
 }

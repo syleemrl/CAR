@@ -4,6 +4,8 @@
 #include "GLUTWindow.h"
 #include "GLfunctions.h"
 #include "Controller.h"
+#include "Character.h"
+#include "BVH.h"
 #include "DART_interface.h"
 #include <string>
 /**
@@ -16,7 +18,7 @@ class SimWindow : public GUI::GLUTWindow
 {
 public:
 	/// Constructor.
-	SimWindow(std::string motion);
+	SimWindow(std::string motion, std::string network="");
 
 	/// World object pointer
 	dart::simulation::WorldPtr mWorld;
@@ -62,13 +64,19 @@ protected:
 	bool mIsRotate;
 	bool mIsAuto;
 	bool mTrackCamera;
+	bool mDrawRef;
+	bool mDrawOutput;
+	bool mRunPPO;
+
 	double mTimeStep;
 	int mCurFrame;
 	int mTotalFrame;
 	
-	std::vector<Eigen::VectorXd> mMemory1;
+	std::vector<Eigen::VectorXd> mMemory, mMemoryRef;
 
 	DPhy::Controller* mController;
+	DPhy::Character* mRef;
+	DPhy::BVH* mBVH;
 };
 
 #endif
