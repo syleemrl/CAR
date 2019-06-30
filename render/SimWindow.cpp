@@ -16,8 +16,8 @@ SimWindow(std::string motion, std::string network)
 	mDrawOutput(true), mDrawRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
 {
 	if(network.compare("") == 0) {
-		mDrawOutput = false;
-		mRunPPO = false;
+		this->mDrawOutput = false;
+		this->mRunPPO = false;
 	}
 
 	this->mController = new DPhy::Controller(motion);
@@ -39,6 +39,24 @@ SimWindow(std::string motion, std::string network)
 	auto p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target.first);
 	
+	if(this->mRunPPO)
+	{
+		Py_Initialize();
+		np::initialize();
+
+		try{
+			p::object ppo_main = p::import("ppo");
+			this->mPPO = ppo_main.attr("PPO")();
+			this->mPPO.attr("initRun")(network,
+									   this->mController->GetNumState(), 
+									   this->mController->GetNumAction());
+
+		}
+		catch (const p::error_already_set&)
+		{
+			PyErr_Print();
+		}
+	}
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->mDisplayTimeout = 33;
@@ -267,6 +285,13 @@ Step()
 	{
 		if(this->mRunPPO)
 		{
+			auto state = this->mController->GetState();
+			p::object a = this->mPPO.attr("run")(DPhy::toNumPyArray(state));
+			np::ndarray na = np::from_object(a);
+			Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController->GetNumAction());
+
+			this->mController->SetAction(action);
+			this->mController->Step();
 
 		}
 		auto p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame * this->mTimeStep);

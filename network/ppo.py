@@ -12,16 +12,34 @@ import time
 from IPython import embed
 from copy import deepcopy
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
-
 class PPO(object):
-	def __init__(self, env, name, pretrain, evaluation,
-		learning_rate_actor=2e-4, learning_rate_critic=0.001, learning_rate_decay=0.9993,
-		gamma=0.99, lambd=0.95, epsilon=0.2, directory=None,
-		batch_size=1024, steps_per_iteration=20000):
-
+	def __init__(self):
 		random.seed(int(time.time()))
 		np.random.seed(int(time.time()))
 		tf.set_random_seed(int(time.time()))
+
+	def initRun(self, pretrain, num_state, num_action, num_slaves=4):
+		self.pretrain = pretrain
+
+		self.num_slaves = self.num_slaves
+		self.num_action = self.num_action
+		self.num_state = self.num_state
+
+		config = tf.ConfigProto()
+		config.intra_op_parallelism_threads = self.num_slaves
+		config.inter_op_parallelism_threads = self.num_slaves
+		self.sess = tf.Session(config=config)
+
+		#build network and optimizer
+		self.buildOptimize()
+			
+		if self.pretrain is not "":
+			self.load(self.pretrain)
+
+	def initTrain(self, name, pretrain="", evaluation=False,
+		learning_rate_actor=2e-4, learning_rate_critic=0.001, learning_rate_decay=0.9993,
+		gamma=0.99, lambd=0.95, epsilon=0.2, directory=None,
+		batch_size=1024, steps_per_iteration=20000):
 
 		self.name = name
 		self.evaluation = evaluation
@@ -34,10 +52,12 @@ class PPO(object):
 		self.directory = directory
 		self.steps_per_iteration = steps_per_iteration
 		self.batch_size = batch_size
+		self.pretrain = pretrain
+
 		self.env = env
 		self.num_slaves = self.env.num_slaves
-		self.pretrain = pretrain
-		self.key_to_idx = {'S':0, 'A':1, 'R':2, 'value':3, 'neglogprob':4, 'TD':5, 'GAE':6}
+		self.num_action = self.env.num_action
+		self.num_state = self.env.num_state
 
 		config = tf.ConfigProto()
 		config.intra_op_parallelism_threads = self.num_slaves
@@ -45,23 +65,18 @@ class PPO(object):
 		self.sess = tf.Session(config=config)
 
 		#build network and optimizer
-		self.state = tf.placeholder(tf.float32, shape=[None, self.env.num_state], name='state')
-		self.actor = Actor(self.sess, 'Actor', self.state, self.env.num_action)
-		self.critic = Critic(self.sess, 'Critic', self.state)
 		self.buildOptimize()
-		self.sess.run(tf.global_variables_initializer())
-		
+			
 		save_list = tf.trainable_variables()
 		self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
-		
+			
 		# load pretrained network
 		if self.pretrain is not "":
 			self.load(self.pretrain)
 
-		self.start_time = time.time()
-
 		self.printSetting()
-	
+		
+		
 	def printSetting(self):
 		
 		print_list = []
@@ -69,8 +84,8 @@ class PPO(object):
 		print_list.append("test_name : {}".format(self.name))
 		print_list.append("motion : {}".format(self.env.motion))
 		print_list.append("num_slaves : {}".format(self.num_slaves))
-		print_list.append("num state : {}".format(self.env.num_state))
-		print_list.append("num action : {}".format(self.env.num_action))
+		print_list.append("num state : {}".format(self.num_state))
+		print_list.append("num action : {}".format(self.num_action))
 		print_list.append("learning_rate : {}".format(self.learning_rate_actor))
 		print_list.append("gamma : {}".format(self.gamma))
 		print_list.append("lambd : {}".format(self.lambd))
@@ -92,8 +107,12 @@ class PPO(object):
 			out.close()
 
 	def buildOptimize(self):
+		self.state = tf.placeholder(tf.float32, shape=[None, self.num_state], name='state')
+		self.actor = Actor(self.sess, 'Actor', self.state, self.num_action)
+		self.critic = Critic(self.sess, 'Critic', self.state)
+		
 		with tf.variable_scope('Optimize'):
-			self.action = tf.placeholder(tf.float32, shape=[None,self.env.num_action], name='action')
+			self.action = tf.placeholder(tf.float32, shape=[None,self.num_action], name='action')
 			self.TD = tf.placeholder(tf.float32, shape=[None], name='TD')
 			self.GAE = tf.placeholder(tf.float32, shape=[None], name='GAE')
 			self.old_neglogp = tf.placeholder(tf.float32, shape=[None], name='old_neglogp')
@@ -123,6 +142,8 @@ class PPO(object):
 		
 		grads_and_vars = list(zip(grads, params))
 		self.critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
+		
+		self.sess.run(tf.global_variables_initializer())
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -237,8 +258,8 @@ class PPO(object):
 
 				epi_info_iter = []
 
-	def run(self):
-		pass
+	def run(self, state):
+		return self.actor.getMeanAction(state)
 		
 	def eval(self):
 		pass
@@ -270,5 +291,6 @@ if __name__=="__main__":
 		env = Monitor(motion=args.motion, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot)
 	else:
 		env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory, plot=args.plot)
-	ppo = PPO(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
+	ppo = PPO()
+	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
 	ppo.train(args.ntimesteps)

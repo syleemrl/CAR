@@ -8,12 +8,17 @@
 #include "BVH.h"
 #include "DART_interface.h"
 #include <string>
+#include <boost/python.hpp>
+#include <boost/python/numpy.hpp>
 /**
 *
 * @brief Modified SimWindow class in dart.
 * @details Renders on window with the recorded data generated in sim.
 *
 */
+namespace p = boost::python;
+namespace np = boost::python::numpy;
+
 class SimWindow : public GUI::GLUTWindow
 {
 public:
@@ -77,6 +82,8 @@ protected:
 	DPhy::Controller* mController;
 	DPhy::Character* mRef;
 	DPhy::BVH* mBVH;
+
+	p::object mPPO;
 };
 
 #endif

@@ -11,6 +11,8 @@ SET(CMAKE_BUILD_TYPE Release CACHE STRING
 
 link_directories(../sim/)
 include_directories(../sim/)
+link_directories(../network/)
+include_directories(../network/)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(GLEW REQUIRED)

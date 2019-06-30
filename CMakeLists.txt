@@ -16,5 +16,5 @@ find_package(PythonInterp 3.5 REQUIRED)
 find_package(TinyXML REQUIRED)
 
 add_subdirectory( sim )
-add_subdirectory( render )
 add_subdirectory( network )
+add_subdirectory( render )
