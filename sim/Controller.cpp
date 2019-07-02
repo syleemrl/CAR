@@ -361,6 +361,7 @@ Reset(bool RSI)
 		this->mTimeElapsed = 0.0;
 		this->mControlCount = 0;
 	}
+	this->mStartCount = this->mControlCount;
 
 	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
 	this->mTargetPositions = std::get<0>(p_v_target);

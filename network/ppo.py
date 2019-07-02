@@ -11,19 +11,32 @@ import os
 import time
 from IPython import embed
 from copy import deepcopy
+from utils import RunningMeanStd
+import types
+
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
+if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
+	tf.contrib._warning = None
 class PPO(object):
-	def __init__(self):
+	def __init__(self, learning_rate_actor=2e-4, learning_rate_critic=0.001, learning_rate_decay=0.9993,
+		gamma=0.99, lambd=0.95, epsilon=0.2,):
 		random.seed(int(time.time()))
 		np.random.seed(int(time.time()))
 		tf.set_random_seed(int(time.time()))
+		
+		self.learning_rate_critic = learning_rate_critic
+		self.learning_rate_actor = learning_rate_actor
+		self.learning_rate_decay = learning_rate_decay
+		self.epsilon = epsilon
+		self.gamma = gamma
+		self.lambd = lambd
 
 	def initRun(self, pretrain, num_state, num_action, num_slaves=4):
 		self.pretrain = pretrain
 
-		self.num_slaves = self.num_slaves
-		self.num_action = self.num_action
-		self.num_state = self.num_state
+		self.num_slaves = num_slaves
+		self.num_action = num_action
+		self.num_state = num_state
 
 		config = tf.ConfigProto()
 		config.intra_op_parallelism_threads = self.num_slaves
@@ -32,23 +45,20 @@ class PPO(object):
 
 		#build network and optimizer
 		self.buildOptimize()
-			
+		
+		save_list = tf.trainable_variables()
+		self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
+		
 		if self.pretrain is not "":
-			self.load(self.pretrain)
+			self.load(self.pretrain +"/network-0")
+			self.RMS = RunningMeanStd(shape=(self.num_state))
+			self.RMS.load(self.pretrain+'/rms')
 
-	def initTrain(self, name, pretrain="", evaluation=False,
-		learning_rate_actor=2e-4, learning_rate_critic=0.001, learning_rate_decay=0.9993,
-		gamma=0.99, lambd=0.95, epsilon=0.2, directory=None,
-		batch_size=1024, steps_per_iteration=20000):
+	def initTrain(self, name, env, pretrain="", evaluation=False,
+		directory=None, batch_size=1024, steps_per_iteration=20000):
 
 		self.name = name
 		self.evaluation = evaluation
-		self.learning_rate_critic = learning_rate_critic
-		self.learning_rate_actor = learning_rate_actor
-		self.learning_rate_decay = learning_rate_decay
-		self.epsilon = epsilon
-		self.gamma = gamma
-		self.lambd = lambd
 		self.directory = directory
 		self.steps_per_iteration = steps_per_iteration
 		self.batch_size = batch_size
@@ -259,6 +269,8 @@ class PPO(object):
 				epi_info_iter = []
 
 	def run(self, state):
+		state = np.reshape(state, (1, self.num_state))
+		state = self.RMS.apply(state)
 		return self.actor.getMeanAction(state)
 		
 	def eval(self):

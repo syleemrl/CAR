@@ -15,9 +15,9 @@ class Character
 public:
 	Character(){}
 	Character(const std::string& path);
+	Character(const dart::dynamics::SkeletonPtr& skeleton);
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
-	const std::string& GetCharacterPath();
 
 	void SetPDParameters(double kp, double kv);
 	void SetPDParameters(const Eigen::VectorXd& kp, const Eigen::VectorXd& kv);
@@ -32,7 +32,6 @@ public:
 	std::pair<Eigen::VectorXd,Eigen::VectorXd> GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,double t);
 	Eigen::VectorXd GetTargetPositions(BVH* bvh,double t);
 protected:
-	std::string mCharacterPath;
 	dart::dynamics::SkeletonPtr mSkeleton;
 
 	std::map<std::string,std::string> mBVHMap; //body_node name and bvh_node name

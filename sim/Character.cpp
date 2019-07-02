@@ -15,19 +15,16 @@ namespace DPhy
 Character::Character(const std::string& path)
 {
 	this->mSkeleton = DPhy::SkeletonBuilder::BuildFromFile(path);
-	this->mCharacterPath = path;
+}
+Character::Character(const dart::dynamics::SkeletonPtr& skeleton)
+{
+	this->mSkeleton = skeleton;
 }
 
 const dart::dynamics::SkeletonPtr& Character::GetSkeleton()
 {
 	return this->mSkeleton;
 }
-const std::string& Character::GetCharacterPath()
-{
-	return this->mCharacterPath;
-}
-
-
 void Character::SetPDParameters(double kp, double kv)
 {
 	int dof = this->mSkeleton->getNumDofs();

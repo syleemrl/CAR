@@ -53,7 +53,7 @@ IsNanAtTerminal(int id)
 {
 	bool t = mSlaves[id]->IsTerminalState();
 	bool n = mSlaves[id]->IsNanAtTerminal();
-	int e = mSlaves[id]->GetCurrentCount();
+	int e = mSlaves[id]->GetCurrentLength();
 	return p::make_tuple(t, n, e-1);
 }
 np::ndarray
