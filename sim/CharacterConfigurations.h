@@ -23,4 +23,5 @@
 #define JOINT_DAMPING (0.05)
 #define FOOT_CONTACT_THERESHOLD (0.3)
 
+#define CHARACTER_TYPE "humanoid_long_arm"
 #endif

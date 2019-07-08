@@ -23,7 +23,7 @@ SimWindow(std::string motion, std::string network)
 	this->mController = new DPhy::Controller(motion);
 	this->mWorld = this->mController->GetWorld();
 
-	std::string path = std::string(CAR_DIR)+std::string("/character/humanoid_new.xml");
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	

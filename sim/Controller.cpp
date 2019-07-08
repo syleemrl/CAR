@@ -24,7 +24,7 @@ Controller::Controller(std::string motion)
 	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
 	this->mWorld->addSkeleton(this->mGround);
 
-	std::string path = std::string(CAR_DIR)+std::string("/character/humanoid_new.xml");
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
 	this->mCharacter->LoadBVHMap(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
