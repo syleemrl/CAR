@@ -148,136 +148,97 @@ void Character::LoadBVHMap(const std::string& path)
 }
 void
 Character::
-InitializeBVH(BVH* bvh)
+ReadFramesFromBVH(BVH* bvh)
 {
 	for(const auto ss :mBVHMap){
 		bvh->AddMapping(ss.first,ss.second);
 	}
-}
-std::pair<Eigen::VectorXd,Eigen::VectorXd>
-Character::
-GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,double t)
-{
-	int dof = mSkeleton->getPositions().rows();
-	Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
-	Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
-	//Set p
-	bvh->SetMotion(t);
-	for(auto ss :mBVHMap)
+	for(double t = 0; t < bvh->GetMaxTime(); t+=bvh->GetTimeStep())
 	{
-		dart::dynamics::BodyNode* bn = mSkeleton->getBodyNode(ss.first);
-		Eigen::Matrix3d R = bvh->Get(ss.first);
-		dart::dynamics::Joint* jn = bn->getParentJoint();
-		Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
-		a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
-		// p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-		if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr
-			|| dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
-			p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-		}
-		else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
-			p[jn->getIndexInSkeleton(0)] = a[0];
-			if(p[jn->getIndexInSkeleton(0)]>M_PI)
-				p[jn->getIndexInSkeleton(0)] -= 2*M_PI;
-			else if(p[jn->getIndexInSkeleton(0)]<-M_PI)
-				p[jn->getIndexInSkeleton(0)] += 2*M_PI;
-		}
-	}
-	p.block<3,1>(3,0) = bvh->GetRootCOM(); 
-	//Set p1
-	double prev_time;
-	if( t < 0.05 )
-		prev_time = t+0.05;
-	else
-		prev_time = t-0.05;
-
-	bvh->SetMotion(prev_time);
-	for(auto ss :mBVHMap)
-	{
-		dart::dynamics::BodyNode* bn = mSkeleton->getBodyNode(ss.first);
-		Eigen::Matrix3d R = bvh->Get(ss.first);
-		dart::dynamics::Joint* jn = bn->getParentJoint();
-
-		Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
-		a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
-		// p1.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-		if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr
-			|| dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
-			p1.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-		}
-		else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
-			p1[jn->getIndexInSkeleton(0)] = a[0];
-			if(p1[jn->getIndexInSkeleton(0)]>M_PI)
-				p1[jn->getIndexInSkeleton(0)] -= 2*M_PI;
-			else if(p1[jn->getIndexInSkeleton(0)]<-M_PI)
-				p1[jn->getIndexInSkeleton(0)] += 2*M_PI;
-		}
-	}
-	p1.block<3,1>(3,0) = bvh->GetRootCOM();
-
-	Eigen::VectorXd v;
-	if( t < 0.05 ){
-		v = mSkeleton->getPositionDifferences(p1, p)*20;
-		// v.segment<3>(3) = (p1.segment<3>(3)-p.segment<3>(3))*20;
-	}
-	else{
-		v = mSkeleton->getPositionDifferences(p, p1)*20;
-		// v.segment<3>(3) = (p.segment<3>(3)-p1.segment<3>(3))*20;
-	}
-
-	// std::cout << std::endl;
-
-	// std::cout << p.segment<6>(0).transpose() << std::endl;
-	// std::cout << p1.segment<6>(0).transpose() << std::endl;
-	// std::cout << ((p-p1)*20).segment<6>(0).transpose() << std::endl;
-	// std::cout << v.segment<6>(0).transpose() << std::endl;
-
-
-	for(auto& jn : mSkeleton->getJoints()){
-		if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
-			double v_ = v[jn->getIndexInSkeleton(0)];
-			if(v_ > M_PI){
-				v_ -= 2*M_PI;
+		int dof = mSkeleton->getPositions().rows();
+		Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
+		Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
+		//Set p
+		bvh->SetMotion(t);
+		for(auto ss :mBVHMap)
+		{
+			dart::dynamics::BodyNode* bn = mSkeleton->getBodyNode(ss.first);
+			Eigen::Matrix3d R = bvh->Get(ss.first);
+			dart::dynamics::Joint* jn = bn->getParentJoint();
+			Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
+			a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
+			// p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
+			if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr
+				|| dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
+				p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
 			}
-			else if(v_ < -M_PI){
-				v_ += 2*M_PI;
+			else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
+				p[jn->getIndexInSkeleton(0)] = a[0];
+				if(p[jn->getIndexInSkeleton(0)]>M_PI)
+					p[jn->getIndexInSkeleton(0)] -= 2*M_PI;
+				else if(p[jn->getIndexInSkeleton(0)]<-M_PI)
+					p[jn->getIndexInSkeleton(0)] += 2*M_PI;
 			}
-			v[jn->getIndexInSkeleton(0)] = v_;
 		}
-	}
+		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
+		//Set p1
+		double prev_time;
+		if( t < 0.05 )
+			prev_time = t+0.05;
+		else
+			prev_time = t-0.05;
 
-	return std::make_pair(p,v);
+		bvh->SetMotion(prev_time);
+		for(auto ss :mBVHMap)
+		{
+			dart::dynamics::BodyNode* bn = mSkeleton->getBodyNode(ss.first);
+			Eigen::Matrix3d R = bvh->Get(ss.first);
+			dart::dynamics::Joint* jn = bn->getParentJoint();
+
+			Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
+			a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
+			// p1.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
+			if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr
+				|| dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
+				p1.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
+			}
+			else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
+				p1[jn->getIndexInSkeleton(0)] = a[0];
+				if(p1[jn->getIndexInSkeleton(0)]>M_PI)
+					p1[jn->getIndexInSkeleton(0)] -= 2*M_PI;
+				else if(p1[jn->getIndexInSkeleton(0)]<-M_PI)
+					p1[jn->getIndexInSkeleton(0)] += 2*M_PI;
+			}
+		}
+		p1.block<3,1>(3,0) = bvh->GetRootCOM();
+
+		Eigen::VectorXd v;
+		if( t < 0.05 ){
+			v = mSkeleton->getPositionDifferences(p1, p)*20;
+		}
+		else{
+			v = mSkeleton->getPositionDifferences(p, p1)*20;
+		}
+
+		for(auto& jn : mSkeleton->getJoints()){
+			if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
+				double v_ = v[jn->getIndexInSkeleton(0)];
+				if(v_ > M_PI){
+					v_ -= 2*M_PI;
+				}
+				else if(v_ < -M_PI){
+					v_ += 2*M_PI;
+				}
+				v[jn->getIndexInSkeleton(0)] = v_;
+			}
+		}
+		mBVHFrames.push_back(new Frame(p, v));
+	}
 }
-Eigen::VectorXd
+Frame*
 Character::
-GetTargetPositions(BVH* bvh,double t)
+GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,int t)
 {
-	int dof = mSkeleton->getPositions().rows();
-	Eigen::VectorXd p =Eigen::VectorXd::Zero(dof);
-
-	//Set p
-	bvh->SetMotion(t);
-	for(auto ss :mBVHMap)
-	{
-		dart::dynamics::BodyNode* bn = mSkeleton->getBodyNode(ss.first);
-		Eigen::Matrix3d R = bvh->Get(ss.first);
-		dart::dynamics::Joint* jn = bn->getParentJoint();
-		Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
-		a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
-		// p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-		if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr
-			|| dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
-			p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-		}
-		else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
-			p[jn->getIndexInSkeleton(0)] = a[0];
-			if(p[jn->getIndexInSkeleton(0)]>M_PI)
-				p[jn->getIndexInSkeleton(0)] -= 2*M_PI;
-			else if(p[jn->getIndexInSkeleton(0)]<-M_PI)
-				p[jn->getIndexInSkeleton(0)] += 2*M_PI;
-		}
-	}
-	p.block<3,1>(3,0) = bvh->GetRootCOM();
-	return p;
+	return mBVHFrames[t];
 }
 };

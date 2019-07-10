@@ -86,6 +86,8 @@ Controller::Controller(std::string motion)
 	this->mCGR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootR"));
 	this->mCGEL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootEndL"));
 	this->mCGER = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootEndR"));
+	this->mCGHL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandL"));
+	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
 	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()*3);
@@ -116,7 +118,7 @@ SetReference(std::string motion)
 	this->mBVH = new BVH();
 	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
-	this->mCharacter->InitializeBVH(this->mBVH);
+	this->mCharacter->ReadFramesFromBVH(this->mBVH);
 }
 void 
 Controller::
@@ -128,9 +130,9 @@ Step()
 	// set action target pos
 	int num_body_nodes = this->mInterestedBodies.size();
 
-	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
-	this->mTargetPositions = std::get<0>(p_v_target);
-	this->mTargetVelocities = std::get<1>(p_v_target);
+	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
+	this->mTargetPositions = p_v_target->position;
+	this->mTargetVelocities = p_v_target->velocity;
 	this->mModifiedTargetPositions = this->mTargetPositions;
 	this->mModifiedTargetVelocities = this->mTargetVelocities;
 
@@ -321,9 +323,9 @@ FollowBvh()
 		return false;
 	auto& skel = mCharacter->GetSkeleton();
 
-	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
-	mTargetPositions = p_v_target.first;
-	mTargetVelocities = p_v_target.second;
+	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
+	mTargetPositions = p_v_target->position;
+	mTargetVelocities = p_v_target->velocity;
 
 	for(int i=0;i<this->mSimPerCon;i++)
 	{
@@ -358,14 +360,14 @@ Reset(bool RSI)
 		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
 	}
 	else {
-		this->mTimeElapsed = 69 * 1.0 / this->mControlHz; // 0.0;
-		this->mControlCount = 69;// 0;
+		this->mTimeElapsed = 0; // 0.0;
+		this->mControlCount = 0; // 0;
 	}
 	this->mStartCount = this->mControlCount;
 
-	auto p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mTimeElapsed);
-	this->mTargetPositions = std::get<0>(p_v_target);
-	this->mTargetVelocities = std::get<1>(p_v_target);
+	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
+	this->mTargetPositions = p_v_target->position;
+	this->mTargetVelocities = p_v_target->velocity;
 
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
@@ -375,6 +377,7 @@ Reset(bool RSI)
 	this->mIsTerminal = false;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 	this->mControlCount++;
+	this->mRewardParts.resize(5, 0.0);
 
 }
 int
@@ -464,6 +467,14 @@ CheckCollisionWithGround(std::string bodyName){
 		bool isCollide = collisionEngine->collide(this->mCGEL.get(), this->mCGG.get(), option, &result);
 		return isCollide;
 	}
+	else if(bodyName == "HandR"){
+		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGG.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "HandL"){
+		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGG.get(), option, &result);
+		return isCollide;
+	}
 	else{ // error case
 		std::cout << "check collision : bad body name" << std::endl;
 		return false;
@@ -488,10 +499,10 @@ GetState()
 	
 	for(auto dt : tp_times){
 		int t = std::max(0, this->mControlCount + dt);
-		auto target_tuple = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t * this->mSimPerCon);
+		Frame* target_tuple = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t);
 
-		Eigen::VectorXd p = std::get<0>(target_tuple);
-		Eigen::VectorXd v = std::get<1>(target_tuple);
+		Eigen::VectorXd p = target_tuple->position;
+		Eigen::VectorXd v = target_tuple->velocity;
 		tp_vec.push_back(this->GetEndEffectorStatePosAndVel(p, v));
 	}
 

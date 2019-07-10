@@ -30,14 +30,14 @@ SimWindow(std::string motion, std::string network)
 	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH = new DPhy::BVH();
 	this->mBVH->Parse(path);
-	this->mRef->InitializeBVH(this->mBVH);
+	this->mRef->ReadFramesFromBVH(this->mBVH);
 
 	DPhy::SetSkeletonColor(this->mWorld->getSkeleton("Humanoid"), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
 	this->mController->Reset(false);
-	auto p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
-	mRef->GetSkeleton()->setPositions(p_v_target.first);
+	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
+	mRef->GetSkeleton()->setPositions(p_v_target->position);
 	
 	if(this->mRunPPO)
 	{
@@ -79,11 +79,12 @@ Save() {
     mMemory.emplace_back(humanoidSkel->getPositions());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     this->mTotalFrame++;
-    if(!this->mController->IsTerminalState())
+    if(this->mRunPPO && !this->mController->IsTerminalState())
     {
     	if(this->mTotalFrame != 1) mReward += this->mController->GetReward();
     	std::cout << this->mTotalFrame-1 << ": " << mReward << std::endl;
 	}
+
 }
 
 void
@@ -300,15 +301,15 @@ Step()
 			this->mController->Step();
 
 		}
-		auto p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame * this->mTimeStep);
-		mRef->GetSkeleton()->setPositions(p_v_target.first);
-		
+		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame);
+		mRef->GetSkeleton()->setPositions(p_v_target->position);
 		this->mCurFrame++;
 		this->Save();
+
 	}
 
 	this->SetFrame(this->mCurFrame);
-		
+
 }
 void
 SimWindow::

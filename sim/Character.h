@@ -10,6 +10,26 @@ namespace DPhy
 * @details Character
 * 
 */
+class Frame
+{
+public:
+	Frame(Eigen::VectorXd pos, Eigen::VectorXd vel) {
+		position = pos;
+		velocity = vel;
+	}
+	Frame(Eigen::VectorXd pos, Eigen::VectorXd vel, Eigen::VectorXd con) {
+		position = pos;
+		velocity = vel;
+		contact = con;
+	}
+	void SetPosition(Eigen::VectorXd pos) { position = pos; }
+	void SetVelocity(Eigen::VectorXd vel) { velocity = vel; }
+	void SetContact(Eigen::VectorXd con) { contact = con; }
+	
+	Eigen::VectorXd position;
+	Eigen::VectorXd velocity;
+	Eigen::VectorXd contact;
+};
 class Character
 {
 public:
@@ -28,16 +48,15 @@ public:
 
 	void LoadBVHMap(const std::string& path);
 
-	void InitializeBVH(BVH* bvh);
-	std::pair<Eigen::VectorXd,Eigen::VectorXd> GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,double t);
-	Eigen::VectorXd GetTargetPositions(BVH* bvh,double t);
+	void ReadFramesFromBVH(BVH* bvh);
+	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, int t);
 protected:
 	dart::dynamics::SkeletonPtr mSkeleton;
 
 	std::map<std::string,std::string> mBVHMap; //body_node name and bvh_node name
 	Eigen::VectorXd mKp, mKv;
 	Eigen::VectorXd mKp_default, mKv_default;
-
+	std::vector<Frame*> mBVHFrames;
 };
 };
 
