@@ -48,7 +48,7 @@ Controller(std::string motion);
 	double GetCurrentTime(){return this->mTimeElapsed;}
 	double GetCurrentCount(){return this->mControlCount;}
 	double GetCurrentLength() {return this->mControlCount - this->mStartCount; }
-	
+	double GetStartCount(){ return this->mStartCount; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;

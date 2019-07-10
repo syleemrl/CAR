@@ -70,6 +70,7 @@ SimWindow::
 MemoryClear() {
     mMemory.clear();
     mMemoryRef.clear();
+    mReward = 0;
 }
 void 
 SimWindow::
@@ -78,6 +79,11 @@ Save() {
     mMemory.emplace_back(humanoidSkel->getPositions());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     this->mTotalFrame++;
+    if(!this->mController->IsTerminalState())
+    {
+    	if(this->mTotalFrame != 1) mReward += this->mController->GetReward();
+    	std::cout << this->mTotalFrame-1 << ": " << mReward << std::endl;
+	}
 }
 
 void

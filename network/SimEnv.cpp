@@ -27,6 +27,12 @@ GetNumState()
 }
 int
 SimEnv::
+GetStartCount(int id)
+{
+	return mSlaves[id]->GetStartCount();
+}
+int
+SimEnv::
 GetNumAction()
 {
 	return mNumAction;
@@ -180,5 +186,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
+		.def("GetStartCount",&SimEnv::GetStartCount)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

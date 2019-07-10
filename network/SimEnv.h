@@ -24,6 +24,7 @@ public:
 	void Step(int id);
 	void Reset(int id,bool RSI);
 	p::tuple IsNanAtTerminal(int id);
+	int GetStartCount(int id);
 
 	np::ndarray GetState(int id);
 	void SetAction(np::ndarray np_array,int id);

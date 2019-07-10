@@ -354,12 +354,12 @@ Reset(bool RSI)
 	skel->computeForwardKinematics(true,true,false);
 	//RSI
 	if(RSI) {
-		this->mTimeElapsed = dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() - 10 /this->mControlHz);
+		this->mTimeElapsed =  dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() - 10 /this->mControlHz);
 		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
 	}
 	else {
-		this->mTimeElapsed = 0.0;
-		this->mControlCount = 0;
+		this->mTimeElapsed = 69 * 1.0 / this->mControlHz; // 0.0;
+		this->mControlCount = 69;// 0;
 	}
 	this->mStartCount = this->mControlCount;
 

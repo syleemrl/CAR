@@ -76,7 +76,8 @@ protected:
 	double mTimeStep;
 	int mCurFrame;
 	int mTotalFrame;
-	
+	double mReward;
+		
 	std::vector<Eigen::VectorXd> mMemory, mMemoryRef;
 
 	DPhy::Controller* mController;
