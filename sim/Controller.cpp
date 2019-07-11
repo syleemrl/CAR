@@ -106,6 +106,9 @@ Controller::Controller(std::string motion)
 	this->mTargetPositions = Eigen::VectorXd::Zero(dof);
 	this->mTargetVelocities = Eigen::VectorXd::Zero(dof);
 
+	//temp
+	this->mTargetContacts = Eigen::VectorXd::Zero(6);
+
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
 	
@@ -133,6 +136,7 @@ Step()
 	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
+	this->mTargetContacts = p_v_target->contact;
 	this->mModifiedTargetPositions = this->mTargetPositions;
 	this->mModifiedTargetVelocities = this->mTargetVelocities;
 
@@ -238,19 +242,39 @@ UpdateReward()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
+	double r_contact = 0;
+
+	for(int i = 0; i < this->mTargetContacts.rows(); i++) {
+		if(this->mTargetContacts[i] == 0 || 
+			this->mTargetContacts[i] == this->CheckCollisionWithGround(this->mCharacter->GetContactNodeName(i)))
+			r_contact += 1;
+	}
+	r_contact = r_contact / this->mTargetContacts.rows();
 	double scale = 1.0;
-	double sig_p = 0.1 * scale; 		// 2
-	double sig_v = 1.0 * scale;		// 3
-	double sig_com = 0.3 * scale;		// 4
-	double sig_ee = 0.3 * scale;		// 8
+
+	//mul
+	// double sig_p = 0.1 * scale; 		// 2
+	// double sig_v = 1.0 * scale;		// 3
+	// double sig_com = 0.3 * scale;		// 4
+	// double sig_ee = 0.3 * scale;		// 8
+
+	//sum
+	double sig_p = 0.15 * scale; 		// 2
+	double sig_v = 1.5 * scale;		// 3
+	double sig_com = 0.09 * scale;		// 4
+	double sig_ee = 0.08 * scale;		// 8
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_tot = r_p*r_v*r_com*r_ee;
-
+	// double r_tot = r_p*r_v*r_com*r_ee;
+	double r_tot =  w_p*r_p 
+					+ w_v*r_v 
+					+ w_com*r_com
+					+ w_ee*r_ee;
+	r_tot = 0.9*r_tot + 0.1*r_contact;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -368,6 +392,7 @@ Reset(bool RSI)
 	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
+	this->mTargetContacts = p_v_target->contact;
 
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
@@ -468,11 +493,11 @@ CheckCollisionWithGround(std::string bodyName){
 		return isCollide;
 	}
 	else if(bodyName == "HandR"){
-		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGG.get(), option, &result);
+		bool isCollide = collisionEngine->collide(this->mCGHR.get(), this->mCGG.get(), option, &result);
 		return isCollide;
 	}
 	else if(bodyName == "HandL"){
-		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGG.get(), option, &result);
+		bool isCollide = collisionEngine->collide(this->mCGHL.get(), this->mCGG.get(), option, &result);
 		return isCollide;
 	}
 	else{ // error case
@@ -497,6 +522,9 @@ GetState()
 	tp_times.clear();
 	tp_times.push_back(0);
 	
+	std::vector<Eigen::VectorXd> tp_contact_vec;
+	tp_contact_vec.clear();
+
 	for(auto dt : tp_times){
 		int t = std::max(0, this->mControlCount + dt);
 		Frame* target_tuple = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t);
@@ -504,12 +532,18 @@ GetState()
 		Eigen::VectorXd p = target_tuple->position;
 		Eigen::VectorXd v = target_tuple->velocity;
 		tp_vec.push_back(this->GetEndEffectorStatePosAndVel(p, v));
+		tp_contact_vec.push_back(target_tuple->contact);
 	}
 
 	Eigen::VectorXd tp_concatenated;
 	tp_concatenated.resize(tp_vec.size()*tp_vec[0].rows());
+
+	Eigen::VectorXd tp_contact_concatenated;
+	tp_contact_concatenated.resize(tp_contact_vec.size()*tp_contact_vec[0].rows());
+
 	for(int i = 0; i < tp_vec.size(); i++){
 		tp_concatenated.segment(i*tp_vec[0].rows(), tp_vec[0].rows()) = tp_vec[i];
+		tp_contact_concatenated.segment(i*tp_contact_vec[0].rows(), tp_contact_vec[0].rows()) = tp_contact_vec[i];
 	}
 
 	Eigen::VectorXd p,v;
@@ -549,10 +583,15 @@ GetState()
 	foot_corner_heights *= 10;
 
 	Eigen::VectorXd state;
-	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+1+1+8);
-	state<<p, v, tp_concatenated, up_vec_angle,
-			root_height, foot_corner_heights;
+	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+tp_contact_concatenated.rows()+1+1);
+	state<<p, v, tp_concatenated, tp_contact_concatenated, up_vec_angle,
+			root_height; //, foot_corner_heights;
 
 	return state;
 }
+std::string 
+Controller::GetContactNodeName(int i) { 
+	return mCharacter->GetContactNodeName(i); 
+}
+
 }

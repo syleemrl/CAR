@@ -134,13 +134,18 @@ void
 SimWindow::
 DrawSkeletons()
 {
-	if(this->mDrawOutput)
+	if(this->mDrawOutput) {
 		GUI::DrawSkeleton(this->mWorld->getSkeleton("Humanoid"), 0);
+		for(int i = 0; i < this->mRefContact.size(); i++) {
+			if(this->mController->CheckCollisionWithGround(this->mController->GetContactNodeName(i)))
+				GUI::DrawBodyNode(this->mWorld->getSkeleton("Humanoid"), Eigen::Vector4d(0.73*0.4, 0.73*0.4, 0.73*0.4, 1.0), this->mController->GetContactNodeName(i), 0);
+		}
+	}
 	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
 		for(int i = 0; i < this->mRefContact.size(); i++) {
 			if(this->mRefContact[i] == 1)
-				GUI::DrawBodyNode(this->mRef->GetSkeleton(), Eigen::Vector4d(0, 0, 0, 1), this->mRef->GetContactNodeName(i), 0);
+				GUI::DrawBodyNode(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255.*0.4, 87./255.*0.4, 87./255.*0.4, 1.0), this->mRef->GetContactNodeName(i), 0);
 		}
 	}
 }

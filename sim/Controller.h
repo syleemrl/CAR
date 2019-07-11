@@ -49,6 +49,7 @@ Controller(std::string motion);
 	double GetCurrentCount(){return this->mControlCount;}
 	double GetCurrentLength() {return this->mControlCount - this->mStartCount; }
 	double GetStartCount(){ return this->mStartCount; }
+	std::string GetContactNodeName(int i);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;
@@ -65,6 +66,7 @@ protected:
 
 	Eigen::VectorXd mTargetPositions;
 	Eigen::VectorXd mTargetVelocities;
+	Eigen::VectorXd mTargetContacts;
 
 	Eigen::VectorXd mModifiedTargetPositions;
 	Eigen::VectorXd mModifiedTargetVelocities;
