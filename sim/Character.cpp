@@ -15,10 +15,27 @@ namespace DPhy
 Character::Character(const std::string& path)
 {
 	this->mSkeleton = DPhy::SkeletonBuilder::BuildFromFile(path);
+	
+	//temp
+	mContactList.push_back("FootR");
+	mContactList.push_back("FootL");
+	mContactList.push_back("FootEndR");
+	mContactList.push_back("FootEndL");
+	mContactList.push_back("HandR");
+	mContactList.push_back("HandL");
+
 }
 Character::Character(const dart::dynamics::SkeletonPtr& skeleton)
 {
 	this->mSkeleton = skeleton;
+
+	//temp
+	mContactList.push_back("FootR");
+	mContactList.push_back("FootL");
+	mContactList.push_back("FootEndR");
+	mContactList.push_back("FootEndL");
+	mContactList.push_back("HandR");
+	mContactList.push_back("HandL");
 }
 
 const dart::dynamics::SkeletonPtr& Character::GetSkeleton()
@@ -234,7 +251,33 @@ ReadFramesFromBVH(BVH* bvh)
 		}
 		mBVHFrames.push_back(new Frame(p, v));
 	}
+
+//calculate contact infomation
+	double heightLimit = 0.05;
+	double velocityLimit = 6;
+	int i = 0;
+	for(double t = 0; t < bvh->GetMaxTime(); t+=bvh->GetTimeStep())
+	{
+		Eigen::VectorXd contact(mContactList.size());
+		contact.setZero();
+
+		mSkeleton->setPositions(mBVHFrames[i]->position);
+		mSkeleton->setVelocities(mBVHFrames[i]->velocity);
+		mSkeleton->computeForwardKinematics(true,true,false);
+		
+		for(int i = 0; i < mContactList.size(); i++) 
+		{
+			double height = mSkeleton->getBodyNode(mContactList[i])->getWorldTransform().translation()[1];
+			double velocity = mSkeleton->getBodyNode("FootEndR")->getLinearVelocity().norm();
+			if(height < heightLimit && velocity < velocityLimit) {
+				contact(i) = 1;
+			} 
+
+		}
+		mBVHFrames[i++]->SetContact(contact);
+	}
 }
+
 Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,int t)

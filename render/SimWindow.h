@@ -78,7 +78,8 @@ protected:
 	int mTotalFrame;
 	double mReward;
 		
-	std::vector<Eigen::VectorXd> mMemory, mMemoryRef;
+	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRefContact;
+	Eigen::VectorXd mRefContact;
 
 	DPhy::Controller* mController;
 	DPhy::Character* mRef;

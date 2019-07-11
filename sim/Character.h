@@ -50,6 +50,7 @@ public:
 
 	void ReadFramesFromBVH(BVH* bvh);
 	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, int t);
+	std::string GetContactNodeName(int i) { return mContactList[i]; };
 protected:
 	dart::dynamics::SkeletonPtr mSkeleton;
 
@@ -57,6 +58,7 @@ protected:
 	Eigen::VectorXd mKp, mKv;
 	Eigen::VectorXd mKp_default, mKv_default;
 	std::vector<Frame*> mBVHFrames;
+	std::vector<std::string> mContactList;
 };
 };
 

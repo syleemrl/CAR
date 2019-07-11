@@ -31,6 +31,12 @@ void DrawShape(const Eigen::Isometry3d& T,
 	const Eigen::Vector4d& color,
 	const Eigen::Vector3d& uniform_color,
 	std::string name);
+
+void DrawBodyNode(const dart::dynamics::SkeletonPtr& skel, 
+	Eigen::Vector4d color,
+	std::string body_name, 
+	int type=0);
+
 };
 
 #endif

@@ -363,3 +363,12 @@ DrawShape(const Eigen::Isometry3d& T,
 
 	// glDisable(GL_COLOR_MATERIAL);
 }
+void
+GUI::
+DrawBodyNode(const dart::dynamics::SkeletonPtr& skel, Eigen::Vector4d color, std::string body_name, int type)
+{
+	auto bn = skel->getBodyNode(body_name);
+	auto shapeNodes = bn->getShapeNodesWith<VisualAspect>();
+	auto T = shapeNodes[type]->getTransform();
+	DrawShape(T,shapeNodes[type]->getShape().get(), color, body_name);
+}

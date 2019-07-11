@@ -38,7 +38,8 @@ SimWindow(std::string motion, std::string network)
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	
+	mRefContact = p_v_target->contact;
+
 	if(this->mRunPPO)
 	{
 		Py_Initialize();
@@ -70,6 +71,7 @@ SimWindow::
 MemoryClear() {
     mMemory.clear();
     mMemoryRef.clear();
+    mMemoryRefContact.clear();
     mReward = 0;
 }
 void 
@@ -78,6 +80,7 @@ Save() {
     SkeletonPtr humanoidSkel = this->mWorld->getSkeleton("Humanoid");
     mMemory.emplace_back(humanoidSkel->getPositions());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
+    mMemoryRefContact.emplace_back(mRefContact);
     this->mTotalFrame++;
     if(this->mRunPPO && !this->mController->IsTerminalState())
     {
@@ -104,6 +107,7 @@ SetFrame(int n)
     SkeletonPtr humanoidSkel = this->mWorld->getSkeleton("Humanoid");
     humanoidSkel->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
+    mRefContact = mMemoryRefContact[n];
 
 }
 void
@@ -132,9 +136,13 @@ DrawSkeletons()
 {
 	if(this->mDrawOutput)
 		GUI::DrawSkeleton(this->mWorld->getSkeleton("Humanoid"), 0);
-	if(this->mDrawRef)
+	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
-
+		for(int i = 0; i < this->mRefContact.size(); i++) {
+			if(this->mRefContact[i] == 1)
+				GUI::DrawBodyNode(this->mRef->GetSkeleton(), Eigen::Vector4d(0, 0, 0, 1), this->mRef->GetContactNodeName(i), 0);
+		}
+	}
 }
 void
 SimWindow::
@@ -303,6 +311,7 @@ Step()
 		}
 		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame);
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
+		mRefContact = p_v_target->contact;
 		this->mCurFrame++;
 		this->Save();
 
