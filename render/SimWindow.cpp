@@ -23,7 +23,7 @@ SimWindow(std::string motion, std::string network)
 	this->mController = new DPhy::Controller(motion);
 	this->mWorld = this->mController->GetWorld();
 
-	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	
@@ -36,7 +36,7 @@ SimWindow(std::string motion, std::string network)
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
 	this->mController->Reset(false);
-	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
+	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetCurrentCount());
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
 	mRefContact = p_v_target->contact;
 
@@ -72,6 +72,7 @@ MemoryClear() {
     mMemory.clear();
     mMemoryRef.clear();
     mMemoryRefContact.clear();
+    mMemoryRewContact.clear();
     mReward = 0;
 }
 void 
@@ -81,6 +82,7 @@ Save() {
     mMemory.emplace_back(humanoidSkel->getPositions());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryRefContact.emplace_back(mRefContact);
+    mMemoryRewContact.emplace_back(this->mController->GetRewardByParts()[5]);
     this->mTotalFrame++;
     if(this->mRunPPO && !this->mController->IsTerminalState())
     {
@@ -108,7 +110,7 @@ SetFrame(int n)
     humanoidSkel->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
     mRefContact = mMemoryRefContact[n];
-
+    std::cout << mMemoryRewContact[n] << std::endl;
 }
 void
 SimWindow::
@@ -314,7 +316,7 @@ Step()
 			this->mController->Step();
 
 		}
-		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame);
+		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetCurrentCount());
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
 		mRefContact = p_v_target->contact;
 		this->mCurFrame++;

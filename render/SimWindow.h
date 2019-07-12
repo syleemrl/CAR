@@ -79,6 +79,7 @@ protected:
 	double mReward;
 		
 	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRefContact;
+	std::vector<double> mMemoryRewContact;
 	Eigen::VectorXd mRefContact;
 
 	DPhy::Controller* mController;

@@ -24,4 +24,5 @@
 #define FOOT_CONTACT_THERESHOLD (0.3)
 
 #define CHARACTER_TYPE "humanoid"
+#define REF_CHARACTER_TYPE "humanoid"
 #endif

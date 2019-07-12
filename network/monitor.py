@@ -31,7 +31,7 @@ class Monitor(object):
 		self.num_transitions = 0
 		self.total_rewards = []
 		self.max_episode_length = 0
-		self.total_rewards_by_parts = np.array([[]]*5)
+		self.total_rewards_by_parts = np.array([[]]*6)
 		self.transition_per_episodes = []
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
@@ -159,7 +159,9 @@ class Monitor(object):
 						[np.asarray(self.total_rewards_by_parts[1]), 'p'], 
 						[np.asarray(self.total_rewards_by_parts[2]), 'v'], 
 						[np.asarray(self.total_rewards_by_parts[3]), 'com'],
-						[np.asarray(self.total_rewards_by_parts[4]), 'ee']]
+						[np.asarray(self.total_rewards_by_parts[4]), 'ee'],
+						[np.asarray(self.total_rewards_by_parts[5]), 'contact']]
+
 			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
 			y_list = y_list[1:]

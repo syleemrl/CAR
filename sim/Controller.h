@@ -62,6 +62,7 @@ protected:
 	int mSimPerCon;
 
 	Character* mCharacter;
+	Character* mRefCharacter;
 	dart::dynamics::SkeletonPtr mGround;
 
 	Eigen::VectorXd mTargetPositions;

@@ -23,10 +23,9 @@ Controller::Controller(std::string motion)
 	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/ground.xml"));
 	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
 	this->mWorld->addSkeleton(this->mGround);
-
+	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	this->mCharacter->LoadBVHMap(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
@@ -118,10 +117,14 @@ void
 Controller::
 SetReference(std::string motion) 
 {
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+	this->mRefCharacter = new DPhy::Character(path);
+	this->mRefCharacter->LoadBVHMap(path);
+
 	this->mBVH = new BVH();
-	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
+	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
-	this->mCharacter->ReadFramesFromBVH(this->mBVH);
+	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
 }
 void 
 Controller::
@@ -133,7 +136,7 @@ Step()
 	// set action target pos
 	int num_body_nodes = this->mInterestedBodies.size();
 
-	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	this->mTargetContacts = p_v_target->contact;
@@ -274,7 +277,7 @@ UpdateReward()
 					+ w_v*r_v 
 					+ w_com*r_com
 					+ w_ee*r_ee;
-	r_tot = 0.9*r_tot + 0.1*r_contact;
+	// r_tot = 0.9*r_tot + 0.1*r_contact;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -286,6 +289,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
+		mRewardParts.push_back(r_contact);
 	}
 }
 void
@@ -347,7 +351,7 @@ FollowBvh()
 		return false;
 	auto& skel = mCharacter->GetSkeleton();
 
-	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
 	mTargetPositions = p_v_target->position;
 	mTargetVelocities = p_v_target->velocity;
 
@@ -361,6 +365,13 @@ FollowBvh()
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 	return true;
 }
+// void
+// Controller::
+// computeInverseKinematics()
+// {
+// 	std::vector<std::tuple<std::string, Eigen::Vector3d, 
+// 	// solveMCIK(mCharacter->GetSkeleton(), const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints)
+// }
 void 
 Controller::
 Reset(bool RSI)
@@ -384,12 +395,12 @@ Reset(bool RSI)
 		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
 	}
 	else {
-		this->mTimeElapsed = 0; // 0.0;
-		this->mControlCount = 0; // 0;
+		this->mTimeElapsed = 0.0;
+		this->mControlCount = 0;
 	}
 	this->mStartCount = this->mControlCount;
 
-	Frame* p_v_target = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	this->mTargetContacts = p_v_target->contact;
@@ -402,7 +413,7 @@ Reset(bool RSI)
 	this->mIsTerminal = false;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 	this->mControlCount++;
-	this->mRewardParts.resize(5, 0.0);
+	this->mRewardParts.resize(6, 0.0);
 
 }
 int
@@ -527,7 +538,7 @@ GetState()
 
 	for(auto dt : tp_times){
 		int t = std::max(0, this->mControlCount + dt);
-		Frame* target_tuple = mCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t);
+		Frame* target_tuple = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t);
 
 		Eigen::VectorXd p = target_tuple->position;
 		Eigen::VectorXd v = target_tuple->velocity;
@@ -583,9 +594,12 @@ GetState()
 	foot_corner_heights *= 10;
 
 	Eigen::VectorXd state;
-	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+tp_contact_concatenated.rows()+1+1);
-	state<<p, v, tp_concatenated, tp_contact_concatenated, up_vec_angle,
-			root_height; //, foot_corner_heights;
+	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+1+1+8);
+	state<<p, v, tp_concatenated, up_vec_angle,
+			root_height, foot_corner_heights;
+	//state.resize(p.rows()+v.rows()+tp_concatenated.rows()+tp_contact_concatenated.rows()+1+1);
+	//state<<p, v, tp_concatenated, tp_contact_concatenated, up_vec_angle,
+	//			root_height; //, foot_corner_heights;
 
 	return state;
 }
