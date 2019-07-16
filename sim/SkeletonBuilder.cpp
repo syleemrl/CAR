@@ -1,4 +1,5 @@
 #include <tinyxml.h>
+#include <cmath>
 #include "SkeletonBuilder.h"
 #include "Functions.h"
 #include "CharacterConfigurations.h"
@@ -39,7 +40,61 @@ Eigen::Isometry3d Orthonormalize(const Eigen::Isometry3d& T_old)
 }
 
 double _default_damping_coefficient = JOINT_DAMPING;
+void 
+SkeletonBuilder::
+DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
+	dart::dynamics::BodyNode* bn, 
+	std::tuple<std::string, int, double> deform) {
+	std::string target_bn_name = std::get<0>(deform);
+	
+	auto shape_old = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
+	auto box = dynamic_cast<BoxShape*>(shape_old);
+	Eigen::Vector3d size = box->getSize();
+	double origin = size(std::get<1>(deform));
+	size(std::get<1>(deform)) = origin * std::get<2>(deform);
+	ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
 
+	auto inertia = bn->getInertia();
+	inertia.setMoment(shape->computeInertia(inertia.getMass()));
+		
+	bn->removeAllShapeNodes();
+    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
+	
+	auto props = bn->getParentJoint()->getJointProperties();
+	
+	double sign = bn->getWorldTransform().translation()(std::get<1>(deform))
+		- bn->getParentBodyNode()->getWorldTransform().translation()(std::get<1>(deform));
+	sign = sign / fabs(sign);
+
+	Eigen::Isometry3d T = props.mT_ChildBodyToJoint;
+	T.translation()(std::get<1>(deform)) -= sign * origin * (std::get<2>(deform) - 1) / 2.0;
+	props.mT_ChildBodyToJoint = T;
+	bn->getParentJoint()->setProperties(props);
+
+	auto children = GetChildren(skel, bn);
+	for(auto child : children) {
+		props = child->getParentJoint()->getJointProperties();
+		T = props.mT_ParentBodyToJoint;
+		T.translation()(std::get<1>(deform)) += sign * origin * (std::get<2>(deform) - 1) / 2.0;
+		props.mT_ParentBodyToJoint = T;
+		child->getParentJoint()->setProperties(props);
+	}
+
+}
+void 
+SkeletonBuilder::
+DeformSkeleton(const dart::dynamics::SkeletonPtr& skel, std::vector<std::tuple<std::string, int, double>> deform) {
+	for(auto d : deform) {
+		for(int i=0;i<skel->getNumBodyNodes();i++)
+		{
+			auto bn = skel->getBodyNode(i);
+			if(!bn->getName().compare(std::get<0>(d))) {
+				DeformBodyNode(skel, bn, d);
+				break;
+			}
+		}
+	}
+}
 SkeletonPtr 
 SkeletonBuilder::
 BuildFromFile(const std::string& filename){

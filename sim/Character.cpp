@@ -14,8 +14,18 @@ namespace DPhy
 */ 
 Character::Character(const std::string& path)
 {
-	this->mSkeleton = DPhy::SkeletonBuilder::BuildFromFile(path);
+	this->mSkeleton = SkeletonBuilder::BuildFromFile(path);
+
+	std::vector<std::tuple<std::string, int, double>> deform;
+	deform.push_back(std::make_tuple("ForeArmL", 0, 0.5));
+	deform.push_back(std::make_tuple("ArmL", 0, 0.5));
+	deform.push_back(std::make_tuple("ForeArmR", 0, 0.5));
+	deform.push_back(std::make_tuple("ArmR", 0, 0.5));
 	
+	SkeletonBuilder::DeformSkeleton(this->mSkeleton, deform);
+
+//	DPhy::SkeletonBuilder::DeformBodyNode(this->mSkeleton, this->mSkeleton->getBodyNode("ArmL"),
+//		std::make_tuple("ArmL", 0, 0.5));
 	//temp
 	mContactList.push_back("FootR");
 	mContactList.push_back("FootL");

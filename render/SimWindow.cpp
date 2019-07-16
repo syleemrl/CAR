@@ -110,7 +110,6 @@ SetFrame(int n)
     humanoidSkel->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
     mRefContact = mMemoryRefContact[n];
-    std::cout << mMemoryRewContact[n] << std::endl;
 }
 void
 SimWindow::
@@ -316,7 +315,7 @@ Step()
 			this->mController->Step();
 
 		}
-		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetCurrentCount());
+		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame);
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
 		mRefContact = p_v_target->contact;
 		this->mCurFrame++;

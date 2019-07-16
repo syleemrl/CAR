@@ -9,6 +9,14 @@ class SkeletonBuilder
 public:
 	static dart::dynamics::SkeletonPtr BuildFromFile(const std::string& filename);
 	//static void WriteSkeleton(std::string filename, dart::dynamics::SkeletonPtr& skel);
+	static void DeformBodyNode(
+		const dart::dynamics::SkeletonPtr& skel,
+		dart::dynamics::BodyNode* bn, 
+		std::tuple<std::string, int, double> deform);
+
+	static void DeformSkeleton(
+		const dart::dynamics::SkeletonPtr& skel,
+		std::vector<std::tuple<std::string, int, double>> deform);
 
 	//SM) added for drawing ball
     static dart::dynamics::BodyNode* MakeFreeJointBall(

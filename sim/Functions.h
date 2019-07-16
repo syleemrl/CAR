@@ -41,6 +41,7 @@ double exp_of_squared(const Eigen::MatrixXd& mat,double sigma = 1.0);
 std::pair<int, double> maxCoeff(const Eigen::VectorXd& in);
 
 double RadianClamp(double input);
+std::vector<dart::dynamics::BodyNode*> GetChildren(const dart::dynamics::SkeletonPtr& skel, const dart::dynamics::BodyNode* parent);
 
 Eigen::Quaterniond DARTPositionToQuaternion(Eigen::Vector3d in);
 Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in);

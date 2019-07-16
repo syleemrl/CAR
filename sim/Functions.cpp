@@ -378,7 +378,18 @@ void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Ve
 	}
 }
 
-
+std::vector<dart::dynamics::BodyNode*> GetChildren(const dart::dynamics::SkeletonPtr& skel, 
+												   const dart::dynamics::BodyNode* parent){
+	std::vector<dart::dynamics::BodyNode*> childs;
+	for(int i=0;i<skel->getNumBodyNodes();i++)
+	{
+		auto bn = skel->getBodyNode(i);
+		auto pn = bn->getParentBodyNode();
+		if(pn && !pn->getName().compare(parent->getName()))
+			childs.push_back(bn);
+	}
+	return childs;
+}
 Eigen::Quaterniond DARTPositionToQuaternion(Eigen::Vector3d in){
 	if( in.norm() < 1e-8 ){
 		return Eigen::Quaterniond::Identity();
