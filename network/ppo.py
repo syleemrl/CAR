@@ -255,8 +255,8 @@ class PPO(object):
 
 				states = self.env.getStates()
 			print('')
-
-			if it % 10 == 9:
+		#	if it % 10 == 9:
+			if 1:
 				self.update(epi_info_iter) 
 
 				if self.learning_rate_actor > 1e-5:

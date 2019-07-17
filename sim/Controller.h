@@ -50,6 +50,11 @@ Controller(std::string motion);
 	double GetCurrentLength() {return this->mControlCount - this->mStartCount; }
 	double GetStartCount(){ return this->mStartCount; }
 	std::string GetContactNodeName(int i);
+
+	const dart::dynamics::SkeletonPtr& GetSkeleton();
+	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
+
+	void DeformCharacter();
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;

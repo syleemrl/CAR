@@ -54,7 +54,8 @@ protected:
 	void Timer(int value) override;
 
 	void Step();
-
+	
+	void Reset();
 	/// Set the skeleton positions in mWorld to the positions at n frame.
 	void SetFrame(int n);
 
@@ -77,7 +78,8 @@ protected:
 	int mCurFrame;
 	int mTotalFrame;
 	double mReward;
-		
+	double mSkelLength;
+	
 	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRefContact;
 	std::vector<double> mMemoryRewContact;
 	Eigen::VectorXd mRefContact;

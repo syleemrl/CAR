@@ -163,6 +163,12 @@ GetRewardsByParts()
 
 	return DPhy::toNumPyArray(rewards);
 }
+void
+SimEnv::
+DeformCharacter()
+{
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->DeformCharacter();
+}
 
 using namespace boost::python;
 
@@ -180,6 +186,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetAction",&SimEnv::SetAction)
 		.def("GetReward",&SimEnv::GetReward)
 		.def("GetRewardByParts",&SimEnv::GetRewardByParts)
+		.def("DeformCharacter",&SimEnv::DeformCharacter)
 		.def("Steps",&SimEnv::Steps)
 		.def("Resets",&SimEnv::Resets)
 		.def("IsNanAtTerminal",&SimEnv::IsNanAtTerminal)

@@ -41,6 +41,9 @@ class Monitor(object):
 
 		self.terminated = [False]*self.num_slaves
 		self.states = [0]*self.num_slaves
+
+		self.skel_len = 1
+
 		if self.plot:
 			plt.ion()
 
@@ -116,6 +119,7 @@ class Monitor(object):
 
 		print_list = []
 		print_list.append('===============================================================')
+		print_list.append('skel length: {}'.format(self.skel_len))
 		print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 		print_list.append("Elapsed time : {:.2f}s".format(time.time() - self.start_time))
 		print_list.append('Num eval : {}'.format(self.num_evaluation))
@@ -170,8 +174,13 @@ class Monitor(object):
 
 			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
+		if self.skel_len < 1.6 and t_per_e > 100:
+			self.skel_len *= 1.05
+			self.sim_env.DeformCharacter()
+
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
+

@@ -32,7 +32,7 @@ SimWindow(std::string motion, std::string network)
 	this->mBVH->Parse(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
 
-	DPhy::SetSkeletonColor(this->mWorld->getSkeleton("Humanoid"), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
+	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
 	this->mController->Reset(false);
@@ -65,6 +65,8 @@ SimWindow(std::string motion, std::string network)
 	this->MemoryClear();
 	this->Save();
 	this->SetFrame(this->mCurFrame);
+
+	this->mSkelLength = 1;
 }
 void 
 SimWindow::
@@ -78,7 +80,7 @@ MemoryClear() {
 void 
 SimWindow::
 Save() {
-    SkeletonPtr humanoidSkel = this->mWorld->getSkeleton("Humanoid");
+    SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
     mMemory.emplace_back(humanoidSkel->getPositions());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryRefContact.emplace_back(mRefContact);
@@ -106,7 +108,7 @@ SetFrame(int n)
 	     return;
 	 }
 
-    SkeletonPtr humanoidSkel = this->mWorld->getSkeleton("Humanoid");
+    SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
     humanoidSkel->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
     mRefContact = mMemoryRefContact[n];
@@ -136,10 +138,10 @@ SimWindow::
 DrawSkeletons()
 {
 	if(this->mDrawOutput) {
-		GUI::DrawSkeleton(this->mWorld->getSkeleton("Humanoid"), 0);
+		GUI::DrawSkeleton(this->mController->GetSkeleton(), 0);
 		for(int i = 0; i < this->mRefContact.size(); i++) {
 			if(this->mController->CheckCollisionWithGround(this->mController->GetContactNodeName(i)))
-				GUI::DrawBodyNode(this->mWorld->getSkeleton("Humanoid"), Eigen::Vector4d(0.73*0.4, 0.73*0.4, 0.73*0.4, 1.0), this->mController->GetContactNodeName(i), 0);
+				GUI::DrawBodyNode(this->mController->GetSkeleton(), Eigen::Vector4d(0.73*0.4, 0.73*0.4, 0.73*0.4, 1.0), this->mController->GetContactNodeName(i), 0);
 		}
 	}
 	if(this->mDrawRef) {
@@ -156,12 +158,12 @@ DrawGround()
 {
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)
-		com_root = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
+		com_root = this->mController->GetSkeleton()->getRootBodyNode()->getCOM();
 	else 
 		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
 
-	double ground_height = this->mWorld->getSkeleton("Ground")->getRootBodyNode()->getCOM()[1]+0.5;
-	GUI::DrawGround((int)com_root[0], (int)com_root[2], ground_height);
+	double ground_height = this->mController->GetSkeleton()->getRootBodyNode()->getCOM()[1]-0.5;
+	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
 void
 SimWindow::
@@ -173,7 +175,7 @@ Display()
 
 	dart::dynamics::SkeletonPtr skel;
 	if(this->mDrawOutput)
-		skel = this->mWorld->getSkeleton("Humanoid");
+		skel = this->mController->GetSkeleton();
 	else
 		skel = this->mRef->GetSkeleton();
 	Eigen::Vector3d com_root = skel->getRootBodyNode()->getCOM();
@@ -200,7 +202,7 @@ Display()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glScalef(1.0, -1.0, 1.0);
 	initLights(com_root[0], com_root[2], com_front[0], com_front[2]);
-	DrawSkeletons();
+	// DrawSkeletons();
 	glPopMatrix();
 	initLights(com_root[0], com_root[2], com_front[0], com_front[2]);
 	// glColor4f(0.7, 0.0, 0.0, 0.40);  /* 40% dark red floor color */
@@ -214,6 +216,39 @@ Display()
 }
 void
 SimWindow::
+Reset()
+{
+	this->mController->Reset(false);
+
+	this->mController->DeformCharacter();
+	
+	// std::vector<std::tuple<std::string, int, double>> deform;
+	// deform.push_back(std::make_tuple("ForeArmL", 0, 1.05));
+	// deform.push_back(std::make_tuple("ArmL", 0, 1.05));
+	// deform.push_back(std::make_tuple("ForeArmR", 0, 1.05));
+	// deform.push_back(std::make_tuple("ArmR", 0, 1.05));
+		
+	// DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);	
+	// this->mRef->ReadFramesFromBVH(this->mBVH);
+
+	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetCurrentCount());
+	mRef->GetSkeleton()->setPositions(p_v_target->position);
+	mRefContact = p_v_target->contact;
+	
+	this->mCurFrame = 0;
+	this->mTotalFrame = 0;
+	this->MemoryClear();
+	this->Save();
+	this->SetFrame(this->mCurFrame);
+
+	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
+	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
+
+	this->mSkelLength *= 1.05;
+	std::cout << this->mSkelLength << std::endl;
+}
+void
+SimWindow::
 Keyboard(unsigned char key,int x,int y) 
 {
 	switch(key)
@@ -224,7 +259,7 @@ Keyboard(unsigned char key,int x,int y)
 		case 'o': this->mCurFrame-=99; this->PrevFrame();break;
 		case 'p': this->mCurFrame+=99; this->NextFrame();break;
 		case 's': std::cout << this->mCurFrame << std::endl;break;
-		case 'r': this->mCurFrame=0;this->SetFrame(this->mCurFrame);break;
+		case 'r': Reset();break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
 		case '2': mDrawRef = !mDrawRef;break;
 		case '1': if(this->mRunPPO) mDrawOutput = !mDrawOutput;break;
@@ -324,7 +359,6 @@ Step()
 	}
 
 	this->SetFrame(this->mCurFrame);
-
 }
 void
 SimWindow::

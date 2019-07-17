@@ -62,21 +62,20 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 	
 	auto props = bn->getParentJoint()->getJointProperties();
 	
-	double sign = bn->getWorldTransform().translation()(std::get<1>(deform))
-		- bn->getParentBodyNode()->getWorldTransform().translation()(std::get<1>(deform));
+	double sign = props.mT_ChildBodyToJoint.translation()(std::get<1>(deform));
 	sign = sign / fabs(sign);
-
-	Eigen::Isometry3d T = props.mT_ChildBodyToJoint;
-	T.translation()(std::get<1>(deform)) -= sign * origin * (std::get<2>(deform) - 1) / 2.0;
-	props.mT_ChildBodyToJoint = T;
+	
+	Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+	T.translation()(std::get<1>(deform)) = sign * origin * (std::get<2>(deform) - 1) / 2.0;
+	props.mT_ChildBodyToJoint = props.mT_ChildBodyToJoint * T;
 	bn->getParentJoint()->setProperties(props);
 
 	auto children = GetChildren(skel, bn);
 	for(auto child : children) {
 		props = child->getParentJoint()->getJointProperties();
-		T = props.mT_ParentBodyToJoint;
-		T.translation()(std::get<1>(deform)) += sign * origin * (std::get<2>(deform) - 1) / 2.0;
-		props.mT_ParentBodyToJoint = T;
+		T = Eigen::Isometry3d::Identity();
+		T.translation()(std::get<1>(deform)) = - sign * origin * (std::get<2>(deform) - 1) / 2.0;
+		props.mT_ParentBodyToJoint =  props.mT_ParentBodyToJoint * T;
 		child->getParentJoint()->setProperties(props);
 	}
 

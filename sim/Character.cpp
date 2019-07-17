@@ -16,14 +16,6 @@ Character::Character(const std::string& path)
 {
 	this->mSkeleton = SkeletonBuilder::BuildFromFile(path);
 
-	std::vector<std::tuple<std::string, int, double>> deform;
-	deform.push_back(std::make_tuple("ForeArmL", 0, 0.5));
-	deform.push_back(std::make_tuple("ArmL", 0, 0.5));
-	deform.push_back(std::make_tuple("ForeArmR", 0, 0.5));
-	deform.push_back(std::make_tuple("ArmR", 0, 0.5));
-	
-	SkeletonBuilder::DeformSkeleton(this->mSkeleton, deform);
-
 //	DPhy::SkeletonBuilder::DeformBodyNode(this->mSkeleton, this->mSkeleton->getBodyNode("ArmL"),
 //		std::make_tuple("ArmL", 0, 0.5));
 	//temp
@@ -51,6 +43,10 @@ Character::Character(const dart::dynamics::SkeletonPtr& skeleton)
 const dart::dynamics::SkeletonPtr& Character::GetSkeleton()
 {
 	return this->mSkeleton;
+}
+void Character::SetSkeleton(dart::dynamics::SkeletonPtr skel)
+{
+	this->mSkeleton = skel;
 }
 void Character::SetPDParameters(double kp, double kv)
 {
@@ -177,6 +173,7 @@ void
 Character::
 ReadFramesFromBVH(BVH* bvh)
 {
+	mBVHFrames.clear();
 	for(const auto ss :mBVHMap){
 		bvh->AddMapping(ss.first,ss.second);
 	}

@@ -2,7 +2,7 @@
 #include "Character.h"
 #include <boost/filesystem.hpp>
 #include <fstream>
-
+#include <algorithm>
 namespace DPhy
 {	
 
@@ -107,11 +107,13 @@ Controller::Controller(std::string motion)
 
 	//temp
 	this->mTargetContacts = Eigen::VectorXd::Zero(6);
+	this->mRewardParts.resize(6, 0.0);
 
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
 	
 	this->torques.clear();
+
 }
 void 
 Controller::
@@ -125,6 +127,14 @@ SetReference(std::string motion)
 	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
+}
+const dart::dynamics::SkeletonPtr& 
+Controller::GetRefSkeleton() { 
+	return this->mRefCharacter->GetSkeleton(); 
+}
+const dart::dynamics::SkeletonPtr& 
+Controller::GetSkeleton() { 
+	return this->mCharacter->GetSkeleton(); 
 }
 void 
 Controller::
@@ -365,17 +375,30 @@ FollowBvh()
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 	return true;
 }
-// void
-// Controller::
-// computeInverseKinematics()
-// {
-// 	std::vector<std::tuple<std::string, Eigen::Vector3d, 
-// 	// solveMCIK(mCharacter->GetSkeleton(), const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints)
-// }
+void
+Controller::
+DeformCharacter()
+{
+	std::vector<std::tuple<std::string, int, double>> deform;
+	deform.push_back(std::make_tuple("ForeArmL", 0, 1.05));
+	deform.push_back(std::make_tuple("ArmL", 0, 1.05));
+	deform.push_back(std::make_tuple("ForeArmR", 0, 1.05));
+	deform.push_back(std::make_tuple("ArmR", 0, 1.05));
+	// deform.push_back(std::make_tuple("FemurL", 1, 0.98));
+	// deform.push_back(std::make_tuple("TibiaL", 1, 0.98));
+	// deform.push_back(std::make_tuple("FemurR", 1, 0.98));
+	// deform.push_back(std::make_tuple("TibiaR", 1, 0.98));
+
+	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
+	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
+	
+	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
+}
 void 
 Controller::
 Reset(bool RSI)
 {
+
 	this->mWorld->reset();
 	auto& skel = mCharacter->GetSkeleton();
 	Eigen::VectorXd p = skel->getPositions();

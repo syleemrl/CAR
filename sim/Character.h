@@ -38,7 +38,7 @@ public:
 	Character(const dart::dynamics::SkeletonPtr& skeleton);
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
-
+	void SetSkeleton(dart::dynamics::SkeletonPtr skel);
 	void SetPDParameters(double kp, double kv);
 	void SetPDParameters(const Eigen::VectorXd& kp, const Eigen::VectorXd& kv);
 	void SetPDParameters(const Eigen::VectorXd& k);
