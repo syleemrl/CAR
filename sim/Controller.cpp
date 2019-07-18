@@ -384,15 +384,19 @@ DeformCharacter()
 	deform.push_back(std::make_tuple("ArmL", 0, 1.05));
 	deform.push_back(std::make_tuple("ForeArmR", 0, 1.05));
 	deform.push_back(std::make_tuple("ArmR", 0, 1.05));
-	// deform.push_back(std::make_tuple("FemurL", 1, 0.98));
-	// deform.push_back(std::make_tuple("TibiaL", 1, 0.98));
-	// deform.push_back(std::make_tuple("FemurR", 1, 0.98));
-	// deform.push_back(std::make_tuple("TibiaR", 1, 0.98));
+	deform.push_back(std::make_tuple("FemurL", 1, 0.95));
+	deform.push_back(std::make_tuple("TibiaL", 1, 0.95));
+	deform.push_back(std::make_tuple("FemurR", 1, 0.95));
+	deform.push_back(std::make_tuple("TibiaR", 1, 0.95));
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
 	
-	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
+	this->mRefCharacter->RescaleOriginalBVH();
+
+	std::cout << "character rescaled: ";
+	for(int i = 0; i <deform.size(); i++) std::cout << std::get<0>(deform.at(i)) << " ";
+	std::cout << std::endl;
 }
 void 
 Controller::

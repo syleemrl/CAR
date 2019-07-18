@@ -50,6 +50,7 @@ public:
 
 	void ReadFramesFromBVH(BVH* bvh);
 	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, int t);
+	void RescaleOriginalBVH();
 	std::string GetContactNodeName(int i) { return mContactList[i]; };
 protected:
 	dart::dynamics::SkeletonPtr mSkeleton;

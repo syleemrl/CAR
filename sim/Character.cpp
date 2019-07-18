@@ -262,8 +262,8 @@ ReadFramesFromBVH(BVH* bvh)
 //calculate contact infomation
 	double heightLimit = 0.05;
 	double velocityLimit = 6;
-	int i = 0;
-	for(double t = 0; t < bvh->GetMaxTime(); t+=bvh->GetTimeStep())
+
+	for(int i = 0; i < mBVHFrames.size(); i++)
 	{
 		Eigen::VectorXd contact(mContactList.size());
 		contact.setZero();
@@ -272,19 +272,63 @@ ReadFramesFromBVH(BVH* bvh)
 		mSkeleton->setVelocities(mBVHFrames[i]->velocity);
 		mSkeleton->computeForwardKinematics(true,true,false);
 		
-		for(int i = 0; i < mContactList.size(); i++) 
+		for(int j = 0; j < mContactList.size(); j++) 
 		{
-			double height = mSkeleton->getBodyNode(mContactList[i])->getWorldTransform().translation()[1];
+			double height = mSkeleton->getBodyNode(mContactList[j])->getWorldTransform().translation()[1];
 			double velocity = mSkeleton->getBodyNode("FootEndR")->getLinearVelocity().norm();
 			if(height < heightLimit && velocity < velocityLimit) {
-				contact(i) = 1;
+				contact(j) = 1;
 			} 
 
 		}
-		mBVHFrames[i++]->SetContact(contact);
+		mBVHFrames[i]->SetContact(contact);
 	}
 }
+void
+Character::
+RescaleOriginalBVH()
+{
+	mSkeleton->setPositions(mBVHFrames[0]->position);
+	mSkeleton->setVelocities(mBVHFrames[0]->velocity);
+	mSkeleton->computeForwardKinematics(true,true,false);
+	
+	double minheight = 0;
+	for(int i = 0; i < mContactList.size(); i++) 
+	{
+		double height = mSkeleton->getBodyNode(mContactList[i])->getWorldTransform().translation()[1];
+		if(i == 0 || height < minheight) minheight = height;
+	}
+	for(int i = 0; i < mBVHFrames.size(); i++)
+	{
+		Eigen::VectorXd p = mBVHFrames[i]->position;
+		p[4] -= minheight;
+		mBVHFrames[i]->SetPosition(p);
+	}
 
+//calculate contact infomation
+	double heightLimit = 0.05;
+	double velocityLimit = 6;
+	for(int i = 0; i < mBVHFrames.size(); i++)
+	{
+		Eigen::VectorXd contact(mContactList.size());
+		contact.setZero();
+
+		mSkeleton->setPositions(mBVHFrames[i]->position);
+		mSkeleton->setVelocities(mBVHFrames[i]->velocity);
+		mSkeleton->computeForwardKinematics(true,true,false);
+		
+		for(int j = 0; j < mContactList.size(); j++) 
+		{
+			double height = mSkeleton->getBodyNode(mContactList[j])->getWorldTransform().translation()[1];
+			double velocity = mSkeleton->getBodyNode("FootEndR")->getLinearVelocity().norm();
+			if(height < heightLimit && velocity < velocityLimit) {
+				contact(j) = 1;
+			} 
+
+		}
+		mBVHFrames[i]->SetContact(contact);
+	}
+}
 Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,int t)
