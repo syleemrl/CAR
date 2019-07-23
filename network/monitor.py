@@ -174,9 +174,9 @@ class Monitor(object):
 
 			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
-		if self.total_rewards[-1] > 60:
-			self.skel_len *= 1.05
-			self.sim_env.DeformCharacter()
+		if self.skel_len < 2.0 and self.total_rewards[-1] > 85:
+		 	self.skel_len *= 1.05
+		 	self.sim_env.DeformCharacter()
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0

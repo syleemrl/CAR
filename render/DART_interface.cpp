@@ -13,6 +13,7 @@ DrawSkeleton(
 		auto shapeNodes = bn->getShapeNodesWith<VisualAspect>();
 		auto jn = bn->getParentJoint();
 		Eigen::Isometry3d jn_transform = bn->getTransform()*jn->getTransformFromChildBodyNode();
+
 		Eigen::Vector3d jn_com = jn_transform.translation();
 
 		std::string name = bn->getName();
@@ -52,6 +53,7 @@ DrawSkeleton(
 			glTranslatef(jn_com[0], jn_com[1], jn_com[2]);
 			GUI::DrawSphere(0.035);
 			glPopMatrix();
+
 		}
 		
 

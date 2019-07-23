@@ -286,7 +286,7 @@ ReadFramesFromBVH(BVH* bvh)
 }
 void
 Character::
-RescaleOriginalBVH()
+RescaleOriginalBVH(double w)
 {
 	mSkeleton->setPositions(mBVHFrames[0]->position);
 	mSkeleton->setVelocities(mBVHFrames[0]->velocity);
@@ -298,6 +298,7 @@ RescaleOriginalBVH()
 		double height = mSkeleton->getBodyNode(mContactList[i])->getWorldTransform().translation()[1];
 		if(i == 0 || height < minheight) minheight = height;
 	}
+
 	for(int i = 0; i < mBVHFrames.size(); i++)
 	{
 		Eigen::VectorXd p = mBVHFrames[i]->position;
@@ -308,8 +309,29 @@ RescaleOriginalBVH()
 //calculate contact infomation
 	double heightLimit = 0.05;
 	double velocityLimit = 6;
+	Eigen::VectorXd prev_p;
+	Eigen::VectorXd prev_v;
 	for(int i = 0; i < mBVHFrames.size(); i++)
 	{
+		if(i != 0) {
+			Eigen::VectorXd cur_p = mBVHFrames[i]->position;
+			Eigen::Vector3d d_p = cur_p.segment<3>(3) - prev_p.segment<3>(3);
+			d_p *= w;
+			prev_p = cur_p;
+			cur_p.segment<3>(3) = mBVHFrames[i-1]->position.segment<3>(3) + d_p;
+			mBVHFrames[i]->SetPosition(cur_p);
+
+			Eigen::VectorXd cur_v = mBVHFrames[i]->velocity;
+			Eigen::Vector3d d_v = cur_v.segment<3>(3) - prev_v.segment<3>(3);
+			d_v *= w;
+			prev_v = cur_v;
+			cur_v.segment<3>(3) = mBVHFrames[i-1]->velocity.segment<3>(3) + d_v;
+			mBVHFrames[i]->SetVelocity(cur_v);
+
+		} else {
+			prev_p = mBVHFrames[i]->position;
+			prev_v = mBVHFrames[i]->velocity;
+		}
 		Eigen::VectorXd contact(mContactList.size());
 		contact.setZero();
 
