@@ -12,7 +12,7 @@ class Env(object):
 		self.num_action = self.sim_env.GetNumAction()
 
 	def reset(self, i):
-		self.sim_env.Reset(i, False)
+		self.sim_env.Reset(i, True)
 	
 	def step(self, actions):
 		rewards = []

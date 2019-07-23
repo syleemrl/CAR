@@ -319,6 +319,7 @@ RescaleOriginalBVH(double w)
 			d_p *= w;
 			prev_p = cur_p;
 			cur_p.segment<3>(3) = mBVHFrames[i-1]->position.segment<3>(3) + d_p;
+			cur_p[4] = prev_p[4];
 			mBVHFrames[i]->SetPosition(cur_p);
 
 			Eigen::VectorXd cur_v = mBVHFrames[i]->velocity;
@@ -326,6 +327,7 @@ RescaleOriginalBVH(double w)
 			d_v *= w;
 			prev_v = cur_v;
 			cur_v.segment<3>(3) = mBVHFrames[i-1]->velocity.segment<3>(3) + d_v;
+			cur_v[4] = prev_v[4];
 			mBVHFrames[i]->SetVelocity(cur_v);
 
 		} else {
