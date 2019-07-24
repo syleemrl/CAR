@@ -355,8 +355,8 @@ RescaleOriginalBVH(double w)
 }
 Frame*
 Character::
-GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,int t)
+GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, int t, int step)
 {
-	return mBVHFrames[t];
+	return mBVHFrames[step * t];
 }
 };

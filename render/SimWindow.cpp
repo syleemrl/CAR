@@ -38,7 +38,7 @@ SimWindow(std::string motion, std::string network)
 	this->mSkelLength = 1;
 
 	this->mController->Reset(false);
-	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
+	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0, 2);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
 	mRefContact = p_v_target->contact;
 
@@ -219,23 +219,23 @@ void
 SimWindow::
 Reset()
 {
-	double w = 1.05;
-	this->mController->DeformCharacter(w);
-	this->mSkelLength *= w;
-	std::cout << this->mSkelLength << std::endl;
+	// double w = 1.05;
+	// this->mController->DeformCharacter(w);
+	// this->mSkelLength *= w;
+	// std::cout << this->mSkelLength << std::endl;
 
-	std::vector<std::tuple<std::string, int, double>> deform;
-	deform.push_back(std::make_tuple("FemurL", 1, w));
-	deform.push_back(std::make_tuple("TibiaL", 1, w));
-	deform.push_back(std::make_tuple("FemurR", 1, w));
-	deform.push_back(std::make_tuple("TibiaR", 1, w));
+	// std::vector<std::tuple<std::string, int, double>> deform;
+	// deform.push_back(std::make_tuple("FemurL", 1, w));
+	// deform.push_back(std::make_tuple("TibiaL", 1, w));
+	// deform.push_back(std::make_tuple("FemurR", 1, w));
+	// deform.push_back(std::make_tuple("TibiaR", 1, w));
 		
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);	
-	this->mRef->RescaleOriginalBVH(w);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);	
+	// this->mRef->RescaleOriginalBVH(w);
 	
 	this->mController->Reset(false);
 
-	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetCurrentCount());
+	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetCurrentCount(), 2);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
 	mRefContact = p_v_target->contact;
 	
@@ -339,7 +339,7 @@ void
 SimWindow::
 Step()
 {
-	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime()) 
+	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime() / 2.0) 
 	{
 		if(this->mRunPPO)
 		{
@@ -352,7 +352,7 @@ Step()
 			this->mController->Step();
 
 		}
-		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame+1);
+		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mCurFrame+1, 2);
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
 		mRefContact = p_v_target->contact;
 		this->mCurFrame++;

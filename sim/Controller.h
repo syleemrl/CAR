@@ -65,7 +65,8 @@ protected:
 	int mControlHz;
 	int mSimulationHz;
 	int mSimPerCon;
-
+	int mStep;
+	
 	Character* mCharacter;
 	Character* mRefCharacter;
 	dart::dynamics::SkeletonPtr mGround;

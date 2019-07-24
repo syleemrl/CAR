@@ -43,11 +43,11 @@ class Monitor(object):
 		self.states = [0]*self.num_slaves
 
 		self.skel_len = 1
-		self.w = 1.05
-		for _ in range(8):
-		 	self.skel_len *= w
-		 	self.sim_env.DeformCharacter(w)
-		print(self.skel_len)	 	
+		# self.w = 1.05
+		# for _ in range(8):
+		#  	self.skel_len *= w
+		#  	self.sim_env.DeformCharacter(w)
+		# print(self.skel_len)	 	
 		if self.plot:
 			plt.ion()
 

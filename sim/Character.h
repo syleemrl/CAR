@@ -49,7 +49,7 @@ public:
 	void LoadBVHMap(const std::string& path);
 
 	void ReadFramesFromBVH(BVH* bvh);
-	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, int t);
+	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, int t, int step=1);
 	void RescaleOriginalBVH(double w);
 	std::string GetContactNodeName(int i) { return mContactList[i]; };
 protected:
