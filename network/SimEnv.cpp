@@ -165,9 +165,9 @@ GetRewardsByParts()
 }
 void
 SimEnv::
-DeformCharacter()
+DeformCharacter(double w)
 {
-	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->DeformCharacter();
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->DeformCharacter(w);
 }
 
 using namespace boost::python;

@@ -25,7 +25,7 @@ public:
 	void Reset(int id,bool RSI);
 	p::tuple IsNanAtTerminal(int id);
 	int GetStartCount(int id);
-	void DeformCharacter();
+	void DeformCharacter(double w);
 
 	np::ndarray GetState(int id);
 	void SetAction(np::ndarray np_array,int id);

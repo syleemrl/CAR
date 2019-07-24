@@ -35,6 +35,8 @@ SimWindow(std::string motion, std::string network)
 	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
+	this->mSkelLength = 1;
+
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
@@ -66,7 +68,6 @@ SimWindow(std::string motion, std::string network)
 	this->Save();
 	this->SetFrame(this->mCurFrame);
 
-	this->mSkelLength = 1;
 }
 void 
 SimWindow::
@@ -218,20 +219,20 @@ void
 SimWindow::
 Reset()
 {
-	if(this->mSkelLength < 1.9) { 	
-		this->mController->DeformCharacter();
-		this->mSkelLength *= 1.05;
-		std::cout << this->mSkelLength << std::endl;
+	double w = 1.05;
+	this->mController->DeformCharacter(w);
+	this->mSkelLength *= w;
+	std::cout << this->mSkelLength << std::endl;
 
-		std::vector<std::tuple<std::string, int, double>> deform;
-		deform.push_back(std::make_tuple("FemurL", 1, 1.05));
-		deform.push_back(std::make_tuple("TibiaL", 1, 1.05));
-		deform.push_back(std::make_tuple("FemurR", 1, 1.05));
-		deform.push_back(std::make_tuple("TibiaR", 1, 1.05));
+	std::vector<std::tuple<std::string, int, double>> deform;
+	deform.push_back(std::make_tuple("FemurL", 1, w));
+	deform.push_back(std::make_tuple("TibiaL", 1, w));
+	deform.push_back(std::make_tuple("FemurR", 1, w));
+	deform.push_back(std::make_tuple("TibiaR", 1, w));
 		
-		DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);	
-		this->mRef->RescaleOriginalBVH(1.05);
-	}
+	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);	
+	this->mRef->RescaleOriginalBVH(w);
+	
 	this->mController->Reset(false);
 
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetCurrentCount());

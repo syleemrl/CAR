@@ -43,10 +43,11 @@ class Monitor(object):
 		self.states = [0]*self.num_slaves
 
 		self.skel_len = 1
-
-		for _ in range(6):
-		 	self.skel_len *= 0.95
-		 	self.sim_env.DeformCharacter()
+		self.w = 1.05
+		for _ in range(8):
+		 	self.skel_len *= w
+		 	self.sim_env.DeformCharacter(w)
+		print(self.skel_len)	 	
 		if self.plot:
 			plt.ion()
 
@@ -176,10 +177,6 @@ class Monitor(object):
 				y_list[i][0] = np.array(y_list[i][0])/np.array(self.transition_per_episodes)
 
 			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
-
-#		if self.skel_len > 0.6 and self.total_rewards[-1] > 85:
-#		 	self.skel_len *= 0.95
-#		 	self.sim_env.DeformCharacter()
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0

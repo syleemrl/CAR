@@ -54,7 +54,7 @@ Controller(std::string motion);
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
-	void DeformCharacter();
+	void DeformCharacter(double w);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;

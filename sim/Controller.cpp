@@ -377,18 +377,18 @@ FollowBvh()
 }
 void
 Controller::
-DeformCharacter()
+DeformCharacter(double w)
 {
 	std::vector<std::tuple<std::string, int, double>> deform;
-	deform.push_back(std::make_tuple("FemurL", 1, 0.95));
-	deform.push_back(std::make_tuple("TibiaL", 1, 0.95));
-	deform.push_back(std::make_tuple("FemurR", 1, 0.95));
-	deform.push_back(std::make_tuple("TibiaR", 1, 0.95));
+	deform.push_back(std::make_tuple("FemurL", 1, w));
+	deform.push_back(std::make_tuple("TibiaL", 1, w));
+	deform.push_back(std::make_tuple("FemurR", 1, w));
+	deform.push_back(std::make_tuple("TibiaR", 1, w));
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
 	
-	this->mRefCharacter->RescaleOriginalBVH(0.95);
+	this->mRefCharacter->RescaleOriginalBVH(w);
 
 	std::cout << "character rescaled: ";
 	for(int i = 0; i <deform.size(); i++) std::cout << std::get<0>(deform.at(i)) << " ";
