@@ -56,6 +56,7 @@ public:
 	const Eigen::Vector3d& GetRootCOM(){return mRootCOM;}
 	Eigen::Matrix3d Get(const std::string& body_node);
 
+	double GetMaxFrame(){return mNumTotalFrames;}
 	double GetMaxTime(){return mNumTotalFrames*mTimeStep;}
 	double GetTimeStep(){return mTimeStep;}
 	void Parse(const std::string& file);

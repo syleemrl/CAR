@@ -355,8 +355,56 @@ RescaleOriginalBVH(double w)
 }
 Frame*
 Character::
-GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, int t, int step)
+GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t)
 {
-	return mBVHFrames[step * t];
+	int k0 = (int) std::floor(t);
+	int k1 = (int) std::min(std::ceil(t), bvh->GetMaxFrame());
+
+	if (k0 == k1) 
+		return mBVHFrames[k0];
+
+	Frame* k0_f = mBVHFrames[k0];
+	Frame* k1_f = mBVHFrames[k1];
+	
+	double w = t - k0;
+	int size = k0_f->position.size();
+	Eigen::VectorXd position(size);
+	Eigen::VectorXd velocity(size);
+
+	for(int i = 0; i < size; i += 3) {
+		if(i == 3) {
+			position.segment<3>(i) = (1 - w) * k0_f->position.segment<3>(i) + w * k1_f->position.segment<3>(i);
+			velocity.segment<3>(i) = (1 - w) * k0_f->velocity.segment<3>(i) + w * k1_f->velocity.segment<3>(i);
+		} else {
+			Eigen::Quaterniond k0_q = DPhy::DARTPositionToQuaternion(k0_f->position.segment<3>(i));
+			Eigen::Quaterniond k1_q = DPhy::DARTPositionToQuaternion(k1_f->position.segment<3>(i));
+			position.segment<3>(i) = DPhy::QuaternionToDARTPosition(k0_q.slerp(w, k1_q));
+
+			k0_q = DPhy::DARTPositionToQuaternion(k0_f->velocity.segment<3>(i));
+			k1_q = DPhy::DARTPositionToQuaternion(k1_f->velocity.segment<3>(i));
+			velocity.segment<3>(i) = DPhy::QuaternionToDARTPosition(k0_q.slerp(w, k1_q));
+		}
+	}
+
+	double heightLimit = 0.05;
+	double velocityLimit = 6;
+
+	Eigen::VectorXd contact(mContactList.size());
+	contact.setZero();
+
+	mSkeleton->setPositions(position);
+	mSkeleton->setVelocities(velocity);
+	mSkeleton->computeForwardKinematics(true,true,false);
+		
+	for(int j = 0; j < mContactList.size(); j++) 
+	{
+		double height = mSkeleton->getBodyNode(mContactList[j])->getWorldTransform().translation()[1];
+		double velocity = mSkeleton->getBodyNode("FootEndR")->getLinearVelocity().norm();
+		if(height < heightLimit && velocity < velocityLimit) {
+			contact(j) = 1;
+		}
+	}
+
+	return new Frame(position, velocity, contact);
 }
 };

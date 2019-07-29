@@ -12,7 +12,7 @@ Controller::Controller(std::string motion)
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mSimPerCon = mSimulationHz / mControlHz;
-	this->mStep = 2;
+	this->mStep = 0.5;
 	this->mWorld = std::make_shared<dart::simulation::World>();
 	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
 
@@ -146,7 +146,7 @@ Step()
 	// set action target pos
 	int num_body_nodes = this->mInterestedBodies.size();
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount, mStep);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	this->mTargetContacts = p_v_target->contact;
@@ -361,7 +361,7 @@ FollowBvh()
 		return false;
 	auto& skel = mCharacter->GetSkeleton();
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount, mStep);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
 	mTargetPositions = p_v_target->position;
 	mTargetVelocities = p_v_target->velocity;
 
@@ -423,7 +423,7 @@ Reset(bool RSI)
 	}
 	this->mStartCount = this->mControlCount;
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount, mStep);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	this->mTargetContacts = p_v_target->contact;
@@ -561,7 +561,7 @@ GetState()
 
 	for(auto dt : tp_times){
 		int t = std::max(0, this->mControlCount + dt);
-		Frame* target_tuple = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t, mStep);
+		Frame* target_tuple = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t * mStep);
 
 		Eigen::VectorXd p = target_tuple->position;
 		Eigen::VectorXd v = target_tuple->velocity;
