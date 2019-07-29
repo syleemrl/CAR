@@ -357,7 +357,7 @@ Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t)
 {
-	int k0 = (int) std::floor(t);
+	int k0 = (int) std::min(std::floor(t), bvh->GetMaxFrame());
 	int k1 = (int) std::min(std::ceil(t), bvh->GetMaxFrame());
 
 	if (k0 == k1) 
