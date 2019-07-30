@@ -339,7 +339,7 @@ void
 SimWindow::
 Step()
 {
-	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime() / 2.5) 
+	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime() / 0.5) 
 	{
 		if(this->mRunPPO)
 		{
@@ -352,7 +352,7 @@ Step()
 			this->mController->Step();
 
 		}
-		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1) * 2.5);
+		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1) * 0.5);
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
 		mRefContact = p_v_target->contact;
 		this->mCurFrame++;

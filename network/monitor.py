@@ -168,7 +168,7 @@ class Monitor(object):
 						[np.asarray(self.total_rewards_by_parts[2]), 'v'], 
 						[np.asarray(self.total_rewards_by_parts[3]), 'com'],
 						[np.asarray(self.total_rewards_by_parts[4]), 'ee'],
-						[np.asarray(self.total_rewards_by_parts[5]), 'contact']]
+						[np.asarray(self.total_rewards_by_parts[5]), 'srl']]
 
 			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 

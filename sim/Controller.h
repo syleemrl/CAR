@@ -75,8 +75,11 @@ protected:
 	Eigen::VectorXd mTargetVelocities;
 	Eigen::VectorXd mTargetContacts;
 
-	Eigen::VectorXd mModifiedTargetPositions;
-	Eigen::VectorXd mModifiedTargetVelocities;
+	Eigen::VectorXd mAdaptiveTargetPositions;
+	Eigen::VectorXd mAdaptiveTargetVelocities;
+
+	Eigen::VectorXd mPDTargetPositions;
+	Eigen::VectorXd mPDTargetVelocities;
 
 	Eigen::VectorXd mActions;
 

@@ -89,7 +89,7 @@ Controller::Controller(std::string motion)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()*3);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 * 2);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -150,8 +150,14 @@ Step()
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	this->mTargetContacts = p_v_target->contact;
-	this->mModifiedTargetPositions = this->mTargetPositions;
-	this->mModifiedTargetVelocities = this->mTargetVelocities;
+
+	this->mPDTargetPositions = this->mTargetPositions;
+	this->mPDTargetVelocities = this->mTargetVelocities;
+
+	//SRL
+	this->mAdaptiveTargetPositions = this->mTargetPositions;
+	this->mAdaptiveTargetVelocities = this->mTargetVelocities;
+	
 
 	double action_multiplier = 0.2;
 	for(int i = 0; i < num_body_nodes*3; i++){
@@ -160,7 +166,8 @@ Step()
 
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		mModifiedTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
+		mPDTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
+		mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3 * num_body_nodes + 3*i);
 	}
 
 	// set pd gain action
@@ -181,7 +188,7 @@ Step()
 	kv = KV_RATIO * kp;
 	mCharacter->SetPDParameters(kp, kv);
 	for(int i = 0; i < this->mSimPerCon; i += 2){
-		Eigen::VectorXd torque = mCharacter->GetSPDForces(mModifiedTargetPositions,mModifiedTargetVelocities);
+		Eigen::VectorXd torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
@@ -201,10 +208,10 @@ UpdateReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//Position Differences
-	Eigen::VectorXd p_diff = skel->getPositionDifferences(this->mTargetPositions, skel->getPositions());
+	Eigen::VectorXd p_diff = skel->getPositionDifferences(this->mAdaptiveTargetPositions, skel->getPositions());
 
 	//Velocity Differences
-	Eigen::VectorXd v_diff = skel->getVelocityDifferences(this->mTargetVelocities, skel->getVelocities());
+	Eigen::VectorXd v_diff = skel->getVelocityDifferences(this->mAdaptiveTargetVelocities, skel->getVelocities());
 
 	Eigen::VectorXd p_diff_reward, v_diff_reward;
 	Eigen::Vector3d root_ori_diff;
@@ -240,8 +247,8 @@ UpdateReward()
 	
 	com_diff = skel->getCOM();
 
-	skel->setPositions(mTargetPositions);
-	skel->setVelocities(mTargetVelocities);
+	skel->setPositions(mAdaptiveTargetPositions);
+	skel->setVelocities(mAdaptiveTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
@@ -265,6 +272,16 @@ UpdateReward()
 	r_contact = r_contact / this->mTargetContacts.rows();
 	double scale = 1.0;
 
+	//srl
+	Eigen::VectorXd srl_diff = skel->getPositionDifferences(this->mAdaptiveTargetPositions, this->mTargetPositions);
+	Eigen::VectorXd srl_diff_reward;
+	srl_diff_reward.resize(num_reward_body_nodes*3);
+
+	for(int i = 0; i < num_reward_body_nodes; i++){
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		srl_diff_reward.segment<3>(3*i) = srl_diff.segment<3>(idx);
+	}
+
 	//mul
 	// double sig_p = 0.1 * scale; 		// 2
 	// double sig_v = 1.0 * scale;		// 3
@@ -282,16 +299,18 @@ UpdateReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
+	double r_s = exp_of_squared(srl_diff, sig_p);
 	// double r_tot = r_p*r_v*r_com*r_ee;
 	double r_tot =  w_p*r_p 
 					+ w_v*r_v 
 					+ w_com*r_com
-					+ w_ee*r_ee;
+					+ w_ee*r_ee
+					+ 0.25 * w_p*r_s;
 	// r_tot = 0.9*r_tot + 0.1*r_contact;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
-		mRewardParts.resize(5, 0.0);
+		mRewardParts.resize(6, 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
@@ -299,7 +318,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_contact);
+		mRewardParts.push_back(r_s);
 	}
 }
 void
@@ -426,7 +445,6 @@ Reset(bool RSI)
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
-	this->mTargetContacts = p_v_target->contact;
 
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
@@ -437,7 +455,6 @@ Reset(bool RSI)
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 	this->mControlCount++;
 	this->mRewardParts.resize(6, 0.0);
-
 }
 int
 Controller::
