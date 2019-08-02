@@ -13,24 +13,28 @@ using namespace dart::dynamics;
 SimWindow::
 SimWindow(std::string motion, std::string network)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
-	mDrawOutput(true), mDrawRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
+	mDrawOutput(true), mDrawRef(true), mDrawAdaptiveRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
 {
 	if(network.compare("") == 0) {
 		this->mDrawOutput = false;
+		this->mDrawAdaptiveRef = false;
 		this->mRunPPO = false;
 	}
 
 	this->mController = new DPhy::Controller(motion);
 	this->mWorld = this->mController->GetWorld();
 
-	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
-	this->mRef = new DPhy::Character(path);
-	this->mRef->LoadBVHMap(path);
-	
-	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
+	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH = new DPhy::BVH();
 	this->mBVH->Parse(path);
+
+	path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+
+	this->mRef = new DPhy::Character(path);
+	this->mRef->LoadBVHMap(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
+
+	this->mAdaptiveRef = DPhy::SkeletonBuilder::BuildFromFile(path);
 
 	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
@@ -40,6 +44,7 @@ SimWindow(std::string motion, std::string network)
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
+	mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 	mRefContact = p_v_target->contact;
 
 	if(this->mRunPPO)
@@ -74,9 +79,9 @@ SimWindow::
 MemoryClear() {
     mMemory.clear();
     mMemoryRef.clear();
+    mMemoryAdaptiveRef.clear();
     mMemoryRefContact.clear();
-    mMemoryRewContact.clear();
-    mReward = 0;
+    mReward.clear();
 }
 void 
 SimWindow::
@@ -84,13 +89,17 @@ Save() {
     SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
     mMemory.emplace_back(humanoidSkel->getPositions());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
+    mMemoryAdaptiveRef.emplace_back(mAdaptiveRef->getPositions());
     mMemoryRefContact.emplace_back(mRefContact);
-    mMemoryRewContact.emplace_back(this->mController->GetRewardByParts()[5]);
     this->mTotalFrame++;
     if(this->mRunPPO && !this->mController->IsTerminalState())
     {
-    	if(this->mTotalFrame != 1) mReward += this->mController->GetReward();
-    	std::cout << this->mTotalFrame-1 << ": " << mReward << std::endl;
+    	if(this->mTotalFrame != 1) mReward = this->mController->GetRewardByParts();
+    	std::cout << this->mTotalFrame-1 << ":";
+    	for(int i = 0; i < mReward.size(); i++) {
+    	 	std::cout << " " << mReward[i];
+    	}
+    	std::cout << std::endl;
 	}
 
 }
@@ -112,6 +121,7 @@ SetFrame(int n)
     SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
     humanoidSkel->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
+    mAdaptiveRef->setPositions(mMemoryAdaptiveRef[n]);
     mRefContact = mMemoryRefContact[n];
 }
 void
@@ -151,6 +161,9 @@ DrawSkeletons()
 			if(this->mRefContact[i] == 1)
 				GUI::DrawBodyNode(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255.*0.4, 87./255.*0.4, 87./255.*0.4, 1.0), this->mRef->GetContactNodeName(i), 0);
 		}
+	}
+	if(this->mDrawAdaptiveRef) {
+		GUI::DrawSkeleton(this->mAdaptiveRef, 0);
 	}
 }
 void
@@ -237,6 +250,7 @@ Reset()
 
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
+	mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 	mRefContact = p_v_target->contact;
 	
 	this->mCurFrame = 0;
@@ -264,6 +278,7 @@ Keyboard(unsigned char key,int x,int y)
 		case 'r': Reset();break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
 		case '2': mDrawRef = !mDrawRef;break;
+		case '3': if(this->mRunPPO) mDrawAdaptiveRef = !mDrawAdaptiveRef;break;
 		case '1': if(this->mRunPPO) mDrawOutput = !mDrawOutput;break;
 		case ' ':
 			mIsAuto = !mIsAuto;
@@ -354,6 +369,7 @@ Step()
 		}
 		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1) * 0.5);
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
+		mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 		mRefContact = p_v_target->contact;
 		this->mCurFrame++;
 		this->Save();

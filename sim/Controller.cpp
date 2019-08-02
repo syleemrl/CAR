@@ -160,7 +160,7 @@ Step()
 	
 
 	double action_multiplier = 0.2;
-	for(int i = 0; i < num_body_nodes*3; i++){
+	for(int i = 0; i < 2*num_body_nodes*3; i++){
 		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
 	}
 
@@ -299,13 +299,13 @@ UpdateReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_s = exp_of_squared(srl_diff, sig_p);
+	double r_s = exp_of_squared(srl_diff_reward, sig_p);
 	// double r_tot = r_p*r_v*r_com*r_ee;
 	double r_tot =  w_p*r_p 
 					+ w_v*r_v 
 					+ w_com*r_com
 					+ w_ee*r_ee
-					+ 0.25 * w_p*r_s;
+					+ w_p*r_s;
 	// r_tot = 0.9*r_tot + 0.1*r_contact;
 
 	mRewardParts.clear();
@@ -445,7 +445,10 @@ Reset(bool RSI)
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
-
+	
+	this->mAdaptiveTargetPositions = this->mTargetPositions;
+	this->mAdaptiveTargetVelocities = this->mTargetVelocities;
+	
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);

@@ -55,6 +55,8 @@ Controller(std::string motion);
 	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
 	void DeformCharacter(double w);
+
+	Eigen::VectorXd GetAdaptivePosition() {return mAdaptiveTargetPositions; };
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;

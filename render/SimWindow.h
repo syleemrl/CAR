@@ -71,21 +71,22 @@ protected:
 	bool mIsAuto;
 	bool mTrackCamera;
 	bool mDrawRef;
+	bool mDrawAdaptiveRef;
 	bool mDrawOutput;
 	bool mRunPPO;
 
 	double mTimeStep;
 	int mCurFrame;
 	int mTotalFrame;
-	double mReward;
+	std::vector<double> mReward;
 	double mSkelLength;
 	
-	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRefContact;
-	std::vector<double> mMemoryRewContact;
+	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryAdaptiveRef, mMemoryRefContact;
 	Eigen::VectorXd mRefContact;
 
 	DPhy::Controller* mController;
 	DPhy::Character* mRef;
+	dart::dynamics::SkeletonPtr mAdaptiveRef;
 	DPhy::BVH* mBVH;
 
 	p::object mPPO;
