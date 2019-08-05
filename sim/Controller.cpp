@@ -305,7 +305,7 @@ UpdateReward()
 					+ w_v*r_v 
 					+ w_com*r_com
 					+ w_ee*r_ee
-					+ w_p*r_s;
+					+ 0.5*w_p*r_s;
 	// r_tot = 0.9*r_tot + 0.1*r_contact;
 
 	mRewardParts.clear();
