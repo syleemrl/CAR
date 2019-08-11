@@ -12,7 +12,7 @@ Controller::Controller(std::string motion)
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mSimPerCon = mSimulationHz / mControlHz;
-	this->mStep = 0.5;
+	this->mStep = 1;
 	this->mWorld = std::make_shared<dart::simulation::World>();
 	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
 
