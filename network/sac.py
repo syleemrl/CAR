@@ -1,23 +1,14 @@
-from collections import OrderedDict
-from numbers import Number
-
+import argparse
+import random
+import pickle
+import datetime
+import os
+import time
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from flatten_dict import flatten
-
-from softlearning.models.utils import flatten_input_structure
-from .rl_algorithm import RLAlgorithm
-
-
-def td_target(reward, discount, next_value):
-    return reward + discount * next_value
 
 class ReplayBuffer:
-    """
-    A simple FIFO experience replay buffer for SAC agents.
-    """
-
     def __init__(self, obs_dim, act_dim, size):
         self.obs1_buf = np.zeros([size, obs_dim], dtype=np.float32)
         self.obs2_buf = np.zeros([size, obs_dim], dtype=np.float32)
@@ -43,20 +34,28 @@ class ReplayBuffer:
                     reward=self.rews_buf[idxs],
                     terminal=self.done_buf[idxs])
 
+class SquashBijector(tfp.bijectors.Bijector):
+    def __init__(self, validate_args=False, name="tanh"):
+        super(SquashBijector, self).__init__(
+            forward_min_event_ndims=0,
+            validate_args=validate_args,
+            name=name)
+
+    def _forward(self, x):
+        return tf.nn.tanh(x)
+
+    def _inverse(self, y):
+        return tf.atanh(y)
+
+    def _forward_log_det_jacobian(self, x):
+        return 2. * (np.log(2.) - x - tf.nn.softplus(-2. * x))
+
 class Actor(object):
-    def __init__(self, sess, scope, state, num_actions):
-        self.sess = sess
+    def __init__(self, scope):
         self.scope = scope
 
-        self.mean, self.logstd, self.std = self.createNetwork(state, num_actions, False, None)
-        self.policy = self.mean + self.std * tf.random_normal(tf.shape(self.mean))
-        self.neglogprob = self.neglogp(self.policy)
-
-    def neglogp(self, x):
-        return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / self.std), axis=-1) + 0.5 * np.log(2.0 * np.pi) * tf.to_float(tf.shape(x)[-1]) + tf.reduce_sum(self.logstd, axis=-1)
-
-    def createNetwork(self, state, num_actions, reuse, is_training):
-        with tf.variable_scope(self.scope, reuse=reuse):
+    def getAction(self, state, batch_size=64):
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
             L1 = tf.layers.dense(state,actor_layer_size,activation=activ,name='L1',
                 kernel_initializer=kernel_initialize_func,
                 kernel_regularizer=regularizer
@@ -76,26 +75,32 @@ class Actor(object):
                 kernel_initializer=kernel_initialize_func,
                 kernel_regularizer=regularizer
             )
-            mean = tf.layers.dense(L4,num_actions,name='mean',
+            out = tf.layers.dense(L4,num_actions * 2,name='out',
                 kernel_initializer=kernel_initialize_func,
                 kernel_regularizer=regularizer
             )
-            self.logstdvar = logstd = tf.get_variable(name='std', 
-                shape=[num_actions], initializer=tf.constant_initializer(0)
+            shift, logstd = tf.split(out, num_or_size_splits=2, axis=-1) 
+            logstd =  tf.clip_by_value(logstd, -20, 2)
+            
+            distribution = tfp.distributions.MultivariateNormalDiag(loc=tf.zeros(num_actions), scale_diag=tf.ones(num_actions))
+            latents = base_distribution.sample(batch_size)
+            
+            bijector = tfp.bijectors.Affine(shift=shift, scale_diag=tf.exp(logstd))
+            squash_bijector = SquashBijector()
+
+            actions = bijector.forward(latents)
+            actions = squash_bijector.forward()
+
+            bijector = tfp.bijectors.Chain((squash_bijector, bijector))
+            distribution = (
+                tfp.distributions.ConditionalTransformedDistribution(
+                distribution=distribution,
+                bijector=bijector)
             )
-            sigma = tf.exp(logstd)
 
-            return mean, logstd, sigma
+            logpi = distribution.log_prob(actions)[:, None]
 
-    def getAction(self, states):
-        with tf.variable_scope(self.scope):
-            action, neglogprob = self.sess.run([self.policy, self.neglogprob], feed_dict={'state:0':states})
-            return action, neglogprob
-
-    def getMeanAction(self, states):
-        with tf.variable_scope(self.scope):
-            action = self.sess.run([self.mean], feed_dict={'state:0':states})
-            return action[0]
+            return actions, logpi
 
     def getVariable(self, trainable_only=False):
         if trainable_only:
@@ -105,12 +110,11 @@ class Actor(object):
 
 
 class Critic(object):
-    def __init__(self, scope, state, action):
+    def __init__(self, scope):
         self.scope = scope
-        self.createNetwork(state, action, False, None)
 
-    def createNetwork(self, state, action, reuse, is_training): 
-        with tf.variable_scope(self.scope, reuse=reuse):
+    def getQ(self, state, action): 
+        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
             input = tf.concat([state, action], axis=1)
 
             L1 = tf.layers.dense(input,critic_layer_size,activation=activ,name='L1',
@@ -123,14 +127,11 @@ class Critic(object):
                 kernel_regularizer=regularizer
             )
 
-            self.out = tf.layers.dense(L2,1,name='out',
+            out = tf.layers.dense(L2,1,name='out',
                 kernel_initializer=kernel_initialize_func,
                 kernel_regularizer=regularizer
             )
-
-
-    def getQ(self, states, actions):
-        return self.out
+            return out
 
     def getVariable(self, trainable_only=False):
         if trainable_only:
@@ -155,8 +156,8 @@ class SAC(object):
         self.tau = tau
         self.target_update_interval = target_update_interval
 
-    def initTrain(self, name, env, pretrain="", evaluation=False,
-        directory=None, batch_size=1024, steps_per_iteration=20000):
+    def initTrain(self, name, env, pretrain="",
+        directory=None, batch_size=64, steps_per_iteration=100):
         self.name = name
         self.evaluation = evaluation
         self.directory = directory
@@ -197,82 +198,85 @@ class SAC(object):
         self.terminals_ph = tf.placeholder(tf.float32, shape=[None], name='terminals')
         self.rewards_ph = tf.placeholder(tf.float32, shape=[None], name='rewards')
 
-        self.actor = Actor(self.sess, 'Actor', self.state_ph, self.num_action)
-        self.critics = [Critic(self.sess, 'Critic', self.state_ph, self.action_ph) for _ in range(2)]
+        self.actor = Actor('Actor')
+        self.critics = [Critic('Critic'+str(i)) for i in range(2)]
+        self.critics_target = [Critic('CriticTarget'+str(i)) for i in range(2)]
 
-        self.init_actor_update()
-        self.init_critic_update()
+        self.training_ops = []
 
-    def get_Q_target(self):
-        next_actions = self.actor.getAction(next_state_ph)
-        next_log_pis = self.actor.getLogPIs(next_state_ph, next_actions_ph)
+        self.buildUpdateActor()
+        self.buildUpdateCritic()
 
-        next_Qs_values = [self.critic_targets[i].getQ(next_state_ph, next_action_ph) for i in range(2)]
+        self.sess.run(tf.global_variables_initializer())
+
+    def getQtarget(self):
+        next_action, next_log_pis = self.actor.getAction(next_state_ph)
+        next_Qs_values = [self.critic_targets[i].getQ(next_state_ph, next_action) for i in range(2)]
 
         min_next_Q = tf.reduce_min(next_Qs_values, axis=0)
         next_values = min_next_Q - self.alpha * next_log_pis
 
-        Q_target = td_target(
-            reward=self.reward_scale * self.rewards_ph,
-            discount=self.discount,
-            next_value=(1 - self.terminals_ph) * next_values)
+        Q_target = self.reward_scale * self.rewards_ph + self.discount * (1 - self.terminals_ph) * next_values
 
         return tf.stop_gradient(Q_target)
 
-    def init_critic_update(self):
+    def buildUpdateCritic(self):
  
-        Q_target = self.get_Q_target()
+        Q_target = self.getQtarget()
         Q_values = [self.critics[i].getQ(state_ph, action_ph) for i in range(2)]
 
         Q_losses = [tf.compat.v1.losses.mean_squared_error(labels=Q_target, predictions=Q_value, weights=0.5) for Q_value in Q_values]
 
         self.critic_optimizers = [tf.compat.v1.train.AdamOptimizer(learning_rate=self.Q_lr, name='critic_{}_optimizer'.format(i)) for i in range(2)]
 
-        self.critic_training_ops = [ Q_optimizer.minimize(loss=Q_loss, var_list=Q.getVariable(True))
+        self.critic_train_ops = [Q_optimizer.minimize(loss=Q_loss, var_list=Q.getVariable(True))
             for i, (Q, Q_loss, Q_optimizer) in enumerate(zip(self.critics, Q_losses, self.critic_optimizers))]
 
-    def _init_actor_update(self):
+        self.training_ops.append(self.critic_train_ops)
 
-        actions = self.actor.getAction(state_ph)
-        log_pis = self.actor.getLogPIs(state_ph, actions)
+    def buildUpdateActor(self):
+
+        action, log_pis = self.actor.getAction(state_ph)
 
         log_alpha = tf.compat.v1.get_variable('log_alpha', dtype=tf.float32, initializer=0.0)
-        alpha = tf.exp(log_alpha)
-
+       
         alpha_loss = -tf.reduce_mean(log_alpha * tf.stop_gradient(log_pis + self.target_entropy))
 
-        self.alpha_optimizer = tf.compat.v1.train.AdamOptimizer(self._policy_lr, name='alpha_optimizer')
-        self.alpha_train_op = self.alpha_optimizer.minimize(loss=alpha_loss, var_list=[log_alpha])
+        self.alpha_optimizer = tf.compat.v1.train.AdamOptimizer(self.policy_lr, name='alpha_optimizer')
+        self.alpha_train_ops = self.alpha_optimizer.minimize(loss=alpha_loss, var_list=[log_alpha])
+        self.training_ops.append(alpha_train_ops)
 
-        self.alpha = alpha
+        self.alpha = tf.exp(log_alpha)
 
         Q_log_targets = [self.critics[i].getQ(state_ph, action) for i in range(2)]
         min_Q_log_target = tf.reduce_min(Q_log_targets, axis=0)
 
-        policy_kl_losses = (alpha * log_pis - min_Q_log_target)
+        policy_kl_losses = (self.alpha * log_pis - min_Q_log_target)
         policy_loss = tf.reduce_mean(policy_kl_losses)
 
         self.actor_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=self.policy_lr, name="policy_optimizer")
-        self.actor_train_op = self._policy_optimizer.minimize(loss=policy_loss, var_list=self.actor.getVariable(True))
+        self.actor_train_ops = self.actor_optimizer.minimize(loss=policy_loss, var_list=self.actor.getVariable(True))
+        self.training_ops.append(self.actor_train_ops)
 
     def updateTarget(self, tau=None):
         tau = tau or self.tau
 
+        update_op = []
+
         for critic, critic_target in zip(self.critics, self.critic_targets):
-            source_params = critic.get_weights()
-            target_params = critic_target.get_weights()
-            critic_target.set_weights([
-                tau * source + (1.0 - tau) * target
-                for source, target in zip(source_params, target_params)
-            ])
+            source_params = critic.getVariable(True)
+            target_params = critic_target.getVariable(True)
+            for src, target in zip(source_params, target_params):
+                update_op.append(target.assign((1. - TAU) * target.value() + TAU * src.value()))
+
+        self.sess.run(update_op)
 
     def update(self):
-        batch = self.memory.sample_batch()
-        self._session.run([self.actor_train_op, self.critic_training_ops, self.alpha_train_op], 
+        batch = self.memory.sample_batch(self.batch_size)
+        self.session.run(self.training_ops, 
             feed_dict={self.state_ph: batch['state'], self.next_state_ph: batch['next_state'], self.action_ph: batch['action'], self.reward_ph: batch['reward'], self.terminal_ph: batch['terminal']})
 
-        if iteration % self._target_update_interval == 0:
-            self.updateTarget()
+        self.updateTarget()
 
     def train(self, num_iteration):
         for it in range(num_iteration):
@@ -286,7 +290,10 @@ class SAC(object):
             
             while True:
                 # set action
-                actions, neglogprobs = self.actor.getAction(states)
+                if it < 5:
+                    actions, _ = np.random.rand(self.num_action)
+                else:
+                    actions, _ = self.actor.getAction(states, 1)
                 rewards, dones = self.env.step(actions)
                 next_states = self.env.getStates()
 
@@ -312,18 +319,27 @@ class SAC(object):
 
                 states = self.env.getStates()
             
+            if it >= 4:
+                for _ in range(self.steps_per_iteration):
+                    self.update() 
+
             print('')
-            self.update() 
               
-            if it % 5 == 4:
+            if it % 10 == 0:
                 if self.directory is not None:
                     self.save()
                 self.env.printSummary()
+    
+    def save(self):
+        self.saver.save(self.sess, self.directory + "network", global_step = 0)
+
+    def load(self, path):
+        self.saver.restore(self.sess, path)
 
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ntimesteps", type=int, default = 1000000)
+    parser.add_argument("--ntimesteps", type=int, default = 10000000)
     parser.add_argument("--motion", type=str, default=None)
     parser.add_argument("--test_name", type=str, default="")
     parser.add_argument("--pretrain", type=str, default="")
@@ -348,5 +364,5 @@ if __name__=="__main__":
     else:
         env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory, plot=args.plot)
     sac = SAC()
-    sac.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
+    sac.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain)
     sac.train(args.ntimesteps)
