@@ -7,6 +7,19 @@ import time
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+from monitor import Monitor
+from IPython import embed
+from tensorflow import keras
+from utils import RunningMeanStd
+
+activ = tf.nn.relu
+kernel_initialize_func = tf.contrib.layers.xavier_initializer()
+actor_layer_size = 1024
+critic_layer_size = 512
+initial_state_layer_size = 512
+l2_regularizer_scale = 0.0
+regularizer = tf.contrib.layers.l2_regularizer(l2_regularizer_scale)
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 class ReplayBuffer:
     def __init__(self, obs_dim, act_dim, size):
@@ -51,11 +64,12 @@ class SquashBijector(tfp.bijectors.Bijector):
         return 2. * (np.log(2.) - x - tf.nn.softplus(-2. * x))
 
 class Actor(object):
-    def __init__(self, scope):
+    def __init__(self, scope, state, num_actions, batch_size=64, reuse=False):
         self.scope = scope
+        self.mean_action, self.action, self.log_pi = self.buildNetwork(state, num_actions, batch_size, reuse)
 
-    def getAction(self, state, batch_size=64):
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+    def buildNetwork(self, state, num_actions, batch_size, reuse):
+        with tf.variable_scope(self.scope, reuse=reuse):
             L1 = tf.layers.dense(state,actor_layer_size,activation=activ,name='L1',
                 kernel_initializer=kernel_initialize_func,
                 kernel_regularizer=regularizer
@@ -75,32 +89,38 @@ class Actor(object):
                 kernel_initializer=kernel_initialize_func,
                 kernel_regularizer=regularizer
             )
-            out = tf.layers.dense(L4,num_actions * 2,name='out',
+
+            out = tf.layers.dense(L4,num_actions*2,name='out',
                 kernel_initializer=kernel_initialize_func,
                 kernel_regularizer=regularizer
             )
+
             shift, logstd = tf.split(out, num_or_size_splits=2, axis=-1) 
             logstd =  tf.clip_by_value(logstd, -20, 2)
             
-            distribution = tfp.distributions.MultivariateNormalDiag(loc=tf.zeros(num_actions), scale_diag=tf.ones(num_actions))
+            base_distribution = tfp.distributions.MultivariateNormalDiag(
+            loc=tf.zeros(num_actions),             
+            scale_diag=tf.ones(num_actions))
+
             latents = base_distribution.sample(batch_size)
             
             bijector = tfp.bijectors.Affine(shift=shift, scale_diag=tf.exp(logstd))
-            squash_bijector = SquashBijector()
-
             actions = bijector.forward(latents)
-            actions = squash_bijector.forward()
+
+            squash_bijector = SquashBijector()
+            actions = squash_bijector.forward(actions)
+            mean_actions = squash_bijector.forward(shift)
 
             bijector = tfp.bijectors.Chain((squash_bijector, bijector))
             distribution = (
                 tfp.distributions.ConditionalTransformedDistribution(
-                distribution=distribution,
+                distribution=base_distribution,
                 bijector=bijector)
             )
 
             logpi = distribution.log_prob(actions)[:, None]
 
-            return actions, logpi
+            return mean_actions, actions, logpi
 
     def getVariable(self, trainable_only=False):
         if trainable_only:
@@ -108,13 +128,13 @@ class Actor(object):
         else:
             return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
 
-
 class Critic(object):
-    def __init__(self, scope):
+    def __init__(self, state, action, scope, reuse=False):
         self.scope = scope
+        self.Q = self.buildNetwork(state, action, reuse)
 
-    def getQ(self, state, action): 
-        with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
+    def buildNetwork(self, state, action, reuse): 
+        with tf.variable_scope(self.scope, reuse=reuse):
             input = tf.concat([state, action], axis=1)
 
             L1 = tf.layers.dense(input,critic_layer_size,activation=activ,name='L1',
@@ -139,7 +159,6 @@ class Critic(object):
         else:
             return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
 
-
 class SAC(object):
     def __init__(self, lr=3e-4, reward_scale=1.0,
             discount=0.99, tau=5e-3, target_update_interval=1):
@@ -157,9 +176,8 @@ class SAC(object):
         self.target_update_interval = target_update_interval
 
     def initTrain(self, name, env, pretrain="",
-        directory=None, batch_size=64, steps_per_iteration=100):
+        directory=None, batch_size=64, steps_per_iteration=200):
         self.name = name
-        self.evaluation = evaluation
         self.directory = directory
         self.steps_per_iteration = steps_per_iteration
         self.batch_size = batch_size
@@ -180,8 +198,20 @@ class SAC(object):
 
         #build network and optimizer
         self.buildOptimize()
-        self.updateTarget(tau=1.0)
-  
+
+        self.soft_copy_ops = []
+        self.hard_copy_ops = []
+        
+        for critic, critic_target in zip(self.critics, self.critic_targets):
+            source_params = critic.getVariable(True)
+            target_params = critic_target.getVariable(True)
+            for src, target in zip(source_params, target_params):
+                self.soft_copy_ops.append(target.assign((1. - self.tau) * target.value() + self.tau * src.value()))
+                self.hard_copy_ops.append(target.assign(src.value()))
+
+        self.sess.run(self.hard_copy_ops)
+        writer = tf.summary.FileWriter('logs', self.sess.graph)
+        summary_merged = tf.summary.merge_all()  
         save_list = tf.trainable_variables()
         self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
             
@@ -191,6 +221,32 @@ class SAC(object):
 
         self.printSetting()
 
+    def initRun(self, pretrain, num_state, num_action, num_slaves=4):
+        self.pretrain = pretrain
+
+        self.batch_size = 1
+        self.num_slaves = num_slaves
+        self.num_action = num_action
+        self.num_state = num_state
+
+        self.target_entropy = -np.prod(self.num_action)
+
+        config = tf.ConfigProto()
+        config.intra_op_parallelism_threads = self.num_slaves
+        config.inter_op_parallelism_threads = self.num_slaves
+        self.sess = tf.Session(config=config)
+
+        #build network and optimizer
+        self.buildOptimize()
+        
+        save_list = tf.trainable_variables()
+        self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
+        
+        if self.pretrain is not "":
+            self.load(self.pretrain +"/network-0")
+            self.RMS = RunningMeanStd(shape=(self.num_state))
+            self.RMS.load(self.pretrain+'/rms')
+
     def buildOptimize(self):
         self.state_ph = tf.placeholder(tf.float32, shape=[None, self.num_state], name='state')
         self.next_state_ph = tf.placeholder(tf.float32, shape=[None, self.num_state], name='next_state')
@@ -198,20 +254,35 @@ class SAC(object):
         self.terminals_ph = tf.placeholder(tf.float32, shape=[None], name='terminals')
         self.rewards_ph = tf.placeholder(tf.float32, shape=[None], name='rewards')
 
-        self.actor = Actor('Actor')
-        self.critics = [Critic('Critic'+str(i)) for i in range(2)]
-        self.critics_target = [Critic('CriticTarget'+str(i)) for i in range(2)]
+        self.actor = Actor('Actor', self.state_ph, self.num_action, 1)
+        self.critics = [Critic(self.state_ph, self.action_ph, 'Critic'+str(i)) for i in range(2)]
+        print(self.critics[0].getVariable(True))
+
+        self.critic_targets = [Critic(self.state_ph, self.action_ph, 'CriticTarget'+str(i)) for i in range(2)]
 
         self.training_ops = []
 
         self.buildUpdateActor()
         self.buildUpdateCritic()
-
         self.sess.run(tf.global_variables_initializer())
 
+    # def getQtarget(self):
+    #     next_action, next_log_pis = self.actor.getAction(self.next_state_ph)
+    #     next_Qs_values = [self.critic_targets[i].getQ(self.next_state_ph, next_action) for i in range(2)]
+
+    #     min_next_Q = tf.reduce_min(next_Qs_values, axis=0)
+    #     next_values = min_next_Q - self.alpha * next_log_pis
+
+    #     Q_target = self.reward_scale * self.rewards_ph + self.discount * (1 - self.terminals_ph) * next_values
+
+    #     return tf.stop_gradient(Q_target)
+
     def getQtarget(self):
-        next_action, next_log_pis = self.actor.getAction(next_state_ph)
-        next_Qs_values = [self.critic_targets[i].getQ(next_state_ph, next_action) for i in range(2)]
+        actor_for_update = Actor('Actor', self.next_state_ph, self.num_action, self.batch_size, True)
+        next_action = actor_for_update.action
+        next_log_pis = actor_for_update.log_pi
+        critic_targets_for_update = [Critic(self.next_state_ph, next_action, 'CriticTarget'+str(i), True) for i in range(2)]
+        next_Qs_values = [critic_targets_for_update[i].Q for i in range(2)]
 
         min_next_Q = tf.reduce_min(next_Qs_values, axis=0)
         next_values = min_next_Q - self.alpha * next_log_pis
@@ -223,7 +294,8 @@ class SAC(object):
     def buildUpdateCritic(self):
  
         Q_target = self.getQtarget()
-        Q_values = [self.critics[i].getQ(state_ph, action_ph) for i in range(2)]
+    #    Q_values = [self.critics[i].getQ(self.state_ph, self.action_ph) for i in range(2)]
+        Q_values = [self.critics[i].Q for i in range(2)]
 
         Q_losses = [tf.compat.v1.losses.mean_squared_error(labels=Q_target, predictions=Q_value, weights=0.5) for Q_value in Q_values]
 
@@ -236,7 +308,8 @@ class SAC(object):
 
     def buildUpdateActor(self):
 
-        action, log_pis = self.actor.getAction(state_ph)
+        action = self.actor.action
+        log_pis = self.actor.log_pi
 
         log_alpha = tf.compat.v1.get_variable('log_alpha', dtype=tf.float32, initializer=0.0)
        
@@ -244,11 +317,13 @@ class SAC(object):
 
         self.alpha_optimizer = tf.compat.v1.train.AdamOptimizer(self.policy_lr, name='alpha_optimizer')
         self.alpha_train_ops = self.alpha_optimizer.minimize(loss=alpha_loss, var_list=[log_alpha])
-        self.training_ops.append(alpha_train_ops)
+        self.training_ops.append(self.alpha_train_ops)
 
         self.alpha = tf.exp(log_alpha)
 
-        Q_log_targets = [self.critics[i].getQ(state_ph, action) for i in range(2)]
+        critics_for_update = [Critic(self.state_ph, action, 'Critic'+str(i), True) for i in range(2)]
+
+        Q_log_targets = [critics_for_update[i].Q for i in range(2)]
         min_Q_log_target = tf.reduce_min(Q_log_targets, axis=0)
 
         policy_kl_losses = (self.alpha * log_pis - min_Q_log_target)
@@ -258,25 +333,39 @@ class SAC(object):
         self.actor_train_ops = self.actor_optimizer.minimize(loss=policy_loss, var_list=self.actor.getVariable(True))
         self.training_ops.append(self.actor_train_ops)
 
-    def updateTarget(self, tau=None):
-        tau = tau or self.tau
-
-        update_op = []
-
-        for critic, critic_target in zip(self.critics, self.critic_targets):
-            source_params = critic.getVariable(True)
-            target_params = critic_target.getVariable(True)
-            for src, target in zip(source_params, target_params):
-                update_op.append(target.assign((1. - TAU) * target.value() + TAU * src.value()))
-
-        self.sess.run(update_op)
-
     def update(self):
-        batch = self.memory.sample_batch(self.batch_size)
-        self.session.run(self.training_ops, 
-            feed_dict={self.state_ph: batch['state'], self.next_state_ph: batch['next_state'], self.action_ph: batch['action'], self.reward_ph: batch['reward'], self.terminal_ph: batch['terminal']})
 
-        self.updateTarget()
+        batch = self.memory.sample_batch(self.batch_size)
+        self.sess.run(self.training_ops, 
+            feed_dict={self.state_ph: batch['state'], self.next_state_ph: batch['next_state'], self.action_ph: batch['action'], self.rewards_ph: batch['reward'], self.terminals_ph: batch['terminal']})
+
+        self.sess.run(self.soft_copy_ops)
+
+    def printSetting(self):
+        
+        print_list = []
+        print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        print_list.append("test_name : {}".format(self.name))
+        print_list.append("motion : {}".format(self.env.motion))
+        print_list.append("num_slaves : {}".format(self.num_slaves))
+        print_list.append("num state : {}".format(self.num_state))
+        print_list.append("num action : {}".format(self.num_action))
+        print_list.append("learning_rate : {}".format(self.policy_lr))
+        print_list.append("batch_size : {}".format(self.batch_size))
+        print_list.append("steps_per_iteration : {}".format(self.steps_per_iteration))
+        print_list.append("pretrain : {}".format(self.pretrain))
+
+        for s in print_list:
+            print(s)
+
+        if self.directory is not None:
+            out = open(self.directory+"parameters", "w")
+            for s in print_list:
+                out.write(s + "\n")
+            out.close()
+
+            out = open(self.directory+"results", "w")
+            out.close()
 
     def train(self, num_iteration):
         for it in range(num_iteration):
@@ -291,9 +380,9 @@ class SAC(object):
             while True:
                 # set action
                 if it < 5:
-                    actions, _ = np.random.rand(self.num_action)
+                    actions = np.array([np.random.rand(self.num_action) for _ in range(4)])
                 else:
-                    actions, _ = self.actor.getAction(states, 1)
+                    actions = self.sess.run(self.actor.action, feed_dict={self.state_ph:states})
                 rewards, dones = self.env.step(actions)
                 next_states = self.env.getStates()
 
@@ -335,7 +424,11 @@ class SAC(object):
 
     def load(self, path):
         self.saver.restore(self.sess, path)
-
+    
+    def run(self, state):
+        state = np.reshape(state, (1, self.num_state))
+        state = self.RMS.apply(state)
+        return self.sess.run(self.actor.action, feed_dict={self.state_ph:state})
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()

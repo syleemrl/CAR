@@ -53,8 +53,8 @@ SimWindow(std::string motion, std::string network)
 		np::initialize();
 
 		try{
-			p::object ppo_main = p::import("ppo");
-			this->mPPO = ppo_main.attr("PPO")();
+			p::object ppo_main = p::import("sac");
+			this->mPPO = ppo_main.attr("SAC")();
 			this->mPPO.attr("initRun")(network,
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
@@ -68,6 +68,7 @@ SimWindow(std::string motion, std::string network)
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->mDisplayTimeout = 33;
+	this->mRewardTotal = 0;
 
 	this->MemoryClear();
 	this->Save();
@@ -94,12 +95,17 @@ Save() {
     this->mTotalFrame++;
     if(this->mRunPPO && !this->mController->IsTerminalState())
     {
-    	if(this->mTotalFrame != 1) mReward = this->mController->GetRewardByParts();
-    	std::cout << this->mTotalFrame-1 << ":";
-    	for(int i = 0; i < mReward.size(); i++) {
-    	 	std::cout << " " << mReward[i];
+    	if(this->mTotalFrame != 1) {
+    		mReward = this->mController->GetRewardByParts();
+    		mRewardTotal += mReward[0];
+
     	}
-    	std::cout << std::endl;
+    	// std::cout << this->mTotalFrame-1 << ":";
+    	// for(int i = 0; i < mReward.size(); i++) {
+    	//  	std::cout << " " << mReward[0];
+    	// }
+    	// std::cout << std::endl;
+    	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
 	}
 
 }
@@ -252,7 +258,7 @@ Reset()
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
 	mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 	mRefContact = p_v_target->contact;
-	
+	this->mRewardTotal = 0;
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->MemoryClear();
@@ -354,7 +360,7 @@ void
 SimWindow::
 Step()
 {
-	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime() / 0.5) 
+	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime()) 
 	{
 		if(this->mRunPPO)
 		{
@@ -367,7 +373,7 @@ Step()
 			this->mController->Step();
 
 		}
-		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1) * 0.5);
+		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1));
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
 		mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 		mRefContact = p_v_target->contact;

@@ -163,6 +163,7 @@ class PPO(object):
 
 		ind = np.arange(len(state_batch))
 		np.random.shuffle(ind)
+
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
 			self.sess.run([self.actor_train_op, self.critic_train_op], 
@@ -255,7 +256,7 @@ class PPO(object):
 
 				states = self.env.getStates()
 			print('')
-		#	if it % 10 == 9:
+
 			if it % 5 == 4:
 				self.update(epi_info_iter) 
 

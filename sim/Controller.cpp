@@ -89,7 +89,7 @@ Controller::Controller(std::string motion)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 * 2);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -160,14 +160,25 @@ Step()
 	
 
 	double action_multiplier = 0.2;
-	for(int i = 0; i < 2*num_body_nodes*3; i++){
+
+	// for(int i = 0; i < 2*num_body_nodes*3; i++){
+	// 	mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
+	// }
+
+	// for(int i = 0; i < num_body_nodes; i++){
+	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+	// 	mPDTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
+	// 	mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3 * num_body_nodes + 3*i);
+	// }
+
+	for(int i = 0; i < num_body_nodes*3; i++){
 		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
 	}
 
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		mPDTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
-		mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3 * num_body_nodes + 3*i);
+		mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
 	}
 
 	// set pd gain action
@@ -304,8 +315,8 @@ UpdateReward()
 	double r_tot =  w_p*r_p 
 					+ w_v*r_v 
 					+ w_com*r_com
-					+ w_ee*r_ee
-					+ 0.5*w_p*r_s;
+					+ w_ee*r_ee;
+	//				+ 0.5*w_p*r_s;
 	// r_tot = 0.9*r_tot + 0.1*r_contact;
 
 	mRewardParts.clear();
@@ -437,8 +448,8 @@ Reset(bool RSI)
 		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
 	}
 	else {
-		this->mTimeElapsed = 0.0;
-		this->mControlCount = 0;
+		this->mTimeElapsed = 3.0 / this->mControlHz; // 0.0;
+		this->mControlCount = 3; // 0;
 	}
 	this->mStartCount = this->mControlCount;
 

@@ -23,7 +23,7 @@ class Env(object):
 		self.sim_env.SetActions(actions)
 		self.sim_env.Steps()
 		for j in range(self.num_slaves):
-			is_terminal, nan_occur, time_elapsed = self.sim_env.IsNanAtTerminal(j)
+			is_terminal, nan_occur, start, time_elapsed = self.sim_env.IsNanAtTerminal(j)
 			if not nan_occur:
 				r = self.sim_env.GetRewardByParts(j)
 				rewards.append(r)

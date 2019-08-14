@@ -52,7 +52,7 @@ class Monitor(object):
 			plt.ion()
 
 	def getStates(self):
-		return self.states
+		return np.array(self.states).astype('float32') 
 
 	def setTerminated(self, idx):
 		self.terminated[idx] = True

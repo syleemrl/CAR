@@ -80,6 +80,7 @@ protected:
 	int mTotalFrame;
 	std::vector<double> mReward;
 	double mSkelLength;
+	double mRewardTotal;
 	
 	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryAdaptiveRef, mMemoryRefContact;
 	Eigen::VectorXd mRefContact;
