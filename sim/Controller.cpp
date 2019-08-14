@@ -7,12 +7,11 @@ namespace DPhy
 {	
 
 Controller::Controller(std::string motion)
-	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mControlCount(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
+	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.1),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mSimPerCon = mSimulationHz / mControlHz;
-	this->mStep = 1;
 	this->mWorld = std::make_shared<dart::simulation::World>();
 	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
 
@@ -89,7 +88,7 @@ Controller::Controller(std::string motion)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 * 2 + 1);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -145,8 +144,17 @@ Step()
 	
 	// set action target pos
 	int num_body_nodes = this->mInterestedBodies.size();
+	double action_multiplier = 0.2;
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
+	for(int i = 0; i < num_body_nodes*6; i++){
+		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
+	}
+	mActions[num_body_nodes*6] = dart::math::clip(mActions[num_body_nodes*6]*action_multiplier, -0.7, 0.7);
+	
+	this->mStep = 1 + mActions[num_body_nodes*6];
+	this->mCurrentFrame += this->mStep;
+
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	this->mTargetContacts = p_v_target->contact;
@@ -157,28 +165,11 @@ Step()
 	//SRL
 	this->mAdaptiveTargetPositions = this->mTargetPositions;
 	this->mAdaptiveTargetVelocities = this->mTargetVelocities;
-	
-
-	double action_multiplier = 0.2;
-
-	// for(int i = 0; i < 2*num_body_nodes*3; i++){
-	// 	mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
-	// }
-
-	// for(int i = 0; i < num_body_nodes; i++){
-	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-	// 	mPDTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
-	// 	mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3 * num_body_nodes + 3*i);
-	// }
-
-	for(int i = 0; i < num_body_nodes*3; i++){
-		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
-	}
 
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		mPDTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
-		mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
+		mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3 * num_body_nodes + 3*i);
 	}
 
 	// set pd gain action
@@ -206,7 +197,7 @@ Step()
 			mWorld->step();
 		}
 	}
-	this->mControlCount++;
+
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 
 	this->UpdateReward();
@@ -304,21 +295,22 @@ UpdateReward()
 	double sig_v = 1.5 * scale;		// 3
 	double sig_com = 0.09 * scale;		// 4
 	double sig_ee = 0.08 * scale;		// 8
+	double sig_srl = 0.15 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_s = exp_of_squared(srl_diff_reward, sig_p);
+	double r_srl = exp_of_squared(srl_diff_reward, sig_srl);
 	// double r_tot = r_p*r_v*r_com*r_ee;
 	double r_tot =  w_p*r_p 
 					+ w_v*r_v 
 					+ w_com*r_com
 					+ w_ee*r_ee;
-	//				+ 0.5*w_p*r_s;
+					+ w_srl*r_srl;
 	// r_tot = 0.9*r_tot + 0.1*r_contact;
-
+	r_tot = this->mStep * r_tot;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
@@ -329,7 +321,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_s);
+		mRewardParts.push_back(r_srl);
 	}
 }
 void
@@ -378,7 +370,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(this->mTimeElapsed > this->mBVH->GetMaxTime() / this->mStep - 1.0/this->mControlHz){
+	else if(this->mCurrentFrame > this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -391,7 +383,7 @@ FollowBvh()
 		return false;
 	auto& skel = mCharacter->GetSkeleton();
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
 	mTargetPositions = p_v_target->position;
 	mTargetVelocities = p_v_target->velocity;
 
@@ -401,7 +393,7 @@ FollowBvh()
 		skel->setVelocities(mTargetVelocities);
 		skel->computeForwardKinematics(true, true, false);
 	}
-	this->mControlCount++;
+	this->mCurrentFrame += this->mStep;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 	return true;
 }
@@ -444,16 +436,16 @@ Reset(bool RSI)
 	skel->computeForwardKinematics(true,true,false);
 	//RSI
 	if(RSI) {
-		this->mTimeElapsed =  dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() / this->mStep - 10 /this->mControlHz);
-		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
+		this->mTimeElapsed =  dart::math::Random::uniform(0.0, this->mBVH->GetMaxTime() - 10 /this->mControlHz);
+		this->mCurrentFrame = std::floor(this->mTimeElapsed*this->mControlHz);
 	}
 	else {
-		this->mTimeElapsed = 3.0 / this->mControlHz; // 0.0;
-		this->mControlCount = 3; // 0;
+		this->mTimeElapsed = 0.0 / this->mControlHz; // 0.0;
+		this->mCurrentFrame = 0; // 0;
 	}
-	this->mStartCount = this->mControlCount;
+	this->mStartFrame = this->mCurrentFrame;
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mControlCount * mStep);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	
@@ -466,8 +458,8 @@ Reset(bool RSI)
 
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
-	this->mTimeElapsed += 1.0 / this->mControlHz;
-	this->mControlCount++;
+	this->mStep = 1;
+
 	this->mRewardParts.resize(6, 0.0);
 }
 int
@@ -587,29 +579,7 @@ GetState()
 	tp_times.clear();
 	tp_times.push_back(0);
 	
-	std::vector<Eigen::VectorXd> tp_contact_vec;
-	tp_contact_vec.clear();
-
-	for(auto dt : tp_times){
-		int t = std::max(0, this->mControlCount + dt);
-		Frame* target_tuple = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(this->mBVH, t * mStep);
-
-		Eigen::VectorXd p = target_tuple->position;
-		Eigen::VectorXd v = target_tuple->velocity;
-		tp_vec.push_back(this->GetEndEffectorStatePosAndVel(p, v));
-		tp_contact_vec.push_back(target_tuple->contact);
-	}
-
-	Eigen::VectorXd tp_concatenated;
-	tp_concatenated.resize(tp_vec.size()*tp_vec[0].rows());
-
-	Eigen::VectorXd tp_contact_concatenated;
-	tp_contact_concatenated.resize(tp_contact_vec.size()*tp_contact_vec[0].rows());
-
-	for(int i = 0; i < tp_vec.size(); i++){
-		tp_concatenated.segment(i*tp_vec[0].rows(), tp_vec[0].rows()) = tp_vec[i];
-		tp_contact_concatenated.segment(i*tp_contact_vec[0].rows(), tp_contact_vec[0].rows()) = tp_contact_vec[i];
-	}
+	double phase = this->mCurrentFrame  / this->mBVH->GetMaxFrame();
 
 	Eigen::VectorXd p,v;
 	p.resize(p_save.rows()-6);
@@ -648,8 +618,8 @@ GetState()
 	foot_corner_heights *= 10;
 
 	Eigen::VectorXd state;
-	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+1+1+8);
-	state<<p, v, tp_concatenated, up_vec_angle,
+	state.resize(p.rows()+v.rows()+1+1+1+8);
+	state<<p, v, phase, up_vec_angle,
 			root_height, foot_corner_heights;
 	//state.resize(p.rows()+v.rows()+tp_concatenated.rows()+tp_contact_concatenated.rows()+1+1);
 	//state<<p, v, tp_concatenated, tp_contact_concatenated, up_vec_angle,

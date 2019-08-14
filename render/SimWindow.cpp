@@ -53,8 +53,8 @@ SimWindow(std::string motion, std::string network)
 		np::initialize();
 
 		try{
-			p::object ppo_main = p::import("sac");
-			this->mPPO = ppo_main.attr("SAC")();
+			p::object ppo_main = p::import("ppo");
+			this->mPPO = ppo_main.attr("PPO")();
 			this->mPPO.attr("initRun")(network,
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());

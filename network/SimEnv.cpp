@@ -27,12 +27,6 @@ GetNumState()
 }
 int
 SimEnv::
-GetStartCount(int id)
-{
-	return mSlaves[id]->GetStartCount();
-}
-int
-SimEnv::
 GetNumAction()
 {
 	return mNumAction;
@@ -59,7 +53,7 @@ IsNanAtTerminal(int id)
 {
 	bool t = mSlaves[id]->IsTerminalState();
 	bool n = mSlaves[id]->IsNanAtTerminal();
-	int start = mSlaves[id]->GetStartCount();
+	int start = mSlaves[id]->GetStartFrame();
 	int e = mSlaves[id]->GetCurrentLength();
 	return p::make_tuple(t, n, start, e-1);
 }
@@ -194,6 +188,5 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
-		.def("GetStartCount",&SimEnv::GetStartCount)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

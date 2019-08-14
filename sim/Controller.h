@@ -46,9 +46,9 @@ Controller(std::string motion);
 	const dart::simulation::WorldPtr& GetWorld() {return mWorld;}
 
 	double GetCurrentTime(){return this->mTimeElapsed;}
-	double GetCurrentCount(){return this->mControlCount;}
-	double GetCurrentLength() {return this->mControlCount - this->mStartCount; }
-	double GetStartCount(){ return this->mStartCount; }
+	double GetCurrentFrame(){return this->mCurrentFrame;}
+	double GetCurrentLength() {return this->mCurrentFrame - this->mStartFrame; }
+	double GetStartFrame(){ return this->mStartFrame; }
 	std::string GetContactNodeName(int i);
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
@@ -57,13 +57,15 @@ Controller(std::string motion);
 	void DeformCharacter(double w);
 
 	Eigen::VectorXd GetAdaptivePosition() {return mAdaptiveTargetPositions; };
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;
-	double w_p,w_v,w_com,w_ee;
+	double w_p,w_v,w_com,w_ee,w_srl;
 	double mTimeElapsed;
-	double mStartCount;
-	int mControlCount; // for discrete ref motion
+	double mStartFrame;
+	double mCurrentFrame; // for discrete ref motion
+
 	int mControlHz;
 	int mSimulationHz;
 	int mSimPerCon;
@@ -79,6 +81,7 @@ protected:
 
 	Eigen::VectorXd mAdaptiveTargetPositions;
 	Eigen::VectorXd mAdaptiveTargetVelocities;
+	double mAdaptiveTargetFrame;
 
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;

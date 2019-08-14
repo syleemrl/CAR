@@ -24,7 +24,6 @@ public:
 	void Step(int id);
 	void Reset(int id,bool RSI);
 	p::tuple IsNanAtTerminal(int id);
-	int GetStartCount(int id);
 	void DeformCharacter(double w);
 
 	np::ndarray GetState(int id);
