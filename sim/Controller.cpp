@@ -231,6 +231,10 @@ UpdateReward()
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
 		v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
+		if(i == 0) {
+			p_diff_reward.segment<3>(3*i) *= 2;
+			v_diff_reward.segment<3>(3*i) *= 2;
+		}
 	}
 
 	//End-effector position and COM Differences
@@ -277,13 +281,13 @@ UpdateReward()
 	//srl
 	Eigen::VectorXd srl_diff = skel->getPositionDifferences(this->mAdaptiveTargetPositions, this->mTargetPositions);
 	Eigen::VectorXd srl_diff_reward;
-	srl_diff_reward.resize(num_reward_body_nodes*3);
+	srl_diff_reward.resize(num_reward_body_nodes*3+1);
 
 	for(int i = 0; i < num_reward_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		srl_diff_reward.segment<3>(3*i) = srl_diff.segment<3>(idx);
 	}
-
+	srl_diff_reward[3*num_reward_body_nodes] = (this->mStep - 1) * 0.1;
 	//mul
 	// double sig_p = 0.1 * scale; 		// 2
 	// double sig_v = 1.0 * scale;		// 3
