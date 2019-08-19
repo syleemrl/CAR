@@ -8,7 +8,7 @@ namespace DPhy
 
 Controller::Controller(std::string motion)
 	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mControlCount(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),w_goal(0.1),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -114,6 +114,19 @@ Controller::Controller(std::string motion)
 	
 	this->torques.clear();
 
+	Frame* target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 41);
+	Eigen::VectorXd position = target->position;
+	Eigen::VectorXd velocity = target->velocity;
+	
+	auto& skel = this->mCharacter->GetSkeleton();
+
+	skel->setPositions(position);
+	skel->setVelocities(velocity);
+	skel->computeForwardKinematics(true,true,false);
+
+	mTargetCOM = skel->getCOM()[1];
+	mTargetLf = skel->getBodyNode("FootL")->getWorldTransform().translation()[1];
+	mTargetRf = skel->getBodyNode("FootR")->getWorldTransform().translation()[1];
 }
 void 
 Controller::
@@ -284,14 +297,15 @@ UpdateReward()
 	double scale = 1.0;
 
 	//srl
-	Eigen::VectorXd srl_diff = skel->getPositionDifferences(this->mAdaptiveTargetPositions, this->mTargetPositions);
-	Eigen::VectorXd srl_diff_reward;
-	srl_diff_reward.resize(num_reward_body_nodes*3);
+	// Eigen::VectorXd srl_diff = skel->getPositionDifferences(this->mAdaptiveTargetPositions, this->mTargetPositions);
+	// Eigen::VectorXd srl_diff_reward;
+	// srl_diff_reward.resize(num_reward_body_nodes*3);
 
-	for(int i = 0; i < num_reward_body_nodes; i++){
-		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		srl_diff_reward.segment<3>(3*i) = srl_diff.segment<3>(idx);
-	}
+	// for(int i = 0; i < num_reward_body_nodes; i++){
+	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+	// 	srl_diff_reward.segment<3>(3*i) = srl_diff.segment<3>(idx);
+	// }
+
 
 	//mul
 	// double sig_p = 0.1 * scale; 		// 2
@@ -304,20 +318,35 @@ UpdateReward()
 	double sig_v = 1.5 * scale;		// 3
 	double sig_com = 0.09 * scale;		// 4
 	double sig_ee = 0.08 * scale;		// 8
+	double sig_goal = 1.5 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
+	
+	double r_goal;
 
-	double r_s = exp_of_squared(srl_diff_reward, sig_p);
+	if(mTargetMet) {
+		r_goal = 1;
+	} else {
+		if(skel->getCOM()[1] >= mTargetCOM) {
+			mTargetMet = true; 
+		}
+		r_goal = 1.0/3.0 * ( exp(-abs(skel->getCOM()[1] - mTargetCOM)*sig_goal) 
+			+ exp(-abs(skel->getBodyNode("FootR")->getWorldTransform().translation()[1] - mTargetRf)*sig_goal) 
+			+ exp(-abs(skel->getBodyNode("FootL")->getWorldTransform().translation()[1] - mTargetLf)*sig_goal)
+			);
+	}
+
+//	double r_s = exp_of_squared(srl_diff_reward, sig_p);
 	// double r_tot = r_p*r_v*r_com*r_ee;
 	double r_tot =  w_p*r_p 
 					+ w_v*r_v 
 					+ w_com*r_com
 					+ w_ee*r_ee;
 	//				+ 0.5*w_p*r_s;
-	// r_tot = 0.9*r_tot + 0.1*r_contact;
+	r_tot = 0.9*r_tot + 0.1*r_goal;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -329,7 +358,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_s);
+		mRewardParts.push_back(r_goal);
 	}
 }
 void
@@ -446,10 +475,15 @@ Reset(bool RSI)
 	if(RSI) {
 		this->mTimeElapsed =  dart::math::Random::uniform(0.0,this->mBVH->GetMaxTime() / this->mStep - 10 /this->mControlHz);
 		this->mControlCount = std::floor(this->mTimeElapsed*this->mControlHz);
+		if(this->mControlCount >= 41) {
+			this->mTargetMet = true; 
+		} else {
+			this->mTargetMet = false;
+		}
 	}
 	else {
-		this->mTimeElapsed = 3.0 / this->mControlHz; // 0.0;
-		this->mControlCount = 3; // 0;
+		this->mTimeElapsed = 0.0;
+		this->mControlCount = 0;
 	}
 	this->mStartCount = this->mControlCount;
 

@@ -60,7 +60,7 @@ Controller(std::string motion);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;
-	double w_p,w_v,w_com,w_ee;
+	double w_p,w_v,w_com,w_ee,w_goal;
 	double mTimeElapsed;
 	double mStartCount;
 	int mControlCount; // for discrete ref motion
@@ -73,6 +73,7 @@ protected:
 	Character* mRefCharacter;
 	dart::dynamics::SkeletonPtr mGround;
 
+	double mTargetCOM, mTargetLf, mTargetRf;
 	Eigen::VectorXd mTargetPositions;
 	Eigen::VectorXd mTargetVelocities;
 	Eigen::VectorXd mTargetContacts;
@@ -96,6 +97,7 @@ protected:
 
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
+	bool mTargetMet;
 
 	int mNumState, mNumAction;
 
