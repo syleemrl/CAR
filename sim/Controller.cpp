@@ -646,6 +646,7 @@ GetState()
 	foot_corner_heights << p0_l[1], p1_l[1], p2_l[1], p3_l[1], 
 							p0_r[1], p1_r[1], p2_r[1], p3_r[1];
 	foot_corner_heights *= 10;
+	double phase = (this->mControlCount-1) / this->mBVH->GetMaxFrame();
 
 	Eigen::VectorXd state;
 	state.resize(p.rows()+v.rows()+tp_concatenated.rows()+1+1+8);
