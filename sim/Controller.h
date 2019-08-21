@@ -28,6 +28,8 @@ Controller(std::string motion);
 	bool FollowBvh();
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
+	bool IsTargetMet();
+
 	bool IsTimeEnd(){
 		if(this->terminationReason == 8)
 			return true;
@@ -55,6 +57,7 @@ Controller(std::string motion);
 	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
 	void DeformCharacter(double w);
+	void SetNewTarget(double w);
 
 	Eigen::VectorXd GetAdaptivePosition() {return mAdaptiveTargetPositions; };
 protected:

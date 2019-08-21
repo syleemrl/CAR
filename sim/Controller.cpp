@@ -128,6 +128,14 @@ Controller::Controller(std::string motion)
 	mTargetLf = skel->getBodyNode("FootL")->getWorldTransform().translation()[1];
 	mTargetRf = skel->getBodyNode("FootR")->getWorldTransform().translation()[1];
 }
+void
+Controller::
+SetNewTarget(double w) 
+{
+	mTargetCOM += w;
+	mTargetLf += w;
+	mTargetRf += w;
+}
 void 
 Controller::
 SetReference(std::string motion) 
@@ -318,7 +326,7 @@ UpdateReward()
 	double sig_v = 1.5 * scale;		// 3
 	double sig_com = 0.09 * scale;		// 4
 	double sig_ee = 0.08 * scale;		// 8
-	double sig_goal = 1.5 * scale;
+	double sig_goal = 6 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
@@ -327,13 +335,17 @@ UpdateReward()
 	
 	double r_goal;
 
+	if(skel->getCOM()[1] >= mTargetCOM &&
+		   skel->getBodyNode("FootR")->getWorldTransform().translation()[1] >= mTargetRf &&
+		   skel->getBodyNode("FootL")->getWorldTransform().translation()[1] >= mTargetLf) {
+	//	std::cout << mControlCount << " " << skel->getCOM()[1] << " " << mTargetCOM << std::endl;
+		mTargetMet = true; 
+	}
+
 	if(mTargetMet) {
-		r_goal = 1;
+		r_goal = 3;
 	} else {
-		if(skel->getCOM()[1] >= mTargetCOM) {
-			mTargetMet = true; 
-		}
-		r_goal = 1.0/3.0 * ( exp(-abs(skel->getCOM()[1] - mTargetCOM)*sig_goal) 
+		r_goal = ( exp(-abs(skel->getCOM()[1] - mTargetCOM)*sig_goal) 
 			+ exp(-abs(skel->getBodyNode("FootR")->getWorldTransform().translation()[1] - mTargetRf)*sig_goal) 
 			+ exp(-abs(skel->getBodyNode("FootL")->getWorldTransform().translation()[1] - mTargetLf)*sig_goal)
 			);
@@ -361,6 +373,13 @@ UpdateReward()
 		mRewardParts.push_back(r_goal);
 	}
 }
+bool 
+Controller::IsTargetMet() 
+{
+//	std::cout << (this->mTargetMet?1:0) << std::endl;
+	return this->mTargetMet; 
+}
+
 void
 Controller::
 UpdateTerminalInfo()
@@ -484,6 +503,7 @@ Reset(bool RSI)
 	else {
 		this->mTimeElapsed = 0.0;
 		this->mControlCount = 0;
+		this->mTargetMet = false;
 	}
 	this->mStartCount = this->mControlCount;
 

@@ -59,9 +59,10 @@ IsNanAtTerminal(int id)
 {
 	bool t = mSlaves[id]->IsTerminalState();
 	bool n = mSlaves[id]->IsNanAtTerminal();
+	bool g = mSlaves[id]->IsTargetMet();
 	int start = mSlaves[id]->GetStartCount();
 	int e = mSlaves[id]->GetCurrentLength();
-	return p::make_tuple(t, n, start, e-1);
+	return p::make_tuple(t, n, g, start, e-1);
 }
 np::ndarray
 SimEnv::
@@ -170,7 +171,12 @@ DeformCharacter(double w)
 {
 	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->DeformCharacter(w);
 }
-
+void
+SimEnv::
+SetNewTarget(double w)
+{
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->SetNewTarget(w);
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -188,6 +194,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetReward",&SimEnv::GetReward)
 		.def("GetRewardByParts",&SimEnv::GetRewardByParts)
 		.def("DeformCharacter",&SimEnv::DeformCharacter)
+		.def("SetNewTarget",&SimEnv::SetNewTarget)
 		.def("Steps",&SimEnv::Steps)
 		.def("Resets",&SimEnv::Resets)
 		.def("IsNanAtTerminal",&SimEnv::IsNanAtTerminal)

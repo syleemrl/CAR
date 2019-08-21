@@ -38,16 +38,19 @@ class Monitor(object):
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
+		self.rewards_height_per_iteration = 0
+
+		self.target_met_per_iteration = 0
+		self.target_not_met_per_iteration = 0
 
 		self.terminated = [False]*self.num_slaves
 		self.states = [0]*self.num_slaves
 
-		self.skel_len = 1
-		# self.w = 1.05
-		# for _ in range(8):
-		#  	self.skel_len *= w
-		#  	self.sim_env.DeformCharacter(w)
-		# print(self.skel_len)	 	
+		self.target_height = 1
+
+		for _ in range(17):
+			self.sim_env.SetNewTarget(0.01)
+			self.target_height += 0.01
 		if self.plot:
 			plt.ion()
 
@@ -73,15 +76,18 @@ class Monitor(object):
 		self.terminated[i] = False
 	
 	def step(self, actions):
-		self.states, rewards, dones, times, nan_count =  self.env.step(actions)
+		self.states, rewards, dones, times, nan_count, target_met, target_not_met =  self.env.step(actions)
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		self.num_nan_per_iteration += nan_count
+		self.target_met_per_iteration += target_met
+		self.target_not_met_per_iteration += target_not_met
 		for i in range(self.num_slaves):
 			if not self.terminated[i] and rewards[i][0] is not None:
 				self.rewards_per_iteration += rewards[i][0]
 				self.rewards_by_part_per_iteration.append(rewards[i])
-				
+				self.rewards_height_per_iteration += rewards[i][5]
+
 				self.num_transitions_per_iteration += 1
 				if dones[i]:
 					self.num_episodes_per_iteration += 1
@@ -123,7 +129,7 @@ class Monitor(object):
 
 		print_list = []
 		print_list.append('===============================================================')
-		print_list.append('skel length: {}'.format(self.skel_len))
+		print_list.append('target height: {}'.format(self.target_height))
 		print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 		print_list.append("Elapsed time : {:.2f}s".format(time.time() - self.start_time))
 		print_list.append('Num eval : {}'.format(self.num_evaluation))
@@ -144,6 +150,11 @@ class Monitor(object):
 
 		print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
 		print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
+		print_list.append('goal rewards per episodes : {:.2f}'.format( self.rewards_height_per_iteration / self.num_episodes_per_iteration))
+		print_list.append('target met per episodes : {:.2f}'.format(self.target_met_per_iteration))
+
+		print_list.append('target not met per episodes : {:.2f}'.format(self.target_not_met_per_iteration))
+
 		print_list.append('max episode length : {}'.format(self.max_episode_length))
 
 		if self.num_nan_per_iteration != 0:
@@ -178,9 +189,18 @@ class Monitor(object):
 
 			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
+		metric = self.rewards_height_per_iteration / self.num_episodes_per_iteration
+		if self.target_met_per_iteration > self.target_not_met_per_iteration + 200:
+			self.sim_env.SetNewTarget(0.01)
+			self.target_height += 0.01
+
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0
+		self.max_episode_length = 0
 		self.rewards_per_iteration = 0
+		self.target_met_per_iteration = 0
+		self.target_not_met_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
+		self.rewards_height_per_iteration = 0
 

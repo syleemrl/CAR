@@ -26,7 +26,7 @@ public:
 	p::tuple IsNanAtTerminal(int id);
 	int GetStartCount(int id);
 	void DeformCharacter(double w);
-
+	void SetNewTarget(double w);
 	np::ndarray GetState(int id);
 	void SetAction(np::ndarray np_array,int id);
 	double GetReward(int id);
