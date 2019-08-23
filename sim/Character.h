@@ -13,6 +13,13 @@ namespace DPhy
 class Frame
 {
 public:
+	Frame(Frame* f) {
+		position = f->position;
+		velocity = f->velocity;
+		contact = f->contact;
+		COMposition = f->COMposition;
+		COMvelocity = f->COMvelocity;
+	}
 	Frame(Eigen::VectorXd pos, Eigen::VectorXd vel) {
 		position = pos;
 		velocity = vel;
@@ -25,10 +32,14 @@ public:
 	void SetPosition(Eigen::VectorXd pos) { position = pos; }
 	void SetVelocity(Eigen::VectorXd vel) { velocity = vel; }
 	void SetContact(Eigen::VectorXd con) { contact = con; }
-	
+	void SetCOMposition(Eigen::Vector3d pos) { COMposition = pos; }
+	void SetCOMvelocity(Eigen::Vector3d vel) { COMvelocity = vel; }
+
 	Eigen::VectorXd position;
 	Eigen::VectorXd velocity;
 	Eigen::VectorXd contact;
+	Eigen::Vector3d COMposition;
+	Eigen::Vector3d COMvelocity;
 };
 class Character
 {
@@ -51,7 +62,11 @@ public:
 	void ReadFramesFromBVH(BVH* bvh);
 	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t);
 	void RescaleOriginalBVH(double w);
+	void EditTrajectory(BVH* bvh, int t, double w);
 	std::string GetContactNodeName(int i) { return mContactList[i]; };
+
+	double GetMaxFrame(){return mBVHFrames.size();}
+
 protected:
 	dart::dynamics::SkeletonPtr mSkeleton;
 

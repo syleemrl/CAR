@@ -282,7 +282,14 @@ ReadFramesFromBVH(BVH* bvh)
 
 		}
 		mBVHFrames[i]->SetContact(contact);
+		mBVHFrames[i]->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
 	}
+	for(int i = 1; i < mBVHFrames.size(); i++) 
+	{
+		Eigen::Vector3d v = (mBVHFrames[i]->COMposition - mBVHFrames[i-1]->COMposition) * 30.0;
+		mBVHFrames[i]->SetCOMvelocity(v);
+	}
+	mBVHFrames[0]->SetCOMvelocity(mBVHFrames[1]->COMvelocity);
 }
 void
 Character::
@@ -348,7 +355,6 @@ RescaleOriginalBVH(double w)
 			if(height < heightLimit && velocity < velocityLimit) {
 				contact(j) = 1;
 			} 
-
 		}
 		mBVHFrames[i]->SetContact(contact);
 	}
@@ -357,8 +363,8 @@ Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t)
 {
-	int k0 = (int) std::min(std::floor(t), bvh->GetMaxFrame());
-	int k1 = (int) std::min(std::ceil(t), bvh->GetMaxFrame());
+	int k0 = (int) std::min(std::floor(t), (double)mBVHFrames.size());
+	int k1 = (int) std::min(std::ceil(t), (double)mBVHFrames.size());
 
 	if (k0 == k1) 
 		return mBVHFrames[k0];
@@ -404,7 +410,131 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t)
 			contact(j) = 1;
 		}
 	}
+	Frame* newFrame =  new Frame(position, velocity, contact);
+	newFrame->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
+	newFrame->SetCOMvelocity(w * k1_f->COMvelocity + (1 - w) * k0_f->COMvelocity);
+	return newFrame;
+}
+void
+Character::
+EditTrajectory(BVH* bvh, int t, double w) {
+	int count = 0;
+	for(int i = t; i < mBVHFrames.size(); i++) {
+		if(mBVHFrames[i+1]->COMvelocity[1] > mBVHFrames[i]->COMvelocity[1]) break;
+		count++;
+	}
+	double slope = (mBVHFrames[t]->COMvelocity[1] - mBVHFrames[t+count]->COMvelocity[1]) * 30.0 / count;
+	double climax_dt = mBVHFrames[t]->COMvelocity[1] / slope * 30.0;
+	double dheight = 0.5 * slope * (climax_dt / 30.0) * (climax_dt / 30.0);
+	double targetHeight = mBVHFrames[t]->COMposition[1] + dheight * w;
+	double new_climax_dt = sqrt(1 / (0.5 * slope) * dheight * w) * 30.0;
+	double new_com_velocity = new_climax_dt * slope / 30.0;
 
-	return new Frame(position, velocity, contact);
+	double w0 = new_com_velocity / mBVHFrames[t]->COMvelocity[1];
+	
+	std::vector<Frame*> mBVHFrames_;
+
+	for(int i = 0; i < t; i++) {
+		Frame* f = new Frame(mBVHFrames[i]); 
+
+		f->COMvelocity[1] *= w0;
+		f->velocity[4] *= w0;
+
+		if(i != 0) {
+			f->position[4] = mBVHFrames_[mBVHFrames_.size()-1]->position[4] + f->COMvelocity[1] / 30.0;
+		}
+		mBVHFrames_.push_back(f);
+
+	}
+	double dt_scale = std::floor(climax_dt) / std::floor(new_climax_dt);
+	for(int i = t; i < t + std::floor(new_climax_dt) * 2; i++) {
+		Frame* f = GetTargetPositionsAndVelocitiesFromBVH(bvh, t + (i-t) * dt_scale);
+		f->COMvelocity[1] = new_com_velocity - (i-t) * slope / 30.0;
+		f->position[4] = mBVHFrames_[mBVHFrames_.size()-1]->position[4] + f->COMvelocity[1] / 30.0;
+		mBVHFrames_.push_back(f);
+
+	}
+	w0 = abs(new_com_velocity / mBVHFrames[ t + std::floor(climax_dt) * 2]->COMvelocity[1]);
+
+	for(int i = t + std::floor(climax_dt) * 2; i < mBVHFrames.size(); i++) {
+		Frame* f = new Frame(mBVHFrames[i]); 
+
+		f->COMvelocity[1] *= w0;
+		f->velocity[4] *= w0;
+		f->position[4] = mBVHFrames_[mBVHFrames_.size()-1]->position[4] + f->COMvelocity[1] / 30.0;
+
+		mBVHFrames_.push_back(f);
+	}
+	
+	Eigen::VectorXd position, velocity;
+	std::vector<Eigen::Vector3d> pos_ori;
+	for(int i = 0; i < t; i++) {
+		pos_ori.clear();
+		position = mBVHFrames[i]->position;
+		velocity = mBVHFrames[i]->velocity;
+
+		mSkeleton->setPositions(position);
+		mSkeleton->setVelocities(velocity);
+		mSkeleton->computeForwardKinematics(true,true,false);
+
+		pos_ori.push_back(mSkeleton->getBodyNode("FootL")->getTransform().translation());
+		pos_ori.push_back(mSkeleton->getBodyNode("FootR")->getTransform().translation());
+		position = mBVHFrames_[i]->position;
+		velocity = mBVHFrames_[i]->velocity;
+
+		mSkeleton->setPositions(position);
+		mSkeleton->setVelocities(velocity);
+		mSkeleton->computeForwardKinematics(true,true,false);
+		pos_ori.push_back(mSkeleton->getBodyNode("Spine")->getTransform().translation());
+
+		std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>> constraints;
+		constraints.push_back(std::make_tuple("FootL", pos_ori[0], Eigen::Vector3d(0, 0, 0)));
+		constraints.push_back(std::make_tuple("FootR", pos_ori[1], Eigen::Vector3d(0, 0, 0)));
+		constraints.push_back(std::make_tuple("Spine", pos_ori[2], Eigen::Vector3d(0, 0, 0)));
+
+		Eigen::VectorXd new_position = DPhy::solveMCIK(mSkeleton, constraints);
+		mBVHFrames_[i]->position = new_position;
+		mBVHFrames_[i]->COMposition = mSkeleton->getCOM();
+
+		if(i != 0) {
+			mBVHFrames_[i]->velocity = mSkeleton->getPositionDifferences(mBVHFrames_[i]->position, mBVHFrames_[i-1]->position) * 30;
+			mBVHFrames_[i]->COMvelocity = (mBVHFrames_[i]->COMposition - mBVHFrames_[i-1]->COMposition) * 30;
+		}
+
+	}
+	for(int i = t + std::floor(new_climax_dt) * 2, j = t + std::floor(climax_dt) * 2; j < mBVHFrames.size(); i++, j++) {
+		pos_ori.clear();
+		position = mBVHFrames[j]->position;
+		velocity = mBVHFrames[j]->velocity;
+
+		mSkeleton->setPositions(position);
+		mSkeleton->setVelocities(velocity);
+		mSkeleton->computeForwardKinematics(true,true,false);
+
+		pos_ori.push_back(mSkeleton->getBodyNode("FootL")->getTransform().translation());
+		pos_ori.push_back(mSkeleton->getBodyNode("FootR")->getTransform().translation());
+		position = mBVHFrames_[i]->position;
+		velocity = mBVHFrames_[i]->velocity;
+
+		mSkeleton->setPositions(position);
+		mSkeleton->setVelocities(velocity);
+		mSkeleton->computeForwardKinematics(true,true,false);
+		pos_ori.push_back(mSkeleton->getBodyNode("Spine")->getTransform().translation());
+
+		std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>> constraints;
+		constraints.push_back(std::make_tuple("FootL", pos_ori[0], Eigen::Vector3d(0, 0, 0)));
+		constraints.push_back(std::make_tuple("FootR", pos_ori[1], Eigen::Vector3d(0, 0, 0)));
+		constraints.push_back(std::make_tuple("Spine", pos_ori[2], Eigen::Vector3d(0, 0, 0)));
+
+		Eigen::VectorXd new_position = DPhy::solveMCIK(mSkeleton, constraints);
+		mBVHFrames_[i]->position = new_position;
+		mBVHFrames_[i]->COMposition = mSkeleton->getCOM();
+		if(i != 0) {
+			mBVHFrames_[i]->velocity = mSkeleton->getPositionDifferences(mBVHFrames_[i]->position, mBVHFrames_[i-1]->position) * 30;
+			mBVHFrames_[i]->COMvelocity = (mBVHFrames_[i]->COMposition - mBVHFrames_[i-1]->COMposition) * 30;
+		}
+	}
+	mBVHFrames = mBVHFrames_;
+
 }
 };

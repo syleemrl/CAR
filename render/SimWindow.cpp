@@ -2,6 +2,7 @@
 #include "SimWindow.h"
 #include "dart/external/lodepng/lodepng.h"
 #include "Functions.h"
+#include "matplotlibcpp.h"
 #include <algorithm>
 #include <fstream>
 #include <boost/filesystem.hpp>
@@ -9,6 +10,7 @@
 using namespace GUI;
 using namespace dart::simulation;
 using namespace dart::dynamics;
+namespace plt=matplotlibcpp;
 
 SimWindow::
 SimWindow(std::string motion, std::string network)
@@ -33,6 +35,15 @@ SimWindow(std::string motion, std::string network)
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
+	this->mRef->EditTrajectory(mBVH, 32, 3.5);
+
+ 	std::vector<double> x(this->mRef->GetMaxFrame()), y(this->mRef->GetMaxFrame());
+ 	for(int i = 0; i < this->mRef->GetMaxFrame(); i++) {
+ 		x.push_back(i);
+ 		y.push_back(this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, i)->COMvelocity[1]);
+ 	}
+ 	plt::plot(x, y);
+    plt::show();
 
 	this->mAdaptiveRef = DPhy::SkeletonBuilder::BuildFromFile(path);
 
@@ -51,7 +62,6 @@ SimWindow(std::string motion, std::string network)
 	{
 		Py_Initialize();
 		np::initialize();
-
 		try{
 			p::object ppo_main = p::import("ppo");
 			this->mPPO = ppo_main.attr("PPO")();
@@ -65,6 +75,7 @@ SimWindow(std::string motion, std::string network)
 			PyErr_Print();
 		}
 	}
+
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->mDisplayTimeout = 33;
@@ -216,7 +227,6 @@ Display()
 	mCamera->Apply();
 
 	glUseProgram(program);
-
 	glPushMatrix();
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -360,7 +370,7 @@ void
 SimWindow::
 Step()
 {
-	if(this->mCurFrame * this->mTimeStep < this->mBVH->GetMaxTime()) 
+	if(this->mCurFrame < this->mRef->GetMaxFrame() - 1) 
 	{
 		if(this->mRunPPO)
 		{
