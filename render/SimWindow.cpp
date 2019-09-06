@@ -35,7 +35,7 @@ SimWindow(std::string motion, std::string network)
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
-	this->mRef->EditTrajectory(mBVH, 32, 3.5);
+	this->mRef->EditTrajectory(mBVH, 32, 4);
 
  	std::vector<double> x(this->mRef->GetMaxFrame()), y(this->mRef->GetMaxFrame());
  	for(int i = 0; i < this->mRef->GetMaxFrame(); i++) {
@@ -370,7 +370,7 @@ void
 SimWindow::
 Step()
 {
-	if(this->mCurFrame < this->mRef->GetMaxFrame() - 1) 
+	if(this->mCurFrame < this->mRef->GetMaxFrame() - 1 || (this->mRunPPO && !mController->IsTerminalState())) 
 	{
 		if(this->mRunPPO)
 		{

@@ -8,7 +8,7 @@ namespace DPhy
 
 Controller::Controller(std::string motion)
 	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.1),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.3),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -126,6 +126,8 @@ SetReference(std::string motion)
 	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
+	this->mRefCharacter->EditTrajectory(mBVH, 32, 4);
+
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -151,6 +153,7 @@ Step()
 	}
 	mActions[num_body_nodes*6] = dart::math::clip(mActions[num_body_nodes*6]*action_multiplier, -0.7, 0.7);
 	
+
 	this->mStep = 1 + mActions[num_body_nodes*6];
 	this->mCurrentFrame += this->mStep;
 
@@ -279,15 +282,9 @@ UpdateReward()
 	double scale = 1.0;
 
 	//srl
-	Eigen::VectorXd srl_diff = skel->getPositionDifferences(this->mAdaptiveTargetPositions, this->mTargetPositions);
-	Eigen::VectorXd srl_diff_reward;
-	srl_diff_reward.resize(num_reward_body_nodes*3+1);
+	Eigen::VectorXd srl_diff_reward = this->mActions;
+	srl_diff_reward[mNumAction-1] *= M_PI*2;
 
-	for(int i = 0; i < num_reward_body_nodes; i++){
-		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		srl_diff_reward.segment<3>(3*i) = srl_diff.segment<3>(idx);
-	}
-	srl_diff_reward[3*num_reward_body_nodes] = (this->mStep - 1) * 0.1;
 	//mul
 	// double sig_p = 0.1 * scale; 		// 2
 	// double sig_v = 1.0 * scale;		// 3
