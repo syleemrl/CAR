@@ -15,7 +15,7 @@ namespace plt=matplotlibcpp;
 SimWindow::
 SimWindow(std::string motion, std::string network)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
-	mDrawOutput(true), mDrawRef(true), mDrawAdaptiveRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
+	mDrawOutput(true), mDrawRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
 {
 	if(network.compare("") == 0) {
 		this->mDrawOutput = false;
@@ -45,8 +45,6 @@ SimWindow(std::string motion, std::string network)
  	plt::plot(x, y);
     plt::show();
 
-	this->mAdaptiveRef = DPhy::SkeletonBuilder::BuildFromFile(path);
-
 	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
@@ -55,7 +53,6 @@ SimWindow(std::string motion, std::string network)
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 	mRefContact = p_v_target->contact;
 
 	if(this->mRunPPO)
@@ -91,7 +88,6 @@ SimWindow::
 MemoryClear() {
     mMemory.clear();
     mMemoryRef.clear();
-    mMemoryAdaptiveRef.clear();
     mMemoryRefContact.clear();
     mReward.clear();
 }
@@ -101,7 +97,6 @@ Save() {
     SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
     mMemory.emplace_back(humanoidSkel->getPositions());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
-    mMemoryAdaptiveRef.emplace_back(mAdaptiveRef->getPositions());
     mMemoryRefContact.emplace_back(mRefContact);
     this->mTotalFrame++;
     if(this->mRunPPO && !this->mController->IsTerminalState())
@@ -138,7 +133,6 @@ SetFrame(int n)
     SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
     humanoidSkel->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
-    mAdaptiveRef->setPositions(mMemoryAdaptiveRef[n]);
     mRefContact = mMemoryRefContact[n];
 }
 void
@@ -178,9 +172,6 @@ DrawSkeletons()
 			if(this->mRefContact[i] == 1)
 				GUI::DrawBodyNode(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255.*0.4, 87./255.*0.4, 87./255.*0.4, 1.0), this->mRef->GetContactNodeName(i), 0);
 		}
-	}
-	if(this->mDrawAdaptiveRef) {
-		GUI::DrawSkeleton(this->mAdaptiveRef, 0);
 	}
 }
 void
@@ -248,25 +239,13 @@ void
 SimWindow::
 Reset()
 {
-	double w = 1.05;
-	this->mController->DeformCharacter(w);
-	this->mSkelLength *= w;
-	std::cout << this->mSkelLength << std::endl;
+	this->mRef->EditTrajectory(mBVH, 32, 1);
 
-	std::vector<std::tuple<std::string, int, double>> deform;
-	deform.push_back(std::make_tuple("FemurL", 1, w));
-	deform.push_back(std::make_tuple("TibiaL", 1, w));
-	deform.push_back(std::make_tuple("FemurR", 1, w));
-	deform.push_back(std::make_tuple("TibiaR", 1, w));
-		
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);	
-	this->mRef->RescaleOriginalBVH(w);
 	
 	this->mController->Reset(false);
 
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 	mRefContact = p_v_target->contact;
 	this->mRewardTotal = 0;
 	this->mCurFrame = 0;
@@ -385,7 +364,6 @@ Step()
 		}
 		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1));
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
-		mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 		mRefContact = p_v_target->contact;
 		this->mCurFrame++;
 		this->Save();

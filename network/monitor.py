@@ -31,14 +31,16 @@ class Monitor(object):
 		self.num_transitions = 0
 		self.total_rewards = []
 		self.max_episode_length = 0
-		self.total_rewards_by_parts = np.array([[]]*6)
+		self.total_rewards_by_parts = np.array([[]]*5)
 		self.transition_per_episodes = []
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
-
+		self.avg_rewards_per_height = np.array([0.0] * 41)
+		self.avg_count_per_height = np.array([0] * 41)
+		self.rewards_per_episode = np.array([0.0] * self.num_slaves)
 		self.terminated = [False]*self.num_slaves
 		self.states = [0]*self.num_slaves
 
@@ -73,7 +75,7 @@ class Monitor(object):
 		self.terminated[i] = False
 	
 	def step(self, actions):
-		self.states, rewards, dones, times, nan_count =  self.env.step(actions)
+		self.states, rewards, dones, times, nan_count, heights =  self.env.step(actions)
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		self.num_nan_per_iteration += nan_count
@@ -81,13 +83,17 @@ class Monitor(object):
 			if not self.terminated[i] and rewards[i][0] is not None:
 				self.rewards_per_iteration += rewards[i][0]
 				self.rewards_by_part_per_iteration.append(rewards[i])
-				
+				self.rewards_per_episode[i] += rewards[i][0]
 				self.num_transitions_per_iteration += 1
 				if dones[i]:
 					self.num_episodes_per_iteration += 1
 					if times[i] > self.max_episode_length:
 						self.max_episode_length = times[i]
-			
+					idx = heights[i] - 5
+					self.avg_rewards_per_height[idx] = ((self.avg_rewards_per_height[idx] * self.avg_count_per_height[idx]) + self.rewards_per_episode[i]) / (self.avg_count_per_height[idx] + 1.0)
+					self.avg_count_per_height[idx] += 1
+					self.rewards_per_episode[i] = 0
+
 		rewards = [rewards[i][0] for i in range(len(rewards))]
 
 		return rewards, dones
@@ -167,8 +173,7 @@ class Monitor(object):
 						[np.asarray(self.total_rewards_by_parts[1]), 'p'], 
 						[np.asarray(self.total_rewards_by_parts[2]), 'v'], 
 						[np.asarray(self.total_rewards_by_parts[3]), 'com'],
-						[np.asarray(self.total_rewards_by_parts[4]), 'ee'],
-						[np.asarray(self.total_rewards_by_parts[5]), 'srl']]
+						[np.asarray(self.total_rewards_by_parts[4]), 'ee']]
 
 			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
@@ -177,6 +182,9 @@ class Monitor(object):
 				y_list[i][0] = np.array(y_list[i][0])/np.array(self.transition_per_episodes)
 
 			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
+			
+			y_list = [[np.asarray(self.avg_rewards_per_height), 'rewards']]
+			self.plotFig(y_list, "rewards_per_height", 3, False, path=self.directory+"result_per_height.png")
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0

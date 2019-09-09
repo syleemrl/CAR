@@ -18,12 +18,14 @@ class Env(object):
 		rewards = []
 		dones = []
 		times = []
+		heights = []
 		nan_count = 0
 		
 		self.sim_env.SetActions(actions)
 		self.sim_env.Steps()
 		for j in range(self.num_slaves):
-			is_terminal, nan_occur, start, time_elapsed = self.sim_env.IsNanAtTerminal(j)
+			is_terminal, nan_occur, start, time_elapsed, height = self.sim_env.IsNanAtTerminal(j)
+			heights.append(int(height * 10))
 			if not nan_occur:
 				r = self.sim_env.GetRewardByParts(j)
 				rewards.append(r)
@@ -37,4 +39,4 @@ class Env(object):
 		
 		states = self.sim_env.GetStates()
 
-		return states, rewards, dones, times, nan_count 
+		return states, rewards, dones, times, nan_count, heights 

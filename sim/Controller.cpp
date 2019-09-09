@@ -8,9 +8,10 @@ namespace DPhy
 
 Controller::Controller(std::string motion)
 	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.3),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), mTargetHeight(1), mMT(mRD()),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
+
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
 	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
@@ -88,7 +89,7 @@ Controller::Controller(std::string motion)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 * 2 + 1);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -105,8 +106,8 @@ Controller::Controller(std::string motion)
 	this->mTargetVelocities = Eigen::VectorXd::Zero(dof);
 
 	//temp
-	this->mTargetContacts = Eigen::VectorXd::Zero(6);
-	this->mRewardParts.resize(6, 0.0);
+	this->mTargetContacts = Eigen::VectorXd::Zero(5);
+	this->mRewardParts.resize(5, 0.0);
 
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
@@ -126,8 +127,6 @@ SetReference(std::string motion)
 	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
-	this->mRefCharacter->EditTrajectory(mBVH, 32, 4);
-
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -148,31 +147,25 @@ Step()
 	int num_body_nodes = this->mInterestedBodies.size();
 	double action_multiplier = 0.2;
 
-	for(int i = 0; i < num_body_nodes*6; i++){
+	for(int i = 0; i < num_body_nodes*3; i++){
 		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
-	}
-	mActions[num_body_nodes*6] = dart::math::clip(mActions[num_body_nodes*6]*action_multiplier, -0.7, 0.7);
-	
+	}	
 
-	this->mStep = 1 + mActions[num_body_nodes*6];
-	this->mCurrentFrame += this->mStep;
+	this->mCurrentFrame += 1;
 
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	this->mTargetContacts = p_v_target->contact;
 
+	delete p_v_target;
+
 	this->mPDTargetPositions = this->mTargetPositions;
 	this->mPDTargetVelocities = this->mTargetVelocities;
-
-	//SRL
-	this->mAdaptiveTargetPositions = this->mTargetPositions;
-	this->mAdaptiveTargetVelocities = this->mTargetVelocities;
 
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		mPDTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
-		mAdaptiveTargetPositions.segment<3>(idx) += mActions.segment<3>(3 * num_body_nodes + 3*i);
 	}
 
 	// set pd gain action
@@ -213,10 +206,10 @@ UpdateReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//Position Differences
-	Eigen::VectorXd p_diff = skel->getPositionDifferences(this->mAdaptiveTargetPositions, skel->getPositions());
+	Eigen::VectorXd p_diff = skel->getPositionDifferences(this->mTargetPositions, skel->getPositions());
 
 	//Velocity Differences
-	Eigen::VectorXd v_diff = skel->getVelocityDifferences(this->mAdaptiveTargetVelocities, skel->getVelocities());
+	Eigen::VectorXd v_diff = skel->getVelocityDifferences(this->mTargetVelocities, skel->getVelocities());
 
 	Eigen::VectorXd p_diff_reward, v_diff_reward;
 	Eigen::Vector3d root_ori_diff;
@@ -256,8 +249,8 @@ UpdateReward()
 	
 	com_diff = skel->getCOM();
 
-	skel->setPositions(mAdaptiveTargetPositions);
-	skel->setVelocities(mAdaptiveTargetVelocities);
+	skel->setPositions(mTargetPositions);
+	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
@@ -271,19 +264,7 @@ UpdateReward()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	double r_contact = 0;
-
-	for(int i = 0; i < this->mTargetContacts.rows(); i++) {
-		if(this->mTargetContacts[i] == 0 || 
-			this->mTargetContacts[i] == this->CheckCollisionWithGround(this->mCharacter->GetContactNodeName(i)))
-			r_contact += 1;
-	}
-	r_contact = r_contact / this->mTargetContacts.rows();
 	double scale = 1.0;
-
-	//srl
-	Eigen::VectorXd srl_diff_reward = this->mActions;
-	srl_diff_reward[mNumAction-1] *= M_PI*2;
 
 	//mul
 	// double sig_p = 0.1 * scale; 		// 2
@@ -296,25 +277,21 @@ UpdateReward()
 	double sig_v = 1.5 * scale;		// 3
 	double sig_com = 0.09 * scale;		// 4
 	double sig_ee = 0.08 * scale;		// 8
-	double sig_srl = 0.15 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_srl = exp_of_squared(srl_diff_reward, sig_srl);
 	// double r_tot = r_p*r_v*r_com*r_ee;
 	double r_tot =  w_p*r_p 
 					+ w_v*r_v 
 					+ w_com*r_com
 					+ w_ee*r_ee;
-					+ w_srl*r_srl;
 	// r_tot = 0.9*r_tot + 0.1*r_contact;
-	r_tot = this->mStep * r_tot;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
-		mRewardParts.resize(6, 0.0);
+		mRewardParts.resize(5, 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
@@ -322,7 +299,6 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_srl);
 	}
 }
 void
@@ -387,14 +363,14 @@ FollowBvh()
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
 	mTargetPositions = p_v_target->position;
 	mTargetVelocities = p_v_target->velocity;
-
+	delete p_v_target;
 	for(int i=0;i<this->mSimPerCon;i++)
 	{
 		skel->setPositions(mTargetPositions);
 		skel->setVelocities(mTargetVelocities);
 		skel->computeForwardKinematics(true, true, false);
 	}
-	this->mCurrentFrame += this->mStep;
+	this->mCurrentFrame += 1;
 	this->mTimeElapsed += 1.0 / this->mControlHz;
 	return true;
 }
@@ -446,20 +422,19 @@ Reset(bool RSI)
 	}
 	this->mStartFrame = this->mCurrentFrame;
 
+	mTargetHeight =  0.5 + std::floor(mDist(mMT) * 40.99) / 10.0;
+	this->mRefCharacter->EditTrajectory(mBVH, 32, mTargetHeight);
+
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
-	
-	this->mAdaptiveTargetPositions = this->mTargetPositions;
-	this->mAdaptiveTargetVelocities = this->mTargetVelocities;
-	
+	delete p_v_target;
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
-	this->mStep = 1;
 
 	this->mRewardParts.resize(6, 0.0);
 }
@@ -619,12 +594,9 @@ GetState()
 	foot_corner_heights *= 10;
 
 	Eigen::VectorXd state;
-	state.resize(p.rows()+v.rows()+1+1+1+8);
-	state<<p, v, phase, up_vec_angle,
+	state.resize(p.rows()+v.rows()+1+1+1+1+8);
+	state<<p, v, phase, up_vec_angle, mTargetHeight,
 			root_height, foot_corner_heights;
-	//state.resize(p.rows()+v.rows()+tp_concatenated.rows()+tp_contact_concatenated.rows()+1+1);
-	//state<<p, v, tp_concatenated, tp_contact_concatenated, up_vec_angle,
-	//			root_height; //, foot_corner_heights;
 
 	return state;
 }

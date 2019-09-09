@@ -60,7 +60,7 @@ public:
 	void LoadBVHMap(const std::string& path);
 
 	void ReadFramesFromBVH(BVH* bvh);
-	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t);
+	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool original=false);
 	void RescaleOriginalBVH(double w);
 	void EditTrajectory(BVH* bvh, int t, double w);
 	std::string GetContactNodeName(int i) { return mContactList[i]; };
@@ -74,6 +74,8 @@ protected:
 	Eigen::VectorXd mKp, mKv;
 	Eigen::VectorXd mKp_default, mKv_default;
 	std::vector<Frame*> mBVHFrames;
+	std::vector<Frame*> mBVHFrames_original;
+
 	std::vector<std::string> mContactList;
 };
 };

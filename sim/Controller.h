@@ -5,6 +5,8 @@
 #include "CharacterConfigurations.h"
 #include "SkeletonBuilder.h"
 #include "Functions.h"
+#include <random>
+
 namespace DPhy
 {
 class Character;
@@ -45,6 +47,7 @@ Controller(std::string motion);
 	std::vector<double> GetRewardByParts() {return mRewardParts; }
 	const dart::simulation::WorldPtr& GetWorld() {return mWorld;}
 
+	double GetTargetHeight() {return this->mTargetHeight;}
 	double GetCurrentTime(){return this->mTimeElapsed;}
 	double GetCurrentFrame(){return this->mCurrentFrame;}
 	double GetCurrentLength() {return this->mCurrentFrame - this->mStartFrame; }
@@ -56,9 +59,11 @@ Controller(std::string motion);
 
 	void DeformCharacter(double w);
 
-	Eigen::VectorXd GetAdaptivePosition() {return mAdaptiveTargetPositions; };
-
 protected:
+	std::random_device mRD;
+    std::mt19937 mMT;
+    std::uniform_real_distribution<double> mDist;
+	
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -70,6 +75,7 @@ protected:
 	int mSimulationHz;
 	int mSimPerCon;
 	double mStep;
+	double mTargetHeight;
 	
 	Character* mCharacter;
 	Character* mRefCharacter;
@@ -78,10 +84,6 @@ protected:
 	Eigen::VectorXd mTargetPositions;
 	Eigen::VectorXd mTargetVelocities;
 	Eigen::VectorXd mTargetContacts;
-
-	Eigen::VectorXd mAdaptiveTargetPositions;
-	Eigen::VectorXd mAdaptiveTargetVelocities;
-	double mAdaptiveTargetFrame;
 
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;

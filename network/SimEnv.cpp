@@ -55,7 +55,8 @@ IsNanAtTerminal(int id)
 	bool n = mSlaves[id]->IsNanAtTerminal();
 	int start = mSlaves[id]->GetStartFrame();
 	int e = mSlaves[id]->GetCurrentLength();
-	return p::make_tuple(t, n, start, e-1);
+	double h = mSlaves[id]->GetTargetHeight();
+	return p::make_tuple(t, n, start, e-1, h);
 }
 np::ndarray
 SimEnv::
