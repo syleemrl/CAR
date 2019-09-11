@@ -112,10 +112,10 @@ class Monitor(object):
 
 		plt.legend(loc=2)
 		if self.plot:
+			plt.ioff()
 			plt.show()
 			if ylim:
 				plt.ylim([0,1])
-			plt.pause(0.001)
 		if path is not None:
 			plt.savefig(path, format="png")
 

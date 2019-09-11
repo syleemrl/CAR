@@ -272,6 +272,7 @@ class PPO(object):
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
+
 		return self.actor.getMeanAction(state)
 		
 	def eval(self):

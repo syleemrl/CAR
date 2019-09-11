@@ -48,7 +48,7 @@ SimWindow(std::string motion, std::string network)
 	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
-	this->mSkelLength = 1;
+	this->mTargetHeight = 1;
 
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
@@ -239,9 +239,8 @@ void
 SimWindow::
 Reset()
 {
-	this->mRef->EditTrajectory(mBVH, 32, 1);
-
-	
+	this->mRef->EditTrajectory(mBVH, 32, mTargetHeight);
+	this->mController->SetTargetHeight(mTargetHeight);
 	this->mController->Reset(false);
 
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
@@ -267,6 +266,8 @@ Keyboard(unsigned char key,int x,int y)
 		case '`' :mIsRotate= !mIsRotate;break;
 		case '[': mIsAuto=false;this->PrevFrame();break;
 		case ']': mIsAuto=false;this->NextFrame();break;
+		case 'n': this->mTargetHeight -= 0.05; std::cout << this->mTargetHeight << std::endl; break;
+		case 'm': this->mTargetHeight += 0.05; std::cout << this->mTargetHeight << std::endl; break;
 		case 'o': this->mCurFrame-=99; this->PrevFrame();break;
 		case 'p': this->mCurFrame+=99; this->NextFrame();break;
 		case 's': std::cout << this->mCurFrame << std::endl;break;

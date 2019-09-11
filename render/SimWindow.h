@@ -79,7 +79,7 @@ protected:
 	int mCurFrame;
 	int mTotalFrame;
 	std::vector<double> mReward;
-	double mSkelLength;
+	double mTargetHeight;
 	double mRewardTotal;
 	
 	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryAdaptiveRef, mMemoryRefContact;

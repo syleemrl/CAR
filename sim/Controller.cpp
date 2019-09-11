@@ -422,7 +422,7 @@ Reset(bool RSI)
 	}
 	this->mStartFrame = this->mCurrentFrame;
 
-	mTargetHeight =  0.5 + std::floor(mDist(mMT) * 40.99) / 10.0;
+	if(RSI) mTargetHeight =  0.5 + std::floor(mDist(mMT) * 40.99) / 10.0;
 	this->mRefCharacter->EditTrajectory(mBVH, 32, mTargetHeight);
 
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
@@ -595,9 +595,10 @@ GetState()
 
 	Eigen::VectorXd state;
 	state.resize(p.rows()+v.rows()+1+1+1+1+8);
+	std::cout << mTargetHeight << std::endl;
 	state<<p, v, phase, up_vec_angle, mTargetHeight,
 			root_height, foot_corner_heights;
-
+	if(mCurrentFrame < 5) std::cout << state.transpose() << std::endl;
 	return state;
 }
 std::string 

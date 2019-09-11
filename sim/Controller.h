@@ -47,6 +47,7 @@ Controller(std::string motion);
 	std::vector<double> GetRewardByParts() {return mRewardParts; }
 	const dart::simulation::WorldPtr& GetWorld() {return mWorld;}
 
+	void SetTargetHeight(double th) {this->mTargetHeight = th;}
 	double GetTargetHeight() {return this->mTargetHeight;}
 	double GetCurrentTime(){return this->mTimeElapsed;}
 	double GetCurrentFrame(){return this->mCurrentFrame;}
