@@ -42,10 +42,9 @@ Eigen::Isometry3d Orthonormalize(const Eigen::Isometry3d& T_old)
 double _default_damping_coefficient = JOINT_DAMPING;
 void 
 SkeletonBuilder::
-DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
+DeformBodyNodeLength(const dart::dynamics::SkeletonPtr& skel,
 	dart::dynamics::BodyNode* bn, 
 	std::tuple<std::string, int, double> deform) {
-	std::string target_bn_name = std::get<0>(deform);
 	
 	auto shape_old = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
 	auto box = dynamic_cast<BoxShape*>(shape_old);
@@ -82,13 +81,41 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 }
 void 
 SkeletonBuilder::
-DeformSkeleton(const dart::dynamics::SkeletonPtr& skel, std::vector<std::tuple<std::string, int, double>> deform) {
+DeformSkeletonLength(const dart::dynamics::SkeletonPtr& skel, std::vector<std::tuple<std::string, int, double>> deform) {
 	for(auto d : deform) {
 		for(int i=0;i<skel->getNumBodyNodes();i++)
 		{
 			auto bn = skel->getBodyNode(i);
 			if(!bn->getName().compare(std::get<0>(d))) {
-				DeformBodyNode(skel, bn, d);
+				DeformBodyNodeLength(skel, bn, d);
+				break;
+			}
+		}
+	}
+}
+void 
+SkeletonBuilder::
+DeformBodyNodeMass(const dart::dynamics::SkeletonPtr& skel,
+	dart::dynamics::BodyNode* bn, 
+	std::tuple<std::string, double> deform) {
+	
+	auto shape = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
+
+	auto inertia = bn->getInertia();
+	inertia.setMass(inertia.getMass() * std::get<1>(deform));
+	inertia.setMoment(shape->computeInertia(inertia.getMass()));
+	bn->setInertia(inertia);
+
+}
+void 
+SkeletonBuilder::
+DeformSkeletonMass(const dart::dynamics::SkeletonPtr& skel, std::vector<std::tuple<std::string, double>> deform) {
+	for(auto d : deform) {
+		for(int i=0;i<skel->getNumBodyNodes();i++)
+		{
+			auto bn = skel->getBodyNode(i);
+			if(!bn->getName().compare(std::get<0>(d))) {
+				DeformBodyNodeMass(skel, bn, d);
 				break;
 			}
 		}

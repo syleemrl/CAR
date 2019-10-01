@@ -36,5 +36,4 @@ class Env(object):
 				nan_count += 1
 		
 		states = self.sim_env.GetStates()
-
 		return states, rewards, dones, times, nan_count 

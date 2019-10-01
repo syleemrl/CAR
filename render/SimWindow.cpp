@@ -2,7 +2,7 @@
 #include "SimWindow.h"
 #include "dart/external/lodepng/lodepng.h"
 #include "Functions.h"
-#include "matplotlibcpp.h"
+//#include "matplotlibcpp.h"
 #include <algorithm>
 #include <fstream>
 #include <boost/filesystem.hpp>
@@ -10,7 +10,7 @@
 using namespace GUI;
 using namespace dart::simulation;
 using namespace dart::dynamics;
-namespace plt=matplotlibcpp;
+//namespace plt=matplotlibcpp;
 
 SimWindow::
 SimWindow(std::string motion, std::string network)
@@ -35,27 +35,34 @@ SimWindow(std::string motion, std::string network)
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
-	this->mRef->EditTrajectory(mBVH, 32, 3.5);
 
- 	std::vector<double> x(this->mRef->GetMaxFrame()), y(this->mRef->GetMaxFrame());
- 	for(int i = 0; i < this->mRef->GetMaxFrame(); i++) {
- 		x.push_back(i);
- 		y.push_back(this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, i)->COMvelocity[1]);
- 	}
- 	plt::plot(x, y);
-    plt::show();
+
+	std::vector<std::tuple<std::string, int, double>> deform;
+	deform.push_back(std::make_tuple("ForeArmL", 0, 1.7));
+	deform.push_back(std::make_tuple("ArmL", 0, 1.7));
+	deform.push_back(std::make_tuple("ForeArmR", 0, 1.7));
+	deform.push_back(std::make_tuple("ArmR", 0, 1.7));
+	deform.push_back(std::make_tuple("FemurL", 1, 1.7));
+	deform.push_back(std::make_tuple("TibiaL", 1, 1.7));
+	deform.push_back(std::make_tuple("FemurR", 1, 1.7));
+	deform.push_back(std::make_tuple("TibiaR", 1, 1.7));
+//	deform.push_back(std::make_tuple("FootL", 2, 0.3));
+//	deform.push_back(std::make_tuple("FootR", 2, 0.3));
+
+	DPhy::SkeletonBuilder::DeformSkeletonLength(mRef->GetSkeleton(), deform);
+
+	this->mRef->RescaleOriginalBVH(1.7);
 
 	this->mAdaptiveRef = DPhy::SkeletonBuilder::BuildFromFile(path);
 
 	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
-	this->mSkelLength = 1;
+	this->mSkelLength = 0.3;
 
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 	mRefContact = p_v_target->contact;
 
 	if(this->mRunPPO)
@@ -248,25 +255,11 @@ void
 SimWindow::
 Reset()
 {
-	double w = 1.05;
-	this->mController->DeformCharacter(w);
-	this->mSkelLength *= w;
-	std::cout << this->mSkelLength << std::endl;
-
-	std::vector<std::tuple<std::string, int, double>> deform;
-	deform.push_back(std::make_tuple("FemurL", 1, w));
-	deform.push_back(std::make_tuple("TibiaL", 1, w));
-	deform.push_back(std::make_tuple("FemurR", 1, w));
-	deform.push_back(std::make_tuple("TibiaR", 1, w));
-		
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);	
-	this->mRef->RescaleOriginalBVH(w);
 	
 	this->mController->Reset(false);
 
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 	mRefContact = p_v_target->contact;
 	this->mRewardTotal = 0;
 	this->mCurFrame = 0;
@@ -385,7 +378,6 @@ Step()
 		}
 		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1));
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
-		mAdaptiveRef->setPositions(this->mController->GetAdaptivePosition());
 		mRefContact = p_v_target->contact;
 		this->mCurFrame++;
 		this->Save();

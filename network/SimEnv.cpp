@@ -162,7 +162,7 @@ void
 SimEnv::
 DeformCharacter(double w)
 {
-	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->DeformCharacter(w);
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->DeformCharacter(w, 1.0);
 }
 
 using namespace boost::python;

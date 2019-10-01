@@ -238,10 +238,10 @@ ReadFramesFromBVH(BVH* bvh)
 
 		Eigen::VectorXd v;
 		if( t < 0.05 ){
-			v = mSkeleton->getPositionDifferences(p1, p)*20;
+			v = mSkeleton->getPositionDifferences(p1, p)*30;
 		}
 		else{
-			v = mSkeleton->getPositionDifferences(p, p1)*20;
+			v = mSkeleton->getPositionDifferences(p, p1)*30;
 		}
 
 		for(auto& jn : mSkeleton->getJoints()){
@@ -283,12 +283,11 @@ ReadFramesFromBVH(BVH* bvh)
 		}
 		mBVHFrames[i]->SetContact(contact);
 		mBVHFrames[i]->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
+		if(i != 0) { 
+			mBVHFrames[i]->SetCOMvelocity(mSkeleton->getRootBodyNode()->getCOMLinearVelocity());
+		}
 	}
-	for(int i = 1; i < mBVHFrames.size(); i++) 
-	{
-		Eigen::Vector3d v = (mBVHFrames[i]->COMposition - mBVHFrames[i-1]->COMposition) * 30.0;
-		mBVHFrames[i]->SetCOMvelocity(v);
-	}
+
 	mBVHFrames[0]->SetCOMvelocity(mBVHFrames[1]->COMvelocity);
 }
 void
@@ -298,7 +297,7 @@ RescaleOriginalBVH(double w)
 	mSkeleton->setPositions(mBVHFrames[0]->position);
 	mSkeleton->setVelocities(mBVHFrames[0]->velocity);
 	mSkeleton->computeForwardKinematics(true,true,false);
-	
+
 	double minheight = 0;
 	for(int i = 0; i < mContactList.size(); i++) 
 	{
@@ -326,20 +325,15 @@ RescaleOriginalBVH(double w)
 			d_p *= w;
 			prev_p = cur_p;
 			cur_p.segment<3>(3) = mBVHFrames[i-1]->position.segment<3>(3) + d_p;
-			cur_p[4] = prev_p[4];
 			mBVHFrames[i]->SetPosition(cur_p);
 
 			Eigen::VectorXd cur_v = mBVHFrames[i]->velocity;
-			Eigen::Vector3d d_v = cur_v.segment<3>(3) - prev_v.segment<3>(3);
-			d_v *= w;
-			prev_v = cur_v;
-			cur_v.segment<3>(3) = mBVHFrames[i-1]->velocity.segment<3>(3) + d_v;
-			cur_v[4] = prev_v[4];
+			cur_v.segment<3>(3) = w * cur_v.segment<3>(3);
+
 			mBVHFrames[i]->SetVelocity(cur_v);
 
 		} else {
 			prev_p = mBVHFrames[i]->position;
-			prev_v = mBVHFrames[i]->velocity;
 		}
 		Eigen::VectorXd contact(mContactList.size());
 		contact.setZero();
@@ -357,17 +351,20 @@ RescaleOriginalBVH(double w)
 			} 
 		}
 		mBVHFrames[i]->SetContact(contact);
+		mBVHFrames[i]->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
+		Eigen::Vector3d v = mSkeleton->getRootBodyNode()->getCOMLinearVelocity().transpose();
+		mBVHFrames[i]->SetCOMvelocity(v);
+
 	}
 }
 Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t)
 {
-	int k0 = (int) std::min(std::floor(t), (double)mBVHFrames.size());
-	int k1 = (int) std::min(std::ceil(t), (double)mBVHFrames.size());
-
+	int k0 = (int) std::min(std::floor(t), (double)mBVHFrames.size()-1);
+	int k1 = (int) std::min(std::ceil(t), (double)mBVHFrames.size()-1);
 	if (k0 == k1) 
-		return mBVHFrames[k0];
+		return new Frame(mBVHFrames[k0]);
 
 	Frame* k0_f = mBVHFrames[k0];
 	Frame* k1_f = mBVHFrames[k1];

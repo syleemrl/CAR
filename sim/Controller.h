@@ -54,9 +54,7 @@ Controller(std::string motion);
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
-	void DeformCharacter(double w);
-
-	Eigen::VectorXd GetAdaptivePosition() {return mAdaptiveTargetPositions; };
+	void DeformCharacter(double w0, double w1);
 
 protected:
 	dart::simulation::WorldPtr mWorld;
@@ -79,15 +77,13 @@ protected:
 	Eigen::VectorXd mTargetVelocities;
 	Eigen::VectorXd mTargetContacts;
 
-	Eigen::VectorXd mAdaptiveTargetPositions;
-	Eigen::VectorXd mAdaptiveTargetVelocities;
-	double mAdaptiveTargetFrame;
-
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;
 
 	Eigen::VectorXd mActions;
 
+	Eigen::Vector3d mTargetCOMvelocity;
+	Eigen::Vector3d mAdaptiveCOMvelocity;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
