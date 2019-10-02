@@ -126,7 +126,7 @@ SetReference(std::string motion)
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
 
-	this->DeformCharacter(0.3, 10);
+	this->DeformCharacter(1.7, 1);
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -427,7 +427,7 @@ DeformCharacter(double w0,double w1)
 	DPhy::SkeletonBuilder::DeformSkeletonMass(mRefCharacter->GetSkeleton(), deform_m);
 	DPhy::SkeletonBuilder::DeformSkeletonMass(mCharacter->GetSkeleton(), deform_m);
 
-	this->mRefCharacter->RescaleOriginalBVH(w0);
+	this->mRefCharacter->RescaleOriginalBVH(std::sqrt(w0));
 
 }
 void 
