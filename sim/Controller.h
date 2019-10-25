@@ -18,7 +18,7 @@ class Character;
 class Controller
 {
 public:
-Controller(std::string motion);
+Controller(std::string motion, bool record=false);
 
 	void Step();
 	void UpdateReward();
@@ -55,6 +55,10 @@ Controller(std::string motion);
 	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
 	void DeformCharacter(double w0, double w1);
+	void SaveHistory(const std::string& filename);
+
+	void UpdateGRF(std::vector<std::string> joints);
+	std::vector<Eigen::VectorXd> GetGRF();
 
 protected:
 	dart::simulation::WorldPtr mWorld;
@@ -95,15 +99,16 @@ protected:
 
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
+	bool mRecord;
+	std::vector<std::string> mGRFJoints;
 
 	int mNumState, mNumAction;
 
 	int terminationReason;
 
 	std::vector<Eigen::VectorXd> torques;
-
+	std::vector<std::vector<Eigen::VectorXd>> GRFs;
 	std::shared_ptr<dart::collision::DARTCollisionDetector> mGroundCollisionChecker;	
-
 };
 }
 #endif

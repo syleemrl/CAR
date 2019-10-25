@@ -1,5 +1,5 @@
 #include <GL/glew.h>
-#include "SimWindow.h"
+#include "SimWindowMulti.h"
 #include "dart/external/lodepng/lodepng.h"
 #include "Functions.h"
 //#include "matplotlibcpp.h"
@@ -12,30 +12,28 @@ using namespace dart::simulation;
 using namespace dart::dynamics;
 //namespace plt=matplotlibcpp;
 
-SimWindow::
-SimWindow(std::string motion, std::string network, std::string filename)
+SimWindowMulti::
+SimWindowMulti(std::string motion, std::vector<std::string> network)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
-	mDrawOutput(true), mDrawRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
+	 mDrawRef(true), mTimeStep(1 / 30.0)
 {
-	if(network.compare("") == 0) {
-		this->mDrawOutput = false;
-		this->mRunPPO = false;
+	for(int i = 0; i < network.size(); i++)	
+	{
+		this->mController.emplace_back(new DPhy::Controller(motion, true));
+		this->mDrawOutput.emplace_back(true);
 	}
-	this->filename = filename;
-	this->mController = new DPhy::Controller(motion, true);
-	this->mWorld = this->mController->GetWorld();
 
 	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH = new DPhy::BVH();
 	this->mBVH->Parse(path);
 
-	path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+	path = std::string(CAR_DIR) + std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
 
-	double w0 = 1.7, w1 = 1;
+	double w0 = 1;
 	std::vector<std::tuple<std::string, int, double>> deform;
 	deform.push_back(std::make_tuple("ForeArmL", 0, w0));
 	deform.push_back(std::make_tuple("ArmL", 0, w0));
@@ -48,94 +46,67 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 	DPhy::SkeletonBuilder::DeformSkeletonLength(mRef->GetSkeleton(), deform);
 
-	// std::vector<std::tuple<std::string, double>> deform_m;
-	// deform_m.push_back(std::make_tuple("ForeArmL", w1));
-	// deform_m.push_back(std::make_tuple("ArmL", w1));
-	// deform_m.push_back(std::make_tuple("ForeArmR", w1));
-	// deform_m.push_back(std::make_tuple("ArmR", w1));
-	// deform_m.push_back(std::make_tuple("FemurL", w1));
-	// deform_m.push_back(std::make_tuple("TibiaL", w1));
-	// deform_m.push_back(std::make_tuple("FemurR", w1));
-	// deform_m.push_back(std::make_tuple("TibiaR", w1));
-	
-	// DPhy::SkeletonBuilder::DeformSkeletonMass(mRef->GetSkeleton(), deform_m);
 	this->mRef->RescaleOriginalBVH(std::sqrt(w0));
 
-	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
-	this->mSkelLength = 0.3;
-
-	this->mController->Reset(false);
+	for(int i = 0; i < network.size(); i++)
+	{
+		DPhy::SetSkeletonColor(this->mController[i]->GetSkeleton(), Eigen::Vector4d((float) i / network.size(), 0.73, 0.73, 1.0));
+		this->mController[i]->Reset(false);
+	}
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
 
-	if(this->mRunPPO)
-	{
-		Py_Initialize();
-		np::initialize();
-		try{
+	Py_Initialize();
+	np::initialize();
+	try{
+		for(int i = 0; i < network.size(); i++)
+		{	
 			p::object ppo_main = p::import("ppo");
-			this->mPPO = ppo_main.attr("PPO")();
-			this->mPPO.attr("initRun")(network,
-									   this->mController->GetNumState(), 
-									   this->mController->GetNumAction());
-
-		}
-		catch (const p::error_already_set&)
-		{
-			PyErr_Print();
+			this->mPPO.emplace_back(ppo_main.attr("PPO")());
+			this->mPPO[i].attr("initRun")(network[i],
+									   this->mController[i]->GetNumState(), 
+									   this->mController[i]->GetNumAction());
 		}
 	}
+	catch (const p::error_already_set&)
+	{
+		PyErr_Print();
+	}
+	
 
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->mDisplayTimeout = 33;
-	this->mRewardTotal = 0;
 
 	this->MemoryClear();
 	this->Save();
 	this->SetFrame(this->mCurFrame);
 }
 void 
-SimWindow::
+SimWindowMulti::
 MemoryClear() {
     mMemory.clear();
     mMemoryRef.clear();
-    mMemoryCOM.clear();
-    mMemoryCOMRef.clear();
-    mMemoryGRF.clear();
-    mReward.clear();
 }
 void 
-SimWindow::
+SimWindowMulti::
 Save() {
-    SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
-    mMemory.emplace_back(humanoidSkel->getPositions());
-    mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
-    mMemoryCOM.emplace_back(humanoidSkel->getCOM());
-    mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
-    this->mTotalFrame++;
-    if(this->mRunPPO && !this->mController->IsTerminalState())
-    {
-    	if(this->mTotalFrame != 1) {
-    		mReward = this->mController->GetRewardByParts();
-    		mRewardTotal += mReward[0];
-    		mMemoryGRF.emplace_back(this->mController->GetGRF());
-
-    	}
-    	// std::cout << this->mTotalFrame-1 << ":";
-    	// for(int i = 0; i < mReward.size(); i++) {
-    	//  	std::cout << " " << mReward[0];
-    	// }
-    	// std::cout << std::endl;
-    	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
+	std::vector<Eigen::VectorXd> pos;
+	for(int i = 0; i < mController.size(); i++)
+	{
+    	SkeletonPtr humanoidSkel = this->mController[i]->GetSkeleton();
+    	pos.emplace_back(humanoidSkel->getPositions());
 	}
+	mMemory.emplace_back(pos);
+    mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
 
+    this->mTotalFrame++;
 }
 
 void
-SimWindow::
+SimWindowMulti::
 SetFrame(int n)
 {
 	 if( n < 0 || n >= this->mTotalFrame )
@@ -147,13 +118,16 @@ SetFrame(int n)
 	 if (mMemory.size() <= n){
 	     return;
 	 }
+	for(int i = 0; i < mController.size(); i++)
+	{
+    	SkeletonPtr humanoidSkel = this->mController[i]->GetSkeleton();
+    	humanoidSkel->setPositions(mMemory[n][i]);
+	}
 
-    SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
-    humanoidSkel->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
 void
-SimWindow::
+SimWindowMulti::
 NextFrame()
 { 
 	this->mCurFrame+=1;
@@ -163,7 +137,7 @@ NextFrame()
 	this->SetFrame(this->mCurFrame);
 }
 void
-SimWindow::
+SimWindowMulti::
 PrevFrame()
 {
 	this->mCurFrame-=1;
@@ -173,48 +147,36 @@ PrevFrame()
 	this->SetFrame(this->mCurFrame);
 }
 void
-SimWindow::
+SimWindowMulti::
 DrawSkeletons()
 {
-	if(this->mDrawOutput) {
-		GUI::DrawSkeleton(this->mController->GetSkeleton(), 0);
-		GUI::DrawTrajectory(this->mMemoryCOM, this->mCurFrame, Eigen::Vector3d(0.9, 0.9, 0.9));
-		if(this->mMemoryGRF.size() != 0) {
-			std::vector<Eigen::VectorXd> grfs = this->mMemoryGRF.at(this->mCurFrame-1);
-			GUI::DrawForces(grfs, Eigen::Vector3d(1, 0, 0));
+	for(int i =0 ; i < mController.size(); i++) 
+	{
+		if(this->mDrawOutput[i]) {
+			GUI::DrawSkeleton(this->mController[i]->GetSkeleton(), 0);
 		}
 	}
 	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
-		GUI::DrawTrajectory(this->mMemoryCOMRef, this->mCurFrame);
 	}
 }
 void
-SimWindow::
+SimWindowMulti::
 DrawGround()
 {
-	Eigen::Vector3d com_root;
-	if(this->mDrawOutput)
-		com_root = this->mController->GetSkeleton()->getRootBodyNode()->getCOM();
-	else 
-		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
-
-	double ground_height = this->mController->GetSkeleton()->getRootBodyNode()->getCOM()[1]-0.5;
+	Eigen::Vector3d com_root = this->mController[0]->GetSkeleton()->getRootBodyNode()->getCOM();
+	double ground_height = this->mController[0]->GetSkeleton()->getRootBodyNode()->getCOM()[1]-0.5;
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
 void
-SimWindow::
+SimWindowMulti::
 Display() 
 {
 	glClearColor(1.0, 1.0, 1.0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	dart::dynamics::SkeletonPtr skel;
-	if(this->mDrawOutput)
-		skel = this->mController->GetSkeleton();
-	else
-		skel = this->mRef->GetSkeleton();
+	dart::dynamics::SkeletonPtr skel = this->mController[0]->GetSkeleton();
 	Eigen::Vector3d com_root = skel->getRootBodyNode()->getCOM();
 	Eigen::Vector3d com_front = skel->getRootBodyNode()->getTransform()*Eigen::Vector3d(0.0, 0.0, 2.0);
 
@@ -251,27 +213,28 @@ Display()
 
 }
 void
-SimWindow::
+SimWindowMulti::
 Reset()
 {
 	
-	this->mController->Reset(false);
-
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	this->mRewardTotal = 0;
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->MemoryClear();
 	this->Save();
 	this->SetFrame(this->mCurFrame);
 
-	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
+	for(int i = 0; i < mController.size(); i++)
+	{
+		DPhy::SetSkeletonColor(this->mController[i]->GetSkeleton(), Eigen::Vector4d((float) i / mController.size(), 0.73, 0.73, 1.0));
+		this->mController[i]->Reset(false);
+	}	
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
 }
 void
-SimWindow::
+SimWindowMulti::
 Keyboard(unsigned char key,int x,int y) 
 {
 	switch(key)
@@ -284,20 +247,24 @@ Keyboard(unsigned char key,int x,int y)
 		case 's': std::cout << this->mCurFrame << std::endl;break;
 		case 'r': Reset();break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
-		case '2': mDrawRef = !mDrawRef;break;
-		case '1': if(this->mRunPPO) mDrawOutput = !mDrawOutput;break;
+		case '0': mDrawRef = !mDrawRef;break;
 		case ' ':
 			mIsAuto = !mIsAuto;
 			break;
-		case 27: if(filename.compare("") != 0) this->mController->SaveHistory(filename); exit(0);break;
+		case 27: exit(0);break;
 		default : break;
+	}
+	if(key >= 49 && key <= 57) {
+		int i = key - 49;
+		if(i < mController.size())
+			mDrawOutput[i] = !mDrawOutput[i];
 	}
 	// this->SetFrame(this->mCurFrame);
 
 	// glutPostRedisplay();
 }
 void
-SimWindow::
+SimWindowMulti::
 Mouse(int button, int state, int x, int y) 
 {
 	if(button == 3 || button == 4){
@@ -328,7 +295,7 @@ Mouse(int button, int state, int x, int y)
 	// glutPostRedisplay();
 }
 void
-SimWindow::
+SimWindowMulti::
 Motion(int x, int y) 
 {
 	if (!mIsDrag)
@@ -349,29 +316,55 @@ Motion(int x, int y)
 	mPrevY = y;
 }
 void
-SimWindow::
+SimWindowMulti::
 Reshape(int w, int h) 
 {
 	glViewport(0, 0, w, h);
 	mCamera->Apply();
 }
+std::string handle_pyerror()
+{
+    using namespace boost::python;
+    using namespace boost;
 
+    PyObject *exc,*val,*tb;
+    object formatted_list, formatted;
+    PyErr_Fetch(&exc,&val,&tb);
+    handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb)); 
+    object traceback(import("traceback"));
+    if (!tb) {
+        object format_exception_only(traceback.attr("format_exception_only"));
+        formatted_list = format_exception_only(hexc,hval);
+    } else {
+        object format_exception(traceback.attr("format_exception"));
+        formatted_list = format_exception(hexc,hval,htb);
+    }
+    formatted = str("\n").join(formatted_list);
+    return extract<std::string>(formatted);
+}
 void 
-SimWindow::
+SimWindowMulti::
 Step()
 {
 	if(this->mCurFrame < this->mRef->GetMaxFrame() - 1) 
 	{
-		if(this->mRunPPO)
+		
+		for(int i = 0; i < mController.size(); i++)
 		{
-			auto state = this->mController->GetState();
-			p::object a = this->mPPO.attr("run")(DPhy::toNumPyArray(state));
-			np::ndarray na = np::from_object(a);
-			Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController->GetNumAction());
+			try{
+				auto state = this->mController[i]->GetState();
+				p::object a = this->mPPO[i].attr("run")(DPhy::toNumPyArray(state));
+				np::ndarray na = np::from_object(a);
+				Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController[i]->GetNumAction());
 
-			this->mController->SetAction(action);
-			this->mController->Step();
-
+				this->mController[i]->SetAction(action);
+				this->mController[i]->Step();
+			} catch(p::error_already_set) {
+				std::string msg = handle_pyerror();
+				std::cout << msg << std::endl;
+				p::handle_exception();
+				PyErr_Clear();
+			}
 		}
 		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1));
 		mRef->GetSkeleton()->setPositions(p_v_target->position);
@@ -382,7 +375,7 @@ Step()
 	this->SetFrame(this->mCurFrame);
 }
 void
-SimWindow::
+SimWindowMulti::
 Timer(int value) 
 {
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();

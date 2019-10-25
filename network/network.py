@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+
 activ = tf.nn.relu
 kernel_initialize_func = tf.contrib.layers.xavier_initializer()
 actor_layer_size = 1024
@@ -11,7 +12,8 @@ regularizer = tf.contrib.layers.l2_regularizer(l2_regularizer_scale)
 class Actor(object):
 	def __init__(self, sess, scope, state, num_actions):
 		self.sess = sess
-		self.scope = scope
+		self.name = scope
+		self.scope = scope + '_Actor'
 
 		self.mean, self.logstd, self.std = self.createNetwork(state, num_actions, False, None)
 		self.policy = self.mean + self.std * tf.random_normal(tf.shape(self.mean))
@@ -54,12 +56,13 @@ class Actor(object):
 
 	def getAction(self, states):
 		with tf.variable_scope(self.scope):
-			action, neglogprob = self.sess.run([self.policy, self.neglogprob], feed_dict={'state:0':states})
+			action, neglogprob = self.sess.run([self.policy, self.neglogprob], feed_dict={self.name+'_state:0':states})
 			return action, neglogprob
 
 	def getMeanAction(self, states):
 		with tf.variable_scope(self.scope):
-			action = self.sess.run([self.mean], feed_dict={'state:0':states})
+			key = self.name+'_state:0'
+			action = self.sess.run([self.mean], feed_dict={key:states})
 			return action[0]
 
 	def getVariable(self, trainable_only=False):
@@ -72,7 +75,8 @@ class Actor(object):
 class Critic(object):
 	def __init__(self, sess, scope, state):
 		self.sess = sess
-		self.scope = scope
+		self.name = scope
+		self.scope = scope + '_Critic'
 		self.value = self.createNetwork(state, False, None)
 
 	def createNetwork(self, state, reuse, is_training):	
@@ -96,7 +100,8 @@ class Critic(object):
 
 	def getValue(self, states):
 		with tf.variable_scope(self.scope):
-			return self.sess.run(self.value, feed_dict={'state:0':states})
+			key = self.name+'_state:0'
+			return self.sess.run(self.value, feed_dict={key:states})
 
 	def getVariable(self, trainable_only=False):
 		if trainable_only:

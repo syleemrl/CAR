@@ -741,6 +741,23 @@ DrawBezierCurve(
     }
     glEnd();
 }
+void 
+GUI::
+DrawTrajectory(const std::vector<Eigen::Vector3d> points, const int idx, const Eigen::Vector3d& color)
+{
+    for(int i = std::max(0, idx - 60); i < idx; i+=2) {
+        if(points.size() <= 2 || i + 2 >= points.size()) return;
+        else DrawBezierCurve(points[i], points[i+1], points[i+2], color);
+    }
+}
+void 
+GUI::
+DrawForces(const std::vector<Eigen::VectorXd> forces, const Eigen::Vector3d& color)
+{
+    for(int i = 0; i < forces.size(); i++) {
+       DrawLine(forces.at(i).segment<3>(0), forces.at(i).segment<3>(0) + forces.at(i).segment<3>(3), color);
+    }
+}
 
 void
 GUI::

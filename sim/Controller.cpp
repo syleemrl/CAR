@@ -1,16 +1,18 @@
 #include "Controller.h"
 #include "Character.h"
 #include <boost/filesystem.hpp>
+#include <Eigen/QR>
 #include <fstream>
 #include <algorithm>
 namespace DPhy
 {	
 
-Controller::Controller(std::string motion)
+Controller::Controller(std::string motion, bool record)
 	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.1),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.05),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
+	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
 	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
@@ -98,6 +100,12 @@ Controller::Controller(std::string motion)
 	mEndEffectors.push_back("HandR");
 	mEndEffectors.push_back("Head");
 
+	mGRFJoints.clear();
+	mGRFJoints.push_back("FootR");
+	mGRFJoints.push_back("FootL");
+	mGRFJoints.push_back("FootEndR");
+	mGRFJoints.push_back("FootEndL");
+
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
 	this->SetReference(motion);
 
@@ -112,6 +120,8 @@ Controller::Controller(std::string motion)
 	this->mNumAction = mActions.size();
 	
 	this->torques.clear();
+	this->GRFs.clear();
+
 }
 void 
 Controller::
@@ -126,7 +136,7 @@ SetReference(std::string motion)
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
 
-	this->DeformCharacter(1.7, 1);
+	this->DeformCharacter(1, 5);
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -192,8 +202,9 @@ Step()
 	// KV_RATIO from CharacterConfiguration.h
 	kv = KV_RATIO * kp;
 	mCharacter->SetPDParameters(kp, kv);
+	Eigen::VectorXd torque;
 	for(int i = 0; i < this->mSimPerCon; i += 2){
-		Eigen::VectorXd torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
+		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
@@ -205,6 +216,11 @@ Step()
 
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
+	if(mRecord) {
+		UpdateGRF(mGRFJoints);
+		this->torques.push_back(torque);
+
+	}
 
 }
 void
@@ -220,13 +236,7 @@ UpdateReward()
 	Eigen::VectorXd v_diff = skel->getVelocityDifferences(this->mTargetVelocities, skel->getVelocities());
 
 	Eigen::VectorXd p_diff_reward, v_diff_reward;
-	Eigen::Vector3d root_ori_diff;
-	Eigen::Vector3d root_av_diff;
-	
 	int num_reward_body_nodes = this->mRewardBodies.size();
-
-	root_ori_diff = p_diff.segment<3>(0);
-	root_av_diff = v_diff.segment<3>(0);
 
 	p_diff_reward.resize(num_reward_body_nodes*3);
 	v_diff_reward.resize(num_reward_body_nodes*3);
@@ -235,10 +245,6 @@ UpdateReward()
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
 		v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
-		if(i == 0) {
-			p_diff_reward.segment<3>(3*i) *= 2;
-			v_diff_reward.segment<3>(3*i) *= 2;
-		}
 	}
 
 	//End-effector position and COM Differences
@@ -250,9 +256,14 @@ UpdateReward()
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
 	Eigen::Vector3d com_diff;
 
-
+	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
+	Eigen::Vector3d root_ori_diff = p_diff.segment<3>(0);
+	Eigen::Vector3d com_lv_diff = cur_root_inv * skel->getRootBodyNode()->getCOMLinearVelocity();
+	
 	for(int i=0;i<mEndEffectors.size();i++){
 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
+		// ee_transforms.push_back(cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
+
 	}
 	
 	com_diff = skel->getCOM();
@@ -260,11 +271,17 @@ UpdateReward()
 	skel->setPositions(mPDTargetPositions);
 	skel->setVelocities(mPDTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
-
+	
+	Eigen::Isometry3d target_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	for(int i=0;i<mEndEffectors.size();i++){
+	//	Eigen::Isometry3d diff = ee_transforms[i].inverse() * target_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
 	}
+
+	root_ori_diff = p_diff.segment<3>(0);
+	com_lv_diff -= target_root_inv * this->mAdaptiveCOMvelocity; 
+	Eigen::Vector3d srl_diff = this->mAdaptiveCOMvelocity - skel->getRootBodyNode()->getCOMLinearVelocity();
 
 	com_diff -= skel->getCOM();
 
@@ -272,14 +289,6 @@ UpdateReward()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	double r_contact = 0;
-
-	for(int i = 0; i < this->mTargetContacts.rows(); i++) {
-		if(this->mTargetContacts[i] == 0 || 
-			this->mTargetContacts[i] == this->CheckCollisionWithGround(this->mCharacter->GetContactNodeName(i)))
-			r_contact += 1;
-	}
-	r_contact = r_contact / this->mTargetContacts.rows();
 	double scale = 1.0;
 
 	//mul
@@ -293,19 +302,20 @@ UpdateReward()
 	double sig_v = 1.5 * scale;		// 3
 	double sig_com = 0.09 * scale;		// 4
 	double sig_ee = 0.08 * scale;		// 8
-	double sig_srl = 0.15 * scale;
+	double sig_srl = 1.5 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_srl = exp_of_squared(mActions, sig_srl);
+	double r_srl = exp_of_squared(srl_diff, sig_srl);
 	// double r_tot = r_p*r_v*r_com*r_ee;
 	double r_tot =  w_p*r_p 
 					+ w_v*r_v 
-					+ w_com*r_com
-					+ w_ee*r_ee;
+					+ w_com*r_com;
+	//				+ w_ee*r_ee;
+	//				+ w_srl*r_srl;
 	// r_tot = 0.9*r_tot + 0.1*r_contact;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -357,10 +367,6 @@ UpdateTerminalInfo()
 	if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;
-	}
-	else if(root_diff.translation().norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
-		 mIsTerminal = true;
-		 terminationReason = 2;
 	}
 	else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
@@ -415,15 +421,19 @@ DeformCharacter(double w0,double w1)
 	DPhy::SkeletonBuilder::DeformSkeletonLength(mCharacter->GetSkeleton(), deform);
 	
 	std::vector<std::tuple<std::string, double>> deform_m;
-	deform_m.push_back(std::make_tuple("ForeArmL", w1));
-	deform_m.push_back(std::make_tuple("ArmL", w1));
-	deform_m.push_back(std::make_tuple("ForeArmR", w1));
-	deform_m.push_back(std::make_tuple("ArmR", w1));
-	deform_m.push_back(std::make_tuple("FemurL", w1));
+	deform_m.push_back(std::make_tuple("ForeArmL", 0.5 * w1));
+	deform_m.push_back(std::make_tuple("ArmL", 0.5 * w1));
+	deform_m.push_back(std::make_tuple("ForeArmR", 0.5 * w1));
+	deform_m.push_back(std::make_tuple("ArmR", 0.5 * w1));
+	deform_m.push_back(std::make_tuple("FemurL", 1.25 * w1));
 	deform_m.push_back(std::make_tuple("TibiaL", w1));
-	deform_m.push_back(std::make_tuple("FemurR", w1));
+	deform_m.push_back(std::make_tuple("FemurR", 1.25 * w1));
 	deform_m.push_back(std::make_tuple("TibiaR", w1));
-	
+	deform_m.push_back(std::make_tuple("Torso", 1.25 * w1));
+	deform_m.push_back(std::make_tuple("Spine", 1.25 * w1));
+	deform_m.push_back(std::make_tuple("Neck", 0.5 * w1));
+	deform_m.push_back(std::make_tuple("Head", 0.5 * w1));
+
 	DPhy::SkeletonBuilder::DeformSkeletonMass(mRefCharacter->GetSkeleton(), deform_m);
 	DPhy::SkeletonBuilder::DeformSkeletonMass(mCharacter->GetSkeleton(), deform_m);
 
@@ -473,6 +483,10 @@ Reset(bool RSI)
 	this->mStep = 1;
 
 	this->mRewardParts.resize(6, 0.0);
+
+	this->torques.clear();
+	this->GRFs.clear();
+
 }
 int
 Controller::
@@ -510,10 +524,13 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	skel->setVelocities(vel);
 	skel->computeForwardKinematics(true, true, false);
 
+//	Eigen::Isometry3d target_root_inv = root->getWorldTransform().inverse();
+
 	ret.resize((num_ee)*9+12);
 	for(int i=0;i<num_ee;i++)
-	{
+	{		
 		Eigen::Isometry3d transform = cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+//		Eigen::Isometry3d transform = target_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond(transform.linear()));
 		ret.segment<6>(6*i) << rot, transform.translation();
 	}
@@ -522,7 +539,9 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	for(int i=0;i<num_ee;i++)
 	{
 	    int idx = skel->getBodyNode(mEndEffectors[i])->getParentJoint()->getIndexInSkeleton(0);
-		ret.segment<3>(6*num_ee + 3*i) << vel.segment<3>(idx);
+//		ret.segment<3>(6*num_ee + 3*i) << target_root_inv.linear() * vel.segment<3>(idx);
+	    ret.segment<3>(6*num_ee + 3*i) << vel.segment<3>(idx);
+
 	}
 
 	// root diff with target com
@@ -531,7 +550,7 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	Eigen::Vector3d root_angular_vel_relative = cur_root_inv.linear() * skel->getRootBodyNode()->getAngularVelocity();
 	Eigen::Vector3d root_linear_vel_relative = cur_root_inv.linear() * skel->getRootBodyNode()->getCOMLinearVelocity();
 
-
+//	ret.tail<9>() << rot, root_angular_vel_relative, root_linear_vel_relative;
 	ret.tail<12>() << rot, transform.translation(), root_angular_vel_relative, root_linear_vel_relative;
 
 	// restore
@@ -586,7 +605,6 @@ GetState()
 
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
-	double phase = this->mCurrentFrame  / this->mBVH->GetMaxFrame();
 	Eigen::VectorXd p,v;
 	p.resize(p_save.rows()-6);
 	p = p_save.tail(p_save.rows()-6);
@@ -606,12 +624,70 @@ GetState()
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->position, p_v_target->velocity);
 	delete p_v_target;
 
+	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
+	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
+	
 	Eigen::VectorXd state;
+	// state.resize(p.rows()+1+v.rows()+p_next.rows()+ee.rows());
+	// state<<p, up_vec_angle, v, p_next, ee;
 	state.resize(p.rows()+v.rows()+p_next.rows()+ee.rows());
-	state<<p, v, p_next, ee;
-
+	state<< p, v, p_next, ee;
 	return state;
 }
+void
+Controller::SaveHistory(const std::string& filename) {
+	std::cout << "save results" << std::endl;
+	std::ofstream ofs(filename);
+	std::cout << this->torques.size() << " " << this->GRFs.size() << std::endl;
+	ofs << this->torques.size() << std::endl;
+	int i = 0;
+	for(auto& t: this->torques) {
+		ofs << t.transpose() << std::endl;
+	}
+	ofs << this->GRFs.at(0).size() << std::endl;
+	for(auto& g: this->GRFs) {
+		for(int i = 0; i < g.size(); i++) 
+		{
+			ofs << g.at(i).transpose() << std::endl;
+		}
+	}
+	ofs.close();
+}
+std::vector<Eigen::VectorXd>
+Controller::GetGRF() {
+	return GRFs.back();
+}
+void 
+Controller::UpdateGRF(std::vector<std::string> joints) {
+	std::vector<Eigen::VectorXd> grf;
+	auto& skel = mCharacter->GetSkeleton();
+
+	auto contacts =  mWorld->getConstraintSolver()->getLastCollisionResult().getContacts();
+
+	for(int j = 0; j < joints.size(); j++)
+	{
+		Eigen::Isometry3d cur_inv = skel->getBodyNode(joints.at(j))->getWorldTransform().inverse();
+		int idx = 3 * mCharacter->GetSkeleton()->getBodyNode(joints.at(j))->getIndexInSkeleton() + 3;
+
+		Eigen::MatrixXd Jt_com = skel->getLinearJacobian(skel->getBodyNode(joints.at(j)), cur_inv * skel->getBodyNode(joints.at(j))->getCOM()).transpose();
+		Eigen::Vector3d t_total(0, 0, 0);
+
+		for(int i = 0; i < contacts.size(); i++) {
+			if(contacts.at(i).collisionObject2->getShapeFrame()->getName().find(joints.at(j)) != std::string::npos) {
+				t_total += skel->getLinearJacobian(skel->getBodyNode(joints.at(j)), cur_inv * contacts.at(i).point).block<3, 3>(0, idx).transpose() * (-contacts.at(i).force);
+			}
+		}
+		Eigen::MatrixXd Jt_com_inv = Jt_com.completeOrthogonalDecomposition().pseudoInverse();
+		Eigen::Vector3d f_total = Jt_com_inv.block<3, 3>(0, idx) * t_total;
+
+		Eigen::Vector6d result;
+		result << skel->getBodyNode(joints.at(j))->getCOM(), f_total;
+		grf.push_back(result);
+	}
+
+	GRFs.push_back(grf);
+}
+
 std::string 
 Controller::GetContactNodeName(int i) { 
 	return mCharacter->GetContactNodeName(i); 

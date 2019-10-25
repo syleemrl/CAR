@@ -44,9 +44,10 @@ class PPO(object):
 		self.sess = tf.Session(config=config)
 
 		#build network and optimizer
-		self.buildOptimize()
+		name = pretrain.split("/")[-1]
+		self.buildOptimize(name)
 		
-		save_list = tf.trainable_variables()
+		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
 		self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
 		
 		if self.pretrain is not "":
@@ -75,7 +76,7 @@ class PPO(object):
 		self.sess = tf.Session(config=config)
 
 		#build network and optimizer
-		self.buildOptimize()
+		self.buildOptimize(name)
 			
 		save_list = tf.trainable_variables()
 		self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
@@ -116,12 +117,12 @@ class PPO(object):
 			out = open(self.directory+"results", "w")
 			out.close()
 
-	def buildOptimize(self):
-		self.state = tf.placeholder(tf.float32, shape=[None, self.num_state], name='state')
-		self.actor = Actor(self.sess, 'Actor', self.state, self.num_action)
-		self.critic = Critic(self.sess, 'Critic', self.state)
+	def buildOptimize(self, name):
+		self.state = tf.placeholder(tf.float32, shape=[None, self.num_state], name=name+'_state')
+		self.actor = Actor(self.sess, name, self.state, self.num_action)
+		self.critic = Critic(self.sess, name, self.state)
 		
-		with tf.variable_scope('Optimize'):
+		with tf.variable_scope(name+'_Optimize'):
 			self.action = tf.placeholder(tf.float32, shape=[None,self.num_action], name='action')
 			self.TD = tf.placeholder(tf.float32, shape=[None], name='TD')
 			self.GAE = tf.placeholder(tf.float32, shape=[None], name='GAE')
@@ -272,8 +273,9 @@ class PPO(object):
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
-		return self.actor.getMeanAction(state)
-		
+		action = self.actor.getMeanAction(state)
+		return action;
+
 	def eval(self):
 		pass
 
