@@ -78,6 +78,9 @@ protected:
 	std::vector<std::vector<Eigen::VectorXd>> mMemory;
 	std::vector<Eigen::VectorXd> mMemoryRef;
 	std::vector<DPhy::Controller*> mController;
+	std::vector<std::vector<Eigen::Vector3d>> mMemoryCOM;
+	std::vector<Eigen::Vector3d> mMemoryCOMRef;
+
 	DPhy::Character* mRef;
 	DPhy::BVH* mBVH;
 

@@ -17,22 +17,22 @@ int main(int argc,char** argv)
 	std::cout<<"C : Capture"<<std::endl;
 	std::cout<<"SPACE : Play"<<std::endl;
 	std::cout<<"ESC : exit"<<std::endl;
-	// SimWindow* simwindow;
-	// if( argc == 2 ) {
-	// 	simwindow = new SimWindow(std::string(argv[1]));
-	// }
-	// else if(argc == 3) {
-	// 	simwindow = new SimWindow(std::string(argv[1]), std::string(argv[2]));
-	// }
-	// else {
-	// 	simwindow = new SimWindow(std::string(argv[1]), std::string(argv[2]), std::string(argv[3]));
-	// }
-	SimWindowMulti* simwindow;
-	std::vector<std::string> network;
-	for(int i = 2; i < argc; i++) {
-		network.emplace_back(std::string(argv[i]));
+	SimWindow* simwindow;
+	if( argc == 2 ) {
+		simwindow = new SimWindow(std::string(argv[1]));
 	}
-	simwindow = new SimWindowMulti(std::string(argv[1]), network);	
+	else if(argc == 3) {
+		simwindow = new SimWindow(std::string(argv[1]), std::string(argv[2]));
+	}
+	else {
+		simwindow = new SimWindow(std::string(argv[1]), std::string(argv[2]), std::string(argv[3]));
+	}
+	// SimWindowMulti* simwindow;
+	// std::vector<std::string> network;
+	// for(int i = 2; i < argc; i++) {
+	// 	network.emplace_back(std::string(argv[i]));
+	// }
+	// simwindow = new SimWindowMulti(std::string(argv[1]), network);	
 	glutInit(&argc, argv);
 	simwindow->InitWindow(1600,900,"Render");
 	glutMainLoop();

@@ -40,82 +40,73 @@ Eigen::Isometry3d Orthonormalize(const Eigen::Isometry3d& T_old)
 }
 
 double _default_damping_coefficient = JOINT_DAMPING;
+
 void 
 SkeletonBuilder::
-DeformBodyNodeLength(const dart::dynamics::SkeletonPtr& skel,
+DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 	dart::dynamics::BodyNode* bn, 
-	std::tuple<std::string, int, double> deform) {
+	std::tuple<std::string, Eigen::Vector3d, double> deform) {
 	
 	auto shape_old = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
 	auto box = dynamic_cast<BoxShape*>(shape_old);
-	Eigen::Vector3d size = box->getSize();
-	double origin = size(std::get<1>(deform));
-	size(std::get<1>(deform)) = origin * std::get<2>(deform);
+	Eigen::Vector3d origin = box->getSize();
+	Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
 	ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
 
 	auto inertia = bn->getInertia();
+	inertia.setMass(inertia.getMass() * std::get<2>(deform));
 	inertia.setMoment(shape->computeInertia(inertia.getMass()));
-		
+	bn->setInertia(inertia);
+
 	bn->removeAllShapeNodes();
     bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
 	
 	auto props = bn->getParentJoint()->getJointProperties();
+	Eigen::Vector3d translation = props.mT_ChildBodyToJoint.translation();
+
 	
-	double sign = props.mT_ChildBodyToJoint.translation()(std::get<1>(deform));
-	sign = sign / fabs(sign);
-	
-	Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
-	T.translation()(std::get<1>(deform)) = sign * origin * (std::get<2>(deform) - 1) / 2.0;
-	props.mT_ChildBodyToJoint = props.mT_ChildBodyToJoint * T;
-	bn->getParentJoint()->setProperties(props);
+	for(int i = 0; i < 3; i++) {
+		if(translation[i] != 0) {
+			double sign = translation[i];
+			sign = sign / fabs(sign);
+
+			Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+			T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+			props.mT_ChildBodyToJoint = props.mT_ChildBodyToJoint * T;
+			bn->getParentJoint()->setProperties(props);
+		}
+	}
 
 	auto children = GetChildren(skel, bn);
 	for(auto child : children) {
 		props = child->getParentJoint()->getJointProperties();
-		T = Eigen::Isometry3d::Identity();
-		T.translation()(std::get<1>(deform)) = - sign * origin * (std::get<2>(deform) - 1) / 2.0;
-		props.mT_ParentBodyToJoint =  props.mT_ParentBodyToJoint * T;
-		child->getParentJoint()->setProperties(props);
-	}
+		translation = props.mT_ParentBodyToJoint.translation();
+		for(int i = 0; i < 3; i++) {
+			if(translation[i] != 0) {
 
-}
-void 
-SkeletonBuilder::
-DeformSkeletonLength(const dart::dynamics::SkeletonPtr& skel, std::vector<std::tuple<std::string, int, double>> deform) {
-	for(auto d : deform) {
-		for(int i=0;i<skel->getNumBodyNodes();i++)
-		{
-			auto bn = skel->getBodyNode(i);
-			if(!bn->getName().compare(std::get<0>(d))) {
-				DeformBodyNodeLength(skel, bn, d);
-				break;
+				double sign = translation[i];
+				sign = sign / fabs(sign);
+
+				Eigen::Isometry3d  T = Eigen::Isometry3d::Identity();
+				T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+
+				props.mT_ParentBodyToJoint =  props.mT_ParentBodyToJoint * T;
+				child->getParentJoint()->setProperties(props);
 			}
 		}
 	}
 }
+
 void 
 SkeletonBuilder::
-DeformBodyNodeMass(const dart::dynamics::SkeletonPtr& skel,
-	dart::dynamics::BodyNode* bn, 
-	std::tuple<std::string, double> deform) {
-	
-	auto shape = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
-
-	auto inertia = bn->getInertia();
-	inertia.setMass(inertia.getMass() * std::get<1>(deform));
-	inertia.setMoment(shape->computeInertia(inertia.getMass()));
-	bn->setInertia(inertia);
-
-}
-void 
-SkeletonBuilder::
-DeformSkeletonMass(const dart::dynamics::SkeletonPtr& skel, std::vector<std::tuple<std::string, double>> deform) {
+DeformSkeleton(const dart::dynamics::SkeletonPtr& skel, 
+	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform) {
 	for(auto d : deform) {
 		for(int i=0;i<skel->getNumBodyNodes();i++)
 		{
 			auto bn = skel->getBodyNode(i);
 			if(!bn->getName().compare(std::get<0>(d))) {
-				DeformBodyNodeMass(skel, bn, d);
+				DeformBodyNode(skel, bn, d);
 				break;
 			}
 		}

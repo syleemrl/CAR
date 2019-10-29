@@ -36,17 +36,19 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mRef->ReadFramesFromBVH(this->mBVH);
 
 	double w0 = 1.7, w1 = 1;
-	std::vector<std::tuple<std::string, int, double>> deform;
-	deform.push_back(std::make_tuple("ForeArmL", 0, w0));
-	deform.push_back(std::make_tuple("ArmL", 0, w0));
-	deform.push_back(std::make_tuple("ForeArmR", 0, w0));
-	deform.push_back(std::make_tuple("ArmR", 0, w0));
-	deform.push_back(std::make_tuple("FemurL", 1, w0));
-	deform.push_back(std::make_tuple("TibiaL", 1, w0));
-	deform.push_back(std::make_tuple("FemurR", 1, w0));
-	deform.push_back(std::make_tuple("TibiaR", 1, w0));
+	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
+	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, 1, 1), w0));
+	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, 1, 1), w0));
+	deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, 1, 1), w0));
+	deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, 1, 1), w0));
+	deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w0, 1, 1), w0));
+	deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w0, 1, 1), w0));
+	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(1, w0, 1), w0));
+	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, w0, 1), w0));
+	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(1, w0, 1), w0));
+	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(1, w0, 1), w0));
 
-	DPhy::SkeletonBuilder::DeformSkeletonLength(mRef->GetSkeleton(), deform);
+	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
 
 	// std::vector<std::tuple<std::string, double>> deform_m;
 	// deform_m.push_back(std::make_tuple("ForeArmL", w1));
