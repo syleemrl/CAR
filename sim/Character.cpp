@@ -238,10 +238,10 @@ ReadFramesFromBVH(BVH* bvh)
 
 		Eigen::VectorXd v;
 		if( t < 0.05 ){
-			v = mSkeleton->getPositionDifferences(p1, p)*30;
+			v = mSkeleton->getPositionDifferences(p1, p)*20;
 		}
 		else{
-			v = mSkeleton->getPositionDifferences(p, p1)*30;
+			v = mSkeleton->getPositionDifferences(p, p1)*20;
 		}
 
 		for(auto& jn : mSkeleton->getJoints()){
@@ -289,6 +289,7 @@ ReadFramesFromBVH(BVH* bvh)
 	}
 
 	mBVHFrames[0]->SetCOMvelocity(mBVHFrames[1]->COMvelocity);
+	totalFrames = mBVHFrames.size();
 }
 void
 Character::
@@ -359,58 +360,86 @@ RescaleOriginalBVH(double w)
 }
 Frame*
 Character::
-GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t)
+GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 {
-	int k0 = (int) std::min(std::floor(t), (double)mBVHFrames.size()-1);
-	int k1 = (int) std::min(std::ceil(t), (double)mBVHFrames.size()-1);
-	if (k0 == k1) 
-		return new Frame(mBVHFrames[k0]);
+	if(isPhase) {
+		int k = std::floor(t);
+		if(k / mBVHFrames.size() < 1) {
+			return new Frame(mBVHFrames[k]);
+		}
+		else {
 
-	Frame* k0_f = mBVHFrames[k0];
-	Frame* k1_f = mBVHFrames[k1];
-	
-	double w = t - k0;
-	int size = k0_f->position.size();
-	Eigen::VectorXd position(size);
-	Eigen::VectorXd velocity(size);
+			Eigen::VectorXd position = mBVHFrames.back()->position;
+			Eigen::VectorXd velocity = mBVHFrames.back()->velocity;
 
-	for(int i = 0; i < size; i += 3) {
-		if(i == 3) {
-			position.segment<3>(i) = (1 - w) * k0_f->position.segment<3>(i) + w * k1_f->position.segment<3>(i);
-			velocity.segment<3>(i) = (1 - w) * k0_f->velocity.segment<3>(i) + w * k1_f->velocity.segment<3>(i);
-		} else {
-			Eigen::Quaterniond k0_q = DPhy::DARTPositionToQuaternion(k0_f->position.segment<3>(i));
-			Eigen::Quaterniond k1_q = DPhy::DARTPositionToQuaternion(k1_f->position.segment<3>(i));
-			position.segment<3>(i) = DPhy::QuaternionToDARTPosition(k0_q.slerp(w, k1_q));
+			mSkeleton->setPositions(position);
+			mSkeleton->setVelocities(velocity);
+			mSkeleton->computeForwardKinematics(true,true,false);
 
-			k0_q = DPhy::DARTPositionToQuaternion(k0_f->velocity.segment<3>(i));
-			k1_q = DPhy::DARTPositionToQuaternion(k1_f->velocity.segment<3>(i));
-			velocity.segment<3>(i) = DPhy::QuaternionToDARTPosition(k0_q.slerp(w, k1_q));
+			Eigen::Isometry3d root = mSkeleton->getRootBodyNode()->getWorldTransform();
+			
+			int k_ = (int) std::floor(t) % totalFrames;
+			Frame* next = new Frame(mBVHFrames[k_]);
+			float height = next->position[4];
+			next->position.segment<3>(3) = mBVHFrames.back()->position.segment<3>(3) + root.linear() * next->velocity.segment<3>(3) * bvh->GetTimeStep();
+			next->position[4] = height;
+			mBVHFrames.push_back(next);
+
+			return new Frame(next);
 		}
 	}
+	else {
+		int k0 = (int) std::min(std::floor(t), (double)mBVHFrames.size()-1);
+		int k1 = (int) std::min(std::ceil(t), (double)mBVHFrames.size()-1);
+		if (k0 == k1) 
+			return new Frame(mBVHFrames[k0]);
 
-	double heightLimit = 0.05;
-	double velocityLimit = 6;
-
-	Eigen::VectorXd contact(mContactList.size());
-	contact.setZero();
-
-	mSkeleton->setPositions(position);
-	mSkeleton->setVelocities(velocity);
-	mSkeleton->computeForwardKinematics(true,true,false);
+		Frame* k0_f = mBVHFrames[k0];
+		Frame* k1_f = mBVHFrames[k1];
 		
-	for(int j = 0; j < mContactList.size(); j++) 
-	{
-		double height = mSkeleton->getBodyNode(mContactList[j])->getWorldTransform().translation()[1];
-		double velocity = mSkeleton->getBodyNode("FootEndR")->getLinearVelocity().norm();
-		if(height < heightLimit && velocity < velocityLimit) {
-			contact(j) = 1;
+		double w = t - k0;
+		int size = k0_f->position.size();
+		Eigen::VectorXd position(size);
+		Eigen::VectorXd velocity(size);
+
+		for(int i = 0; i < size; i += 3) {
+			if(i == 3) {
+				position.segment<3>(i) = (1 - w) * k0_f->position.segment<3>(i) + w * k1_f->position.segment<3>(i);
+				velocity.segment<3>(i) = (1 - w) * k0_f->velocity.segment<3>(i) + w * k1_f->velocity.segment<3>(i);
+			} else {
+				Eigen::Quaterniond k0_q = DPhy::DARTPositionToQuaternion(k0_f->position.segment<3>(i));
+				Eigen::Quaterniond k1_q = DPhy::DARTPositionToQuaternion(k1_f->position.segment<3>(i));
+				position.segment<3>(i) = DPhy::QuaternionToDARTPosition(k0_q.slerp(w, k1_q));
+
+				k0_q = DPhy::DARTPositionToQuaternion(k0_f->velocity.segment<3>(i));
+				k1_q = DPhy::DARTPositionToQuaternion(k1_f->velocity.segment<3>(i));
+				velocity.segment<3>(i) = DPhy::QuaternionToDARTPosition(k0_q.slerp(w, k1_q));
+			}
 		}
+
+		double heightLimit = 0.05;
+		double velocityLimit = 6;
+
+		Eigen::VectorXd contact(mContactList.size());
+		contact.setZero();
+
+		mSkeleton->setPositions(position);
+		mSkeleton->setVelocities(velocity);
+		mSkeleton->computeForwardKinematics(true,true,false);
+			
+		for(int j = 0; j < mContactList.size(); j++) 
+		{
+			double height = mSkeleton->getBodyNode(mContactList[j])->getWorldTransform().translation()[1];
+			double velocity = mSkeleton->getBodyNode("FootEndR")->getLinearVelocity().norm();
+			if(height < heightLimit && velocity < velocityLimit) {
+				contact(j) = 1;
+			}
+		}
+		Frame* newFrame =  new Frame(position, velocity, contact);
+		newFrame->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
+		newFrame->SetCOMvelocity(w * k1_f->COMvelocity + (1 - w) * k0_f->COMvelocity);
+		return newFrame;
 	}
-	Frame* newFrame =  new Frame(position, velocity, contact);
-	newFrame->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
-	newFrame->SetCOMvelocity(w * k1_f->COMvelocity + (1 - w) * k0_f->COMvelocity);
-	return newFrame;
 }
 void
 Character::

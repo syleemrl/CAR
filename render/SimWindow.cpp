@@ -34,36 +34,26 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
-
-	double w0 = 1.7, w1 = 1;
-	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(1, w0, 1), w0));
-	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, w0, 1), w0));
-	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(1, w0, 1), w0));
-	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(1, w0, 1), w0));
-
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
-
-	// std::vector<std::tuple<std::string, double>> deform_m;
-	// deform_m.push_back(std::make_tuple("ForeArmL", w1));
-	// deform_m.push_back(std::make_tuple("ArmL", w1));
-	// deform_m.push_back(std::make_tuple("ForeArmR", w1));
-	// deform_m.push_back(std::make_tuple("ArmR", w1));
-	// deform_m.push_back(std::make_tuple("FemurL", w1));
-	// deform_m.push_back(std::make_tuple("TibiaL", w1));
-	// deform_m.push_back(std::make_tuple("FemurR", w1));
-	// deform_m.push_back(std::make_tuple("TibiaR", w1));
 	
-	// DPhy::SkeletonBuilder::DeformSkeletonMass(mRef->GetSkeleton(), deform_m);
-	this->mRef->RescaleOriginalBVH(std::sqrt(w0));
+	this->mCharacter = new DPhy::Character(path);
 
-	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
+	// double w0 = 1.7, w1 = 1;
+	// std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
+	// deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, 1, 1), w0));
+	// deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, 1, 1), w0));
+	// deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, 1, 1), w0));
+	// deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, 1, 1), w0));
+	// deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w0, 1, 1), w0));
+	// deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w0, 1, 1), w0));
+	// deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(1, w0, 1), w0));
+	// deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, w0, 1), w0));
+	// deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(1, w0, 1), w0));
+	// deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(1, w0, 1), w0));
+
+	// DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
+	// this->mRef->RescaleOriginalBVH(std::sqrt(w0));
+
+	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
 	this->mSkelLength = 0.3;
@@ -71,6 +61,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
+	mCharacter->GetSkeleton()->setPositions(p_v_target->position);
 
 	if(this->mRunPPO)
 	{
@@ -96,8 +87,9 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mRewardTotal = 0;
 
 	this->MemoryClear();
-	this->Save();
+	this->Save(this->mCurFrame);
 	this->SetFrame(this->mCurFrame);
+
 }
 void 
 SimWindow::
@@ -111,26 +103,24 @@ MemoryClear() {
 }
 void 
 SimWindow::
-Save() {
-    SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
-    mMemory.emplace_back(humanoidSkel->getPositions());
+Save(int n) {
+	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, n, true);
+	mRef->GetSkeleton()->setPositions(p_v_target->position);
+
+    mMemory.emplace_back(this->mController->GetPositions(n));	
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
-    mMemoryCOM.emplace_back(humanoidSkel->getCOM());
+  //  SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
+ //   mMemoryCOM.emplace_back(humanoidSkel->getCOM());
     mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
     this->mTotalFrame++;
     if(this->mRunPPO && !this->mController->IsTerminalState())
     {
-    	if(this->mTotalFrame != 1) {
-    		mReward = this->mController->GetRewardByParts();
-    		mRewardTotal += mReward[0];
-    		mMemoryGRF.emplace_back(this->mController->GetGRF());
+    	// if(this->mTotalFrame != 1) {
+    	// 	mReward = this->mController->GetRewardByParts();
+    	// 	mRewardTotal += mReward[0];
+    	// 	mMemoryGRF.emplace_back(this->mController->GetGRF());
 
-    	}
-    	// std::cout << this->mTotalFrame-1 << ":";
-    	// for(int i = 0; i < mReward.size(); i++) {
-    	//  	std::cout << " " << mReward[0];
     	// }
-    	// std::cout << std::endl;
     	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
 	}
 
@@ -150,10 +140,11 @@ SetFrame(int n)
 	     return;
 	 }
 
-    SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
-    humanoidSkel->setPositions(mMemory[n]);
+  //  SkeletonPtr humanoidSkel = this->mController->GetSkeleton();
+  	mCharacter->GetSkeleton()->setPositions(mMemory[n]);
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
+
 void
 SimWindow::
 NextFrame()
@@ -179,7 +170,7 @@ SimWindow::
 DrawSkeletons()
 {
 	if(this->mDrawOutput) {
-		GUI::DrawSkeleton(this->mController->GetSkeleton(), 0);
+		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOM, this->mCurFrame, Eigen::Vector3d(0.9, 0.9, 0.9));
 		if(this->mMemoryGRF.size() != 0) {
 			std::vector<Eigen::VectorXd> grfs = this->mMemoryGRF.at(this->mCurFrame-1);
@@ -197,11 +188,11 @@ DrawGround()
 {
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)
-		com_root = this->mController->GetSkeleton()->getRootBodyNode()->getCOM();
+		com_root = this->mCharacter->GetSkeleton()->getRootBodyNode()->getCOM();
 	else 
 		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
 
-	double ground_height = this->mController->GetSkeleton()->getRootBodyNode()->getCOM()[1]-0.5;
+	double ground_height = this->mCharacter->GetSkeleton()->getRootBodyNode()->getCOM()[1]-0.5;
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
 void
@@ -214,7 +205,7 @@ Display()
 
 	dart::dynamics::SkeletonPtr skel;
 	if(this->mDrawOutput)
-		skel = this->mController->GetSkeleton();
+		skel = this->mCharacter->GetSkeleton();
 	else
 		skel = this->mRef->GetSkeleton();
 	Eigen::Vector3d com_root = skel->getRootBodyNode()->getCOM();
@@ -265,10 +256,10 @@ Reset()
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
 	this->MemoryClear();
-	this->Save();
+	this->Save(this->mCurFrame);
 	this->SetFrame(this->mCurFrame);
 
-	DPhy::SetSkeletonColor(this->mController->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
+	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 
 }
@@ -362,8 +353,9 @@ void
 SimWindow::
 Step()
 {
-	if(this->mCurFrame < this->mRef->GetMaxFrame() - 1) 
-	{
+	// if(this->mCurFrame < this->mRef->GetMaxFrame() - 1) 
+	// {
+	for(int i = 1; i <= 2; i++) {
 		if(this->mRunPPO)
 		{
 			auto state = this->mController->GetState();
@@ -375,12 +367,10 @@ Step()
 			this->mController->Step();
 
 		}
-		DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, (this->mCurFrame+1));
-		mRef->GetSkeleton()->setPositions(p_v_target->position);
-		this->mCurFrame++;
-		this->Save();
-
-	}
+	// }
+	}		
+	this->mCurFrame++;
+	this->Save(this->mCurFrame);
 	this->SetFrame(this->mCurFrame);
 }
 void

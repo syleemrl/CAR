@@ -65,7 +65,7 @@ protected:
 	/// Set the skeleton positions in mWorld to the postions at the previous frame.
 	void PrevFrame();
 	void MemoryClear();
-	void Save();
+	void Save(int n);
 	
 	bool mIsRotate;
 	bool mIsAuto;
@@ -87,6 +87,7 @@ protected:
 	std::vector<std::string> mContactJoints;
 	std::string filename;
 	DPhy::Controller* mController;
+	DPhy::Character* mCharacter;
 	DPhy::Character* mRef;
 	DPhy::BVH* mBVH;
 

@@ -8,8 +8,9 @@ namespace DPhy
 {	
 
 Controller::Controller(std::string motion, bool record)
-	:mTimeElapsed(0.0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.05),
+	:mTimeElapsed(0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
+	w_p(0.3),w_v(0.3),w_ee(0.2),w_com(0.2), w_srl(0.0),
+//	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mRecord = record;
@@ -90,7 +91,7 @@ Controller::Controller(std::string motion, bool record)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 3);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -121,6 +122,9 @@ Controller::Controller(std::string motion, bool record)
 	
 	this->torques.clear();
 	this->GRFs.clear();
+	this->mRecordVelocity.clear();
+	this->mRecordPosition.clear();
+	this->mRecordTime.clear();
 
 }
 void 
@@ -135,8 +139,10 @@ SetReference(std::string motion)
 	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
-
-	this->DeformCharacter(1.7, 1);
+	for(int i = 0; i <= mBVH->GetMaxFrame() * 2; i++) {
+		mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, i, true);
+	}
+	// this->DeformCharacter(1.7, 1);
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -161,24 +167,20 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
 	}
 
-	for(int i = num_body_nodes*3; i < num_body_nodes*3 + 3; i++){
-		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -1.0, 1.0);
-	}
-	
+	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*action_multiplier, -1.0, 1.0);
+	int additionalStep = (int) std::floor(mActions[num_body_nodes*3] * 15);
+
 	this->mCurrentFrame += 1;
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame, true);
 	this->mTargetPositions = p_v_target->position;
-	this->mTargetVelocities = p_v_target->velocity;
+	this->mTargetVelocities = p_v_target->velocity * 0.8;
 	this->mTargetContacts = p_v_target->contact;
 	this->mTargetCOMvelocity = p_v_target->COMvelocity;
 	delete p_v_target;
 
 	this->mPDTargetPositions = this->mTargetPositions;
-	this->mPDTargetVelocities = this->mTargetVelocities;
-
-	//SRL
-	this->mAdaptiveCOMvelocity = this->mTargetCOMvelocity + mActions.segment<3>(num_body_nodes * 3);
+	this->mPDTargetVelocities = p_v_target->velocity * ((double) this->mSimPerCon / (this->mSimPerCon + additionalStep));
 
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
@@ -203,22 +205,26 @@ Step()
 	kv = KV_RATIO * kp;
 	mCharacter->SetPDParameters(kp, kv);
 	Eigen::VectorXd torque;
-	for(int i = 0; i < this->mSimPerCon; i += 2){
+	for(int i = 0; i < this->mSimPerCon + additionalStep; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step();
 		}
+		this->mTimeElapsed += 2.0;
+		if(this->mTimeElapsed % (int) mSimPerCon == 0) {
+			mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
+			mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
+		}
 	}
-
-	this->mTimeElapsed += 1.0 / this->mControlHz;
-
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	if(mRecord) {
+		std::cout << this->mTimeElapsed / (double) this->mSimPerCon << std::endl;
 		UpdateGRF(mGRFJoints);
 		this->torques.push_back(torque);
+		this->mRecordTime.push_back(this->mTimeElapsed / (double) this->mSimPerCon);
 
 	}
 
@@ -292,31 +298,27 @@ UpdateReward()
 	double scale = 1.0;
 
 	//mul
-	// double sig_p = 0.1 * scale; 		// 2
-	// double sig_v = 1.0 * scale;		// 3
-	// double sig_com = 0.3 * scale;		// 4
-	// double sig_ee = 0.3 * scale;		// 8
+	double sig_p = 0.1 * scale; 		// 2
+	double sig_v = 1.0 * scale;		// 3
+	double sig_com = 0.3 * scale;		// 4
+	double sig_ee = 0.3 * scale;		// 8
 
 	//sum
-	double sig_p = 0.15 * scale; 		// 2
-	double sig_v = 1.5 * scale;		// 3
-	double sig_com = 0.09 * scale;		// 4
-	double sig_ee = 0.08 * scale;		// 8
-	double sig_srl = 1.5 * scale;
+	// double sig_p = 0.15 * scale; 		// 2
+	// double sig_v = 1.5 * scale;		// 3
+	// double sig_com = 0.09 * scale;		// 4
+	// double sig_ee = 0.08 * scale;		// 8
+	// double sig_srl = 1.5 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
-
-	double r_srl = exp_of_squared(srl_diff, sig_srl);
-	// double r_tot = r_p*r_v*r_com*r_ee;
-	double r_tot =  w_p*r_p 
-					+ w_v*r_v 
-					+ w_com*r_com;
-	//				+ w_ee*r_ee;
-	//				+ w_srl*r_srl;
-	// r_tot = 0.9*r_tot + 0.1*r_contact;
+	double r_tot = r_p*r_v*r_com*r_ee;
+	// double r_tot =  w_p*r_p 
+	// 				+ w_v*r_v 
+	// 				+ w_com*r_com
+	// 				+ w_ee*r_ee;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
@@ -327,7 +329,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_srl);
+		mRewardParts.push_back(0);
 	}
 }
 void
@@ -372,7 +374,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(this->mCurrentFrame > this->mBVH->GetMaxFrame() - 1.0){
+	else if(this->mCurrentFrame > 1000 ) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -406,16 +408,14 @@ DeformCharacter(double w0,double w1)
 {
 
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, 1, 1), w0));
-	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(1, w0, 1), w0));
-	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, w0, 1), w0));
-	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(1, w0, 1), w0));
-	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(1, w0, 1), w0));
-//	deform.push_back(std::make_tuple("FootL", 2, w));
-//	deform.push_back(std::make_tuple("FootR", 2, w));
+	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, 1, 1), w1));
+	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, 1, 1), w1));
+	deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, 1, 1), w1));
+	deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, 1, 1), w1));
+	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(1, w0, 1), w1));
+	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, w0, 1), w1));
+	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(1, w0, 1), w1));
+	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(1, w0, 1), w1));
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
@@ -444,16 +444,16 @@ Reset(bool RSI)
 	skel->computeForwardKinematics(true,true,false);
 	//RSI
 	if(RSI) {
-		this->mTimeElapsed =  dart::math::Random::uniform(0.0, this->mBVH->GetMaxTime() - 10 /this->mControlHz);
-		this->mCurrentFrame = std::floor(this->mTimeElapsed*this->mControlHz);
+		this->mCurrentFrame = mCharacter->GetMaxFrame() + (int) dart::math::Random::uniform(0.0, this->mBVH->GetMaxFrame()-5);
+		this->mTimeElapsed = this->mCurrentFrame * this->mSimPerCon;
 	}
 	else {
-		this->mTimeElapsed = 0.0 / this->mControlHz; // 0.0;
-		this->mCurrentFrame = 0; // 0;
+		this->mTimeElapsed = 0; // 0.0;
+		this->mCurrentFrame = mCharacter->GetMaxFrame(); // 0;
 	}
 	this->mStartFrame = this->mCurrentFrame;
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame, true);
 	this->mTargetPositions = p_v_target->position;
 	this->mTargetVelocities = p_v_target->velocity;
 	delete p_v_target;
@@ -470,7 +470,11 @@ Reset(bool RSI)
 
 	this->torques.clear();
 	this->GRFs.clear();
-
+	this->mRecordVelocity.clear();
+	this->mRecordPosition.clear();
+	this->mRecordTime.clear();
+	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
+	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
 }
 int
 Controller::
@@ -604,25 +608,24 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame+1);
+	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame+1, true);
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->position, p_v_target->velocity);
 	delete p_v_target;
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
-	
 	Eigen::VectorXd state;
 	// state.resize(p.rows()+1+v.rows()+p_next.rows()+ee.rows());
 	// state<<p, up_vec_angle, v, p_next, ee;
-	state.resize(p.rows()+v.rows()+p_next.rows()+ee.rows());
-	state<< p, v, p_next, ee;
+	state.resize(p.rows()+v.rows()+1+p_next.rows()+ee.rows());
+	state<< p, v, up_vec_angle, p_next, ee;
 	return state;
 }
 void
 Controller::SaveHistory(const std::string& filename) {
 	std::cout << "save results" << std::endl;
 	std::ofstream ofs(filename);
-	std::cout << this->torques.size() << " " << this->GRFs.size() << std::endl;
+	std::cout << this->torques.size() << std::endl;
 	ofs << this->torques.size() << std::endl;
 	int i = 0;
 	for(auto& t: this->torques) {
@@ -634,6 +637,9 @@ Controller::SaveHistory(const std::string& filename) {
 		{
 			ofs << g.at(i).transpose() << std::endl;
 		}
+	}
+	for(auto t: this->mRecordTime) {
+		ofs << t << std::endl;
 	}
 	ofs.close();
 }

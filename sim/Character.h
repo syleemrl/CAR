@@ -60,16 +60,16 @@ public:
 	void LoadBVHMap(const std::string& path);
 
 	void ReadFramesFromBVH(BVH* bvh);
-	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t);
+	Frame* GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase = false);
 	void RescaleOriginalBVH(double w);
 	void EditTrajectory(BVH* bvh, int t, double w);
 	std::string GetContactNodeName(int i) { return mContactList[i]; };
 
-	double GetMaxFrame(){return mBVHFrames.size();}
+	double GetMaxFrame(){return totalFrames;}
 
 protected:
 	dart::dynamics::SkeletonPtr mSkeleton;
-
+	int totalFrames;
 	std::map<std::string,std::string> mBVHMap; //body_node name and bvh_node name
 	Eigen::VectorXd mKp, mKv;
 	Eigen::VectorXd mKp_default, mKv_default;

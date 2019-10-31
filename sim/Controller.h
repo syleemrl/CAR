@@ -59,12 +59,14 @@ Controller(std::string motion, bool record=false);
 
 	void UpdateGRF(std::vector<std::string> joints);
 	std::vector<Eigen::VectorXd> GetGRF();
+	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
+	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
 
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;
 	double w_p,w_v,w_com,w_ee,w_srl;
-	double mTimeElapsed;
+	int mTimeElapsed;
 	double mStartFrame;
 	double mCurrentFrame; // for discrete ref motion
 
@@ -97,10 +99,13 @@ protected:
 	// for foot collision, left, right foot, ground
 	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL; 
 
+	std::vector<Eigen::VectorXd> mRecordPosition;
+	std::vector<Eigen::VectorXd> mRecordVelocity;
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
 	bool mRecord;
 	std::vector<std::string> mGRFJoints;
+	std::vector<double> mRecordTime;
 
 	int mNumState, mNumAction;
 
