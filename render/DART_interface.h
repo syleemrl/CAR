@@ -12,7 +12,8 @@ void DrawSkeleton(
 	const dart::dynamics::SkeletonPtr& skel, int type=0);
 void DrawSkeleton(
 	const dart::dynamics::SkeletonPtr& skel, const Eigen::Vector3d& uniform_color, int type=0);
-
+void DrawFootContact(
+	const dart::dynamics::SkeletonPtr& skel, std::pair<bool, bool> contact);
 void DrawSkeleton(
 	const dart::dynamics::SkeletonPtr& skel,
 	const Eigen::Vector3d& color);

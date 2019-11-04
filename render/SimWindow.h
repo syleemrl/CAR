@@ -80,11 +80,12 @@ protected:
 	std::vector<double> mReward;
 	double mSkelLength;
 	double mRewardTotal;
-	
+
 	std::vector<Eigen::VectorXd> mMemory, mMemoryRef;
 	std::vector<Eigen::Vector3d> mMemoryCOM, mMemoryCOMRef;
 	std::vector<std::vector<Eigen::VectorXd>> mMemoryGRF;
-	std::vector<std::string> mContactJoints;
+	std::vector<std::pair<bool, bool>> mMemoryFootContact;
+	std::pair<bool, bool> mFootContact;
 	std::string filename;
 	DPhy::Controller* mController;
 	DPhy::Character* mCharacter;

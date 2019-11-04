@@ -66,7 +66,7 @@ public:
 	std::string GetContactNodeName(int i) { return mContactList[i]; };
 
 	double GetMaxFrame(){return totalFrames;}
-
+	Eigen::Vector3d GetCOMVelocity() { return avgCOMVelocity; }
 protected:
 	dart::dynamics::SkeletonPtr mSkeleton;
 	int totalFrames;
@@ -75,6 +75,7 @@ protected:
 	Eigen::VectorXd mKp_default, mKv_default;
 	std::vector<Frame*> mBVHFrames;
 	std::vector<std::string> mContactList;
+	Eigen::Vector3d avgCOMVelocity;
 };
 };
 

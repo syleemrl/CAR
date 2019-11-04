@@ -62,7 +62,20 @@ DrawSkeleton(
 		DrawShape(T,shapeNodes[type]->getShape().get(),shapeNodes[type]->getVisualAspect()->getRGBA(), name);
 	}
 }
-
+void 
+GUI::
+DrawFootContact(
+	const dart::dynamics::SkeletonPtr& skel, std::pair<bool, bool> contact)
+{
+	if(contact.first) {
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootR");
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootEndR");
+	}
+	if(contact.second) {
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootL");
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootEndL");
+	}
+}
 void
 GUI::
 DrawSkeleton(

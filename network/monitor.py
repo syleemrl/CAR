@@ -42,12 +42,8 @@ class Monitor(object):
 		self.terminated = [False]*self.num_slaves
 		self.states = [0]*self.num_slaves
 
-		self.skel_len = 1
-		# self.w = 1.05
-		# for _ in range(8):
-		#  	self.skel_len *= w
-		#  	self.sim_env.DeformCharacter(w)
-		# print(self.skel_len)	 	
+		print(self.sim_env.GetDeformParameter()) 	
+
 		if self.plot:
 			plt.ion()
 
@@ -123,7 +119,6 @@ class Monitor(object):
 
 		print_list = []
 		print_list.append('===============================================================')
-		print_list.append('skel length: {}'.format(self.skel_len))
 		print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 		print_list.append("Elapsed time : {:.2f}s".format(time.time() - self.start_time))
 		print_list.append('Num eval : {}'.format(self.num_evaluation))

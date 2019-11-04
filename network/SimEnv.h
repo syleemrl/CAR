@@ -19,6 +19,7 @@ public:
 	//For general properties
 	int GetNumState();
 	int GetNumAction();
+	p::tuple GetDeformParameter();
 
 	//For each slave
 	void Step(int id);

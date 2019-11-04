@@ -59,9 +59,11 @@ Controller(std::string motion, bool record=false);
 
 	void UpdateGRF(std::vector<std::string> joints);
 	std::vector<Eigen::VectorXd> GetGRF();
+	void SaveDisplayInfo();
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
-
+	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
+	std::tuple<double, double, double> GetDeformParameter() { return mDeformParameter; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;
@@ -101,12 +103,16 @@ protected:
 
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::VectorXd> mRecordVelocity;
+	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
 	bool mRecord;
+	std::tuple<bool, double, double> mDoubleStanceInfo;
+	std::tuple<double, double, double> mDeformParameter;
 	std::vector<std::string> mGRFJoints;
 	std::vector<double> mRecordTime;
-
+	std::vector<double> mRecordTimeDT;
+	std::pair<double, int> mInputVelocity;
 	int mNumState, mNumAction;
 
 	int terminationReason;

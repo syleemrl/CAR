@@ -31,6 +31,13 @@ GetNumAction()
 {
 	return mNumAction;
 }
+p::tuple 
+SimEnv::
+GetDeformParameter()
+{
+	std::tuple<double, double, double> p = mSlaves[0]->GetDeformParameter();
+	return p::make_tuple(std::get<0>(p), std::get<1>(p), std::get<2>(p));
+}
 //For each slave
 void 
 SimEnv::
@@ -175,6 +182,7 @@ BOOST_PYTHON_MODULE(simEnv)
 	class_<SimEnv>("Env",init<int, std::string>())
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
+		.def("GetDeformParameter",&SimEnv::GetDeformParameter)
 		.def("Step",&SimEnv::Step)
 		.def("Reset",&SimEnv::Reset)
 		.def("GetState",&SimEnv::GetState)

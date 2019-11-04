@@ -174,6 +174,7 @@ Character::
 ReadFramesFromBVH(BVH* bvh)
 {
 	mBVHFrames.clear();
+	avgCOMVelocity << 0, 0, 0;
 	for(const auto ss :mBVHMap){
 		bvh->AddMapping(ss.first,ss.second);
 	}
@@ -285,11 +286,15 @@ ReadFramesFromBVH(BVH* bvh)
 		mBVHFrames[i]->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
 		if(i != 0) { 
 			mBVHFrames[i]->SetCOMvelocity(mSkeleton->getRootBodyNode()->getCOMLinearVelocity());
+			avgCOMVelocity += mBVHFrames[i]->COMvelocity;
 		}
 	}
 
 	mBVHFrames[0]->SetCOMvelocity(mBVHFrames[1]->COMvelocity);
+	avgCOMVelocity += mBVHFrames[0]->COMvelocity;
+
 	totalFrames = mBVHFrames.size();
+	avgCOMVelocity /= totalFrames;
 }
 void
 Character::
@@ -299,7 +304,7 @@ RescaleOriginalBVH(double w)
 	mSkeleton->setVelocities(mBVHFrames[0]->velocity);
 	mSkeleton->computeForwardKinematics(true,true,false);
 
-	double minheight = 0;
+	double minheight = 0.0;
 	for(int i = 0; i < mContactList.size(); i++) 
 	{
 		double height = mSkeleton->getBodyNode(mContactList[i])->getWorldTransform().translation()[1];
@@ -309,7 +314,7 @@ RescaleOriginalBVH(double w)
 	for(int i = 0; i < mBVHFrames.size(); i++)
 	{
 		Eigen::VectorXd p = mBVHFrames[i]->position;
-		p[4] -= minheight;
+		p[4] -= minheight - 0.02;
 		mBVHFrames[i]->SetPosition(p);
 	}
 
@@ -353,9 +358,8 @@ RescaleOriginalBVH(double w)
 		}
 		mBVHFrames[i]->SetContact(contact);
 		mBVHFrames[i]->SetCOMposition(mSkeleton->getRootBodyNode()->getCOM());
-		Eigen::Vector3d v = mSkeleton->getRootBodyNode()->getCOMLinearVelocity().transpose();
+		Eigen::Vector3d v = mSkeleton->getRootBodyNode()->getCOMLinearVelocity();
 		mBVHFrames[i]->SetCOMvelocity(v);
-
 	}
 }
 Frame*
@@ -381,7 +385,10 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 			int k_ = (int) std::floor(t) % totalFrames;
 			Frame* next = new Frame(mBVHFrames[k_]);
 			float height = next->position[4];
-			next->position.segment<3>(3) = mBVHFrames.back()->position.segment<3>(3) + root.linear() * next->velocity.segment<3>(3) * bvh->GetTimeStep();
+			if(k_ == 0)
+				next->position.segment<3>(3) = mBVHFrames.back()->position.segment<3>(3) + root.linear() * mBVHFrames.back()->velocity.segment<3>(3) * bvh->GetTimeStep();
+			else
+				next->position.segment<3>(3) = mBVHFrames.back()->position.segment<3>(3) + root.linear() * next->velocity.segment<3>(3) * bvh->GetTimeStep();
 			next->position[4] = height;
 			mBVHFrames.push_back(next);
 
