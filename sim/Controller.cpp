@@ -13,7 +13,7 @@ Controller::Controller(std::string motion, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.5, 3.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.2, 2.0, 1.0);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -373,6 +373,7 @@ UpdateTerminalInfo()
 	Eigen::Vector3d root_pos = skel->getPositions().segment<3>(3);
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
+	Eigen::Vector3d root_pos_diff = this->mTargetPositions.segment<3>(3) - root_pos;
 
 	skel->setPositions(this->mTargetPositions);
 	skel->computeForwardKinematics(true, false, false);
@@ -396,6 +397,10 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
+	if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+		mIsTerminal = true;
+		terminationReason = 2;
+	}
 	if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;

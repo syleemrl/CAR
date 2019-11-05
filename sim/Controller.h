@@ -62,6 +62,7 @@ Controller(std::string motion, bool record=false);
 	void SaveDisplayInfo();
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
+	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
 	std::tuple<double, double, double> GetDeformParameter() { return mDeformParameter; }
 protected:

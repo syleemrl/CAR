@@ -37,7 +37,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	
 	this->mCharacter = new DPhy::Character(path);
 
-	double w0 = 1.5, w1 = 3.0;
+	double w0 = 1.2, w1 = 2.0;
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 	deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 
@@ -122,7 +122,7 @@ Save(int n) {
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
     this->mTotalFrame++;
-    if(this->mRunPPO && !this->mController->IsTerminalState())
+    if(this->mRunPPO && n < this->mController->GetRecordSize())
     {
     	// if(this->mTotalFrame != 1) {
     	// 	mReward = this->mController->GetRewardByParts();
