@@ -13,12 +13,12 @@ Controller::Controller(std::string motion, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.2, 2.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.5, 3.0, 1.0);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
-	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
+	this->mWorld->setGravity(Eigen::Vector3d(0,-1.81,0));
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
@@ -146,7 +146,7 @@ SetReference(std::string motion)
 	for(int i = 0; i <= mBVH->GetMaxFrame() * 2; i++) {
 		mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, i, true);
 	}
-	this->DeformCharacter(std::get<0>(mDeformParameter), std::get<1>(mDeformParameter));
+	// this->DeformCharacter(std::get<0>(mDeformParameter), std::get<1>(mDeformParameter));
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -173,6 +173,7 @@ Step()
 
 	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*action_multiplier, -1.0, 1.0);
 	int additionalStep = (int) std::floor(mActions[num_body_nodes*3] * 10) * 2;
+	// additionalStep = 0;
 
 	this->mCurrentFrame += 1;
 
@@ -209,8 +210,10 @@ Step()
 	kv = KV_RATIO * kp;
 	mCharacter->SetPDParameters(kp, kv);
 	Eigen::VectorXd torque;
+	mTorque.setZero();
 	for(int i = 0; i < this->mSimPerCon + additionalStep; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
+		mTorque += torque*2;
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
@@ -221,6 +224,7 @@ Step()
 			SaveDisplayInfo();
 		}
 	}
+	mTorque /= (this->mSimPerCon + additionalStep);
 	this->UpdateGRF(mGRFJoints);
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
@@ -231,7 +235,6 @@ Step()
 		this->torques.push_back(torque);
 		this->mRecordTime.push_back(this->mTimeElapsed / (double) this->mSimPerCon);
 		this->mRecordTimeDT.push_back(additionalStep);
-
 	}
 
 }
@@ -328,7 +331,8 @@ UpdateReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_com_v = exp_of_squared(com_v_diff,sig_com_v);
-	double r_a = exp(-2.0*fabs(mActions[mInterestedBodies.size()*3]));
+//	double r_torque = exp_of_squared(2.0, mTorque);
+	double r_a = exp(-0.5*fabs(mActions[mInterestedBodies.size()*3]));
 	double r_tot = r_p*r_v*r_com*r_ee*r_a;
 	
 	// double r_tot =  w_p*r_p 
@@ -491,12 +495,12 @@ Reset(bool RSI)
 
 	//RSI
 	if(RSI) {
-		this->mCurrentFrame = mCharacter->GetMaxFrame() + (int) dart::math::Random::uniform(0.0, this->mBVH->GetMaxFrame()-5);
+		this->mCurrentFrame = mRefCharacter->GetMaxFrame() + (int) dart::math::Random::uniform(0.0, this->mBVH->GetMaxFrame()-5);
 		this->mTimeElapsed = this->mCurrentFrame * this->mSimPerCon;
 	}
 	else {
 		this->mTimeElapsed = 0; // 0.0;
-		this->mCurrentFrame = mCharacter->GetMaxFrame(); // 0;
+		this->mCurrentFrame = 0; // 0;
 	}
 	this->mStartFrame = this->mCurrentFrame;
 
@@ -672,10 +676,11 @@ GetState()
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	Eigen::VectorXd state;
-	// state.resize(p.rows()+1+v.rows()+p_next.rows()+ee.rows());
-	// state<<p, up_vec_angle, v, p_next, ee;
+	double phase = ((int) mCurrentFrame % (int) mBVH->GetMaxFrame()) / mBVH->GetMaxFrame();
 	state.resize(p.rows()+v.rows()+1+p_next.rows()+ee.rows());
 	state<< p, v, up_vec_angle, p_next, ee; //, mInputVelocity.first;
+	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
+	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;
 	return state;
 }
 void

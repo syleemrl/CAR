@@ -93,6 +93,7 @@ protected:
 
 	Eigen::Vector3d mTargetCOMvelocity;
 	Eigen::Vector3d mAdaptiveCOMvelocity;
+	Eigen::VectorXd mTorque;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;

@@ -63,7 +63,7 @@ protected:
 	/// Set the skeleton positions in mWorld to the postions at the previous frame.
 	void PrevFrame();
 	void MemoryClear();
-	void Save();
+	void Save(int n);
 	
 	bool mIsRotate;
 	bool mIsAuto;
@@ -81,6 +81,7 @@ protected:
 	std::vector<std::vector<Eigen::Vector3d>> mMemoryCOM;
 	std::vector<Eigen::Vector3d> mMemoryCOMRef;
 
+	std::vector<DPhy::Character*> mCharacter;
 	DPhy::Character* mRef;
 	DPhy::BVH* mBVH;
 

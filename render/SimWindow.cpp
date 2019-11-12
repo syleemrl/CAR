@@ -37,7 +37,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	
 	this->mCharacter = new DPhy::Character(path);
 
-	double w0 = 1.2, w1 = 2.0;
+	double w0 = 1.5, w1 = 3.0;
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 	deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 
@@ -60,10 +60,10 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
-	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 
-	this->mRef->RescaleOriginalBVH(std::sqrt(w0));
+	// this->mRef->RescaleOriginalBVH(std::sqrt(w0));
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
