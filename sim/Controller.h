@@ -125,6 +125,9 @@ protected:
 
 	std::vector<Eigen::VectorXd> mTargetTorques;
 	Eigen::VectorXd mTorqueMean;
+	Eigen::VectorXd mTorqueMin;
+	Eigen::VectorXd mTorqueMax;
+
 	Eigen::VectorXd mTorqueSig;
 
 };

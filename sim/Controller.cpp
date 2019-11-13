@@ -18,7 +18,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
-	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81*3,0));
+	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81*0.3,0));
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
@@ -159,6 +159,13 @@ SetReference(std::string motion, std::string torque)
 	std::getline(ifs, line);
 	int nlines = atoi(line.c_str());
 
+
+	this->mTorqueMin.resize(dof);
+	this->mTorqueMax.resize(dof);
+
+	mTorqueMin.setZero();
+	mTorqueMax.setZero();
+
 	int count = 0;
 	for(int i = 0; i < nlines; i++) {
 		std::getline(ifs, line);
@@ -173,13 +180,28 @@ SetReference(std::string motion, std::string torque)
 			count++;
 			if((count+1) * mBVH->GetMaxFrame() >= nlines) break;
 		}
+		if(i == 0) {
+			mTorqueMin = record;
+			mTorqueMax = record;
+		} else {
+			for(int j = 0; j < record.rows(); j++) {
+				if(mTorqueMin[j] > record[j]) {
+					mTorqueMin[j] = record[j];
+				}
+				if(mTorqueMax[j] < record[j]){ 
+					mTorqueMax[j] = record[j];
+				}
+			}
+		}
 	}
 	ifs.close();
 	
 	this->mTorqueMean.resize(dof);
 	this->mTorqueSig.resize(dof);
+
 	mTorqueMean.setZero();
 	mTorqueSig.setZero();
+
 	for(int i = 0; i < mTargetTorques.size(); i++) {
 		mTargetTorques[i] /= (double)count;
 		mTorqueMean += mTargetTorques[i];
@@ -367,7 +389,7 @@ UpdateReward()
 	int k = (int)(mCurrentFrame-1) % (int)mBVH->GetMaxFrame();
 	Eigen::VectorXd target_torque = this->mTargetTorques[k];
 	Eigen::VectorXd tq_diff = mTorque - target_torque;
-	tq_diff = (tq_diff - mTorqueMean).array() / (mTorqueSig + Eigen::VectorXd::Constant(mTorqueSig.rows(), 1e-8)).array();
+	tq_diff = (tq_diff - mTorqueMin).array() / (mTorqueMax - mTorqueMin + Eigen::VectorXd::Constant(mTorqueSig.rows(), 1e-8)).array();
 	
 	double scale = 1.0;
 
@@ -378,6 +400,7 @@ UpdateReward()
 	double sig_ee = 0.3 * scale;		// 8
 	double sig_com_v = 0.5 * scale;
 	double sig_tq = 2.0 * scale;
+
 	//sum
 	// double sig_p = 0.15 * scale; 		// 2
 	// double sig_v = 1.5 * scale;		// 3
@@ -392,9 +415,8 @@ UpdateReward()
 	double r_com_v = exp_of_squared(com_v_diff,sig_com_v);
 //	double r_torque = exp_of_squared(2.0, mTorque);
 	double r_tq = exp_of_squared(tq_diff,sig_tq);
-//	double r_a = exp(-0.5*fabs(mActions[mInterestedBodies.size()*3]));
-	double r_tot = r_p*r_v*r_com*r_ee*r_tq;
-
+	double r_a = exp(-0.5*fabs(mActions[mInterestedBodies.size()*3]));
+	double r_tot = r_p*r_v*r_com*r_ee*r_tq*r_a;
 
 	// double r_tot =  w_p*r_p 
 	// 				+ w_v*r_v 
