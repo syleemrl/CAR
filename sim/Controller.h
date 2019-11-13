@@ -18,13 +18,13 @@ class Character;
 class Controller
 {
 public:
-Controller(std::string motion, bool record=false);
+Controller(std::string motion, std::string torque, bool record=false);
 
 	void Step();
 	void UpdateReward();
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
-	void SetReference(std::string motion);
+	void SetReference(std::string motion, std::string torque);
 	bool FollowBvh();
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
@@ -122,6 +122,11 @@ protected:
 	std::vector<Eigen::VectorXd> torques;
 	std::vector<std::vector<Eigen::VectorXd>> GRFs;
 	std::shared_ptr<dart::collision::DARTCollisionDetector> mGroundCollisionChecker;	
+
+	std::vector<Eigen::VectorXd> mTargetTorques;
+	Eigen::VectorXd mTorqueMean;
+	Eigen::VectorXd mTorqueSig;
+
 };
 }
 #endif

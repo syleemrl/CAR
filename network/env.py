@@ -3,10 +3,10 @@ import numpy as np
 import simEnv
 import time
 class Env(object):
-	def __init__(self, motion, num_slaves):
+	def __init__(self, motion, torque, num_slaves):
 		self.num_slaves = num_slaves
 		self.motion = motion
-		self.sim_env = simEnv.Env(num_slaves, motion)
+		self.sim_env = simEnv.Env(num_slaves, motion, torque)
 		
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()

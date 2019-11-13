@@ -1,5 +1,4 @@
 #include "SimWindow.h"
-#include "SimWindowMulti.h"
 #include <vector>
 #include <string>
 #include <GL/glut.h>

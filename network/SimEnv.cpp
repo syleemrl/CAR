@@ -5,14 +5,14 @@
 #include <iostream>
 
 SimEnv::
-SimEnv(int num_slaves, std::string motion)
+SimEnv(int num_slaves, std::string motion, std::string torque)
 	:mNumSlaves(num_slaves)
 {
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
 	for(int i =0;i<num_slaves;i++)
 	{
-		mSlaves.push_back(new DPhy::Controller(motion));
+		mSlaves.push_back(new DPhy::Controller(motion, torque));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -179,7 +179,7 @@ BOOST_PYTHON_MODULE(simEnv)
 	Py_Initialize();
 	np::initialize();
 
-	class_<SimEnv>("Env",init<int, std::string>())
+	class_<SimEnv>("Env",init<int, std::string, std::string>())
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
 		.def("GetDeformParameter",&SimEnv::GetDeformParameter)

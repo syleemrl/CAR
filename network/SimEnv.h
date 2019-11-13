@@ -15,7 +15,7 @@ class SimEnv
 {
 public:
 	
-	SimEnv(int num_slaves, std::string motion);
+	SimEnv(int num_slaves, std::string motion, std::string torque);
 	//For general properties
 	int GetNumState();
 	int GetNumAction();
