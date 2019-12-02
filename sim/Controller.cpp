@@ -18,7 +18,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
-	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81*0.3,0));
+	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81, 0)); //*0.166666666,0));
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
@@ -95,7 +95,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 3);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -131,6 +131,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mRecordTimeDT.clear();
 
 	this->mTorque.resize(dof);
+	this->mAdaptiveCOM.setZero();
 }
 void 
 Controller::
@@ -246,16 +247,21 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*action_multiplier, -0.7*M_PI, 0.7*M_PI);
 	}
 
-	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*action_multiplier, -1.0, 1.0);
-	int additionalStep = (int) std::floor(mActions[num_body_nodes*3] * 10) * 2;
-	// additionalStep = 0;
+//	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*action_multiplier, -1.0, 1.0);
+	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3], -0.2, 0.2);
+	mActions[num_body_nodes*3 + 1] = dart::math::clip(mActions[num_body_nodes*3 + 1], -0.2, 0.2);
+	mActions[num_body_nodes*3 + 2] = dart::math::clip(mActions[num_body_nodes*3 + 2], -0.2, 0.2);
+
+
+	mAdaptiveCOM = mActions.segment<3>(num_body_nodes*3);
 
 	this->mCurrentFrame += 1;
 
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame, true);
 	this->mTargetPositions = p_v_target->position;
-	this->mTargetVelocities = p_v_target->velocity * ((double) this->mSimPerCon / (this->mSimPerCon + additionalStep));
-	this->mTargetCOMvelocity = p_v_target->COMvelocity * std::get<2>(mDeformParameter); // mInputVelocity.first; // mRefCharacter->GetCOMVelocity() * 0.7;
+
+	this->mTargetVelocities = p_v_target->velocity;
+	this->mTargetPositions.segment<3>(3) += mAdaptiveCOM;
 	mInputVelocity.second += 1;
 	delete p_v_target;
 
@@ -286,7 +292,7 @@ Step()
 	Eigen::VectorXd torque;
 	mTorque.setZero();
 
-	for(int i = 0; i < this->mSimPerCon + additionalStep; i += 2){
+	for(int i = 0; i < this->mSimPerCon; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		mTorque = mTorque + torque*2;
 		for(int j = 0; j < 2; j++)
@@ -299,17 +305,15 @@ Step()
 			SaveDisplayInfo();
 		}
 	}
-	mTorque /= (this->mSimPerCon + additionalStep);
+	mTorque /= (this->mSimPerCon);
 	this->UpdateGRF(mGRFJoints);
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	// this->UpdateGRF(mGRFJoints);
 
 	if(mRecord) {
-		std::cout << additionalStep << std::endl;
 		this->torques.push_back(mTorque);
 		this->mRecordTime.push_back(this->mTimeElapsed / (double) this->mSimPerCon);
-		this->mRecordTimeDT.push_back(additionalStep);
 	}
 
 }
@@ -369,8 +373,8 @@ UpdateReward()
 	
 	com_diff = skel->getCOM();
 
-	skel->setPositions(mPDTargetPositions);
-	skel->setVelocities(mPDTargetVelocities);
+	skel->setPositions(this->mTargetPositions);
+	skel->setVelocities(this->mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 	
 	for(int i=0;i<mEndEffectors.size();i++){
@@ -394,12 +398,12 @@ UpdateReward()
 	double scale = 1.0;
 
 	//mul
-	double sig_p = 0.1 * scale; 		// 2
+	double sig_p = 0.3 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
 	double sig_com_v = 0.5 * scale;
-	double sig_tq = 2.0 * scale;
+	double sig_tq = 0.5 * scale;
 
 	//sum
 	// double sig_p = 0.15 * scale; 		// 2
@@ -415,7 +419,8 @@ UpdateReward()
 	double r_com_v = exp_of_squared(com_v_diff,sig_com_v);
 //	double r_torque = exp_of_squared(2.0, mTorque);
 	double r_tq = exp_of_squared(tq_diff,sig_tq);
-	double r_a = exp(-0.5*fabs(mActions[mInterestedBodies.size()*3]));
+	double r_a = exp_of_squared(mAdaptiveCOM, 0.65);
+	// double r_a = exp(-0.5*fabs(mActions[mInterestedBodies.size()*3]));
 	double r_tot = r_p*r_v*r_com*r_ee*r_tq*r_a;
 
 	// double r_tot =  w_p*r_p 

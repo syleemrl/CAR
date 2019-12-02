@@ -22,7 +22,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 		this->mRunPPO = false;
 	}
 	this->filename = filename;
-	this->mController = new DPhy::Controller(motion, network+"_torque", true);
+	this->mController = new DPhy::Controller(motion, "walk_1.2_2.0_torque", true);
 	this->mWorld = this->mController->GetWorld();
 
 	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
