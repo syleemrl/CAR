@@ -18,7 +18,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
-	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81, 0)); //*0.166666666,0));
+	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81*0.166666666,0));
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
@@ -127,6 +127,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->GRFs.clear();
 	this->mRecordVelocity.clear();
 	this->mRecordPosition.clear();
+	this->mRecordCOM.clear();
 	this->mRecordTime.clear();
 	this->mRecordTimeDT.clear();
 
@@ -323,6 +324,7 @@ SaveDisplayInfo()
 {
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
+	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	
 	bool rightContact = CheckCollisionWithGround("FootEndR") || CheckCollisionWithGround("FootR");
 	bool leftContact = CheckCollisionWithGround("FootEndL") || CheckCollisionWithGround("FootL");
@@ -612,6 +614,7 @@ Reset(bool RSI)
 	this->GRFs.clear();
 	this->mRecordVelocity.clear();
 	this->mRecordPosition.clear();
+	this->mRecordCOM.clear();
 	this->mRecordTime.clear();
 
 	SaveDisplayInfo();

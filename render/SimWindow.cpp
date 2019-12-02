@@ -132,6 +132,7 @@ Save(int n) {
 
     	// }
     	mMemory.emplace_back(this->mController->GetPositions(n));	
+    	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
     	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
 	}

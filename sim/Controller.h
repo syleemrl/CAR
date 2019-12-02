@@ -61,6 +61,8 @@ Controller(std::string motion, std::string torque, bool record=false);
 	std::vector<Eigen::VectorXd> GetGRF();
 	void SaveDisplayInfo();
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
+	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
+
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
@@ -105,6 +107,8 @@ protected:
 
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::VectorXd> mRecordVelocity;
+	std::vector<Eigen::Vector3d> mRecordCOM;
+
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
