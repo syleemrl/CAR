@@ -60,10 +60,10 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
-	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 
-	this->mRef->RescaleOriginalBVH(std::sqrt(w0));
+	// this->mRef->RescaleOriginalBVH(std::sqrt(w0));
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
@@ -122,6 +122,7 @@ Save(int n) {
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
+    std::cout << mRef->GetSkeleton()->getCOM().transpose() << std::endl;
     this->mTotalFrame++;
     if(this->mRunPPO && n < this->mController->GetRecordSize())
     {

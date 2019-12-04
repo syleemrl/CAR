@@ -13,12 +13,12 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.2, 2.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.5);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
-	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81*0.166666666,0));
+	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
@@ -95,7 +95,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 3);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 3 + 1);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -146,10 +146,20 @@ SetReference(std::string motion, std::string torque)
 	path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
+	auto& skel = this->mRefCharacter->GetSkeleton();
 	for(int i = 0; i <= mBVH->GetMaxFrame() * 2; i++) {
-		mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, i, true);
+		auto target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, i, true);
+
+		skel->setPositions(target->position);
+		skel->setVelocities(target->velocity);
+		skel->computeForwardKinematics(true,true,false);
+
+		Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
+		mTargetCOMvelocity += skel->getRootBodyNode()->getCOMLinearVelocity();
 	}
-	this->DeformCharacter(std::get<0>(mDeformParameter), std::get<1>(mDeformParameter));
+	
+	mTargetCOMvelocity /= (mBVH->GetMaxFrame() * 2);
+//	this->DeformCharacter(std::get<0>(mDeformParameter), std::get<1>(mDeformParameter));
 
 
 	//open torque file
@@ -252,16 +262,16 @@ Step()
 	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3], -0.2, 0.2);
 	mActions[num_body_nodes*3 + 1] = dart::math::clip(mActions[num_body_nodes*3 + 1], -0.2, 0.2);
 	mActions[num_body_nodes*3 + 2] = dart::math::clip(mActions[num_body_nodes*3 + 2], -0.2, 0.2);
+	mActions[num_body_nodes*3 + 3] = dart::math::clip(mActions[num_body_nodes*3 + 3], -0.5, 0.5) * 30;
 
 
 	mAdaptiveCOM = mActions.segment<3>(num_body_nodes*3);
-
+	mAdaptiveStep = (int) floor(mActions[num_body_nodes*3 + 3]);
 	this->mCurrentFrame += 1;
 
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame, true);
 	this->mTargetPositions = p_v_target->position;
-
-	this->mTargetVelocities = p_v_target->velocity;
+	this->mTargetVelocities = p_v_target->velocity * ((double) this->mSimPerCon / (this->mSimPerCon + mAdaptiveStep));
 	this->mTargetPositions.segment<3>(3) += mAdaptiveCOM;
 	mInputVelocity.second += 1;
 	delete p_v_target;
@@ -293,7 +303,7 @@ Step()
 	Eigen::VectorXd torque;
 	mTorque.setZero();
 
-	for(int i = 0; i < this->mSimPerCon; i += 2){
+	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		mTorque = mTorque + torque*2;
 		for(int j = 0; j < 2; j++)
@@ -306,7 +316,7 @@ Step()
 			SaveDisplayInfo();
 		}
 	}
-	mTorque /= (this->mSimPerCon);
+	mTorque /= (this->mSimPerCon  + mAdaptiveStep);
 	this->UpdateGRF(mGRFJoints);
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
@@ -365,7 +375,7 @@ UpdateReward()
 	Eigen::Vector3d com_diff;
 
 	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
-	Eigen::Vector3d com_v_diff = cur_root_ori_inv * skel->getRootBodyNode()->getCOMLinearVelocity();
+	Eigen::Vector3d com_v_diff = skel->getRootBodyNode()->getCOMLinearVelocity();
 	
 	for(int i=0;i<mEndEffectors.size();i++){
 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
@@ -385,8 +395,10 @@ UpdateReward()
 		ee_diff.segment<3>(3*i) = diff.translation();
 	}
 	Eigen::Matrix3d target_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
-	com_v_diff -= target_root_ori_inv * this->mTargetCOMvelocity; 
+	com_v_diff -= this->mTargetCOMvelocity; 
 	com_diff -= skel->getCOM();
+	Eigen::VectorXd com_v_diff_2d(2);
+	com_v_diff_2d << com_v_diff[0] , com_v_diff[2];
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
@@ -396,7 +408,8 @@ UpdateReward()
 	Eigen::VectorXd target_torque = this->mTargetTorques[k];
 	Eigen::VectorXd tq_diff = mTorque - target_torque;
 	tq_diff = (tq_diff - mTorqueMin).array() / (mTorqueMax - mTorqueMin + Eigen::VectorXd::Constant(mTorqueSig.rows(), 1e-8)).array();
-	
+
+	Eigen::VectorXd actions = mActions.segment<4>(mInterestedBodies.size()*3);	
 	double scale = 1.0;
 
 	//mul
@@ -404,7 +417,7 @@ UpdateReward()
 	double sig_v = 1.0 * scale;		// 3
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
-	double sig_com_v = 0.5 * scale;
+	double sig_com_v = 0.3 * scale;
 	double sig_tq = 0.5 * scale;
 
 	//sum
@@ -418,10 +431,10 @@ UpdateReward()
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_com_v = exp_of_squared(com_v_diff,sig_com_v);
+	double r_com_v = exp_of_squared(com_v_diff_2d,sig_com_v);
 //	double r_torque = exp_of_squared(2.0, mTorque);
 	double r_tq = exp_of_squared(tq_diff,sig_tq);
-	double r_a = exp_of_squared(mAdaptiveCOM, 0.65);
+	double r_a = exp_of_squared(actions, 1);
 	// double r_a = exp(-0.5*fabs(mActions[mInterestedBodies.size()*3]));
 	double r_tot = r_p*r_v*r_com*r_ee*r_tq*r_a;
 
@@ -439,7 +452,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_tq);
+		mRewardParts.push_back(r_com_v);
 	}
 
 	// if(mInputVelocity.second >= 40) {
