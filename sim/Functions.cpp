@@ -407,6 +407,18 @@ Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in){
 	return angle*aa.axis();
 }
 
+Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight) {
+	for(int i = 6; i < v_target.size(); i += 3) {
+			Eigen::AngleAxisd v1_aa(v_target.segment<3>(i).norm(), v_target.segment<3>(i).normalized());
+			Eigen::AngleAxisd v2_aa(v_source.segment<3>(i).norm(), v_source.segment<3>(i).normalized());
+				
+			Eigen::Quaterniond v1_q(v1_aa);
+			Eigen::Quaterniond v2_q(v2_aa);
+
+			v_target.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(1 - weight, v2_q)); 
+	}
+	return v_target;
+}
 void QuaternionNormalize(Eigen::Quaterniond& in){
 	if(in.w() < 0){
 		in.coeffs() *= -1;
@@ -722,4 +734,47 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 	return newPose;
 }
 
+Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m) {
+    double siny = -m(0,2);
+    double cosy = sqrt( 1.0f - siny*siny );
+
+    double sinx;
+    double cosx;
+
+    double sinz;
+    double cosz;
+
+    if ( cosy>1.0e-4 )
+    {
+        sinx = m(2,1) / cosy;
+        cosx = m(2,2) / cosy;
+
+        sinz = m(1,0) / cosy;
+        cosz = m(0,0) / cosy;
+    }
+    else
+    {
+        sinx = - m(1,2);
+        cosx =   m(1,1);
+
+        sinz = 0.0;
+        cosz = 1.0;
+    }
+
+    double x = atan2( sinx, cosx );
+    double y = atan2( siny, cosy );
+    double z = atan2( sinz, cosz );
+
+    m(0, 0) = cos(y);
+    m(0, 1) = 0;
+    m(0, 2) = sin(y);
+    m(1, 0) = 0;
+    m(1, 1) = 1;
+    m(1, 2) = 0;
+    m(2, 0) = -sin(y);
+    m(2, 1) = 0;
+    m(2, 2) = cos(y);
+
+    return m;
+}
 }

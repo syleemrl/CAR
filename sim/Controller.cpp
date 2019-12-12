@@ -13,7 +13,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.5);
+	this->mDeformParameter = std::make_tuple(1.0, 2.0, 1.0);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -103,7 +103,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	mEndEffectors.push_back("FootL");
 	mEndEffectors.push_back("HandL");
 	mEndEffectors.push_back("HandR");
-	mEndEffectors.push_back("Head");
+	// mEndEffectors.push_back("Head");
 
 	mGRFJoints.clear();
 	mGRFJoints.push_back("FootR");
@@ -129,7 +129,9 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mRecordPosition.clear();
 	this->mRecordCOM.clear();
 	this->mRecordTime.clear();
-	this->mRecordTimeDT.clear();
+	this->mRecordCOMPosition.clear();
+	this->mRecordCOMPositionRef.clear();
+	this->mRecordCOMVelocity.clear();
 
 	this->mTorque.resize(dof);
 	this->mAdaptiveCOM.setZero();
@@ -147,93 +149,8 @@ SetReference(std::string motion, std::string torque)
 	this->mBVH->Parse(path);
 	this->mRefCharacter->ReadFramesFromBVH(this->mBVH);
 	auto& skel = this->mRefCharacter->GetSkeleton();
-	for(int i = 0; i <= mBVH->GetMaxFrame() * 2; i++) {
-		auto target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, i, true);
+	this->DeformCharacter(std::get<0>(mDeformParameter), std::get<1>(mDeformParameter));
 
-		skel->setPositions(target->position);
-		skel->setVelocities(target->velocity);
-		skel->computeForwardKinematics(true,true,false);
-
-		Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
-		mTargetCOMvelocity += skel->getRootBodyNode()->getCOMLinearVelocity();
-	}
-	
-	mTargetCOMvelocity /= (mBVH->GetMaxFrame() * 2);
-//	this->DeformCharacter(std::get<0>(mDeformParameter), std::get<1>(mDeformParameter));
-
-
-	//open torque file
-	path = std::string(CAR_DIR)+std::string("/network/") + torque;
-	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
-
-	std::ifstream ifs(path);
-	std::string line;
-	std::getline(ifs, line);
-	int nlines = atoi(line.c_str());
-
-
-	this->mTorqueMin.resize(dof);
-	this->mTorqueMax.resize(dof);
-
-	mTorqueMin.setZero();
-	mTorqueMax.setZero();
-
-	int count = 0;
-	for(int i = 0; i < nlines; i++) {
-		std::getline(ifs, line);
-		Eigen::VectorXd record = DPhy::string_to_vectorXd(line, dof);
-		if(i < mBVH->GetMaxFrame()) {
-			mTargetTorques.push_back(record);
-		} else {
-			int k = i % (int)mBVH->GetMaxFrame();
-			mTargetTorques[k] += record;
-		}
-		if(i % (int)mBVH->GetMaxFrame() == 0) { 
-			count++;
-			if((count+1) * mBVH->GetMaxFrame() >= nlines) break;
-		}
-		if(i == 0) {
-			mTorqueMin = record;
-			mTorqueMax = record;
-		} else {
-			for(int j = 0; j < record.rows(); j++) {
-				if(mTorqueMin[j] > record[j]) {
-					mTorqueMin[j] = record[j];
-				}
-				if(mTorqueMax[j] < record[j]){ 
-					mTorqueMax[j] = record[j];
-				}
-			}
-		}
-	}
-	ifs.close();
-	
-	this->mTorqueMean.resize(dof);
-	this->mTorqueSig.resize(dof);
-
-	mTorqueMean.setZero();
-	mTorqueSig.setZero();
-
-	for(int i = 0; i < mTargetTorques.size(); i++) {
-		mTargetTorques[i] /= (double)count;
-		mTorqueMean += mTargetTorques[i];
-	}
-
-	mTorqueMean /= (double)count;
-	for(int i = 0; i < mTargetTorques.size(); i++) {
-		Eigen::ArrayXd diff = (mTargetTorques[i] - mTorqueMean).array();
-		mTorqueSig += (diff*diff).matrix();
-	}
-	mTorqueSig /= (double)count;
-	mTorqueSig = mTorqueSig.cwiseSqrt();
-
-	// path = std::string(CAR_DIR)+std::string("/utils/") + torque;
-	// std::ofstream ofs(path);
-	// ofs << this->mTargetTorques.size() << std::endl;
-	// for(auto& t: this->mTargetTorques) {
-	// 	ofs << t.transpose() << std::endl;
-	// }
-	// ofs.close();
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -325,6 +242,7 @@ Step()
 	if(mRecord) {
 		this->torques.push_back(mTorque);
 		this->mRecordTime.push_back(this->mTimeElapsed / (double) this->mSimPerCon);
+		this->mRecordCOMPosition.push_back(mCharacter->GetSkeleton()->getCOM());
 	}
 
 }
@@ -372,15 +290,16 @@ UpdateReward()
 
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
+	ee_diff.setZero();
 	Eigen::Vector3d com_diff;
 
 	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
-	Eigen::Vector3d com_v_diff = skel->getRootBodyNode()->getCOMLinearVelocity();
 	
+	std::vector<bool> isContact;
 	for(int i=0;i<mEndEffectors.size();i++){
 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
 		// ee_transforms.push_back(cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
-
+		isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
 	}
 	
 	com_diff = skel->getCOM();
@@ -389,26 +308,22 @@ UpdateReward()
 	skel->setVelocities(this->mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 	
+	if(mRecord) this->mRecordCOMPositionRef.push_back(skel->getCOM());
+
 	for(int i=0;i<mEndEffectors.size();i++){
-	//	Eigen::Isometry3d diff = ee_transforms[i].inverse() * target_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
-		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
-		ee_diff.segment<3>(3*i) = diff.translation();
+		if(CheckCollisionWithGround(mEndEffectors[i])) { 
+		//	Eigen::Isometry3d diff = ee_transforms[i].inverse() * target_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+			ee_diff.segment<3>(3*i) = diff.translation();
+		}
 	}
 	Eigen::Matrix3d target_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
-	com_v_diff -= this->mTargetCOMvelocity; 
 	com_diff -= skel->getCOM();
-	Eigen::VectorXd com_v_diff_2d(2);
-	com_v_diff_2d << com_v_diff[0] , com_v_diff[2];
+
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 		
-
-	int k = (int)(mCurrentFrame-1) % (int)mBVH->GetMaxFrame();
-	Eigen::VectorXd target_torque = this->mTargetTorques[k];
-	Eigen::VectorXd tq_diff = mTorque - target_torque;
-	tq_diff = (tq_diff - mTorqueMin).array() / (mTorqueMax - mTorqueMin + Eigen::VectorXd::Constant(mTorqueSig.rows(), 1e-8)).array();
-
 	Eigen::VectorXd actions = mActions.segment<4>(mInterestedBodies.size()*3);	
 	double scale = 1.0;
 
@@ -418,7 +333,6 @@ UpdateReward()
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
 	double sig_com_v = 0.3 * scale;
-	double sig_tq = 0.5 * scale;
 
 	//sum
 	// double sig_p = 0.15 * scale; 		// 2
@@ -431,13 +345,10 @@ UpdateReward()
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_com_v = exp_of_squared(com_v_diff_2d,sig_com_v);
 //	double r_torque = exp_of_squared(2.0, mTorque);
-	double r_tq = exp_of_squared(tq_diff,sig_tq);
 	double r_a = exp_of_squared(actions, 1);
 	// double r_a = exp(-0.5*fabs(mActions[mInterestedBodies.size()*3]));
-	double r_tot = r_p*r_v*r_com*r_ee*r_tq*r_a;
-
+	double r_tot = r_p*r_v*r_com*r_ee*r_a;
 	// double r_tot =  w_p*r_p 
 	// 				+ w_v*r_v 
 	// 				+ w_com*r_com
@@ -452,7 +363,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_com_v);
+		mRewardParts.push_back(r_a);
 	}
 
 	// if(mInputVelocity.second >= 40) {
@@ -550,10 +461,10 @@ DeformCharacter(double w0,double w1)
 {
 
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-	deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 
-	deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 
 	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
 	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
@@ -562,14 +473,14 @@ DeformCharacter(double w0,double w1)
 	deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
 	deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
 
-	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
-	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
+	// deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
+	// deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
@@ -797,6 +708,12 @@ Controller::SaveHistory(const std::string& filename) {
 	for(auto& t: this->torques) {
 		ofs << t.transpose() << std::endl;
 	}
+	for(auto t: this->mRecordCOMPosition) {
+		ofs << t.transpose() << std::endl;
+	}
+	for(auto t: this->mRecordCOMPositionRef) {
+		ofs << t.transpose() << std::endl;
+	}
 	// ofs << this->GRFs.at(0).size() << std::endl;
 	// for(auto& g: this->GRFs) {
 	// 	for(int i = 0; i < g.size(); i++) 
@@ -804,9 +721,9 @@ Controller::SaveHistory(const std::string& filename) {
 	// 		ofs << g.at(i).transpose() << std::endl;
 	// 	}
 	// }
-	// for(auto t: this->mRecordTime) {
-	// 	ofs << t << std::endl;
-	// }
+	for(auto t: this->mRecordTime) {
+		ofs << t << std::endl;
+	}
 	// for(auto t: this->mRecordTimeDT) {
 	// 	ofs << t << std::endl;
 	// }

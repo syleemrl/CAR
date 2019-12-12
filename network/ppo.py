@@ -30,6 +30,7 @@ class PPO(object):
 		self.epsilon = epsilon
 		self.gamma = gamma
 		self.lambd = lambd
+		self.reward_max = 0
 
 	def initRun(self, pretrain, num_state, num_action, num_slaves=4):
 		self.pretrain = pretrain
@@ -79,7 +80,7 @@ class PPO(object):
 		self.buildOptimize(name)
 			
 		save_list = tf.trainable_variables()
-		self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
+		self.saver = tf.train.Saver(var_list=save_list)
 			
 		# load pretrained network
 		if self.pretrain is not "":
@@ -208,6 +209,13 @@ class PPO(object):
 
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
+		self.env.RMS.save(self.directory+'rms')
+
+		r_per_e = self.env.printSummary()
+		if self.reward_max < r_per_e:
+			self.reward_max = r_per_e
+			self.saver.save(self.sess, self.directory + "network-max")
+			self.env.RMS.save(self.directory+'rms-max')
 
 	def load(self, path):
 		self.saver.restore(self.sess, path)
@@ -264,8 +272,6 @@ class PPO(object):
 
 				if self.directory is not None:
 					self.save()
-				self.env.printSummary()
-
 				epi_info_iter = []
 
 	def run(self, state):

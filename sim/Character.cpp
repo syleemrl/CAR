@@ -295,6 +295,8 @@ ReadFramesFromBVH(BVH* bvh)
 
 	totalFrames = mBVHFrames.size();
 	avgCOMVelocity /= totalFrames;
+
+	mBVHFrames_r.clear();
 }
 void
 Character::
@@ -366,33 +368,68 @@ Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 {
+	int bi = 5;
 	if(isPhase) {
 		int k = std::floor(t);
-		if(k / mBVHFrames.size() < 1) {
-			return new Frame(mBVHFrames[k]);
+		if(mBVHFrames_r.size() == 0) {
+			for(auto f: mBVHFrames) {
+				mBVHFrames_r.push_back(new Frame(f));
+			}
+		}
+		// blending : 이전 클립의 end - 4번째 frame부터 새 클립의 begin + 4 frame까지를 blending
+		if(k / (mBVHFrames_r.size() - bi) < 1 ) {
+			return new Frame(mBVHFrames_r[k]);
 		}
 		else {
+			Eigen::Vector6d root_next = mBVHFrames[0]->position.segment<6>(0);
+			Eigen::Vector6d root_prev = mBVHFrames_r[mBVHFrames_r.size() - bi]->position.segment<6>(0);
 
-			Eigen::VectorXd position = mBVHFrames.back()->position;
-			Eigen::VectorXd velocity = mBVHFrames.back()->velocity;
+			Eigen::AngleAxisd root_next_ori(root_next.segment<3>(0).norm(), root_next.segment<3>(0).normalized());
+			Eigen::AngleAxisd root_prev_ori(root_prev.segment<3>(0).norm(), root_prev.segment<3>(0).normalized());
 
-			mSkeleton->setPositions(position);
-			mSkeleton->setVelocities(velocity);
-			mSkeleton->computeForwardKinematics(true,true,false);
+			Eigen::Matrix3d root_dori;
+			root_dori = root_prev_ori * root_next_ori.inverse();
+			root_dori = DPhy::projectToXZ(root_dori);
 
-			Eigen::Isometry3d root = mSkeleton->getRootBodyNode()->getWorldTransform();
-			
-			int k_ = (int) std::floor(t) % totalFrames;
-			Frame* next = new Frame(mBVHFrames[k_]);
-			float height = next->position[4];
-			if(k_ == 0)
-				next->position.segment<3>(3) = mBVHFrames.back()->position.segment<3>(3) + root.linear() * mBVHFrames.back()->velocity.segment<3>(3) * bvh->GetTimeStep();
-			else
-				next->position.segment<3>(3) = mBVHFrames.back()->position.segment<3>(3) + root.linear() * next->velocity.segment<3>(3) * bvh->GetTimeStep();
-			next->position[4] = height;
-			mBVHFrames.push_back(next);
+			std::vector<Eigen::VectorXd> positions;
+			for(int i = 0; i < mBVHFrames.size(); i++) {
+				Eigen::VectorXd position_next = mBVHFrames[i]->position;
 
-			return new Frame(next);
+				Eigen::Vector3d dpos = mBVHFrames[i]->position.segment<3>(3) - mBVHFrames[0]->position.segment<3>(3);
+				dpos =  root_dori * dpos + root_prev.segment<3>(3);
+				// dpos[1] = mBVHFrames[i]->position[4];
+
+				Eigen::AngleAxisd cur_ori(mBVHFrames[i]->position.segment<3>(0).norm(), mBVHFrames[i]->position.segment<3>(0).normalized());
+				Eigen::Matrix3d dori;
+				dori = root_dori * cur_ori;
+
+				Eigen::Quaterniond dori_q(dori);
+
+				position_next.segment<3>(3) = dpos;
+				position_next.segment<3>(0) = DPhy::QuaternionToDARTPosition(dori_q);
+
+				if(i < bi) {
+					Eigen::VectorXd position_prev = mBVHFrames_r[mBVHFrames_r.size() - (bi - i)]->position;
+					double weight = (i+1) / (double)(bi+1);
+					position_next = DPhy::BlendPosition(position_next, position_prev, weight);
+
+					// position_next[4] = weight * position_next[4] + (1 - weight) * position_prev[4]; 
+				}
+				positions.push_back(position_next);
+			}
+
+			for(int i = 0; i < positions.size(); i++) {
+				if(i < bi) {
+					Eigen::VectorXd v = mSkeleton->getPositionDifferences(mBVHFrames_r[mBVHFrames_r.size() -(bi - i) - 1]->position, positions[i])*20;
+					mBVHFrames_r[mBVHFrames_r.size()- (bi - i)]->position = positions[i];
+					mBVHFrames_r[mBVHFrames_r.size()- (bi - i)]->velocity = v;
+
+				} else {
+					Eigen::VectorXd v = mSkeleton->getPositionDifferences(mBVHFrames_r.back()->position, positions[i])*20;
+					mBVHFrames_r.push_back(new Frame(positions[i], v));
+				}
+			}
+			return new Frame(mBVHFrames_r[k]);
 		}
 	}
 	else {
@@ -530,8 +567,8 @@ EditTrajectory(BVH* bvh, int t, double w) {
 		mBVHFrames_[i]->COMposition = mSkeleton->getCOM();
 
 		if(i != 0) {
-			mBVHFrames_[i]->velocity = mSkeleton->getPositionDifferences(mBVHFrames_[i]->position, mBVHFrames_[i-1]->position) * 30;
-			mBVHFrames_[i]->COMvelocity = (mBVHFrames_[i]->COMposition - mBVHFrames_[i-1]->COMposition) * 30;
+			mBVHFrames_[i]->velocity = mSkeleton->getPositionDifferences(mBVHFrames_[i]->position, mBVHFrames_[i-1]->position) * 20;
+			mBVHFrames_[i]->COMvelocity = (mBVHFrames_[i]->COMposition - mBVHFrames_[i-1]->COMposition) * 20;
 		}
 
 	}
@@ -563,8 +600,8 @@ EditTrajectory(BVH* bvh, int t, double w) {
 		mBVHFrames_[i]->position = new_position;
 		mBVHFrames_[i]->COMposition = mSkeleton->getCOM();
 		if(i != 0) {
-			mBVHFrames_[i]->velocity = mSkeleton->getPositionDifferences(mBVHFrames_[i]->position, mBVHFrames_[i-1]->position) * 30;
-			mBVHFrames_[i]->COMvelocity = (mBVHFrames_[i]->COMposition - mBVHFrames_[i-1]->COMposition) * 30;
+			mBVHFrames_[i]->velocity = mSkeleton->getPositionDifferences(mBVHFrames_[i]->position, mBVHFrames_[i-1]->position) * 20;
+			mBVHFrames_[i]->COMvelocity = (mBVHFrames_[i]->COMposition - mBVHFrames_[i-1]->COMposition) * 20;
 		}
 	}
 	mBVHFrames = mBVHFrames_;

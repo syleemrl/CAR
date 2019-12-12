@@ -113,7 +113,8 @@ class Monitor(object):
 		self.num_transitions += self.num_transitions_per_iteration
 		self.num_episodes += self.num_episodes_per_iteration
 		self.num_evaluation += 1
-		self.total_rewards.append(self.rewards_per_iteration/self.num_episodes_per_iteration)
+		r_per_e = self.rewards_per_iteration/self.num_episodes_per_iteration
+		self.total_rewards.append(r_per_e)
 		self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
 			np.asarray(self.rewards_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
 
@@ -154,8 +155,6 @@ class Monitor(object):
 				out.write(s+'\n')
 			out.close()
 
-			self.RMS.save(self.directory+'rms')
-
 		if self.plot:
 			y_list = [[np.asarray(self.transition_per_episodes), 'steps'], 
 						[np.asarray(self.total_rewards_by_parts[0]), 'r'], 
@@ -179,3 +178,4 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 
+		return r_per_e

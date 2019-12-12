@@ -73,6 +73,7 @@ protected:
 	std::map<std::string,std::string> mBVHMap; //body_node name and bvh_node name
 	Eigen::VectorXd mKp, mKv;
 	Eigen::VectorXd mKp_default, mKv_default;
+	std::vector<Frame*> mBVHFrames_r;
 	std::vector<Frame*> mBVHFrames;
 	std::vector<std::string> mContactList;
 	Eigen::Vector3d avgCOMVelocity;

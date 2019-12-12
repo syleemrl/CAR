@@ -118,7 +118,9 @@ protected:
 	std::tuple<double, double, double> mDeformParameter;
 	std::vector<std::string> mGRFJoints;
 	std::vector<double> mRecordTime;
-	std::vector<double> mRecordTimeDT;
+	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
+	std::vector<Eigen::Vector3d> mRecordCOMPosition;
+	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::pair<double, int> mInputVelocity;
 	int mNumState, mNumAction;
 
