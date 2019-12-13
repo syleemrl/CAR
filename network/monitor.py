@@ -8,8 +8,8 @@ from utils import RunningMeanStd
 from IPython import embed
 
 class Monitor(object):
-	def __init__(self, motion, torque, num_slaves, directory, load=False, plot=True, verbose=True):
-		self.env = Env(motion, torque, num_slaves)
+	def __init__(self, motion, num_slaves, directory, load=False, plot=True, verbose=True):
+		self.env = Env(motion, num_slaves)
 		self.num_slaves = self.env.num_slaves
 		self.motion = self.env.motion
 		self.sim_env = self.env.sim_env

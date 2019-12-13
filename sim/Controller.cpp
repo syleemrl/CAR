@@ -7,7 +7,7 @@
 namespace DPhy
 {	
 
-Controller::Controller(std::string motion, std::string torque, bool record)
+Controller::Controller(std::string motion, bool record)
 	:mTimeElapsed(0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
 	w_p(0.3),w_v(0.3),w_ee(0.2),w_com(0.2), w_srl(0.0),
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
@@ -30,7 +30,7 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	this->SetReference(motion, torque);
+	this->SetReference(motion);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -132,13 +132,15 @@ Controller::Controller(std::string motion, std::string torque, bool record)
 	this->mRecordCOMPosition.clear();
 	this->mRecordCOMPositionRef.clear();
 	this->mRecordCOMVelocity.clear();
+	this->mRecordEnergy.clear();
+	this->mRecordWork.clear();
 
 	this->mTorque.resize(dof);
 	this->mAdaptiveCOM.setZero();
 }
 void 
 Controller::
-SetReference(std::string motion, std::string torque) 
+SetReference(std::string motion) 
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 	this->mRefCharacter = new DPhy::Character(path);
@@ -166,9 +168,29 @@ Step()
 {
 	if(IsTerminalState())
 		return;
-
-	// set action target pos
 	int num_body_nodes = this->mInterestedBodies.size();
+
+	double energy = 0;
+	Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
+	for(int i = 0; i < num_body_nodes; i++) {
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		double mass = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getMass();
+		// potential
+		double pe = mass * mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getCOM()[1] * 9.81;
+
+		// kinetic
+		Eigen::Vector6d comVelocity = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getCOMSpatialVelocity();
+		double ke = 1/2.0 * mass * comVelocity.segment<3>(3).dot(comVelocity.segment<3>(3));
+
+		Eigen::MatrixXd jacobian = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getJacobian();
+		Eigen::Vector3d velocity = (jacobian * curVelocity).segment<3>(0);
+		velocity = mCharacter->GetSkeleton()->getRootBodyNode()->getWorldTransform().linear().inverse() * velocity;
+		ke += 1/2.0 * comVelocity.segment<3>(0).transpose() * mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getInertia().getMoment() * comVelocity.segment<3>(0);
+		energy += (ke + pe);
+	}
+	std::cout << energy << std::endl;
+	mRecordEnergy.push_back(energy);
+	// set action target pos
 	double action_multiplier = 0.2;
 
 	for(int i = 0; i < num_body_nodes*3; i++){
@@ -220,6 +242,8 @@ Step()
 	Eigen::VectorXd torque;
 	mTorque.setZero();
 
+	double work = 0;
+	Eigen::VectorXd prevPos = mCharacter->GetSkeleton()->getPositions();
 	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		mTorque = mTorque + torque*2;
@@ -227,12 +251,17 @@ Step()
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step();
+				
+			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
+			work += torque.dot(curVelocity) * 1.0/(double)mSimulationHz;
 		}
 		this->mTimeElapsed += 2.0;
 		if(this->mTimeElapsed % (int) mSimPerCon == 0) {
 			SaveDisplayInfo();
 		}
 	}
+	std::cout << work << std::endl;
+	mRecordWork.push_back(work);
 	mTorque /= (this->mSimPerCon  + mAdaptiveStep);
 	this->UpdateGRF(mGRFJoints);
 	this->UpdateReward();
@@ -308,10 +337,8 @@ UpdateReward()
 	skel->setVelocities(this->mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 	
-	if(mRecord) this->mRecordCOMPositionRef.push_back(skel->getCOM());
-
 	for(int i=0;i<mEndEffectors.size();i++){
-		if(CheckCollisionWithGround(mEndEffectors[i])) { 
+		if(isContact[i]) { 
 		//	Eigen::Isometry3d diff = ee_transforms[i].inverse() * target_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 			ee_diff.segment<3>(3*i) = diff.translation();
@@ -466,27 +493,29 @@ DeformCharacter(double w0,double w1)
 	// deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 	// deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 
-	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
-	deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
+	// deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
+	// deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
 
-	// deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
-	// deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
+	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
+	deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
+	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
+	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 	
 
 	this->mRefCharacter->RescaleOriginalBVH(std::sqrt(w0));
+
+	std::cout << "Deform done: " << w0 << " " << w1 << std::endl;
 
 }
 void 
@@ -540,6 +569,8 @@ Reset(bool RSI)
 	this->mRecordPosition.clear();
 	this->mRecordCOM.clear();
 	this->mRecordTime.clear();
+	this->mRecordEnergy.clear();
+	this->mRecordWork.clear();
 
 	SaveDisplayInfo();
 
@@ -709,9 +740,6 @@ Controller::SaveHistory(const std::string& filename) {
 		ofs << t.transpose() << std::endl;
 	}
 	for(auto t: this->mRecordCOMPosition) {
-		ofs << t.transpose() << std::endl;
-	}
-	for(auto t: this->mRecordCOMPositionRef) {
 		ofs << t.transpose() << std::endl;
 	}
 	// ofs << this->GRFs.at(0).size() << std::endl;

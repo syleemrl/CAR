@@ -288,7 +288,6 @@ if __name__=="__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--ntimesteps", type=int, default = 1000000)
 	parser.add_argument("--motion", type=str, default=None)
-	parser.add_argument("--torque", type=str, default=None)
 	parser.add_argument("--test_name", type=str, default="")
 	parser.add_argument("--pretrain", type=str, default="")
 	parser.add_argument("--evaluation", type=bool, default=False)
@@ -308,9 +307,9 @@ if __name__=="__main__":
 			os.mkdir(directory)
 	
 	if args.pretrain != "":
-		env = Monitor(motion=args.motion, torque=args.torque, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot)
+		env = Monitor(motion=args.motion, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot)
 	else:
-		env = Monitor(motion=args.motion, torque=args.torque, num_slaves=args.nslaves, directory=directory, plot=args.plot)
+		env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory, plot=args.plot)
 	ppo = PPO()
 	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
 	ppo.train(args.ntimesteps)

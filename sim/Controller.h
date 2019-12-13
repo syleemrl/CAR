@@ -18,13 +18,13 @@ class Character;
 class Controller
 {
 public:
-Controller(std::string motion, std::string torque, bool record=false);
+Controller(std::string motion, bool record=false);
 
 	void Step();
 	void UpdateReward();
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
-	void SetReference(std::string motion, std::string torque);
+	void SetReference(std::string motion);
 	bool FollowBvh();
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
@@ -62,11 +62,13 @@ Controller(std::string motion, std::string torque, bool record=false);
 	void SaveDisplayInfo();
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
-
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
 	std::tuple<double, double, double> GetDeformParameter() { return mDeformParameter; }
+	
+	void computeEnergyConservation();
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	BVH* mBVH;
@@ -109,7 +111,8 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::VectorXd> mRecordVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOM;
-
+	std::vector<double> mRecordEnergy;
+	std::vector<double> mRecordWork;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
@@ -136,7 +139,6 @@ protected:
 	Eigen::VectorXd mTorqueMax;
 
 	Eigen::VectorXd mTorqueSig;
-
 };
 }
 #endif
