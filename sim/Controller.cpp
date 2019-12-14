@@ -13,7 +13,7 @@ Controller::Controller(std::string motion, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.0, 2.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.0);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -197,12 +197,12 @@ Step()
 	int num_body_nodes = this->mInterestedBodies.size();
 
 	for(int i = 0; i < num_body_nodes*3; i++){
-		mActions[i] = dart::math::clip(mActions[i], -0.7*M_PI, 0.7*M_PI);
+		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
 
 //	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*action_multiplier, -1.0, 1.0);
-	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3], -0.2, 0.2);
-	mActions[num_body_nodes*3 + 1] = dart::math::clip(mActions[num_body_nodes*3 + 1], -1.0, 1.0);
+	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.1, -0.2, 0.2);
+	mActions[num_body_nodes*3 + 1] = dart::math::clip(mActions[num_body_nodes*3 + 1]*0.5, -1.0, 1.0);
 
 	mAdaptiveCOM = mActions[num_body_nodes*3];
 	mAdaptiveStep = (int) floor(mActions[num_body_nodes*3 + 1] * 10) * 2;
@@ -364,7 +364,7 @@ UpdateReward()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 		
-	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3);	
+	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 
 	int index = mRecordEnergy.size() - 1;
 	double eq_diff = (mRecordEnergy[index] - mRecordEnergy[index-1]) - mRecordWork[index-1]; 
@@ -380,10 +380,9 @@ UpdateReward()
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_a = exp_of_squared(actions.cwiseAbs(), sig_a);
+	double r_a = exp_of_squared(actions, sig_a);
 //	double r_eq = exp(-eq_diff*eq_diff*0.3);
 	double r_tot = r_p*r_v*r_com*r_ee*r_a;
-	
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
@@ -414,7 +413,7 @@ UpdateTerminalInfo()
 	
 	Eigen::AngleAxisd root_diff_aa(root_diff.linear());
 	double angle = RadianClamp(root_diff_aa.angle());
-	Eigen::Vector3d root_pos_diff = root_diff.translate();
+	Eigen::Vector3d root_pos_diff = root_diff.translation();
 
 
 	// check nan
