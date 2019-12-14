@@ -56,16 +56,18 @@ public:
 	const Eigen::Vector3d& GetRootCOM(){return mRootCOM;}
 	Eigen::Matrix3d Get(const std::string& body_node);
 
-	double GetMaxFrame(){return mNumTotalFrames;}
-	double GetMaxTime(){return mNumTotalFrames*mTimeStep;}
+	double GetMaxFrame(){return mNumTotalFrames - mBlending;}
+	double GetMaxTime(){return (mNumTotalFrames - mBlending)*mTimeStep;}
 	double GetTimeStep(){return mTimeStep;}
 	void Parse(const std::string& file);
+	void SetBlending(int bi) { mBlending = bi; }
 private:
 	std::vector<Eigen::VectorXd> mMotions;
 	std::map<std::string,BVHNode*> mMap;
 	double mTimeStep;
 	int mNumTotalChannels;
 	int mNumTotalFrames;
+	int mBlending;
 
 	BVHNode* mRoot;
 	Eigen::Vector3d mRootCOM;

@@ -369,6 +369,7 @@ Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 {
 	int bi = 1;
+	bvh->SetBlending(bi);
 	if(isPhase) {
 		int k = std::floor(t);
 		if(mBVHFrames_r.size() == 0) {
@@ -397,7 +398,6 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 
 				Eigen::Vector3d dpos = mBVHFrames[i]->position.segment<3>(3) - mBVHFrames[0]->position.segment<3>(3);
 				dpos =  root_dori * dpos + root_prev.segment<3>(3);
-				// dpos[1] = mBVHFrames[i]->position[4];
 
 				Eigen::AngleAxisd cur_ori(mBVHFrames[i]->position.segment<3>(0).norm(), mBVHFrames[i]->position.segment<3>(0).normalized());
 				Eigen::Matrix3d dori;

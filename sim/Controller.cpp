@@ -13,7 +13,7 @@ Controller::Controller(std::string motion, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.0, 2.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.5);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -200,7 +200,6 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
 
-//	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*action_multiplier, -1.0, 1.0);
 	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.1, -0.2, 0.2);
 	mActions[num_body_nodes*3 + 1] = dart::math::clip(mActions[num_body_nodes*3 + 1]*0.5, -1.0, 1.0);
 
@@ -280,15 +279,14 @@ Step()
 		energy += mRefCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getPotentialEnergy(Eigen::Vector3d(Eigen::Vector3d(0,-9.81,0)));
 	}
 	mRecordEnergy.push_back(energy);
+	this->mRecordTime.push_back((this->mSimPerCon + mAdaptiveStep) / (double) this->mSimPerCon);
 
-//	this->UpdateGRF(mGRFJoints);
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	// this->UpdateGRF(mGRFJoints);
 
 	if(mRecord) {
 		this->torques.push_back(mTorque);
-		this->mRecordTime.push_back(this->mTimeElapsed / (double) this->mSimPerCon);
 		this->mRecordCOMPosition.push_back(mCharacter->GetSkeleton()->getCOM());
 	}
 
@@ -345,7 +343,7 @@ UpdateReward()
 	std::vector<bool> isContact;
 	for(int i=0;i<mEndEffectors.size();i++){
 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
-	//	isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
+		isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
 	}
 	
 	com_diff = skel->getCOM();
@@ -355,8 +353,10 @@ UpdateReward()
 	skel->computeForwardKinematics(true,true,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
+	//	if(isContact[i]) {
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
+	//	}
 	}
 	com_diff -= skel->getCOM();
 
@@ -366,8 +366,18 @@ UpdateReward()
 		
 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 
+	double timeElapsed_p = 0;
+	double time_diff = 0;
+	if(mBVH->GetMaxFrame() < mRecordTime.size()) {
+		for(int i = 0; i < mBVH->GetMaxFrame(); i++) {
+			timeElapsed_p += mRecordTime[mRecordTime.size() - (i + 1)];
+		}
+		time_diff = (mBVH->GetMaxFrame() * std::get<2>(mDeformParameter) - timeElapsed_p)*0.1;
+	}
+
 	int index = mRecordEnergy.size() - 1;
 	double eq_diff = (mRecordEnergy[index] - mRecordEnergy[index-1]) - mRecordWork[index-1]; 
+
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.3 * scale; 		// 2
@@ -375,14 +385,18 @@ UpdateReward()
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
 	double sig_a = 0.7 * scale;
+	double sig_time = scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, sig_a);
+	double r_time = exp(-pow(time_diff,2));
 //	double r_eq = exp(-eq_diff*eq_diff*0.3);
-	double r_tot = r_p*r_v*r_com*r_ee*r_a;
+
+	double r_tot = r_p*r_v*r_com*r_ee*r_time*r_a;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
@@ -393,7 +407,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(r_time);
 	}
 
 }
@@ -557,14 +571,6 @@ Reset(bool RSI)
 	this->mRecordWork.clear();
 
 	SaveDisplayInfo();
-
-	// bool rightContact = CheckCollisionWithGround("FootEndR") || CheckCollisionWithGround("FootR");
-	// bool leftContact = CheckCollisionWithGround("FootEndL") || CheckCollisionWithGround("FootL");
-	// if(leftContact && rightContact) {
-	// 	mDoubleStanceInfo = std::make_tuple(true, mTimeElapsed, 0);
-	// } else {
-	// 	mDoubleStanceInfo = std::make_tuple(false, 0, 0);
-	// }
 
 	int num_body_nodes = this->mInterestedBodies.size();
 
