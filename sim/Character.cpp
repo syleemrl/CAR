@@ -368,7 +368,7 @@ Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 {
-	int bi = 5;
+	int bi = 1;
 	if(isPhase) {
 		int k = std::floor(t);
 		if(mBVHFrames_r.size() == 0) {

@@ -96,7 +96,7 @@ protected:
 	Eigen::VectorXd mActions;
 
 	Eigen::Vector3d mTargetCOMvelocity;
-	Eigen::Vector3d mAdaptiveCOM;
+	double mAdaptiveCOM;
 	Eigen::VectorXd mTorque;
 	int mAdaptiveStep;
 
