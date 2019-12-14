@@ -61,8 +61,9 @@ IsNanAtTerminal(int id)
 	bool t = mSlaves[id]->IsTerminalState();
 	bool n = mSlaves[id]->IsNanAtTerminal();
 	int start = mSlaves[id]->GetStartFrame();
-	int e = mSlaves[id]->GetCurrentLength();
-	return p::make_tuple(t, n, start, e-1);
+	double e = mSlaves[id]->GetCurrentLength();
+	double tt = mSlaves[id]->GetTimeElapsed();
+	return p::make_tuple(t, n, start, e, tt);
 }
 np::ndarray
 SimEnv::

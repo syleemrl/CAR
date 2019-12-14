@@ -13,7 +13,7 @@ Controller::Controller(std::string motion, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.0, 2.0, 1.0);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -208,8 +208,8 @@ Step()
 	mAdaptiveStep = (int) floor(mActions[num_body_nodes*3 + 1] * 10) * 2;
 
 	// TO DELETE
-	mAdaptiveCOM = 0;
-	mAdaptiveStep = 0;
+//	mAdaptiveCOM = 0;
+//	mAdaptiveStep = 0;
 
 	this->mCurrentFrame += 1;
 
@@ -524,12 +524,11 @@ Reset(bool RSI)
 	//RSI
 	if(RSI) {
 		this->mCurrentFrame = mRefCharacter->GetMaxFrame() + (int) dart::math::Random::uniform(0.0, this->mBVH->GetMaxFrame()-5);
-		this->mTimeElapsed = this->mCurrentFrame * this->mSimPerCon;
 	}
 	else {
-		this->mTimeElapsed = 0; // 0.0;
 		this->mCurrentFrame = 0; // 0;
 	}
+	this->mTimeElapsed = 0; // 0.0;
 	this->mStartFrame = this->mCurrentFrame;
 
 	Frame* p_v_target = mRefCharacter->GetTargetPositionsAndVelocitiesFromBVH(mBVH, mCurrentFrame, true);
@@ -559,13 +558,13 @@ Reset(bool RSI)
 
 	SaveDisplayInfo();
 
-	bool rightContact = CheckCollisionWithGround("FootEndR") || CheckCollisionWithGround("FootR");
-	bool leftContact = CheckCollisionWithGround("FootEndL") || CheckCollisionWithGround("FootL");
-	if(leftContact && rightContact) {
-		mDoubleStanceInfo = std::make_tuple(true, mTimeElapsed, 0);
-	} else {
-		mDoubleStanceInfo = std::make_tuple(false, 0, 0);
-	}
+	// bool rightContact = CheckCollisionWithGround("FootEndR") || CheckCollisionWithGround("FootR");
+	// bool leftContact = CheckCollisionWithGround("FootEndL") || CheckCollisionWithGround("FootL");
+	// if(leftContact && rightContact) {
+	// 	mDoubleStanceInfo = std::make_tuple(true, mTimeElapsed, 0);
+	// } else {
+	// 	mDoubleStanceInfo = std::make_tuple(false, 0, 0);
+	// }
 
 	int num_body_nodes = this->mInterestedBodies.size();
 

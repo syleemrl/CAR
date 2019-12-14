@@ -17,23 +17,26 @@ class Env(object):
 	def step(self, actions):
 		rewards = []
 		dones = []
+		frames = []
 		times = []
 		nan_count = 0
 		
 		self.sim_env.SetActions(actions)
 		self.sim_env.Steps()
 		for j in range(self.num_slaves):
-			is_terminal, nan_occur, start, time_elapsed = self.sim_env.IsNanAtTerminal(j)
+			is_terminal, nan_occur, start, frame_elapsed, time_elapsed = self.sim_env.IsNanAtTerminal(j)
 			if not nan_occur:
 				r = self.sim_env.GetRewardByParts(j)
 				rewards.append(r)
 				dones.append(is_terminal)
 				times.append(time_elapsed)
+				frames.append(frame_elapsed)
 			else:
 				rewards.append([None])
 				dones.append(True)
 				times.append(time_elapsed)
+				frames.append(frame_elapsed)
 				nan_count += 1
 		
 		states = self.sim_env.GetStates()
-		return states, rewards, dones, times, nan_count 
+		return states, rewards, dones, times, frames, nan_count 

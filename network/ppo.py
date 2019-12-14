@@ -265,6 +265,7 @@ class PPO(object):
 			print('')
 
 			if it % 5 == 4:
+#			if 1:
 				self.update(epi_info_iter) 
 
 				if self.learning_rate_actor > 1e-5:

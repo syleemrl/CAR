@@ -29,6 +29,7 @@ class Monitor(object):
 		self.num_evaluation = 0
 		self.num_episodes = 0
 		self.num_transitions = 0
+		self.total_time_elapsed = 0
 		self.total_rewards = []
 		self.max_episode_length = 0
 		self.total_rewards_by_parts = np.array([[]]*6)
@@ -69,7 +70,7 @@ class Monitor(object):
 		self.terminated[i] = False
 	
 	def step(self, actions):
-		self.states, rewards, dones, times, nan_count =  self.env.step(actions)
+		self.states, rewards, dones, times, frames, nan_count =  self.env.step(actions)
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		self.num_nan_per_iteration += nan_count
@@ -79,10 +80,13 @@ class Monitor(object):
 				self.rewards_by_part_per_iteration.append(rewards[i])
 				
 				self.num_transitions_per_iteration += 1
+
 				if dones[i]:
 					self.num_episodes_per_iteration += 1
-					if times[i] > self.max_episode_length:
-						self.max_episode_length = times[i]
+					self.total_time_elapsed += times[i]
+
+					if frames[i] > self.max_episode_length:
+						self.max_episode_length = frames[i]
 			
 		rewards = [rewards[i][0] for i in range(len(rewards))]
 
@@ -130,6 +134,7 @@ class Monitor(object):
 			t_per_e = self.num_transitions / self.num_episodes
 
 		print_list.append('total transition per episodes : {:.2f}'.format(t_per_e))
+
 		print_list.append('episode count : {}'.format(self.num_episodes_per_iteration))
 		print_list.append('transition count : {}'.format(self.num_transitions_per_iteration))
 		
@@ -141,6 +146,11 @@ class Monitor(object):
 		print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
 		print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
 		print_list.append('max episode length : {}'.format(self.max_episode_length))
+
+		te_per_t  = 0
+		if self.num_transitions_per_iteration is not 0:
+			te_per_t = self.total_time_elapsed / self.num_transitions_per_iteration;
+		print_list.append('time elapsed per transition : {:.2f}'.format(te_per_t))
 
 		if self.num_nan_per_iteration != 0:
 			print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
@@ -177,5 +187,6 @@ class Monitor(object):
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
+		self.total_time_elapsed = 0
 
 		return r_per_e

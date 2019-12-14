@@ -45,7 +45,7 @@ Controller(std::string motion, bool record=false);
 	std::vector<double> GetRewardByParts() {return mRewardParts; }
 	const dart::simulation::WorldPtr& GetWorld() {return mWorld;}
 
-	double GetCurrentTime(){return this->mTimeElapsed;}
+	double GetTimeElapsed(){return this->mTimeElapsed;}
 	double GetCurrentFrame(){return this->mCurrentFrame;}
 	double GetCurrentLength() {return this->mCurrentFrame - this->mStartFrame; }
 	double GetStartFrame(){ return this->mStartFrame; }
