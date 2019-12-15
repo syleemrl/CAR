@@ -13,7 +13,7 @@ Controller::Controller(std::string motion, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.0, 2.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.0);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -122,7 +122,6 @@ Controller::Controller(std::string motion, bool record)
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
 	
-	this->torques.clear();
 	this->GRFs.clear();
 	this->mRecordVelocity.clear();
 	this->mRecordPosition.clear();
@@ -130,14 +129,11 @@ Controller::Controller(std::string motion, bool record)
 	this->mRecordTime.clear();
 	this->mRecordDTime.clear();
 
-	this->mRecordCOMPosition.clear();
-	this->mRecordCOMPositionRef.clear();
-	this->mRecordCOMVelocity.clear();
+	this->mRecordDCOM.clear();
 	
 	this->mRecordEnergy.clear();
 	this->mRecordWork.clear();
 
-	this->mTorque.resize(dof);
 }
 void 
 Controller::
@@ -207,10 +203,9 @@ Step()
 	mAdaptiveCOM = mActions[num_body_nodes*3];
 	mAdaptiveStep = (int) floor(mActions[num_body_nodes*3 + 1] * 10) * 2;
 
-	std::cout << mAdaptiveCOM << std::endl;
 	// TO DELETE
-//	mAdaptiveCOM = 0;
-//	mAdaptiveStep = 0;
+	mAdaptiveCOM = 0;
+	mAdaptiveStep = 0;
 
 	this->mCurrentFrame += 1;
 
@@ -252,9 +247,10 @@ Step()
 	mCharacter->SetPDParameters(kp, kv);
 
 	Eigen::VectorXd torque;
-	mTorque.setZero();
 
-	double work = 0;
+	double work_sum = 0;
+	Eigen::VectorXd torque_sum(this->mCharacter->GetSkeleton()->getNumDofs());
+	torque_sum.setZero();
 
 	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep; i += 2){
 		if(mRecord && this->mTimeElapsed != 0 && this->mTimeElapsed % (int) mSimPerCon == 0) {
@@ -263,19 +259,21 @@ Step()
 		}
 
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
-		mTorque = mTorque + torque*2;
+		torque_sum += torque*2;
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step();
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
-			work += torque.dot(curVelocity) * 1.0 / mSimulationHz;
+			work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
 		}
 		this->mTimeElapsed += 2.0;
 	}
-	mTorque /= (this->mSimPerCon  + mAdaptiveStep);
-	mRecordWork.push_back(work);
+	mRecordWork.push_back(work_sum);
+
+// 	torque_sum /= (this->mSimPerCon  + mAdaptiveStep);
+	this->mRecordTorque.push_back(torque_sum);
 
 	double energy = 0;
 	for(int i = 0; i < num_body_nodes; i++) {
@@ -283,17 +281,12 @@ Step()
 		energy += mRefCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getPotentialEnergy(Eigen::Vector3d(Eigen::Vector3d(0,-9.81,0)));
 	}
 	mRecordEnergy.push_back(energy);
-	this->mRecordDTime.push_back((this->mSimPerCon + mAdaptiveStep) / (double) this->mSimPerCon);
+	this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
+	this->mRecordDCOM.push_back(mAdaptiveCOM);
 
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	// this->UpdateGRF(mGRFJoints);
-
-	if(mRecord) {
-		this->torques.push_back(mTorque);
-		this->mRecordCOMPosition.push_back(mCharacter->GetSkeleton()->getCOM());
-
-	}
 
 }
 void
@@ -374,7 +367,7 @@ UpdateReward()
 	double time_diff = 0;
 	if(mBVH->GetMaxFrame() < mRecordDTime.size()) {
 		for(int i = 0; i < mBVH->GetMaxFrame(); i++) {
-			timeElapsed_p += mRecordDTime[mRecordDTime.size() - (i + 1)];
+			timeElapsed_p += mRecordDTime[mRecordDTime.size() - (i + 1)] / (double) this->mSimPerCon;
 		}
 		time_diff = (mBVH->GetMaxFrame() * std::get<2>(mDeformParameter) - timeElapsed_p)*0.1;
 	}
@@ -389,14 +382,17 @@ UpdateReward()
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
 	double sig_a = 0.7 * scale;
-	double sig_time = scale;
+	double sig_t = 0.5 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, sig_a);
-	double r_time = exp(-pow(time_diff,2));
+	
+	double r_time = exp(-pow(time_diff, 2));
+	// double r_work = exp(-pow(work_diff, 2));
+	// double r_torque = exp_of_squared(torque_diff, sig_t);
 //	double r_eq = exp(-eq_diff*eq_diff*0.3);
 
 	double r_tot = r_p*r_v*r_com*r_ee*r_time*r_a;
@@ -566,13 +562,13 @@ Reset(bool RSI)
 
 	this->mRewardParts.resize(6, 0.0);
 
-	this->torques.clear();
 	this->GRFs.clear();
 	this->mRecordVelocity.clear();
 	this->mRecordPosition.clear();
 	this->mRecordCOM.clear();
 	this->mRecordTime.clear();
 	this->mRecordDTime.clear();
+	this->mRecordDCOM.clear();
 	this->mRecordEnergy.clear();
 	this->mRecordWork.clear();
 
@@ -739,15 +735,13 @@ void
 Controller::SaveHistory(const std::string& filename) {
 	std::cout << "save results" << std::endl;
 	std::ofstream ofs(filename);
-	std::cout << this->torques.size() << std::endl;
-	ofs << this->torques.size() << std::endl;
-	// int i = 0;
-	for(auto& t: this->torques) {
-		ofs << t.transpose() << std::endl;
-	}
-	for(auto t: this->mRecordCOMPosition) {
-		ofs << t.transpose() << std::endl;
-	}
+	// std::cout << this->torques.size() << std::endl;
+	// ofs << this->torques.size() << std::endl;
+	// // int i = 0;
+	// for(auto& t: this->torques) {
+	// 	ofs << t.transpose() << std::endl;
+//	}
+
 	// ofs << this->GRFs.at(0).size() << std::endl;
 	// for(auto& g: this->GRFs) {
 	// 	for(int i = 0; i < g.size(); i++) 

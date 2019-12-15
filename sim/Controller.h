@@ -99,7 +99,6 @@ protected:
 
 	Eigen::Vector3d mTargetCOMvelocity;
 	double mAdaptiveCOM;
-	Eigen::VectorXd mTorque;
 	int mAdaptiveStep;
 
 	std::vector<std::string> mInterestedBodies;
@@ -115,6 +114,9 @@ protected:
 	std::vector<Eigen::Vector3d> mRecordCOM;
 	std::vector<double> mRecordEnergy;
 	std::vector<double> mRecordWork;
+	std::vector<double> mRecordDCOM;
+	std::vector<Eigen::VectorXd> mRecordTorque;
+
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
@@ -126,14 +128,12 @@ protected:
 	std::vector<double> mRecordDTime;
 
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
-	std::vector<Eigen::Vector3d> mRecordCOMPosition;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::pair<double, int> mInputVelocity;
 	int mNumState, mNumAction;
 
 	int terminationReason;
 
-	std::vector<Eigen::VectorXd> torques;
 	std::vector<std::vector<Eigen::VectorXd>> GRFs;
 	std::shared_ptr<dart::collision::DARTCollisionDetector> mGroundCollisionChecker;	
 
