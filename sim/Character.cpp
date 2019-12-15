@@ -371,15 +371,19 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 	int bi = 1;
 	bvh->SetBlending(bi);
 	if(isPhase) {
-		int k = std::floor(t);
+		int k0 = (int) std::floor(t);
+		int k1 = (int) std::ceil(t);	
 		if(mBVHFrames_r.size() == 0) {
 			for(auto f: mBVHFrames) {
 				mBVHFrames_r.push_back(new Frame(f));
 			}
 		}
 		// blending : 이전 클립의 end - 4번째 frame부터 새 클립의 begin + 4 frame까지를 blending
-		if(k / (mBVHFrames_r.size() - bi) < 1 ) {
-			return new Frame(mBVHFrames_r[k]);
+		if(k1 / (mBVHFrames_r.size() - bi) < 1 ) {
+			if (k0 == k1)
+				return new Frame(mBVHFrames_r[k0]);
+			else
+				return new Frame(DPhy::BlendPosition(mBVHFrames_r[k1]->position, mBVHFrames_r[k0]->position, (t-k0)), DPhy::BlendPosition(mBVHFrames_r[k1]->velocity, mBVHFrames_r[k0]->velocity, (t-k0)));		
 		}
 		else {
 			Eigen::Vector6d root_next = mBVHFrames[0]->position.segment<6>(0);
@@ -429,8 +433,12 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 					mBVHFrames_r.push_back(new Frame(positions[i], v));
 				}
 			}
-			return new Frame(mBVHFrames_r[k]);
-		}
+			if (k0 == k1)
+				return new Frame(mBVHFrames_r[k0]);
+			else
+				return new Frame(DPhy::BlendPosition(mBVHFrames_r[k1]->position, mBVHFrames_r[k0]->position, (t-k0)), 
+					DPhy::BlendPosition(mBVHFrames_r[k1]->velocity, mBVHFrames_r[k0]->velocity, (t-k0)));	
+		}	
 	}
 	else {
 		int k0 = (int) std::min(std::floor(t), (double)mBVHFrames.size()-1);

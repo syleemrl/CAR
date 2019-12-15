@@ -408,7 +408,12 @@ Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in){
 }
 
 Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight) {
-	for(int i = 6; i < v_target.size(); i += 3) {
+
+	for(int i = 0; i < v_target.size(); i += 3) {
+		if (i == 3) {
+			v_target.segment<3>(i) = weight * v_target.segment<3>(i) + (1-weight) * v_source.segment<3>(i); 
+		}
+		else {
 			Eigen::AngleAxisd v1_aa(v_target.segment<3>(i).norm(), v_target.segment<3>(i).normalized());
 			Eigen::AngleAxisd v2_aa(v_source.segment<3>(i).norm(), v_source.segment<3>(i).normalized());
 				
@@ -416,6 +421,7 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source
 			Eigen::Quaterniond v2_q(v2_aa);
 
 			v_target.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(1 - weight, v2_q)); 
+		}
 	}
 	return v_target;
 }

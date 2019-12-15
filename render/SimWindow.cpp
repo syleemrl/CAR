@@ -15,11 +15,12 @@ using namespace dart::dynamics;
 SimWindow::
 SimWindow(std::string motion, std::string network, std::string filename)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
-	mDrawOutput(true), mDrawRef(true), mRunPPO(true), mTimeStep(1 / 30.0)
+	mDrawOutput(true), mDrawRef(true), mDrawRef2(true), mRunPPO(true), mTimeStep(1 / 30.0)
 {
 	if(network.compare("") == 0) {
 		this->mDrawOutput = false;
 		this->mRunPPO = false;
+		this->mDrawRef2 = false;
 	}
 	this->filename = filename;
 	this->mController = new DPhy::Controller(motion, true);
@@ -34,6 +35,11 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mRef = new DPhy::Character(path);
 	this->mRef->LoadBVHMap(path);
 	this->mRef->ReadFramesFromBVH(this->mBVH);
+
+	this->mRef2 = new DPhy::Character(path);
+	this->mRef2->LoadBVHMap(path);
+	this->mRef2->ReadFramesFromBVH(this->mBVH);
+
 	
 	this->mCharacter = new DPhy::Character(path);
 
@@ -61,18 +67,24 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
+	DPhy::SkeletonBuilder::DeformSkeleton(mRef2->GetSkeleton(), deform);
+
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 
 	this->mRef->RescaleOriginalBVH(std::sqrt(w0));
+	this->mRef2->RescaleOriginalBVH(std::sqrt(w0));
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
+	DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
 	this->mSkelLength = 0.3;
 
 	this->mController->Reset(false);
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0, true);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
+	mRef2->GetSkeleton()->setPositions(p_v_target->position);
+
 	mCharacter->GetSkeleton()->setPositions(p_v_target->position);
 
 	if(this->mRunPPO)
@@ -111,6 +123,8 @@ MemoryClear() {
     mMemoryRef.clear();
     mMemoryCOM.clear();
     mMemoryCOMRef.clear();
+    mMemoryRef2.clear();
+    mMemoryCOMRef2.clear();
     mMemoryGRF.clear();
     mMemoryFootContact.clear();
     mReward.clear();
@@ -134,6 +148,12 @@ Save(int n) {
     	mMemory.emplace_back(this->mController->GetPositions(n));	
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
+
+    	p_v_target = this->mRef2->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetTime(n), true);
+		mRef2->GetSkeleton()->setPositions(p_v_target->position);
+   	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());
+    	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
+
     	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
 	}
 
@@ -157,6 +177,8 @@ SetFrame(int n)
   	{
   		mCharacter->GetSkeleton()->setPositions(mMemory[n]);
   		mFootContact = mMemoryFootContact[n];
+  		mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
+
   	}
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
@@ -197,6 +219,10 @@ DrawSkeletons()
 	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOMRef, this->mCurFrame);
+	}
+	if(this->mDrawRef2) {
+		GUI::DrawSkeleton(this->mRef2->GetSkeleton(), 0);
+		GUI::DrawTrajectory(this->mMemoryCOMRef2, this->mCurFrame);
 	}
 }
 void
@@ -269,6 +295,8 @@ Reset()
 
 	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
 	mRef->GetSkeleton()->setPositions(p_v_target->position);
+	mRef2->GetSkeleton()->setPositions(p_v_target->position);
+
 	this->mRewardTotal = 0;
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
@@ -278,6 +306,7 @@ Reset()
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
+	DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
 }
 void
@@ -294,6 +323,7 @@ Keyboard(unsigned char key,int x,int y)
 		case 's': std::cout << this->mCurFrame << std::endl;break;
 		case 'r': Reset();break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
+		case '3': if(this->mRunPPO) mDrawRef2 = !mDrawRef2;break;
 		case '2': mDrawRef = !mDrawRef;break;
 		case '1': if(this->mRunPPO) mDrawOutput = !mDrawOutput;break;
 		case ' ':

@@ -70,7 +70,7 @@ protected:
 	bool mIsRotate;
 	bool mIsAuto;
 	bool mTrackCamera;
-	bool mDrawRef;
+	bool mDrawRef, mDrawRef2;
 	bool mDrawOutput;
 	bool mRunPPO;
 
@@ -81,8 +81,8 @@ protected:
 	double mSkelLength;
 	double mRewardTotal;
 
-	std::vector<Eigen::VectorXd> mMemory, mMemoryRef;
-	std::vector<Eigen::Vector3d> mMemoryCOM, mMemoryCOMRef;
+	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRef2;
+	std::vector<Eigen::Vector3d> mMemoryCOM, mMemoryCOMRef, mMemoryCOMRef2;
 	std::vector<std::vector<Eigen::VectorXd>> mMemoryGRF;
 	std::vector<std::pair<bool, bool>> mMemoryFootContact;
 	std::pair<bool, bool> mFootContact;
@@ -90,6 +90,7 @@ protected:
 	DPhy::Controller* mController;
 	DPhy::Character* mCharacter;
 	DPhy::Character* mRef;
+	DPhy::Character* mRef2;
 	DPhy::BVH* mBVH;
 
 	p::object mPPO;

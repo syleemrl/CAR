@@ -63,6 +63,8 @@ Controller(std::string motion, bool record=false);
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
+	double GetTime(int idx) { return this->mRecordTime[idx]; }
+
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
 	std::tuple<double, double, double> GetDeformParameter() { return mDeformParameter; }
@@ -121,6 +123,8 @@ protected:
 	std::tuple<double, double, double> mDeformParameter;
 	std::vector<std::string> mGRFJoints;
 	std::vector<double> mRecordTime;
+	std::vector<double> mRecordDTime;
+
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPosition;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;

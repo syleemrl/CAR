@@ -12,6 +12,7 @@ import time
 from IPython import embed
 from copy import deepcopy
 from utils import RunningMeanStd
+from tensorflow.python import pywrap_tensorflow
 import types
 
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -32,7 +33,7 @@ class PPO(object):
 		self.lambd = lambd
 		self.reward_max = 0
 
-	def initRun(self, pretrain, num_state, num_action, num_slaves=4):
+	def initRun(self, pretrain, num_state, num_action, num_slaves=1):
 		self.pretrain = pretrain
 
 		self.num_slaves = num_slaves
@@ -49,7 +50,7 @@ class PPO(object):
 		self.buildOptimize(name)
 		
 		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
-		self.saver = tf.train.Saver(var_list=save_list,max_to_keep=1)
+		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		if self.pretrain is not "":
 			self.load(self.pretrain +"/network-0")
@@ -80,7 +81,7 @@ class PPO(object):
 		self.buildOptimize(name)
 			
 		save_list = tf.trainable_variables()
-		self.saver = tf.train.Saver(var_list=save_list)
+		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 			
 		# load pretrained network
 		if self.pretrain is not "":
@@ -214,8 +215,13 @@ class PPO(object):
 		r_per_e = self.env.printSummary()
 		if self.reward_max < r_per_e:
 			self.reward_max = r_per_e
-			self.saver.save(self.sess, self.directory + "network-max")
 			self.env.RMS.save(self.directory+'rms-max')
+
+			os.system("cp {}/network-{}.data-00000-of-00001 {}/network-max.data-00000-of-00001".format(self.directory, 0, self.directory))
+			os.system("cp {}/network-{}.index {}/network-max.index".format(self.directory, 0, self.directory))
+			os.system("cp {}/network-{}.meta {}/network-max.meta".format(self.directory, 0, self.directory))
+
+
 
 	def load(self, path):
 		self.saver.restore(self.sess, path)
@@ -279,6 +285,7 @@ class PPO(object):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 		action = self.actor.getMeanAction(state)
+
 		return action;
 
 	def eval(self):
