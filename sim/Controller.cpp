@@ -13,7 +13,7 @@ Controller::Controller(std::string motion, bool record)
 //	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.0);
+	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.5);
 
 	this->mRecord = record;
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -103,7 +103,7 @@ Controller::Controller(std::string motion, bool record)
 	mEndEffectors.push_back("FootL");
 	mEndEffectors.push_back("HandL");
 	mEndEffectors.push_back("HandR");
-	// mEndEffectors.push_back("Head");
+//	mEndEffectors.push_back("Head");
 
 	mGRFJoints.clear();
 	mGRFJoints.push_back("FootR");
@@ -204,8 +204,9 @@ Step()
 	mAdaptiveStep = (int) floor(mActions[num_body_nodes*3 + 1] * 10) * 2;
 
 	// TO DELETE
-	mAdaptiveCOM = 0;
-	mAdaptiveStep = 0;
+	// mAdaptiveCOM = 0;
+	// mAdaptiveStep = 0;
+
 
 	this->mCurrentFrame += 1;
 
@@ -255,7 +256,7 @@ Step()
 	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep; i += 2){
 		if(mRecord && this->mTimeElapsed != 0 && this->mTimeElapsed % (int) mSimPerCon == 0) {
 			SaveDisplayInfo();
-			this->mRecordTime.push_back(this->mCurrentFrame + i / (double) (this->mSimPerCon + mAdaptiveStep));
+			this->mRecordTime.push_back((this->mCurrentFrame-1) + i / (double) (this->mSimPerCon + mAdaptiveStep));
 		}
 
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
@@ -270,6 +271,7 @@ Step()
 		}
 		this->mTimeElapsed += 2.0;
 	}
+	// std::cout << (int) mCurrentFrame % (int) mBVH->GetMaxFrame() << " " <<  work_sum << std::endl;
 	mRecordWork.push_back(work_sum);
 
 // 	torque_sum /= (this->mSimPerCon  + mAdaptiveStep);
@@ -287,6 +289,15 @@ Step()
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	// this->UpdateGRF(mGRFJoints);
+
+	double work_phase = 0;
+	int w_size = mRecordWork.size();
+	if(mRecordWork.size() > mBVH->GetMaxFrame()) {
+		for(int i = 0; i < mBVH->GetMaxFrame(); i++) {
+			work_phase += mRecordWork[w_size - 1 - i];
+		}
+	}
+	// std::cout << (int) mCurrentFrame % (int) mBVH->GetMaxFrame() << " " <<  work_phase << std::endl;
 
 }
 void
@@ -340,7 +351,7 @@ UpdateReward()
 	std::vector<bool> isContact;
 	for(int i=0;i<mEndEffectors.size();i++){
 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
-		isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
+	//	isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
 	}
 	
 	com_diff = skel->getCOM();
@@ -365,13 +376,15 @@ UpdateReward()
 
 	double timeElapsed_p = 0;
 	double time_diff = 0;
-	if(mBVH->GetMaxFrame() < mRecordDTime.size()) {
-		for(int i = 0; i < mBVH->GetMaxFrame(); i++) {
-			timeElapsed_p += mRecordDTime[mRecordDTime.size() - (i + 1)] / (double) this->mSimPerCon;
-		}
-		time_diff = (mBVH->GetMaxFrame() * std::get<2>(mDeformParameter) - timeElapsed_p)*0.1;
+	int count = 0;
+	int dt_size = mRecordDTime.size();
+	for(int i = 0; i < mBVH->GetMaxFrame(); i++) {
+		if(dt_size < (i + 1)) break;
+		timeElapsed_p += mRecordDTime[dt_size - (i + 1)] / (double) this->mSimPerCon;
+		count++;
 	}
-
+	time_diff = mBVH->GetMaxFrame() * std::get<2>(mDeformParameter) - timeElapsed_p * (mBVH->GetMaxFrame() / count);
+	time_diff = time_diff / mBVH->GetMaxFrame() * 5;
 	int index = mRecordEnergy.size() - 1;
 	double eq_diff = (mRecordEnergy[index] - mRecordEnergy[index-1]) - mRecordWork[index-1]; 
 
@@ -390,12 +403,11 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, sig_a);
 	
-	double r_time = exp(-pow(time_diff, 2));
+	double r_time = exp(-pow(time_diff, 2) * sig_t);
 	// double r_work = exp(-pow(work_diff, 2));
 	// double r_torque = exp_of_squared(torque_diff, sig_t);
 //	double r_eq = exp(-eq_diff*eq_diff*0.3);
-
-	double r_tot = r_p*r_v*r_com*r_ee*r_time*r_a;
+	double r_tot = r_p*r_v*r_com*r_ee*r_a*r_time;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -478,8 +490,8 @@ FollowBvh()
 		skel->setVelocities(mTargetVelocities);
 		skel->computeForwardKinematics(true, true, false);
 	}
-	this->mCurrentFrame += this->mStep;
-	this->mTimeElapsed += 1.0 / this->mControlHz;
+	this->mCurrentFrame += 1;
+	this->mTimeElapsed += mSimPerCon;
 	return true;
 }
 void
@@ -536,12 +548,12 @@ Reset(bool RSI)
 	skel->computeForwardKinematics(true,true,false);
 
 	//RSI
-	// if(RSI) {
-	// 	this->mCurrentFrame = mRefCharacter->GetMaxFrame() + (int) dart::math::Random::uniform(0.0, this->mBVH->GetMaxFrame()-5);
-	// }
-	// else {
-	// 	this->mCurrentFrame = 0; // 0;
-	// }
+	if(RSI) {
+		this->mCurrentFrame = mRefCharacter->GetMaxFrame() + (int) dart::math::Random::uniform(0.0, this->mBVH->GetMaxFrame()-5);
+	}
+	else {
+		this->mCurrentFrame = 0; // 0;
+	}
 	this->mCurrentFrame = 0;
 	this->mTimeElapsed = 0; // 0.0;
 	this->mStartFrame = this->mCurrentFrame;
@@ -551,14 +563,12 @@ Reset(bool RSI)
 	this->mTargetVelocities = p_v_target->velocity;
 	delete p_v_target;
 
-	mInputVelocity = std::make_pair(dart::math::Random::uniform(0.5, 1.5), 0);
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
-	this->mStep = 1;
 
 	this->mRewardParts.resize(6, 0.0);
 
@@ -749,7 +759,8 @@ Controller::SaveHistory(const std::string& filename) {
 	// 		ofs << g.at(i).transpose() << std::endl;
 	// 	}
 	// }
-	for(auto t: this->mRecordTime) {
+	ofs << this->mRecordDTime.size() << std::endl;
+	for(auto t: this->mRecordDTime) {
 		ofs << t << std::endl;
 	}
 
