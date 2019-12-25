@@ -148,7 +148,6 @@ Save(int n) {
     	mMemory.emplace_back(this->mController->GetPositions(n));	
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
-    	std::cout <<n << " " << this->mController->GetTime(n) << std::endl;
     	p_v_target = this->mRef2->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetTime(n), true);
 		mRef2->GetSkeleton()->setPositions(p_v_target->position);
    	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());

@@ -430,7 +430,7 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 					mBVHFrames_r[mBVHFrames_r.size()- (bi - i)]->velocity = v;
 
 				} else {
-					Eigen::VectorXd v = mSkeleton->getPositionDifferences(mBVHFrames_r.back()->position, positions[i])*20;
+					Eigen::VectorXd v = mSkeleton->getPositionDifferences(positions[i], mBVHFrames_r.back()->position)*20;
 					mBVHFrames_r.push_back(new Frame(positions[i], v));
 				}
 			}
