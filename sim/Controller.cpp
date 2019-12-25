@@ -205,7 +205,7 @@ Step()
 
 	// TO DELETE
 	mAdaptiveCOM = 0;
-	mAdaptiveStep = 0;
+//	mAdaptiveStep = 0;
 
 
 	this->mCurrentFrame += 1;
@@ -391,30 +391,30 @@ UpdateReward()
 
 	double scale = 1.0;
 	//mul
-	// double sig_p = 0.3 * scale; 		// 2
-	// double sig_v = 1.0 * scale;		// 3
-	// double sig_com = 0.3 * scale;		// 4
-	// double sig_ee = 0.3 * scale;		// 8
-	double sig_a = 0.7 * scale;
-	double sig_t = 0.5 * scale;
-
-	double sig_p = 0.1 * scale; 		// 2
+	double sig_p = 0.3 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
 	double sig_com = 0.3 * scale;		// 4
 	double sig_ee = 0.3 * scale;		// 8
+	// double sig_a = 0.7 * scale;
+	// double sig_t = 0.5 * scale;
+
+	// double sig_p = 0.1 * scale; 		// 2
+	// double sig_v = 1.0 * scale;		// 3
+	// double sig_com = 0.3 * scale;		// 4
+	// double sig_ee = 0.3 * scale;		// 8
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_a = exp_of_squared(actions, sig_a);
+	double r_a = exp_of_squared(actions, 1.5);
 	
-	double r_time = exp(-pow(time_diff, 2) * sig_t);
+//	double r_time = exp(-pow(time_diff, 2) * sig_t);
 	// double r_work = exp(-pow(work_diff, 2));
 	// double r_torque = exp_of_squared(torque_diff, sig_t);
 //	double r_eq = exp(-eq_diff*eq_diff*0.3);
-//	double r_tot = r_p*r_v*r_com*r_ee*r_a;
-	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + r_a;
+	double r_tot = r_p*r_v*r_com*r_ee*r_a;
+//	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + r_a;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
@@ -425,7 +425,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_time);
+		mRewardParts.push_back(r_a);
 	}
 
 }
