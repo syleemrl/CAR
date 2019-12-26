@@ -543,8 +543,8 @@ UpdateReward()
 	// double r_work = exp(-pow(work_diff, 2));
 	// double r_torque = exp_of_squared(torque_diff, sig_t);
 //	double r_eq = exp(-eq_diff*eq_diff*0.3);
-	double r_tot = r_p*r_v*r_com*r_ee*r_a;
-//	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + r_a;
+//	double r_tot = r_p*r_v*r_com*r_ee*r_a;
+	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + r_a;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
