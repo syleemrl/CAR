@@ -314,6 +314,141 @@ SaveDisplayInfo()
 
 	mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
 }
+// void
+// Controller::
+// UpdateAdaptiveReward()
+// {
+// 	auto& skel = this->mCharacter->GetSkeleton();
+
+// 	//Position Differences
+// 	Eigen::VectorXd vec1_n(skel->getPositions().size());
+// 	Eigen::VectorXd vec2_n(skel->getPositions().size());
+
+// 	Eigen::VectorXd v1 = this->mTargetPositions - this->mPrevPositions; 
+// 	Eigen::VectorXd v2 = skel->getPositions() - this->mPrevPositions;
+// 	for(int i = 0; i < skel->getPositions().size(); i += 3) {
+// 		Eigen::Vector3d x = v1.segment<3>(i).normalized();
+// 		Eigen::Vector3d y = v2.segment<3>(i).normalized();
+// 		vec1_n.segment<3>(i) = x;
+// 		vec2_n.segment<3>(i) = y;
+// 	}
+
+// 	Eigen::VectorXd p_diff = skel->getPositionDifferences(vec1_n, vec2_n);
+// 	//Velocity Differences
+// 	for(int i = 0; i < skel->getVelocities().size(); i += 3) {
+// 		Eigen::Vector3d x = this->mTargetVelocities.segment<3>(i).normalized();
+// 		Eigen::Vector3d y = skel->getVelocities().segment<3>(i).normalized();
+// 		vec1_n.segment<3>(i) = x;
+// 		vec2_n.segment<3>(i) = y;
+// 	}
+
+// 	Eigen::VectorXd v_diff = skel->getPositionDifferences(vec1_n, vec2_n);
+
+
+// 	Eigen::VectorXd p_diff_reward, v_diff_reward;
+// 	int num_reward_body_nodes = this->mRewardBodies.size();
+
+// 	p_diff_reward.resize(num_reward_body_nodes*3);
+// 	v_diff_reward.resize(num_reward_body_nodes*3);
+
+// 	for(int i = 0; i < num_reward_body_nodes; i++){
+// 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+// 		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
+// 		v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
+// 	}
+
+// 	//End-effector position and COM Differences
+// 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
+// 	Eigen::VectorXd p_save = skel->getPositions();
+// 	Eigen::VectorXd v_save = skel->getVelocities();
+
+// 	std::vector<Eigen::Isometry3d> ee_transforms;
+// 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
+// 	ee_diff.setZero();
+// 	Eigen::Vector3d com_diff;
+
+// 	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
+	
+// 	std::vector<bool> isContact;
+// 	for(int i=0;i<mEndEffectors.size();i++){
+// 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
+// 	//	isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
+// 	}
+	
+// 	com_diff = skel->getCOM();
+
+// 	skel->setPositions(this->mTargetPositions);
+// 	skel->setVelocities(this->mTargetVelocities);
+// 	skel->computeForwardKinematics(true,true,false);
+
+// 	for(int i=0;i<mEndEffectors.size();i++){
+// 	//	if(isContact[i]) {
+// 			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+// 			ee_diff.segment<3>(3*i) = diff.translation();
+// 	//	}
+// 	}
+// 	com_diff -= skel->getCOM();
+
+// 	skel->setPositions(p_save);
+// 	skel->setVelocities(v_save);
+// 	skel->computeForwardKinematics(true,true,false);
+		
+// 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
+
+// 	double timeElapsed_p = 0;
+// 	double time_diff = 0;
+// 	int count = 0;
+// 	int dt_size = mRecordDTime.size();
+// 	for(int i = 0; i < mBVH->GetMaxFrame(); i++) {
+// 		if(dt_size < (i + 1)) break;
+// 		timeElapsed_p += mRecordDTime[dt_size - (i + 1)] / (double) this->mSimPerCon;
+// 		count++;
+// 	}
+// 	time_diff = mBVH->GetMaxFrame() * std::get<2>(mDeformParameter) - timeElapsed_p * (mBVH->GetMaxFrame() / count);
+// 	time_diff = time_diff / mBVH->GetMaxFrame() * 5;
+// 	int index = mRecordEnergy.size() - 1;
+// 	double eq_diff = (mRecordEnergy[index] - mRecordEnergy[index-1]) - mRecordWork[index-1]; 
+
+// 	double scale = 1.0;
+// 	//mul
+// 	double sig_p = 0.3 * scale; 		// 2
+// 	double sig_v = 1.0 * scale;		// 3
+// 	double sig_com = 0.3 * scale;		// 4
+// 	double sig_ee = 0.3 * scale;		// 8
+// 	// double sig_a = 0.7 * scale;
+// 	// double sig_t = 0.5 * scale;
+
+// 	// double sig_p = 0.1 * scale; 		// 2
+// 	// double sig_v = 1.0 * scale;		// 3
+// 	// double sig_com = 0.3 * scale;		// 4
+// 	// double sig_ee = 0.3 * scale;		// 8
+
+// 	double r_p = exp_of_squared(p_diff_reward,sig_p);
+// 	double r_v = exp_of_squared(v_diff_reward,sig_v);
+// 	double r_ee = exp_of_squared(ee_diff,sig_ee);
+// 	double r_com = exp_of_squared(com_diff,sig_com);
+// 	double r_a = exp_of_squared(actions, 1.5);
+	
+// //	double r_time = exp(-pow(time_diff, 2) * sig_t);
+// 	// double r_work = exp(-pow(work_diff, 2));
+// 	// double r_torque = exp_of_squared(torque_diff, sig_t);
+// //	double r_eq = exp(-eq_diff*eq_diff*0.3);
+// 	double r_tot = r_p*r_v*r_com*r_ee*r_a;
+// //	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + r_a;
+// 	mRewardParts.clear();
+// 	if(dart::math::isNan(r_tot)){
+// 		mRewardParts.resize(6, 0.0);
+// 	}
+// 	else {
+// 		mRewardParts.push_back(r_tot);
+// 		mRewardParts.push_back(r_p);
+// 		mRewardParts.push_back(r_v);
+// 		mRewardParts.push_back(r_com);
+// 		mRewardParts.push_back(r_ee);
+// 		mRewardParts.push_back(r_a);
+// 	}
+
+// }
 void
 Controller::
 UpdateReward()
