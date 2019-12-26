@@ -368,8 +368,7 @@ Frame*
 Character::
 GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 {
-	int bi = 1;
-	bvh->SetBlending(bi);
+	int bi = 5;
 	if(isPhase) {
 		int k0 = (int) std::floor(t);
 		int k1 = (int) std::ceil(t);	
@@ -387,7 +386,7 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 		}
 		else {
 			Eigen::Vector6d root_next = mBVHFrames[0]->position.segment<6>(0);
-			Eigen::Vector6d root_prev = mBVHFrames_r[mBVHFrames_r.size() - bi]->position.segment<6>(0);
+			Eigen::Vector6d root_prev = mBVHFrames_r[mBVHFrames_r.size() - 1]->position.segment<6>(0);
 
 			Eigen::AngleAxisd root_next_ori(root_next.segment<3>(0).norm(), root_next.segment<3>(0).normalized());
 			Eigen::AngleAxisd root_prev_ori(root_prev.segment<3>(0).norm(), root_prev.segment<3>(0).normalized());
@@ -397,12 +396,14 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 			root_dori = DPhy::projectToXZ(root_dori);
 
 			std::vector<Eigen::VectorXd> positions;
+
+			int prev_size = mBVHFrames_r.size();
 			for(int i = 0; i < mBVHFrames.size(); i++) {
 				Eigen::VectorXd position_next = mBVHFrames[i]->position;
 
 				Eigen::Vector3d dpos = mBVHFrames[i]->position.segment<3>(3) - mBVHFrames[0]->position.segment<3>(3);
 				dpos =  root_dori * dpos + root_prev.segment<3>(3);
-				dpos[1] = position_next[4]; 
+				dpos[1] = position_next[4];
 
 				Eigen::AngleAxisd cur_ori(mBVHFrames[i]->position.segment<3>(0).norm(), mBVHFrames[i]->position.segment<3>(0).normalized());
 				Eigen::Matrix3d dori;
@@ -413,26 +414,18 @@ GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh, double t, bool isPhase)
 				position_next.segment<3>(3) = dpos;
 				position_next.segment<3>(0) = DPhy::QuaternionToDARTPosition(dori_q);
 
-				if(i < bi) {
-					Eigen::VectorXd position_prev = mBVHFrames_r[mBVHFrames_r.size() - (bi - i)]->position;
-					double weight = (i+1) / (double)(bi+1);
-					position_next = DPhy::BlendPosition(position_next, position_prev, weight);
-
-					// position_next[4] = weight * position_next[4] + (1 - weight) * position_prev[4]; 
-				}
 				positions.push_back(position_next);
+				mBVHFrames_r.push_back(new Frame(positions[i], mBVHFrames[i]->velocity));
+
 			}
+			for(int i = 0; i < bi; i++) {
+				int idx = prev_size - (i + 1);
+				Eigen::VectorXd position_prev = mBVHFrames_r[idx]->position;
+				double weight = 1.0 - (i+1) / (double)(bi+1);
+				mBVHFrames_r[idx]->position = DPhy::BlendPosition(positions[0], position_prev, weight);
+				mBVHFrames_r[idx]->velocity = mSkeleton->getPositionDifferences(mBVHFrames_r[idx-1]->position, mBVHFrames_r[idx]->position)* 1.0 / bvh->GetTimeStep();
+					// position_next[4] = weight * position_next[4] + (1 - weight) * position_prev[4]; 
 
-			for(int i = 0; i < positions.size(); i++) {
-				if(i < bi) {
-					Eigen::VectorXd v = mSkeleton->getPositionDifferences(mBVHFrames_r[mBVHFrames_r.size() -(bi - i) - 1]->position, positions[i])*20;
-					mBVHFrames_r[mBVHFrames_r.size()- (bi - i)]->position = positions[i];
-					mBVHFrames_r[mBVHFrames_r.size()- (bi - i)]->velocity = v;
-
-				} else {
-					Eigen::VectorXd v = mSkeleton->getPositionDifferences(positions[i], mBVHFrames_r.back()->position)*20;
-					mBVHFrames_r.push_back(new Frame(positions[i], v));
-				}
 			}
 			if (k0 == k1)
 				return new Frame(mBVHFrames_r[k0]);

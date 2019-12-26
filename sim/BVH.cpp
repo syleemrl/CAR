@@ -114,7 +114,6 @@ GetName()
 BVH::
 BVH()
 {
-	mBlending = 0;
 }
 
 void

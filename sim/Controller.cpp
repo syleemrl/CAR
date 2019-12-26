@@ -9,8 +9,7 @@ namespace DPhy
 
 Controller::Controller(std::string motion, bool record)
 	:mTimeElapsed(0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.3),w_v(0.3),w_ee(0.2),w_com(0.2), w_srl(0.0),
-//	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mDeformParameter = std::make_tuple(1.0, 1.0, 1.0);
@@ -205,7 +204,7 @@ Step()
 
 	// TO DELETE
 	mAdaptiveCOM = 0;
-//	mAdaptiveStep = 0;
+	mAdaptiveStep = 0;
 
 
 	this->mCurrentFrame += 1;
@@ -526,17 +525,13 @@ UpdateReward()
 
 	double scale = 1.0;
 	//mul
-	double sig_p = 0.3 * scale; 		// 2
-	double sig_v = 1.0 * scale;		// 3
-	double sig_com = 0.3 * scale;		// 4
-	double sig_ee = 0.3 * scale;		// 8
 	// double sig_a = 0.7 * scale;
 	// double sig_t = 0.5 * scale;
 
-	// double sig_p = 0.1 * scale; 		// 2
-	// double sig_v = 1.0 * scale;		// 3
-	// double sig_com = 0.3 * scale;		// 4
-	// double sig_ee = 0.3 * scale;		// 8
+	double sig_p = 0.3 * scale; 		// 2
+	double sig_v = 1.5 * scale;		// 3
+	double sig_com = 0.2 * scale;		// 4
+	double sig_ee = 0.2 * scale;		// 8
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
