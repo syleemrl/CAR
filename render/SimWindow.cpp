@@ -13,7 +13,7 @@ using namespace dart::dynamics;
 //namespace plt=matplotlibcpp;
 
 SimWindow::
-SimWindow(std::string motion, std::string network, std::string filename)
+SimWindow(std::string motion, std::string network, std::string mode, std::string filename)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
 	mDrawOutput(true), mDrawRef(true), mDrawRef2(true), mRunPPO(true), mTimeStep(1 / 30.0)
 {
@@ -23,25 +23,29 @@ SimWindow(std::string motion, std::string network, std::string filename)
 		this->mDrawRef2 = false;
 	}
 	this->filename = filename;
-	this->mController = new DPhy::Controller(motion, true);
-	this->mWorld = this->mController->GetWorld();
 
-	std::string path = std::string(CAR_DIR) + std::string("/motion/") + motion + std::string(".bvh");
-	this->mBVH = new DPhy::BVH();
-	this->mBVH->Parse(path);
-
-	path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 
 	this->mRef = new DPhy::Character(path);
-	this->mRef->LoadBVHMap(path);
-	this->mRef->ReadFramesFromBVH(this->mBVH);
-
 	this->mRef2 = new DPhy::Character(path);
-	this->mRef2->LoadBVHMap(path);
-	this->mRef2->ReadFramesFromBVH(this->mBVH);
 
-	
 	this->mCharacter = new DPhy::Character(path);
+
+	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
+	if(this->mRunPPO && mode.compare("t") == 0)
+	{
+		this->mController = new DPhy::Controller(motion, true, false);
+		mReferenceManager->LoadMotionFromTrainedData(network);
+
+	} else if(mode.compare("t") == 0)
+	{
+		this->mController = new DPhy::Controller(motion, true, false);
+		mReferenceManager->LoadMotionFromTrainedData(motion);
+	} else {
+		this->mController = new DPhy::Controller(motion, true);
+		mReferenceManager->LoadMotionFromBVH(motion);
+	}
+	this->mWorld = this->mController->GetWorld();
 
 	double w0 = 1.0, w1 = 1.0;
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
@@ -71,8 +75,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 
-	this->mRef->RescaleOriginalBVH(std::sqrt(w0));
-	this->mRef2->RescaleOriginalBVH(std::sqrt(w0));
+	mReferenceManager->RescaleMotion(std::sqrt(w0));
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
@@ -81,11 +84,10 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mSkelLength = 0.3;
 
 	this->mController->Reset(false);
-	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0, true);
-	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	mRef2->GetSkeleton()->setPositions(p_v_target->position);
-
-	mCharacter->GetSkeleton()->setPositions(p_v_target->position);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
+	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
+	mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
+	mCharacter->GetSkeleton()->setPositions(p_v_target->GetPosition());
 
 	if(this->mRunPPO)
 	{
@@ -132,8 +134,8 @@ MemoryClear() {
 void 
 SimWindow::
 Save(int n) {
-	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, n, true);
-	mRef->GetSkeleton()->setPositions(p_v_target->position);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n);
+	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
     this->mTotalFrame++;
@@ -148,8 +150,8 @@ Save(int n) {
     	mMemory.emplace_back(this->mController->GetPositions(n));	
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
-    	p_v_target = this->mRef2->GetTargetPositionsAndVelocitiesFromBVH(mBVH, this->mController->GetTime(n), true);
-		mRef2->GetSkeleton()->setPositions(p_v_target->position);
+    	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n));
+		mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
    	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
 
@@ -292,9 +294,9 @@ Reset()
 	
 	this->mController->Reset(false);
 
-	DPhy::Frame* p_v_target = this->mRef->GetTargetPositionsAndVelocitiesFromBVH(mBVH, 0);
-	mRef->GetSkeleton()->setPositions(p_v_target->position);
-	mRef2->GetSkeleton()->setPositions(p_v_target->position);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
+	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
+	mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
 
 	this->mRewardTotal = 0;
 	this->mCurFrame = 0;
@@ -328,7 +330,7 @@ Keyboard(unsigned char key,int x,int y)
 		case ' ':
 			mIsAuto = !mIsAuto;
 			break;
-		case 27: if(filename.compare("") != 0) this->mController->SaveHistory(filename); exit(0);break;
+		case 27: if(filename.compare("") != 0) this->mController->SaveTrainedData(filename); exit(0);break;
 		default : break;
 	}
 	// this->SetFrame(this->mCurFrame);

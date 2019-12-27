@@ -5,6 +5,7 @@
 #include "CharacterConfigurations.h"
 #include "SkeletonBuilder.h"
 #include "Functions.h"
+#include "ReferenceManager.h"
 namespace DPhy
 {
 class Character;
@@ -18,7 +19,7 @@ class Character;
 class Controller
 {
 public:
-Controller(std::string motion, bool record=false);
+Controller(std::string motion, bool record=false, bool use_bvh=true);
 
 	void Step();
 	void UpdateReward();
@@ -49,17 +50,16 @@ Controller(std::string motion, bool record=false);
 	double GetCurrentFrame(){return this->mCurrentFrame;}
 	double GetCurrentLength() {return this->mCurrentFrame - this->mStartFrame; }
 	double GetStartFrame(){ return this->mStartFrame; }
-	std::string GetContactNodeName(int i);
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
-	void DeformCharacter(double w0, double w1);
-	void SaveHistory(const std::string& filename);
+	void RescaleCharacter(double w0, double w1);
+	void SaveTrainedData(std::string directory);
 
 	void UpdateGRF(std::vector<std::string> joints);
 	std::vector<Eigen::VectorXd> GetGRF();
-	void SaveDisplayInfo();
+	void SaveStepInfo();
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
@@ -67,13 +67,12 @@ Controller(std::string motion, bool record=false);
 
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
-	std::tuple<double, double, double> GetDeformParameter() { return mDeformParameter; }
+	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
 	
 	void computeEnergyConservation();
 
 protected:
 	dart::simulation::WorldPtr mWorld;
-	BVH* mBVH;
 	double w_p,w_v,w_com,w_ee,w_srl;
 	int mTimeElapsed;
 	double mStartFrame;
@@ -83,9 +82,11 @@ protected:
 	int mSimulationHz;
 	int mSimPerCon;
 	double mStep;
+	bool mUseBVH;
 	
 	Character* mCharacter;
 	Character* mRefCharacter;
+	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 
 	Eigen::VectorXd mTargetPositions;
@@ -122,7 +123,7 @@ protected:
 	bool mIsNanAtTerminal;
 	bool mRecord;
 	std::tuple<bool, double, double> mDoubleStanceInfo;
-	std::tuple<double, double, double> mDeformParameter;
+	std::tuple<double, double, double> mRescaleParameter;
 	std::vector<std::string> mGRFJoints;
 	std::vector<double> mRecordTime;
 	std::vector<double> mRecordDTime;

@@ -35,7 +35,7 @@ p::tuple
 SimEnv::
 GetDeformParameter()
 {
-	std::tuple<double, double, double> p = mSlaves[0]->GetDeformParameter();
+	std::tuple<double, double, double> p = mSlaves[0]->GetRescaleParameter();
 	return p::make_tuple(std::get<0>(p), std::get<1>(p), std::get<2>(p));
 }
 //For each slave
@@ -170,7 +170,7 @@ void
 SimEnv::
 DeformCharacter(double w)
 {
-	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->DeformCharacter(w, 1.0);
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->RescaleCharacter(w, 1.0);
 }
 
 using namespace boost::python;

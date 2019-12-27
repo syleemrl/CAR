@@ -7,6 +7,7 @@
 #include "Character.h"
 #include "BVH.h"
 #include "DART_interface.h"
+#include "ReferenceManager.h"
 #include <string>
 #include <boost/python.hpp>
 #include <boost/python/numpy.hpp>
@@ -23,7 +24,7 @@ class SimWindow : public GUI::GLUTWindow
 {
 public:
 	/// Constructor.
-	SimWindow(std::string motion, std::string network="", std::string filename="");
+	SimWindow(std::string motion, std::string network="", std::string mode="", std::string filename="");
 
 	/// World object pointer
 	dart::simulation::WorldPtr mWorld;
@@ -91,6 +92,7 @@ protected:
 	DPhy::Character* mCharacter;
 	DPhy::Character* mRef;
 	DPhy::Character* mRef2;
+	DPhy::ReferenceManager* mReferenceManager;
 	DPhy::BVH* mBVH;
 
 	p::object mPPO;
