@@ -255,7 +255,8 @@ Step()
 	this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 	this->mRecordDCOM.push_back(mAdaptiveCOM);
 
-	this->UpdateReward();
+	if(mUseBVH) this->UpdateReward();
+	else this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
 	// this->UpdateGRF(mGRFJoints);
 
@@ -282,10 +283,10 @@ SaveStepInfo()
 
 	mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
 }
-// void
-// Controller::
-// UpdateAdaptiveReward()
-// {
+void
+Controller::
+UpdateAdaptiveReward()
+{
 // 	auto& skel = this->mCharacter->GetSkeleton();
 
 // 	//Position Differences
@@ -302,6 +303,7 @@ SaveStepInfo()
 // 	}
 
 // 	Eigen::VectorXd p_diff = skel->getPositionDifferences(vec1_n, vec2_n);
+	
 // 	//Velocity Differences
 // 	for(int i = 0; i < skel->getVelocities().size(); i += 3) {
 // 		Eigen::Vector3d x = this->mTargetVelocities.segment<3>(i).normalized();
@@ -383,6 +385,7 @@ SaveStepInfo()
 // 	double sig_v = 1.0 * scale;		// 3
 // 	double sig_com = 0.3 * scale;		// 4
 // 	double sig_ee = 0.3 * scale;		// 8
+// 	double w_a = 0.01;
 // 	// double sig_a = 0.7 * scale;
 // 	// double sig_t = 0.5 * scale;
 
@@ -402,7 +405,7 @@ SaveStepInfo()
 // 	// double r_torque = exp_of_squared(torque_diff, sig_t);
 // //	double r_eq = exp(-eq_diff*eq_diff*0.3);
 // 	double r_tot = r_p*r_v*r_com*r_ee*r_a;
-// //	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + r_a;
+// //	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
 // 	mRewardParts.clear();
 // 	if(dart::math::isNan(r_tot)){
 // 		mRewardParts.resize(6, 0.0);
@@ -416,7 +419,7 @@ SaveStepInfo()
 // 		mRewardParts.push_back(r_a);
 // 	}
 
-// }
+}
 void
 Controller::
 UpdateReward()
@@ -507,7 +510,7 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 
-	std::cout << r_p << " " << r_v << " " << r_ee <<" " << r_com << std::endl;	
+//	std::cout << r_p << " " << r_v << " " << r_ee <<" " << r_com << std::endl;	
 //	double r_time = exp(-pow(time_diff, 2) * sig_t);
 	// double r_work = exp(-pow(work_diff, 2));
 	// double r_torque = exp_of_squared(torque_diff, sig_t);
@@ -833,16 +836,16 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
-	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
-	delete p_v_target;
+	// Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
+	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
+	// delete p_v_target;
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	Eigen::VectorXd state;
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows());
-	state<< p, v, up_vec_angle, root_height, p_next, ee; //, mInputVelocity.first;
+	state.resize(p.rows()+v.rows()+1+1+1+ee.rows());
+	state<< p, v, up_vec_angle, root_height, phase, ee; //, mInputVelocity.first;
 	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
 	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;
 	return state;

@@ -425,6 +425,40 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source
 	}
 	return v_target;
 }
+Eigen::VectorXd DistanceToNearestOnGeodesicCurve(Eigen::VectorXd target, Eigen::VectorXd position){
+	Eigen::VectorXd result(source.rows());
+	result.setZero();
+	for(int i = 0; i < v_target.size(); i += 3) {
+		if (i!= 3) {
+				
+			Eigen::Quaterniond v1_q = DARTPositionToQuaternion(target.segment<3>(i));
+			Eigen::Quaterniond v2_q = DARTPositionToQuaternion(position.segment<3>(i));
+
+			double ws = v2_q.w();
+			Eigen::Vector3d vs = v2_q.vec();
+			double w0 = v1_q.w();
+			Eigen::Vector3d v0 = v1_q.vec();
+
+			double a = ws*w0 + vs%v0;
+			double b = w0*(axis % vs) - ws*(axis % v0) + vs%(axis * v0);
+
+			double alpha = atan2( a,b );
+
+			double t1 = -2*alpha + M_PI;
+			double t2 = -2*alpha - M_PI;
+
+			if ( q % getValue(t1) > q % getValue(t2) )
+			{
+				t = t1;
+				return getValue(t1);
+			}
+
+			t = t2;
+			return getValue(t2); 
+				}
+		}
+	return result;
+}
 void QuaternionNormalize(Eigen::Quaterniond& in){
 	if(in.w() < 0){
 		in.coeffs() *= -1;

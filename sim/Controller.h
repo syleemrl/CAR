@@ -23,6 +23,7 @@ Controller(std::string motion, bool record=false, bool use_bvh=true);
 
 	void Step();
 	void UpdateReward();
+	void UpdateAdaptiveReward();
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
 	void SetReference(std::string motion);
@@ -83,7 +84,7 @@ protected:
 	int mSimPerCon;
 	double mStep;
 	bool mUseBVH;
-	
+
 	Character* mCharacter;
 	Character* mRefCharacter;
 	ReferenceManager* mReferenceManager;
