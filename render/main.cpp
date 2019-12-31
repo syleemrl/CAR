@@ -20,13 +20,13 @@ int main(int argc,char** argv)
 	SimWindow* simwindow;
 	if( argc == 3 ) {
 		std::string network = "";
-		simwindow = new SimWindow(std::string(argv[1]), network, std::string(argv[2]));
+		simwindow = new SimWindow(std::string(argv[2]), network, std::string(argv[1]));
 	}
 	else if(argc == 4) {
-		simwindow = new SimWindow(std::string(argv[1]), std::string(argv[2]), std::string(argv[3]));
+		simwindow = new SimWindow(std::string(argv[2]), std::string(argv[3]), std::string(argv[1]));
 	}
 	else {
-		simwindow = new SimWindow(std::string(argv[1]), std::string(argv[2]), std::string(argv[3]), std::string(argv[4]));
+		simwindow = new SimWindow(std::string(argv[2]), std::string(argv[3]), std::string(argv[1]), std::string(argv[4]));
 	}
 
 	// SimWindowMulti* simwindow;

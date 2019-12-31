@@ -425,38 +425,39 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source
 	}
 	return v_target;
 }
-Eigen::VectorXd DistanceToNearestOnGeodesicCurve(Eigen::VectorXd target, Eigen::VectorXd position){
-	Eigen::VectorXd result(source.rows());
+Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position){
+	Eigen::VectorXd result(targetAxis.rows());
 	result.setZero();
-	for(int i = 0; i < v_target.size(); i += 3) {
+	for(int i = 0; i < targetAxis.size(); i += 3) {
 		if (i!= 3) {
 				
-			Eigen::Quaterniond v1_q = DARTPositionToQuaternion(target.segment<3>(i));
-			Eigen::Quaterniond v2_q = DARTPositionToQuaternion(position.segment<3>(i));
+			Eigen::Quaterniond v1_q = DARTPositionToQuaternion(position.segment<3>(i));
+			Eigen::Quaterniond q = DARTPositionToQuaternion(targetPosition.segment<3>(i));
+			Eigen::Vector3d axis = targetAxis.segment<3>(i).normalized();
 
-			double ws = v2_q.w();
-			Eigen::Vector3d vs = v2_q.vec();
-			double w0 = v1_q.w();
-			Eigen::Vector3d v0 = v1_q.vec();
+			double ws = v1_q.w();
+			Eigen::Vector3d vs = v1_q.vec();
+			double w0 = q.w();
+			Eigen::Vector3d v0 = q.vec();
 
-			double a = ws*w0 + vs%v0;
-			double b = w0*(axis % vs) - ws*(axis % v0) + vs%(axis * v0);
+			double a = ws*w0 + vs.dot(v0);
+			double b = w0*(axis.dot(vs)) - ws*(axis.dot(v0)) + vs.dot(axis.cross(v0));
 
 			double alpha = atan2( a,b );
 
 			double t1 = -2*alpha + M_PI;
+			Eigen::Quaterniond t1_q = DARTPositionToQuaternion( t1 * axis/2.0 ) * q;
 			double t2 = -2*alpha - M_PI;
+			Eigen::Quaterniond t2_q = DARTPositionToQuaternion( t2 * axis/2.0 ) * q;
 
-			if ( q % getValue(t1) > q % getValue(t2) )
-			{
-				t = t1;
-				return getValue(t1);
+			if (v1_q.dot(t1_q) > v1_q.dot(t2_q))
+			{	
+				result.segment<3>(i) = QuaternionToDARTPosition(t1_q);
+			} else {
+				result.segment<3>(i) = QuaternionToDARTPosition(t2_q);
 			}
-
-			t = t2;
-			return getValue(t2); 
-				}
 		}
+	}
 	return result;
 }
 void QuaternionNormalize(Eigen::Quaterniond& in){

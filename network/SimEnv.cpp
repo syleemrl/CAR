@@ -5,14 +5,17 @@
 #include <iostream>
 
 SimEnv::
-SimEnv(int num_slaves, std::string motion)
+SimEnv(int num_slaves, std::string motion, std::string mode)
 	:mNumSlaves(num_slaves)
 {
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
 	for(int i =0;i<num_slaves;i++)
 	{
-		mSlaves.push_back(new DPhy::Controller(motion));
+		if(mode.compare("adaptive") == 0) {
+			mSlaves.push_back(new DPhy::Controller(motion, true, false));
+		}
+		else mSlaves.push_back(new DPhy::Controller(motion));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -172,6 +175,15 @@ DeformCharacter(double w)
 {
 	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->RescaleCharacter(w, 1.0);
 }
+void 
+SimEnv::
+UpdateTarget(std::string directory)
+{
+	mSlaves[0]->SaveTrainedData(directory);
+
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->UpdateReferenceData(directory);
+	std::cout << "reference Updated: " << directory << std::endl;
+}
 
 using namespace boost::python;
 
@@ -180,9 +192,10 @@ BOOST_PYTHON_MODULE(simEnv)
 	Py_Initialize();
 	np::initialize();
 
-	class_<SimEnv>("Env",init<int, std::string>())
+	class_<SimEnv>("Env",init<int, std::string, std::string>())
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
+		.def("UpdateTarget",&SimEnv::UpdateTarget)
 		.def("GetDeformParameter",&SimEnv::GetDeformParameter)
 		.def("Step",&SimEnv::Step)
 		.def("Reset",&SimEnv::Reset)

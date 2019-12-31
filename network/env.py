@@ -3,17 +3,30 @@ import numpy as np
 import simEnv
 import time
 class Env(object):
-	def __init__(self, motion, num_slaves):
+	def __init__(self, motion, mode, num_slaves):
 		self.num_slaves = num_slaves
 		self.motion = motion
-		self.sim_env = simEnv.Env(num_slaves, motion)
+		if mode =="adaptive":
+			self.sim_env = simEnv.Env(num_slaves, "/network/output/"+motion, mode)
+		else:
+			self.sim_env = simEnv.Env(num_slaves, motion, mode)
 		
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()
 
-	def reset(self, i):
-		self.sim_env.Reset(i, True)
+	def reset(self, i, b):
+		self.sim_env.Reset(i, b)
 	
+	def stepForEval(self, action, i):
+		self.sim_env.SetAction(action[0], i)
+		self.sim_env.Steps()
+		is_terminal, nan_occur, start, frame_elapsed, time_elapsed = self.sim_env.IsNanAtTerminal(i)
+		r = self.sim_env.GetRewardByParts(i)
+
+		state = self.sim_env.GetState(i)
+
+		return state, r, is_terminal
+
 	def step(self, actions):
 		rewards = []
 		dones = []

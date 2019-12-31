@@ -150,6 +150,13 @@ SetReference(std::string motion)
 	RescaleCharacter(std::get<0>(mRescaleParameter), std::get<1>(mRescaleParameter));
 	
 }
+void
+Controller::
+UpdateReferenceData(std::string directory)
+{
+	mUseBVH = false;
+	mReferenceManager->LoadMotionFromTrainedData(directory);
+}
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
 	return this->mRefCharacter->GetSkeleton(); 
@@ -287,137 +294,122 @@ void
 Controller::
 UpdateAdaptiveReward()
 {
-// 	auto& skel = this->mCharacter->GetSkeleton();
+	auto& skel = this->mCharacter->GetSkeleton();
 
-// 	//Position Differences
-// 	Eigen::VectorXd vec1_n(skel->getPositions().size());
-// 	Eigen::VectorXd vec2_n(skel->getPositions().size());
+	//Position Differences
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1);
+	Eigen::VectorXd prevTargetPositions = p_v_target->GetPosition();
+	delete p_v_target;
 
-// 	Eigen::VectorXd v1 = this->mTargetPositions - this->mPrevPositions; 
-// 	Eigen::VectorXd v2 = skel->getPositions() - this->mPrevPositions;
-// 	for(int i = 0; i < skel->getPositions().size(); i += 3) {
-// 		Eigen::Vector3d x = v1.segment<3>(i).normalized();
-// 		Eigen::Vector3d y = v2.segment<3>(i).normalized();
-// 		vec1_n.segment<3>(i) = x;
-// 		vec2_n.segment<3>(i) = y;
-// 	}
+	Eigen::VectorXd axis = skel->getPositionDifferences(mTargetPositions, prevTargetPositions); 
+	Eigen::VectorXd p = skel->getPositions();
+	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(axis, mTargetPositions, p);
+	Eigen::VectorXd p_diff = skel->getPositionDifferences(p, nearest);
 
-// 	Eigen::VectorXd p_diff = skel->getPositionDifferences(vec1_n, vec2_n);
+	//Velocity Differences
+
+	Eigen::VectorXd vec1_n(skel->getVelocities().size());
+	Eigen::VectorXd vec2_n(skel->getVelocities().size());
+
+	for(int i = 0; i < skel->getVelocities().size(); i += 3) {
+		Eigen::Vector3d x = this->mTargetVelocities.segment<3>(i).normalized();
+		Eigen::Vector3d y = skel->getVelocities().segment<3>(i).normalized();
+		vec1_n.segment<3>(i) = x;
+		vec2_n.segment<3>(i) = y;
+	}
+
+	Eigen::VectorXd v_diff = skel->getVelocityDifferences(vec1_n, vec2_n);
+
+	Eigen::VectorXd p_diff_reward, v_diff_reward;
+	int num_reward_body_nodes = this->mRewardBodies.size();
+
+	p_diff_reward.resize(num_reward_body_nodes*3);
+	v_diff_reward.resize(num_reward_body_nodes*3);
+
+	for(int i = 0; i < num_reward_body_nodes; i++){
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
+		v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
+	}
+
+	//End-effector position and COM Differences
+	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+
+	std::vector<Eigen::Isometry3d> ee_transforms;
+	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
+	ee_diff.setZero();
+	Eigen::Vector3d com_diff;
+
+	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
 	
-// 	//Velocity Differences
-// 	for(int i = 0; i < skel->getVelocities().size(); i += 3) {
-// 		Eigen::Vector3d x = this->mTargetVelocities.segment<3>(i).normalized();
-// 		Eigen::Vector3d y = skel->getVelocities().segment<3>(i).normalized();
-// 		vec1_n.segment<3>(i) = x;
-// 		vec2_n.segment<3>(i) = y;
-// 	}
-
-// 	Eigen::VectorXd v_diff = skel->getPositionDifferences(vec1_n, vec2_n);
-
-
-// 	Eigen::VectorXd p_diff_reward, v_diff_reward;
-// 	int num_reward_body_nodes = this->mRewardBodies.size();
-
-// 	p_diff_reward.resize(num_reward_body_nodes*3);
-// 	v_diff_reward.resize(num_reward_body_nodes*3);
-
-// 	for(int i = 0; i < num_reward_body_nodes; i++){
-// 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-// 		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
-// 		v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
-// 	}
-
-// 	//End-effector position and COM Differences
-// 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
-// 	Eigen::VectorXd p_save = skel->getPositions();
-// 	Eigen::VectorXd v_save = skel->getVelocities();
-
-// 	std::vector<Eigen::Isometry3d> ee_transforms;
-// 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
-// 	ee_diff.setZero();
-// 	Eigen::Vector3d com_diff;
-
-// 	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
+	std::vector<bool> isContact;
+	for(int i=0;i<mEndEffectors.size();i++){
+		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
+	//	isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
+	}
 	
-// 	std::vector<bool> isContact;
-// 	for(int i=0;i<mEndEffectors.size();i++){
-// 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
-// 	//	isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
-// 	}
-	
-// 	com_diff = skel->getCOM();
+	com_diff = skel->getCOM();
 
-// 	skel->setPositions(this->mTargetPositions);
-// 	skel->setVelocities(this->mTargetVelocities);
-// 	skel->computeForwardKinematics(true,true,false);
+	skel->setPositions(this->mTargetPositions);
+	skel->setVelocities(this->mTargetVelocities);
+	skel->computeForwardKinematics(true,true,false);
 
-// 	for(int i=0;i<mEndEffectors.size();i++){
-// 	//	if(isContact[i]) {
-// 			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
-// 			ee_diff.segment<3>(3*i) = diff.translation();
-// 	//	}
-// 	}
-// 	com_diff -= skel->getCOM();
+	for(int i=0;i<mEndEffectors.size();i++){
+	//	if(isContact[i]) {
+			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+			ee_diff.segment<3>(3*i) = diff.translation();
+	//	}
+	}
+	com_diff -= skel->getCOM();
 
-// 	skel->setPositions(p_save);
-// 	skel->setVelocities(v_save);
-// 	skel->computeForwardKinematics(true,true,false);
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
 		
-// 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
+	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 
-// 	double timeElapsed_p = 0;
-// 	double time_diff = 0;
-// 	int count = 0;
-// 	int dt_size = mRecordDTime.size();
-// 	for(int i = 0; i < mBVH->GetMaxFrame(); i++) {
-// 		if(dt_size < (i + 1)) break;
-// 		timeElapsed_p += mRecordDTime[dt_size - (i + 1)] / (double) this->mSimPerCon;
-// 		count++;
-// 	}
-// 	time_diff = mBVH->GetMaxFrame() * std::get<2>(mDeformParameter) - timeElapsed_p * (mBVH->GetMaxFrame() / count);
-// 	time_diff = time_diff / mBVH->GetMaxFrame() * 5;
-// 	int index = mRecordEnergy.size() - 1;
-// 	double eq_diff = (mRecordEnergy[index] - mRecordEnergy[index-1]) - mRecordWork[index-1]; 
+	double work_avg = 0;
+	int count = 0;
+	int back = mRecordWork.size() - 1;
+	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+		if(back - i < 0) break;
+		work_avg += mRecordWork[back - i];
+		count++;
+	}
+	work_avg /= count;
+	double work_diff = work_avg - mReferenceManager->GetAvgWork()*1.2;
+	double scale = 1.0;
 
-// 	double scale = 1.0;
-// 	//mul
-// 	double sig_p = 0.3 * scale; 		// 2
-// 	double sig_v = 1.0 * scale;		// 3
-// 	double sig_com = 0.3 * scale;		// 4
-// 	double sig_ee = 0.3 * scale;		// 8
-// 	double w_a = 0.01;
-// 	// double sig_a = 0.7 * scale;
-// 	// double sig_t = 0.5 * scale;
+	//mul
+	double sig_p = 0.3 * scale; 		// 2
+	double sig_v = 1.0 * scale;		// 3
+	double sig_com = 0.3 * scale;		// 4
+	double sig_ee = 0.3 * scale;		// 8
+	double w_a = 0.01;
+	// double sig_a = 0.7 * scale;
+	double sig_t = 0.5 * scale;
 
-// 	// double sig_p = 0.1 * scale; 		// 2
-// 	// double sig_v = 1.0 * scale;		// 3
-// 	// double sig_com = 0.3 * scale;		// 4
-// 	// double sig_ee = 0.3 * scale;		// 8
-
-// 	double r_p = exp_of_squared(p_diff_reward,sig_p);
-// 	double r_v = exp_of_squared(v_diff_reward,sig_v);
-// 	double r_ee = exp_of_squared(ee_diff,sig_ee);
-// 	double r_com = exp_of_squared(com_diff,sig_com);
-// 	double r_a = exp_of_squared(actions, 1.5);
-	
-// //	double r_time = exp(-pow(time_diff, 2) * sig_t);
-// 	// double r_work = exp(-pow(work_diff, 2));
-// 	// double r_torque = exp_of_squared(torque_diff, sig_t);
-// //	double r_eq = exp(-eq_diff*eq_diff*0.3);
-// 	double r_tot = r_p*r_v*r_com*r_ee*r_a;
-// //	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-// 	mRewardParts.clear();
-// 	if(dart::math::isNan(r_tot)){
-// 		mRewardParts.resize(6, 0.0);
-// 	}
-// 	else {
-// 		mRewardParts.push_back(r_tot);
-// 		mRewardParts.push_back(r_p);
-// 		mRewardParts.push_back(r_v);
-// 		mRewardParts.push_back(r_com);
-// 		mRewardParts.push_back(r_ee);
-// 		mRewardParts.push_back(r_a);
-// 	}
+	double r_p = exp_of_squared(p_diff_reward,sig_p);
+	double r_v = exp_of_squared(v_diff_reward,sig_v);
+	double r_ee = exp_of_squared(ee_diff,sig_ee);
+	double r_com = exp_of_squared(com_diff,sig_com);
+	double r_a = exp_of_squared(actions, 1.5);
+	double r_w = exp(-pow(work_diff, 2)*0.1);
+	double r_tot = 0.9*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a) + 0.1*r_w;
+	mRewardParts.clear();
+	if(dart::math::isNan(r_tot)){
+		mRewardParts.resize(6, 0.0);
+	}
+	else {
+		mRewardParts.push_back(r_tot);
+		mRewardParts.push_back(r_p);
+		mRewardParts.push_back(r_v);
+		mRewardParts.push_back(r_com);
+		mRewardParts.push_back(r_ee);
+		mRewardParts.push_back(r_w);
+	}
 
 }
 void
@@ -515,6 +507,8 @@ UpdateReward()
 	// double r_work = exp(-pow(work_diff, 2));
 	// double r_torque = exp_of_squared(torque_diff, sig_t);
 //	double r_tot = r_p*r_v*r_com*r_ee*r_a;
+
+//	std::cout << r_p << " " << r_v << " " << r_com << " " << r_ee << std::endl;
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a * r_a;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -836,24 +830,25 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	// Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
-	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
-	// delete p_v_target;
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
+	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
+	delete p_v_target;
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	Eigen::VectorXd state;
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
-	state.resize(p.rows()+v.rows()+1+1+1+ee.rows());
-	state<< p, v, up_vec_angle, root_height, phase, ee; //, mInputVelocity.first;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows());
+	state<< p, v, up_vec_angle, root_height, p_next, ee; //, mInputVelocity.first;
 	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
 	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;
 	return state;
 }
 void
 Controller::SaveTrainedData(std::string directory) {
-	std::cout << "save results" << std::endl;
-	std::string path = std::string(CAR_DIR) + "/" + directory + std::string("/trained_data.txt");
+	std::string path = std::string(CAR_DIR) + directory + std::string("/trained_data.txt");
+	std::cout << "save results to" << path << std::endl;
+
 	std::ofstream ofs(path);
 
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
@@ -861,27 +856,37 @@ Controller::SaveTrainedData(std::string directory) {
 	std::vector<Eigen::VectorXd> meanForce(dof);
 	std::vector<double> meanWork;
 	meanForce.clear();
-	int numPhase = mRecordWork.size() / mReferenceManager->GetPhaseLength();
-	for(int i = 0; i < numPhase; i++) {
-		if(i == 0) {
-			for(int j = 0; j < mReferenceManager->GetPhaseLength(); j++) {
-				meanForce.push_back(mRecordTorque[j]);
-				meanWork.push_back(mRecordWork[j]);
-			}
-		} else {
-			for(int j = 0; j < mReferenceManager->GetPhaseLength(); j++) {
-				meanForce[j] += mRecordTorque[j];
-				meanWork[j] += mRecordWork[j];
+	int phaseLength = mReferenceManager->GetPhaseLength();
+	int numPhase = mRecordWork.size() / phaseLength;
+	if(mUseBVH) {
+		for(int i = 0; i < numPhase; i++) {
+			if(i == 0) {
+				for(int j = 0; j < phaseLength; j++) {
+					meanForce.push_back(mRecordTorque[phaseLength*i+j]);
+					meanWork.push_back(mRecordWork[phaseLength*i+j]);
+				}
+			} else {
+				for(int j = 0; j < phaseLength; j++) {
+					meanForce[j] += mRecordTorque[phaseLength*i+j];
+					meanWork[j] += mRecordWork[phaseLength*i+j];
+				}
 			}
 		}
-	}
-	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-		meanForce[i] /= numPhase;
-		meanWork[i] /= numPhase;
+		for(int i = 0; i < phaseLength; i++) {
+			meanForce[i] /= numPhase;
+			meanWork[i] /= numPhase;
+		}
+
+	} else {
+		for(int i = 0; i < phaseLength; i++) {
+			meanForce.push_back(mReferenceManager->GetForce(i));
+			meanWork.push_back(mReferenceManager->GetWork(i));
+		}
 	}
 
 	ofs << mReferenceManager->GetTimeStep() << std::endl;
 	ofs << mReferenceManager->GetPhaseLength() << std::endl;
+
 	for(auto& t: meanForce) {
 		ofs << t.transpose() << std::endl;
 	}
@@ -891,19 +896,19 @@ Controller::SaveTrainedData(std::string directory) {
 	}
 	std::cout << "saved work: " << meanWork.size() << std::endl;
 
-	if(mRecordPosition.size() >mReferenceManager->GetPhaseLength()*3) {
+	if(mRecordPosition.size() >mReferenceManager->GetPhaseLength()*2) {
 		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-			ofs << mRecordPosition[2*mReferenceManager->GetPhaseLength()+i].transpose() << std::endl;
+			ofs << mRecordPosition[mReferenceManager->GetPhaseLength()+i].transpose() << std::endl;
 		}
 	}
-	std::cout << "saved position: " <<mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
+	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
 
-	if(mRecordVelocity.size() > mReferenceManager->GetPhaseLength()*3) {
+	if(mRecordVelocity.size() > mReferenceManager->GetPhaseLength()*2) {
 		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-			ofs << mRecordVelocity[2*mReferenceManager->GetPhaseLength()+i].transpose() << std::endl;
+			ofs << mRecordVelocity[mReferenceManager->GetPhaseLength()+i].transpose() << std::endl;
 		}
 	}
-	std::cout << "saved torque: " << mReferenceManager->GetPhaseLength() << ", " << mRecordVelocity[0].rows() << std::endl;
+	std::cout << "saved velocity: " << mRecordVelocity.size() << ", "<<  mReferenceManager->GetPhaseLength() << ", " << mRecordVelocity[0].rows() << std::endl;
 
 	// ofs << this->GRFs.at(0).size() << std::endl;
 	// for(auto& g: this->GRFs) {

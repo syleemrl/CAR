@@ -57,7 +57,7 @@ class PPO(object):
 			self.RMS = RunningMeanStd(shape=(self.num_state))
 			self.RMS.load(self.pretrain+'/rms')
 
-	def initTrain(self, name, env, pretrain="", evaluation=False,
+	def initTrain(self, name, env, mode, pretrain="", evaluation=False,
 		directory=None, batch_size=1024, steps_per_iteration=20000):
 
 		self.name = name
@@ -66,11 +66,14 @@ class PPO(object):
 		self.steps_per_iteration = steps_per_iteration
 		self.batch_size = batch_size
 		self.pretrain = pretrain
+		self.mode = mode
 
 		self.env = env
 		self.num_slaves = self.env.num_slaves
 		self.num_action = self.env.num_action
 		self.num_state = self.env.num_state
+
+		self.last_target_update = 0
 
 		config = tf.ConfigProto()
 		config.intra_op_parallelism_threads = self.num_slaves
@@ -212,15 +215,42 @@ class PPO(object):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms')
 
-		r_per_e = self.env.printSummary()
-		if self.reward_max < r_per_e:
-			self.reward_max = r_per_e
+		summary = self.env.printSummary()
+		if self.reward_max < summary['r_per_e']:
+			self.reward_max = summary['r_per_e']
 			self.env.RMS.save(self.directory+'rms-max')
 
 			os.system("cp {}/network-{}.data-00000-of-00001 {}/network-max.data-00000-of-00001".format(self.directory, 0, self.directory))
 			os.system("cp {}/network-{}.index {}/network-max.index".format(self.directory, 0, self.directory))
 			os.system("cp {}/network-{}.meta {}/network-max.meta".format(self.directory, 0, self.directory))
 
+		if self.mode == 'adaptive' and self.last_target_update >= 5:	
+			if summary['s_per_e'] > 500 and self.env.r_target_avg_old < summary['r_target_avg_new']:
+				self.env.r_target_avg_old = summary['r_target_avg_new']
+				self.env.reset(0, False)
+				state = self.env.getStates()[0]
+				state = np.reshape(state, (1, self.num_state))
+						
+				count = 0
+				while True:
+					action = self.actor.getMeanAction(state)
+					state, reward, done = self.env.stepForEval(action, 0)
+					count += 1
+					if done:
+						if count > 300:
+							print(count)
+							break
+						else:
+							count = 0
+							self.env.reset(0, False)
+							state = self.env.getStates()[0]
+							state = np.reshape(state, (1, self.num_state))	
+
+				self.env.sim_env.UpdateTarget('/network/output/'+self.name)
+				self.last_target_update = 0
+				self.env.target_update_count += 1
+		elif self.mode == 'adaptive' and self.last_target_update < 5:
+			self.last_target_update += 1
 
 
 	def load(self, path):
@@ -233,6 +263,7 @@ class PPO(object):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 			states = self.env.getStates()
+
 			local_step = 0
 			last_print = 0
 			
@@ -300,6 +331,7 @@ if __name__=="__main__":
 	parser.add_argument("--pretrain", type=str, default="")
 	parser.add_argument("--evaluation", type=bool, default=False)
 	parser.add_argument("--nslaves", type=int, default=4)
+	parser.add_argument("--mode", type=str, default="fixed")
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
 	parser.set_defaults(plot=True)
@@ -315,9 +347,9 @@ if __name__=="__main__":
 			os.mkdir(directory)
 	
 	if args.pretrain != "":
-		env = Monitor(motion=args.motion, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot)
+		env = Monitor(motion=args.motion, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, mode=args.mode)
 	else:
-		env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory, plot=args.plot)
+		env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory, plot=args.plot, mode=args.mode)
 	ppo = PPO()
-	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
+	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, mode=args.mode)
 	ppo.train(args.ntimesteps)

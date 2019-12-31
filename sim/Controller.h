@@ -57,6 +57,7 @@ Controller(std::string motion, bool record=false, bool use_bvh=true);
 
 	void RescaleCharacter(double w0, double w1);
 	void SaveTrainedData(std::string directory);
+	void UpdateReferenceData(std::string directory);
 
 	void UpdateGRF(std::vector<std::string> joints);
 	std::vector<Eigen::VectorXd> GetGRF();

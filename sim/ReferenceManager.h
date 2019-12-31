@@ -42,10 +42,14 @@ public:
 	Motion* GetMotion(double t);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
+	double GetAvgWork() {return mAvgWork; }
+	Eigen::VectorXd GetForce(int idx) {return mTorques_phase[idx]; }
+	double GetWork(int idx) {return mWorks_phase[idx]; }
 
 protected:
 	Character* mCharacter;
 	double mTimeStep;
+	double mAvgWork;
 	int mPhaseLength;
 	std::vector<Motion*> mMotions_phase;
 	std::vector<double> mWorks_phase;

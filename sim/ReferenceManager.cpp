@@ -17,6 +17,11 @@ ReferenceManager::ReferenceManager(Character* character)
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
 {
+	mMotions.clear();
+	mMotions_phase.clear();
+	mTorques_phase.clear();
+	mWorks_phase.clear();
+
 	this->mCharacter->LoadBVHMap();
 
 	BVH* bvh = new BVH();
@@ -115,8 +120,12 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 }
 void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 {
+	mMotions.clear();
+	mMotions_phase.clear();
+	mTorques_phase.clear();
+	mWorks_phase.clear();
 
-	std::string path = std::string(CAR_DIR) + std::string("/network/output/") + filename + std::string("/trained_data.txt");
+	std::string path = std::string(CAR_DIR) + filename + std::string("/trained_data.txt");
 	std::ifstream is(path);
 	char buffer[256];
 	is >> buffer;
@@ -137,6 +146,7 @@ void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 		mTorques_phase.push_back(t);
 	}
 
+	mAvgWork = 0;
 	for(int i = 0; i < mPhaseLength; i++) {
 		double w;
 
@@ -144,7 +154,9 @@ void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 		w = atof(buffer);
 	
 		mWorks_phase.push_back(w);
+		mAvgWork += w;
 	}
+	mAvgWork /= mPhaseLength;
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd p(dof);

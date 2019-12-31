@@ -15,7 +15,7 @@ class SimEnv
 {
 public:
 	
-	SimEnv(int num_slaves, std::string motion);
+	SimEnv(int num_slaves, std::string motion, std::string mode);
 	//For general properties
 	int GetNumState();
 	int GetNumAction();
@@ -41,6 +41,7 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 
+	void UpdateTarget(std::string directory);
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	int mNumSlaves;

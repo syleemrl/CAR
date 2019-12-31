@@ -34,13 +34,13 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	if(this->mRunPPO && mode.compare("t") == 0)
 	{
-		this->mController = new DPhy::Controller(motion, true, false);
-		mReferenceManager->LoadMotionFromTrainedData(network);
+		this->mController = new DPhy::Controller(std::string("/network/output/") + motion, true, false);
+		mReferenceManager->LoadMotionFromTrainedData(std::string("/network/output/") + motion);
 
 	} else if(mode.compare("t") == 0)
 	{
-		this->mController = new DPhy::Controller(motion, true, false);
-		mReferenceManager->LoadMotionFromTrainedData(motion);
+		this->mController = new DPhy::Controller(std::string("/network/output/") + motion, true, false);
+		mReferenceManager->LoadMotionFromTrainedData(std::string("/network/output/") + motion);
 	} else {
 		this->mController = new DPhy::Controller(motion, true);
 		mReferenceManager->LoadMotionFromBVH(motion);
