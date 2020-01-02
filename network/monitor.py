@@ -21,11 +21,7 @@ class Monitor(object):
 		self.plot = plot
 		self.directory = directory
 		self.mode = mode
-
-		#load RMS
-		if load:
-			self.RMS.load(self.directory+'rms')
-
+		
 		self.start_time = time.time()		
 		self.num_evaluation = 0
 		self.num_episodes = 0

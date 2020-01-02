@@ -17,6 +17,7 @@ ReferenceManager::ReferenceManager(Character* character)
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
 {
+
 	mMotions.clear();
 	mMotions_phase.clear();
 	mTorques_phase.clear();
@@ -27,6 +28,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	BVH* bvh = new BVH();
 	std::string path = std::string(CAR_DIR) + std::string("/motion/") + filename + std::string(".bvh");
 	bvh->Parse(path);
+	std::cout << "load trained data from: " << path << std::endl;
 
 	auto& skel = mCharacter->GetSkeleton();
 	std::map<std::string,std::string> bvhMap = mCharacter->GetBVHMap(); 
@@ -117,6 +119,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	mPhaseLength = mMotions_phase.size();
 	mTimeStep = bvh->GetTimeStep();
+
 }
 void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 {
@@ -125,7 +128,7 @@ void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 	mTorques_phase.clear();
 	mWorks_phase.clear();
 
-	std::string path = std::string(CAR_DIR) + filename + std::string("/trained_data.txt");
+	std::string path = std::string(CAR_DIR) + filename;
 	std::ifstream is(path);
 	char buffer[256];
 	is >> buffer;

@@ -262,8 +262,9 @@ Step()
 	this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 	this->mRecordDCOM.push_back(mAdaptiveCOM);
 
-	if(mUseBVH) this->UpdateReward();
-	else this->UpdateAdaptiveReward();
+	// if(mUseBVH) this->UpdateReward();
+	// else 
+	this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
 	// this->UpdateGRF(mGRFJoints);
 
@@ -379,7 +380,11 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - mReferenceManager->GetAvgWork()*1.2;
+	double work_diff = work_avg - 3; // mReferenceManager->GetAvgWork()*1.2;
+
+
+	// int phase = (int) mCurrentFrame % mReferenceManager->GetPhaseLength();
+	// Eigen::VectorXd torque_diff = mRecordTorque.back() - mReferenceManager->GetForce(phase)*1.2;
 	double scale = 1.0;
 
 	//mul
@@ -389,15 +394,18 @@ UpdateAdaptiveReward()
 	double sig_ee = 0.3 * scale;		// 8
 	double w_a = 0.01;
 	// double sig_a = 0.7 * scale;
-	double sig_t = 0.5 * scale;
+	double sig_t = 1.0 * scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
-	double r_w = exp(-pow(work_diff, 2)*0.1);
-	double r_tot = 0.9*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a) + 0.1*r_w;
+	double r_w = exp(-pow(work_diff, 2));
+//	double r_torque = exp_of_squared(torque_diff, sig_t);
+	std::cout << work_diff << " " << r_w << std::endl;
+//	double r_tot = 0.9*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a) + 0.1*r_w;
+	double r_tot = r_p*r_v*r_com*r_ee*r_a*r_w;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
@@ -473,25 +481,25 @@ UpdateReward()
 		
 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 
-	double timeElapsed_p = 0;
-	double time_diff = 0;
+	double work_avg = 0;
 	int count = 0;
-	int dt_size = mRecordDTime.size();
+	int back = mRecordWork.size() - 1;
 	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-		if(dt_size < (i + 1)) break;
-		timeElapsed_p += mRecordDTime[dt_size - (i + 1)] / (double) this->mSimPerCon;
+		if(back - i < 0) break;
+		work_avg += mRecordWork[back - i];
 		count++;
 	}
-	time_diff = mReferenceManager->GetPhaseLength() * std::get<2>(mRescaleParameter) - timeElapsed_p * (mReferenceManager->GetPhaseLength() / count);
-	time_diff = time_diff / mReferenceManager->GetPhaseLength() * 5;
+	work_avg /= count;
+	double work_diff = work_avg - 3;
+
 
 	double scale = 1.0;
 	//mul
 	// double sig_a = 0.7 * scale;
 	// double sig_t = 0.5 * scale;
 
-	double sig_p = 0.3 * scale; 		// 2
-	double sig_v = 1.5 * scale;		// 3
+	double sig_p = 0.1 * scale; 		// 2
+	double sig_v = 0.8 * scale;		// 3
 	double sig_com = 0.2 * scale;		// 4
 	double sig_ee = 0.2 * scale;		// 8
 	double w_a = 0.01;
@@ -501,15 +509,17 @@ UpdateReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
-
+	double r_w = exp(-pow(work_diff, 2));
+//	std::cout << work_avg << " " << work_diff << " " << r_w << std::endl;
 //	std::cout << r_p << " " << r_v << " " << r_ee <<" " << r_com << std::endl;	
 //	double r_time = exp(-pow(time_diff, 2) * sig_t);
 	// double r_work = exp(-pow(work_diff, 2));
 	// double r_torque = exp_of_squared(torque_diff, sig_t);
-//	double r_tot = r_p*r_v*r_com*r_ee*r_a;
+	double r_tot = r_p*r_v*r_com*r_ee*r_a*r_w;
 
 //	std::cout << r_p << " " << r_v << " " << r_com << " " << r_ee << std::endl;
-	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a * r_a;
+//	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a * r_a;
+	r_tot = 0.8*r_tot + 0.2*r_w;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(6, 0.0);
@@ -520,7 +530,7 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(r_w);
 	}
 
 }
@@ -846,7 +856,7 @@ GetState()
 }
 void
 Controller::SaveTrainedData(std::string directory) {
-	std::string path = std::string(CAR_DIR) + directory + std::string("/trained_data.txt");
+	std::string path = std::string(CAR_DIR) + directory;
 	std::cout << "save results to" << path << std::endl;
 
 	std::ofstream ofs(path);

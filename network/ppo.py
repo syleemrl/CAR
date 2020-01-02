@@ -46,16 +46,18 @@ class PPO(object):
 		self.sess = tf.Session(config=config)
 
 		#build network and optimizer
-		name = pretrain.split("/")[-1]
+		name = pretrain.split("/")[-2]
 		self.buildOptimize(name)
 		
 		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		if self.pretrain is not "":
-			self.load(self.pretrain +"/network-0")
+			self.load(self.pretrain)
+			li = pretrain.split("network")
+			suffix = li[-1]
 			self.RMS = RunningMeanStd(shape=(self.num_state))
-			self.RMS.load(self.pretrain+'/rms')
+			self.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 
 	def initTrain(self, name, env, mode, pretrain="", evaluation=False,
 		directory=None, batch_size=1024, steps_per_iteration=20000):
@@ -89,6 +91,9 @@ class PPO(object):
 		# load pretrained network
 		if self.pretrain is not "":
 			self.load(self.pretrain)
+			li = pretrain.split("network")
+			suffix = li[-1]
+			self.env.RMS.load(li[0]+'rms'+suffix)
 
 		self.printSetting()
 		
@@ -213,7 +218,7 @@ class PPO(object):
 
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
-		self.env.RMS.save(self.directory+'rms')
+		self.env.RMS.save(self.directory+'rms-0')
 
 		summary = self.env.printSummary()
 		if self.reward_max < summary['r_per_e']:
@@ -224,7 +229,7 @@ class PPO(object):
 			os.system("cp {}/network-{}.index {}/network-max.index".format(self.directory, 0, self.directory))
 			os.system("cp {}/network-{}.meta {}/network-max.meta".format(self.directory, 0, self.directory))
 
-		if self.mode == 'adaptive' and self.last_target_update >= 5:	
+		if self.mode == 'adaptive' and self.last_target_update >= 0:
 			if summary['s_per_e'] > 500 and self.env.r_target_avg_old < summary['r_target_avg_new']:
 				self.env.r_target_avg_old = summary['r_target_avg_new']
 				self.env.reset(0, False)
@@ -246,10 +251,17 @@ class PPO(object):
 							state = self.env.getStates()[0]
 							state = np.reshape(state, (1, self.num_state))	
 
-				self.env.sim_env.UpdateTarget('/network/output/'+self.name)
+				self.env.sim_env.UpdateTarget('/network/output/'+self.name+'/trained_data-'+str(self.env.target_update_count)+'.txt')
+
+				self.env.RMS.save(self.directory+'rms-adaptive-'+str(self.env.target_update_count))
+
+				os.system("cp {}/network-{}.data-00000-of-00001 {}/network-adaptive-{}.data-00000-of-00001".format(self.directory, 0, self.directory, self.env.target_update_count))
+				os.system("cp {}/network-{}.index {}/network-adaptive-{}.index".format(self.directory, 0, self.directory, self.env.target_update_count))
+				os.system("cp {}/network-{}.meta {}/network-adaptive-{}.meta".format(self.directory, 0, self.directory, self.env.target_update_count))
+				
 				self.last_target_update = 0
 				self.env.target_update_count += 1
-		elif self.mode == 'adaptive' and self.last_target_update < 5:
+		elif self.mode == 'adaptive' and self.last_target_update < 0:
 			self.last_target_update += 1
 
 
@@ -258,12 +270,10 @@ class PPO(object):
 
 	def train(self, num_iteration):
 		epi_info_iter = []
-		
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 			states = self.env.getStates()
-
 			local_step = 0
 			last_print = 0
 			
