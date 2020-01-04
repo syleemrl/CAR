@@ -3,13 +3,12 @@ import numpy as np
 import simEnv
 import time
 class Env(object):
-	def __init__(self, motion, mode, num_slaves):
+	def __init__(self, original_ref, adaptive_ref, mode, num_slaves):
 		self.num_slaves = num_slaves
-		self.motion = motion
 		if mode =="adaptive":
-			self.sim_env = simEnv.Env(num_slaves, "/network/output/"+motion, mode)
+			self.sim_env = simEnv.Env(num_slaves, "/motion/"+original_ref, "/network/output/"+adaptive_ref, mode)
 		else:
-			self.sim_env = simEnv.Env(num_slaves, motion, mode)
+			self.sim_env = simEnv.Env(num_slaves, "/motion/"+original_ref, "", mode)
 		
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()

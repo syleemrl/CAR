@@ -1,5 +1,5 @@
-#ifndef __VMCON_SIM_WINDOW_H__
-#define __VMCON_SIM_WINDOW_H__
+#ifndef __VMCON_KIN_WINDOW_H__
+#define __VMCON_KIN_WINDOW_H__
 #include "Camera.h"
 #include "GLUTWindow.h"
 #include "GLfunctions.h"
@@ -20,14 +20,12 @@
 namespace p = boost::python;
 namespace np = boost::python::numpy;
 
-class SimWindow : public GUI::GLUTWindow
+class KinematicMotionWindow : public GUI::GLUTWindow
 {
 public:
 	/// Constructor.
-	SimWindow(std::string motion, std::string network="", std::string mode="", std::string filename="");
+	KinematicMotionWindow(std::vector<std::string> motion, std::vector<std::string> mode);
 
-	/// World object pointer
-	dart::simulation::WorldPtr mWorld;
 protected:
 	/// Draw all the skeletons in mWorld. Lights and Camera are operated here.
 	void DrawSkeletons();
@@ -71,29 +69,16 @@ protected:
 	bool mIsRotate;
 	bool mIsAuto;
 	bool mTrackCamera;
-	bool mDrawRef, mDrawRef2;
-	bool mDrawOutput;
-	bool mRunPPO;
+	std::vector<bool> mDrawRef;
 
 	double mTimeStep;
 	int mCurFrame;
 	int mTotalFrame;
-	std::vector<double> mReward;
-	double mSkelLength;
-	double mRewardTotal;
-	std::string mode;
-	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRef2;
-	std::vector<Eigen::Vector3d> mMemoryCOM, mMemoryCOMRef, mMemoryCOMRef2;
-	std::vector<std::vector<Eigen::VectorXd>> mMemoryGRF;
-	std::vector<std::pair<bool, bool>> mMemoryFootContact;
-	std::pair<bool, bool> mFootContact;
-	std::string filename;
-	DPhy::Controller* mController;
-	DPhy::Character* mCharacter;
-	DPhy::Character* mRef;
-	DPhy::Character* mRef2;
-	DPhy::ReferenceManager* mReferenceManager;
-	DPhy::BVH* mBVH;
+
+	std::vector<std::vector<Eigen::VectorXd>> mMemoryRef;
+	std::vector<std::string> mode;
+	std::vector<DPhy::Character*> mRef;
+	std::vector<DPhy::ReferenceManager*> mReferenceManager;
 
 	p::object mPPO;
 };

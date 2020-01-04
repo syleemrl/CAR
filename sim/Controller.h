@@ -19,14 +19,14 @@ class Character;
 class Controller
 {
 public:
-Controller(std::string motion, bool record=false, bool use_bvh=true);
+Controller(std::string orignal_ref, std::string adaptive_ref, bool record=false, std::string mode="b");
 
 	void Step();
 	void UpdateReward();
 	void UpdateAdaptiveReward();
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
-	void SetReference(std::string motion);
+	void SetReference(std::string orignal_ref, std::string adaptive_ref);
 	bool FollowBvh();
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
@@ -84,7 +84,7 @@ protected:
 	int mSimulationHz;
 	int mSimPerCon;
 	double mStep;
-	bool mUseBVH;
+	std::string mode;
 
 	Character* mCharacter;
 	Character* mRefCharacter;
@@ -93,7 +93,7 @@ protected:
 
 	Eigen::VectorXd mTargetPositions;
 	Eigen::VectorXd mTargetVelocities;
-	Eigen::VectorXd mTargetContacts;
+	std::pair<bool, bool> mTargetContacts;
 
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;
@@ -129,6 +129,7 @@ protected:
 	std::vector<std::string> mGRFJoints;
 	std::vector<double> mRecordTime;
 	std::vector<double> mRecordDTime;
+	std::vector<Eigen::VectorXd> mRecordFootConstraint;
 
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;

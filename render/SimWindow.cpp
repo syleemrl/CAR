@@ -23,6 +23,7 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 		this->mDrawRef2 = false;
 	}
 	this->filename = filename;
+	this->mode = mode;
 
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 
@@ -34,16 +35,16 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	if(this->mRunPPO && mode.compare("t") == 0)
 	{
-		this->mController = new DPhy::Controller(std::string("/network/output/") + motion, true, false);
+		this->mController = new DPhy::Controller("", std::string("/network/output/") + motion, true, mode);
 		mReferenceManager->LoadMotionFromTrainedData(std::string("/network/output/") + motion);
 
 	} else if(mode.compare("t") == 0)
 	{
-		this->mController = new DPhy::Controller(std::string("/network/output/") + motion, true, false);
+		this->mController = new DPhy::Controller("", std::string("/network/output/") + motion, true, mode);
 		mReferenceManager->LoadMotionFromTrainedData(std::string("/network/output/") + motion);
 	} else {
-		this->mController = new DPhy::Controller(motion, true);
-		mReferenceManager->LoadMotionFromBVH(motion);
+		this->mController = new DPhy::Controller(std::string("/motion/") + motion, "", true);
+		mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 	}
 	this->mWorld = this->mController->GetWorld();
 
@@ -75,7 +76,7 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 
-	mReferenceManager->RescaleMotion(std::sqrt(w0));
+	mReferenceManager->RescaleMotion(std::sqrt(w0), mode);
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
@@ -84,7 +85,7 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mSkelLength = 0.3;
 
 	this->mController->Reset(false);
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
 	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
 	mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
 	mCharacter->GetSkeleton()->setPositions(p_v_target->GetPosition());
@@ -134,7 +135,7 @@ MemoryClear() {
 void 
 SimWindow::
 Save(int n) {
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n, mode);
 	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
@@ -150,7 +151,7 @@ Save(int n) {
     	mMemory.emplace_back(this->mController->GetPositions(n));	
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
-    	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n));
+    	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n), mode);
 		mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
    	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
@@ -294,7 +295,7 @@ Reset()
 	
 	this->mController->Reset(false);
 
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
 	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
 	mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
 

@@ -103,7 +103,8 @@ class PPO(object):
 		print_list = []
 		print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 		print_list.append("test_name : {}".format(self.name))
-		print_list.append("motion : {}".format(self.env.motion))
+		print_list.append("original_ref : {}".format(self.env.original_ref))
+		print_list.append("adaptive_ref : {}".format(self.env.adaptive_ref))
 		print_list.append("num_slaves : {}".format(self.num_slaves))
 		print_list.append("num state : {}".format(self.num_state))
 		print_list.append("num action : {}".format(self.num_action))
@@ -230,7 +231,7 @@ class PPO(object):
 			os.system("cp {}/network-{}.meta {}/network-max.meta".format(self.directory, 0, self.directory))
 
 		if self.mode == 'adaptive' and self.last_target_update >= 0:
-			if summary['s_per_e'] > 500 and self.env.r_target_avg_old < summary['r_target_avg_new']:
+			if summary['s_per_e'] > 500 and summary['r_com_per_e'] > 0.95 and summary['r_ee_per_e'] > 0.9 and self.env.r_target_avg_old < summary['r_target_avg_new']:
 				self.env.r_target_avg_old = summary['r_target_avg_new']
 				self.env.reset(0, False)
 				state = self.env.getStates()[0]
@@ -252,7 +253,6 @@ class PPO(object):
 							state = np.reshape(state, (1, self.num_state))	
 
 				self.env.sim_env.UpdateTarget('/network/output/'+self.name+'/trained_data-'+str(self.env.target_update_count)+'.txt')
-
 				self.env.RMS.save(self.directory+'rms-adaptive-'+str(self.env.target_update_count))
 
 				os.system("cp {}/network-{}.data-00000-of-00001 {}/network-adaptive-{}.data-00000-of-00001".format(self.directory, 0, self.directory, self.env.target_update_count))
@@ -270,6 +270,7 @@ class PPO(object):
 
 	def train(self, num_iteration):
 		epi_info_iter = []
+		
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -311,7 +312,7 @@ class PPO(object):
 				states = self.env.getStates()
 			print('')
 
-			if it % 5 == 4:
+			if it % 3 == 2:				
 #			if 1:
 				self.update(epi_info_iter) 
 
@@ -335,8 +336,9 @@ class PPO(object):
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--ntimesteps", type=int, default = 1000000)
-	parser.add_argument("--motion", type=str, default=None)
+	parser.add_argument("--ntimesteps", type=int, default=1000000)
+	parser.add_argument("--adaptive_ref", type=str, default=None)
+	parser.add_argument("--original_ref", type=str, default=None)
 	parser.add_argument("--test_name", type=str, default="")
 	parser.add_argument("--pretrain", type=str, default="")
 	parser.add_argument("--evaluation", type=bool, default=False)
@@ -357,9 +359,9 @@ if __name__=="__main__":
 			os.mkdir(directory)
 	
 	if args.pretrain != "":
-		env = Monitor(motion=args.motion, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, mode=args.mode)
+		env = Monitor(original_ref=args.original_ref, adaptive_ref=args.adaptive_ref, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, mode=args.mode)
 	else:
-		env = Monitor(motion=args.motion, num_slaves=args.nslaves, directory=directory, plot=args.plot, mode=args.mode)
+		env = Monitor(original_ref=args.original_ref, adaptive_ref=args.adaptive_ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, mode=args.mode)
 	ppo = PPO()
 	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, mode=args.mode)
 	ppo.train(args.ntimesteps)

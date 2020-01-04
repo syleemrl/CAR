@@ -8,10 +8,11 @@ from utils import RunningMeanStd
 from IPython import embed
 
 class Monitor(object):
-	def __init__(self, motion, num_slaves, directory, mode, load=False, plot=True, verbose=True):
-		self.env = Env(motion, mode, num_slaves)
+	def __init__(self, original_ref, adaptive_ref, num_slaves, directory, mode, load=False, plot=True, verbose=True):
+		self.env = Env(original_ref, adaptive_ref, mode, num_slaves)
 		self.num_slaves = self.env.num_slaves
-		self.motion = self.env.motion
+		self.original_ref = original_ref
+		self.adaptive_ref = adaptive_ref
 		self.sim_env = self.env.sim_env
 		
 		self.num_state = self.env.num_state
@@ -21,7 +22,7 @@ class Monitor(object):
 		self.plot = plot
 		self.directory = directory
 		self.mode = mode
-		
+
 		self.start_time = time.time()		
 		self.num_evaluation = 0
 		self.num_episodes = 0
@@ -29,7 +30,7 @@ class Monitor(object):
 		self.total_time_elapsed = 0
 		self.total_rewards = []
 		self.max_episode_length = 0
-		self.total_rewards_by_parts = np.array([[]]*6)
+		self.total_rewards_by_parts = np.array([[]]*7)
 		self.transition_per_episodes = []
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
@@ -178,7 +179,8 @@ class Monitor(object):
 						[np.asarray(self.total_rewards_by_parts[2]), 'v'], 
 						[np.asarray(self.total_rewards_by_parts[3]), 'com'],
 						[np.asarray(self.total_rewards_by_parts[4]), 'ee'],
-						[np.asarray(self.total_rewards_by_parts[5]), 'srl']]
+						[np.asarray(self.total_rewards_by_parts[5]), 'contact'],
+						[np.asarray(self.total_rewards_by_parts[6]), 'target']]
 
 			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
@@ -188,18 +190,23 @@ class Monitor(object):
 
 			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
+		summary = dict()
+		summary['r_per_e'] = r_per_e
+		summary['s_per_e'] = t_per_e
+		summary['r_target_avg_total'] = np.average(self.total_rewards_by_parts[6]) 
+		summary['r_target_avg_new'] = np.average(self.total_rewards_by_parts[6][-3:])
+		summary['r_position_per_e'] =  self.total_rewards_by_parts[1][-1] / self.transition_per_episodes[-1]
+		summary['r_velocity_per_e'] =  self.total_rewards_by_parts[2][-1] / self.transition_per_episodes[-1]
+		summary['r_com_per_e'] =  self.total_rewards_by_parts[3][-1] / self.transition_per_episodes[-1]
+		summary['r_ee_per_e'] =  self.total_rewards_by_parts[4][-1] / self.transition_per_episodes[-1]
+		summary['r_contact_per_e'] =  self.total_rewards_by_parts[5][-1] / self.transition_per_episodes[-1]
+		print(summary)
+
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.total_time_elapsed = 0
-
-		summary = dict()
-		summary['r_per_e'] = r_per_e
-		summary['s_per_e'] = t_per_e
-		summary['r_target_avg_total'] = np.average(self.total_rewards_by_parts[5]) 
-		summary['r_target_avg_new'] = np.average(self.total_rewards_by_parts[5][-3:])
-		
 
 		return summary

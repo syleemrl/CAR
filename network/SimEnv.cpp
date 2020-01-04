@@ -5,7 +5,7 @@
 #include <iostream>
 
 SimEnv::
-SimEnv(int num_slaves, std::string motion, std::string mode)
+SimEnv(int num_slaves, std::string original_ref, std::string adaptive_ref, std::string mode)
 	:mNumSlaves(num_slaves)
 {
 	dart::math::seedRand();
@@ -13,9 +13,9 @@ SimEnv(int num_slaves, std::string motion, std::string mode)
 	for(int i =0;i<num_slaves;i++)
 	{
 		if(mode.compare("adaptive") == 0) {
-			mSlaves.push_back(new DPhy::Controller(motion, true, false));
+			mSlaves.push_back(new DPhy::Controller(original_ref, adaptive_ref, true, "t"));
 		}
-		else mSlaves.push_back(new DPhy::Controller(motion));
+		else mSlaves.push_back(new DPhy::Controller(original_ref, adaptive_ref));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -192,7 +192,7 @@ BOOST_PYTHON_MODULE(simEnv)
 	Py_Initialize();
 	np::initialize();
 
-	class_<SimEnv>("Env",init<int, std::string, std::string>())
+	class_<SimEnv>("Env",init<int, std::string, std::string, std::string>())
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
 		.def("UpdateTarget",&SimEnv::UpdateTarget)
