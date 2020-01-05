@@ -231,7 +231,7 @@ class PPO(object):
 			os.system("cp {}/network-{}.meta {}/network-max.meta".format(self.directory, 0, self.directory))
 
 		if self.mode == 'adaptive' and self.last_target_update >= 0:
-			if summary['s_per_e'] > 500 and summary['r_com_per_e'] > 0.95 and summary['r_ee_per_e'] > 0.9 and self.env.r_target_avg_old < summary['r_target_avg_new']:
+			if summary['s_per_e'] > 800 and summary['r_contact_per_e'] > 0.5 and self.env.r_target_avg_old < summary['r_target_avg_new']:
 				self.env.r_target_avg_old = summary['r_target_avg_new']
 				self.env.reset(0, False)
 				state = self.env.getStates()[0]
@@ -312,7 +312,7 @@ class PPO(object):
 				states = self.env.getStates()
 			print('')
 
-			if it % 3 == 2:				
+			if it % 5 == 4:				
 #			if 1:
 				self.update(epi_info_iter) 
 

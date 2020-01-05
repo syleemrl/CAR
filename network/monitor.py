@@ -193,8 +193,8 @@ class Monitor(object):
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['s_per_e'] = t_per_e
-		summary['r_target_avg_total'] = np.average(self.total_rewards_by_parts[6]) 
-		summary['r_target_avg_new'] = np.average(self.total_rewards_by_parts[6][-3:])
+		summary['r_target_avg_total'] = np.average(self.total_rewards_by_parts[6] / self.transition_per_episodes) 
+		summary['r_target_avg_new'] = np.average(self.total_rewards_by_parts[6][-3:] / self.transition_per_episodes[6][-3:])
 		summary['r_position_per_e'] =  self.total_rewards_by_parts[1][-1] / self.transition_per_episodes[-1]
 		summary['r_velocity_per_e'] =  self.total_rewards_by_parts[2][-1] / self.transition_per_episodes[-1]
 		summary['r_com_per_e'] =  self.total_rewards_by_parts[3][-1] / self.transition_per_episodes[-1]

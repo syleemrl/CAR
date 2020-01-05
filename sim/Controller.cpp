@@ -9,7 +9,7 @@ namespace DPhy
 
 Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool record, std::string mode)
 	:mTimeElapsed(0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.15), w_srl(0.0),
+	w_p(0.35),w_v(0.1),w_ee(0.1),w_com(0.15), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
@@ -378,7 +378,7 @@ UpdateAdaptiveReward()
 	Eigen::Vector3d p1_r = bn2->getWorldTransform()*p1;
 	Eigen::Vector3d p2_r = bn2->getWorldTransform()*p2;
 	Eigen::Vector3d p3_r = bn2->getWorldTransform()*p3;
-	
+
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
@@ -396,7 +396,7 @@ UpdateAdaptiveReward()
 	p2_r -= bn2->getWorldTransform()*p2;
 	p3_r -= bn2->getWorldTransform()*p3;
 	
-	std::pair<bool, bool> contactInfo_sim = mReferenceManager->CalculateContactInfo(p_v_target->GetPosition(), p_v_target->GetVelocity());
+	std::pair<bool, bool> contactInfo_sim = mReferenceManager->CalculateContactInfo(p_save, v_save);
 
 	Eigen::VectorXd contact_diff(24);
 	contact_diff.setZero();
@@ -406,7 +406,7 @@ UpdateAdaptiveReward()
 		contact_diff.segment<3>(6) =  p2_l;
 		contact_diff.segment<3>(9) =  p3_l;
 	}
-	if(contactInfo.second || contactInfo_ref.second!= contactInfo_sim.second) {
+	if(contactInfo_ref.second || contactInfo_ref.second!= contactInfo_sim.second) {
 		contact_diff.segment<3>(12) =  p0_r;
 		contact_diff.segment<3>(15) =  p1_r;
 		contact_diff.segment<3>(18) =  p2_r;
@@ -424,8 +424,7 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - 3.0; // mReferenceManager->GetAvgWork()*1.5;
-
+	double work_diff = work_avg - mReferenceManager->GetAvgWork()*1.5;
 
 	double scale = 1.0;
 

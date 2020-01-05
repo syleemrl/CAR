@@ -9,7 +9,7 @@ namespace DPhy
 ReferenceManager::ReferenceManager(Character* character)
 {
 	mCharacter = character;
-	mBlendingInterval = 5;
+	mBlendingInterval = 1;
 	
 	mMotions.insert(std::make_pair("t", std::vector<Motion*>()));
 	mMotions.insert(std::make_pair("b", std::vector<Motion*>()));
@@ -60,6 +60,8 @@ std::pair<bool, bool> ReferenceManager::CalculateContactInfo(Eigen::VectorXd p, 
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
 {
+	mMotions.find("b")->second.clear();
+	mMotions_phase.find("b")->second.clear();
 
 	this->mCharacter->LoadBVHMap();
 
@@ -162,6 +164,10 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 }
 void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 {
+	mMotions.find("t")->second.clear();
+	mMotions_phase.find("t")->second.clear();
+	mTorques_phase.clear();
+	mWorks_phase.clear();
 
 	std::string path = std::string(CAR_DIR) + filename;
 	std::ifstream is(path);
@@ -278,8 +284,11 @@ void ReferenceManager::RescaleMotion(double w, std::string mode)
 }
 Motion* ReferenceManager::GetMotion(double t, std::string mode)
 {
-
 	auto& skel = mCharacter->GetSkeleton();
+
+	if(mMotions_phase.find(mode)->second.size() == 0) {
+		return new Motion(skel->getPositions(), skel->getVelocities());
+	}
 
 	int k0 = (int) std::floor(t);
 	int k1 = (int) std::ceil(t);	
@@ -303,7 +312,6 @@ Motion* ReferenceManager::GetMotion(double t, std::string mode)
 
 		Eigen::AngleAxisd root_next_ori(root_next.segment<3>(0).norm(), root_next.segment<3>(0).normalized());
 		Eigen::AngleAxisd root_prev_ori(root_prev.segment<3>(0).norm(), root_prev.segment<3>(0).normalized());
-
 		Eigen::Matrix3d root_dori;
 		root_dori = root_next_ori.inverse() * root_prev_ori;
 		root_dori = DPhy::projectToXZ(root_dori);
