@@ -9,7 +9,7 @@ namespace DPhy
 ReferenceManager::ReferenceManager(Character* character)
 {
 	mCharacter = character;
-	mBlendingInterval = 1;
+	mBlendingInterval = 2;
 	
 	mMotions.insert(std::make_pair("t", std::vector<Motion*>()));
 	mMotions.insert(std::make_pair("b", std::vector<Motion*>()));

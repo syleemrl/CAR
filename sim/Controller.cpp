@@ -9,7 +9,7 @@ namespace DPhy
 
 Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool record, std::string mode)
 	:mTimeElapsed(0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.35),w_v(0.1),w_ee(0.1),w_com(0.15), w_srl(0.0),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
@@ -130,6 +130,15 @@ Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool r
 	this->mRecordDTime.clear();
 	this->mRecordDCOM.clear();
 	this->mRecordWork.clear();
+
+	this->mMask.resize(dof);
+	for(int i = 0; i < dof; i++) {
+		if(i % 3 != 1) {
+			mMask[i] = 1;
+		} else {
+			mMask[i] = 0;
+		}
+	}
 }
 void 
 Controller::
@@ -203,7 +212,6 @@ Step()
 
 	this->mTargetVelocities *= ((double) this->mSimPerCon / (this->mSimPerCon + mAdaptiveStep));
 	this->mTargetPositions[4] += mAdaptiveCOM;
-
 	this->mPDTargetPositions = this->mTargetPositions;
 	this->mPDTargetVelocities = this->mTargetVelocities;
 
@@ -228,7 +236,6 @@ Step()
 	// KV_RATIO from CharacterConfiguration.h
 	kv = KV_RATIO * kp;
 	mCharacter->SetPDParameters(kp, kv);
-
 	Eigen::VectorXd torque;
 
 	double work_sum = 0;
@@ -262,8 +269,9 @@ Step()
 	this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 	this->mRecordDCOM.push_back(mAdaptiveCOM);
 
-	if(mode.compare("b") == 0) this->UpdateReward();
-	else this->UpdateAdaptiveReward();
+//	if(mode.compare("b") == 0) this->UpdateReward();
+//	else 
+	this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
 
 	// this->UpdateGRF(mGRFJoints);
@@ -424,8 +432,7 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - mReferenceManager->GetAvgWork()*1.5;
-
+	double work_diff = work_avg - 3; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 
 	//mul
@@ -448,7 +455,6 @@ UpdateAdaptiveReward()
 	double r_w = exp(-pow(work_diff, 2));
 	double r_con = exp_of_squared(contact_diff, sig_con);
 	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
-
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -593,7 +599,7 @@ UpdateReward()
 	double r_a = exp_of_squared(actions, 1.5);
 	double r_con = exp_of_squared(contact_diff, sig_con);
 
-	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con * r_con;
+	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -613,6 +619,10 @@ void
 Controller::
 UpdateTerminalInfo()
 {	
+	mRefCharacter->GetSkeleton()->setPositions(this->mTargetPositions);
+	mRefCharacter->GetSkeleton()->setVelocities(this->mTargetVelocities);
+	mRefCharacter->GetSkeleton()->computeForwardKinematics(true,true,false);
+
 	auto& skel = mCharacter->GetSkeleton();
 
 	Eigen::VectorXd p = skel->getPositions();
@@ -656,6 +666,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
+
 }
 bool
 Controller::
@@ -755,7 +766,7 @@ Reset(bool RSI)
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
 
-	this->mRewardParts.resize(6, 0.0);
+	this->mRewardParts.resize(7, 0.0);
 
 	this->GRFs.clear();
 	this->mRecordVelocity.clear();

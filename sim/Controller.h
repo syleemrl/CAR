@@ -147,6 +147,7 @@ protected:
 	Eigen::VectorXd mTorqueMax;
 
 	Eigen::VectorXd mTorqueSig;
+	Eigen::VectorXd mMask;
 };
 }
 #endif
