@@ -299,6 +299,7 @@ UpdateAdaptiveReward()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
 	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
 	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
+	delete p_v_target;
 
 	//Position Differences
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1, mode);
@@ -436,7 +437,7 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - 12; // mReferenceManager->GetAvgWork()*1.5;
+	double work_diff = work_avg - 6; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.3 * scale; 		// 2
@@ -456,7 +457,6 @@ UpdateAdaptiveReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 	double r_w = exp(-pow(work_diff, 2)*0.4);
-//	std::cout << work_avg << " " << r_w << std::endl;
 
 	double r_con = exp_of_squared(contact_diff, sig_con);
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;

@@ -324,7 +324,6 @@ class PPO(object):
 				epi_info_iter = []
 
 	def run(self, state):
-#		print(self.sess.run(self.actor.logstdvar))
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 		action = self.actor.getMeanAction(state)

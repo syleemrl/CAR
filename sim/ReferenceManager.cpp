@@ -9,7 +9,7 @@ namespace DPhy
 ReferenceManager::ReferenceManager(Character* character)
 {
 	mCharacter = character;
-	mBlendingInterval = 2;
+	mBlendingInterval = 5;
 	
 	mMotions.insert(std::make_pair("t", std::vector<Motion*>()));
 	mMotions.insert(std::make_pair("b", std::vector<Motion*>()));
@@ -60,8 +60,16 @@ std::pair<bool, bool> ReferenceManager::CalculateContactInfo(Eigen::VectorXd p, 
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
 {
-	mMotions.find("b")->second.clear();
-	mMotions_phase.find("b")->second.clear();
+	auto vec = mMotions.find("b")->second;
+	for(int i = 0; i < vec.size(); i++) {
+		delete vec.back();
+		vec.pop_back();
+	}
+	vec = mMotions_phase.find("b")->second;
+	for(int i = 0; i < vec.size(); i++) {
+		delete vec.back();
+		vec.pop_back();
+	}
 
 	this->mCharacter->LoadBVHMap();
 
@@ -161,11 +169,21 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	mPhaseLength = mMotions_phase.find("b")->second.size();
 	mTimeStep = bvh->GetTimeStep();
 
+	delete bvh;
+
 }
 void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 {
-	mMotions.find("t")->second.clear();
-	mMotions_phase.find("t")->second.clear();
+	auto vec = mMotions.find("t")->second;
+	for(int i = 0; i < vec.size(); i++) {
+		delete vec.back();
+		vec.pop_back();
+	}
+	vec = mMotions_phase.find("t")->second;
+	for(int i = 0; i < vec.size(); i++) {
+		delete vec.back();
+		vec.pop_back();
+	}
 	mTorques_phase.clear();
 	mWorks_phase.clear();
 
