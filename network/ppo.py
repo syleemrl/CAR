@@ -230,39 +230,39 @@ class PPO(object):
 			os.system("cp {}/network-{}.index {}/network-max.index".format(self.directory, 0, self.directory))
 			os.system("cp {}/network-{}.meta {}/network-max.meta".format(self.directory, 0, self.directory))
 
-		if self.mode == 'adaptive' and self.last_target_update >= 0:
-			if summary['s_per_e'] > 800 and summary['r_contact_per_e'] > 0.5 and self.env.r_target_avg_old < summary['r_target_avg_new']:
-				self.env.r_target_avg_old = summary['r_target_avg_new']
-				self.env.reset(0, False)
-				state = self.env.getStates()[0]
-				state = np.reshape(state, (1, self.num_state))
+		# if self.mode == 'adaptive' and self.last_target_update >= 0:
+		# 	if summary['s_per_e'] > 800 and summary['r_contact_per_e'] > 0.5 and self.env.r_target_avg_old < summary['r_target_avg_new']:
+		# 		self.env.r_target_avg_old = summary['r_target_avg_new']
+		# 		self.env.reset(0, False)
+		# 		state = self.env.getStates()[0]
+		# 		state = np.reshape(state, (1, self.num_state))
 						
-				count = 0
-				while True:
-					action = self.actor.getMeanAction(state)
-					state, reward, done = self.env.stepForEval(action, 0)
-					count += 1
-					if done:
-						if count > 300:
-							print(count)
-							break
-						else:
-							count = 0
-							self.env.reset(0, False)
-							state = self.env.getStates()[0]
-							state = np.reshape(state, (1, self.num_state))	
+		# 		count = 0
+		# 		while True:
+		# 			action = self.actor.getMeanAction(state)
+		# 			state, reward, done = self.env.stepForEval(action, 0)
+		# 			count += 1
+		# 			if done:
+		# 				if count > 300:
+		# 					print(count)
+		# 					break
+		# 				else:
+		# 					count = 0
+		# 					self.env.reset(0, False)
+		# 					state = self.env.getStates()[0]
+		# 					state = np.reshape(state, (1, self.num_state))	
 
-				self.env.sim_env.UpdateTarget('/network/output/'+self.name+'/trained_data-'+str(self.env.target_update_count)+'.txt')
-				self.env.RMS.save(self.directory+'rms-adaptive-'+str(self.env.target_update_count))
+		# 		self.env.sim_env.UpdateTarget('/network/output/'+self.name+'/trained_data-'+str(self.env.target_update_count)+'.txt')
+		# 		self.env.RMS.save(self.directory+'rms-adaptive-'+str(self.env.target_update_count))
 
-				os.system("cp {}/network-{}.data-00000-of-00001 {}/network-adaptive-{}.data-00000-of-00001".format(self.directory, 0, self.directory, self.env.target_update_count))
-				os.system("cp {}/network-{}.index {}/network-adaptive-{}.index".format(self.directory, 0, self.directory, self.env.target_update_count))
-				os.system("cp {}/network-{}.meta {}/network-adaptive-{}.meta".format(self.directory, 0, self.directory, self.env.target_update_count))
+		# 		os.system("cp {}/network-{}.data-00000-of-00001 {}/network-adaptive-{}.data-00000-of-00001".format(self.directory, 0, self.directory, self.env.target_update_count))
+		# 		os.system("cp {}/network-{}.index {}/network-adaptive-{}.index".format(self.directory, 0, self.directory, self.env.target_update_count))
+		# 		os.system("cp {}/network-{}.meta {}/network-adaptive-{}.meta".format(self.directory, 0, self.directory, self.env.target_update_count))
 				
-				self.last_target_update = 0
-				self.env.target_update_count += 1
-		elif self.mode == 'adaptive' and self.last_target_update < 0:
-			self.last_target_update += 1
+		# 		self.last_target_update = 0
+		# 		self.env.target_update_count += 1
+		# elif self.mode == 'adaptive' and self.last_target_update < 0:
+		# 	self.last_target_update += 1
 
 
 	def load(self, path):
@@ -324,6 +324,7 @@ class PPO(object):
 				epi_info_iter = []
 
 	def run(self, state):
+#		print(self.sess.run(self.actor.logstdvar))
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 		action = self.actor.getMeanAction(state)

@@ -201,7 +201,7 @@ Step()
 
 	this->mCurrentFrame += 1;
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, "b");
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -296,14 +296,18 @@ UpdateAdaptiveReward()
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
+	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
+	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
+
 	//Position Differences
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1, mode);
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1, mode);
 	Eigen::VectorXd prevTargetPositions = p_v_target->GetPosition();
 	delete p_v_target;
 
-	Eigen::VectorXd axis = skel->getPositionDifferences(mTargetPositions, prevTargetPositions); 
+	Eigen::VectorXd axis = skel->getPositionDifferences(targetPositions, prevTargetPositions); 
 	Eigen::VectorXd p = skel->getPositions();
-	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(axis, mTargetPositions, p);
+	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(axis, targetPositions, p);
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(p, nearest);
 
 	//Velocity Differences
@@ -312,7 +316,7 @@ UpdateAdaptiveReward()
 	Eigen::VectorXd vec2_n(skel->getVelocities().size());
 
 	for(int i = 0; i < skel->getVelocities().size(); i += 3) {
-		Eigen::Vector3d x = this->mTargetVelocities.segment<3>(i).normalized();
+		Eigen::Vector3d x = targetVelocities.segment<3>(i).normalized();
 		Eigen::Vector3d y = skel->getVelocities().segment<3>(i).normalized();
 		vec1_n.segment<3>(i) = x;
 		vec2_n.segment<3>(i) = y;
@@ -350,8 +354,8 @@ UpdateAdaptiveReward()
 	
 	com_diff = skel->getCOM();
 
-	skel->setPositions(this->mTargetPositions);
-	skel->setVelocities(this->mTargetVelocities);
+	skel->setPositions(targetPositions);
+	skel->setVelocities(targetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
@@ -432,9 +436,8 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - 3; // mReferenceManager->GetAvgWork()*1.5;
+	double work_diff = work_avg - 12; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
-
 	//mul
 	double sig_p = 0.3 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
@@ -452,9 +455,12 @@ UpdateAdaptiveReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
-	double r_w = exp(-pow(work_diff, 2));
+	double r_w = exp(-pow(work_diff, 2)*0.4);
+//	std::cout << work_avg << " " << r_w << std::endl;
+
 	double r_con = exp_of_squared(contact_diff, sig_con);
-	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
+//	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
+	double r_tot = 0.4 * r_p + 0.1 * r_ee  + 0.2 * r_con + 0.3 * r_w;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -577,12 +583,22 @@ UpdateReward()
 		contact_diff.segment<3>(18) =  p2_r;
 		contact_diff.segment<3>(21) =  p3_r;
 	}
-
+	
+	double work_avg = 0;
+	int count = 0;
+	int back = mRecordWork.size() - 1;
+	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+		if(back - i < 0) break;
+		work_avg += mRecordWork[back - i];
+		count++;
+	}
+	work_avg /= count;
+	double work_diff = work_avg - 5;
+	double r_w = exp(-pow(work_diff, 2));
 
 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 
 	double scale = 1.0;
-
 
 	double sig_p = 0.1 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
@@ -599,7 +615,9 @@ UpdateReward()
 	double r_a = exp_of_squared(actions, 1.5);
 	double r_con = exp_of_squared(contact_diff, sig_con);
 
-	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
+	// double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
+	double r_tot = 0.7 * r_p + 0.3 * r_w;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -619,8 +637,13 @@ void
 Controller::
 UpdateTerminalInfo()
 {	
-	mRefCharacter->GetSkeleton()->setPositions(this->mTargetPositions);
-	mRefCharacter->GetSkeleton()->setVelocities(this->mTargetVelocities);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
+	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
+	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
+	delete p_v_target;
+
+	mRefCharacter->GetSkeleton()->setPositions(targetPositions);
+	mRefCharacter->GetSkeleton()->setVelocities(targetVelocities);
 	mRefCharacter->GetSkeleton()->computeForwardKinematics(true,true,false);
 
 	auto& skel = mCharacter->GetSkeleton();
@@ -754,7 +777,7 @@ Reset(bool RSI)
 	this->mTimeElapsed = 0; // 0.0;
 	this->mStartFrame = this->mCurrentFrame;
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, "b");
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -926,7 +949,7 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, mode);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, "b");
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
 	delete p_v_target;
 
