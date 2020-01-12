@@ -256,7 +256,9 @@ Step()
 			mWorld->step();
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
-			work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
+			// work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
+			work_sum += torque.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
+
 		}
 		this->mTimeElapsed += 2.0;
 	}
@@ -437,7 +439,7 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - 6; // mReferenceManager->GetAvgWork()*1.5;
+	double work_diff = work_avg - 40; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.3 * scale; 		// 2
@@ -456,7 +458,7 @@ UpdateAdaptiveReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
-	double r_w = exp(-pow(work_diff, 2)*0.4);
+	double r_w = exp(-pow(work_diff, 2)*0.01);
 
 	double r_con = exp_of_squared(contact_diff, sig_con);
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
@@ -962,6 +964,20 @@ GetState()
 	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
 	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;
 	return state;
+}
+void
+Controller::SaveDisplayedData(std::string directory) {
+	std::string path = std::string(CAR_DIR) + std::string("/") +  directory;
+	std::cout << "save results to" << path << std::endl;
+
+	std::ofstream ofs(path);
+
+	ofs << mRecordPosition.size() << std::endl;
+	for(auto t: mRecordPosition) {
+		ofs << t.transpose() << std::endl;
+	}
+	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
+
 }
 void
 Controller::SaveTrainedData(std::string directory) {

@@ -1,5 +1,5 @@
 #include "SimWindow.h"
-#include "KinematicMotionWindow.h"
+#include "RecordWindow.h"
 #include <vector>
 #include <string>
 #include <GL/glut.h>
@@ -36,17 +36,14 @@ int main(int argc,char** argv)
 		glutMainLoop();
 	}
 	else {
-		int n = atoi(argv[2]);
 		std::vector<std::string> motion;
-		std::vector<std::string> mode;
-		for(int i = 0; i < n; i++) {
-			mode.push_back(std::string(argv[3+i*2]));
-			motion.push_back(std::string(argv[3+i*2+1]));
+		for(int i = 2; i < argc; i++) {
+			motion.push_back(std::string(argv[i]));
 		}
-		KinematicMotionWindow* kwindow = new KinematicMotionWindow(motion, mode);
+		RecordWindow* rwindow = new RecordWindow(motion);
 
 		glutInit(&argc, argv);
-		kwindow->InitWindow(1600,900,"Render");
+		rwindow->InitWindow(1600,900,"Render");
 		glutMainLoop();
 	}
 

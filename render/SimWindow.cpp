@@ -331,7 +331,9 @@ Keyboard(unsigned char key,int x,int y)
 		case ' ':
 			mIsAuto = !mIsAuto;
 			break;
-		case 27: if(filename.compare("") != 0) this->mController->SaveTrainedData(filename); exit(0);break;
+		case 'D': this->mController->SaveDisplayedData(filename); break;
+		case 'T': this->mController->SaveTrainedData(filename); break;
+		case 27: if(filename.compare("") != 0) exit(0);break;
 		default : break;
 	}
 	// this->SetFrame(this->mCurFrame);
