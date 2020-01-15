@@ -201,7 +201,8 @@ class Monitor(object):
 		summary['r_ee_per_e'] =  self.total_rewards_by_parts[4][-1] / self.transition_per_episodes[-1]
 		summary['r_contact_per_e'] =  self.total_rewards_by_parts[5][-1] / self.transition_per_episodes[-1]
 		print(summary)
-
+		if summary['r_target_avg_new'] > 0.5:
+			self.sim_env.UpdateSigTorque();
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0

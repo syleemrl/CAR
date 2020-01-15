@@ -184,7 +184,12 @@ UpdateTarget(std::string directory)
 	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->UpdateReferenceData(directory);
 	std::cout << "reference Updated: " << directory << std::endl;
 }
-
+void
+SimEnv::
+UpdateSigTorque()
+{
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->UpdateSigTorque();
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -210,5 +215,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
+		.def("UpdateSigTorque",&SimEnv::UpdateSigTorque)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

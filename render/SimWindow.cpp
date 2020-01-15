@@ -148,7 +148,7 @@ Save(int n) {
     	// 	mMemoryGRF.emplace_back(this->mController->GetGRF());
 
     	// }
-    	mMemory.emplace_back(this->mController->GetPositions(n));	
+    	mMemory.emplace_back(this->mController->GetPositions(n));
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
     	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n), mode);
@@ -333,7 +333,7 @@ Keyboard(unsigned char key,int x,int y)
 			break;
 		case 'D': this->mController->SaveDisplayedData(filename); break;
 		case 'T': this->mController->SaveTrainedData(filename); break;
-		case 27: if(filename.compare("") != 0) exit(0);break;
+		case 27: exit(0);break;
 		default : break;
 	}
 	// this->SetFrame(this->mCurFrame);

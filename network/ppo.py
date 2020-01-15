@@ -327,7 +327,6 @@ class PPO(object):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 		action = self.actor.getMeanAction(state)
-
 		return action;
 
 	def eval(self):

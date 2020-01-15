@@ -59,7 +59,7 @@ Controller(std::string orignal_ref, std::string adaptive_ref, bool record=false,
 	void SaveTrainedData(std::string directory);
 	void SaveDisplayedData(std::string directory);
 	void UpdateReferenceData(std::string directory);
-
+	void UpdateSigTorque();
 	void UpdateGRF(std::vector<std::string> joints);
 	std::vector<Eigen::VectorXd> GetGRF();
 	void SaveStepInfo();
@@ -104,6 +104,7 @@ protected:
 	Eigen::Vector3d mTargetCOMvelocity;
 	double mAdaptiveCOM;
 	int mAdaptiveStep;
+	double sig_torque;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;

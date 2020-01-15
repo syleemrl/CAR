@@ -42,6 +42,8 @@ public:
 	np::ndarray GetRewardsByParts();
 
 	void UpdateTarget(std::string directory);
+	void UpdateSigTorque();
+	
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	int mNumSlaves;
