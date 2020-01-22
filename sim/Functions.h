@@ -48,6 +48,8 @@ Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in);
 void QuaternionNormalize(Eigen::Quaterniond& in);
 Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight);
 Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position);
+Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot);
+Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1);
 
 void SetBodyNodeColors(dart::dynamics::BodyNode* bn, const Eigen::Vector3d& color);
 void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Vector3d& color);

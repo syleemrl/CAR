@@ -12,7 +12,7 @@ Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool r
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->sig_torque = 0.001;
+	this->sig_torque = 0.1;
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 
 	this->mRecord = record;
@@ -145,7 +145,7 @@ void
 Controller::
 UpdateSigTorque()
 {
-	if(sig_torque < 1) sig_torque *= 2;
+	// if(sig_torque < 1) sig_torque *= 2;
 	std::cout << "sig torque updated : " << sig_torque << std::endl;
 }
 void 
@@ -265,14 +265,13 @@ Step()
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
 			// work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
-			work_sum += torque.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
+			work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
 
 		}
 		mTimeElapsed += 2;
 	}
 	// std::cout << (int) mCurrentFrame % (int) mBVH->GetMaxFrame() << " " <<  work_sum << std::endl;
 	mRecordWork.push_back(work_sum);
-
 // 	torque_sum /= (this->mSimPerCon  + mAdaptiveStep);
 	this->mRecordTorque.push_back(torque_sum);
 
@@ -310,30 +309,35 @@ UpdateAdaptiveReward()
 	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
 
-	// //Position Differences
-	// p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1, mode);
-	// Eigen::VectorXd prevTargetPositions = p_v_target->GetPosition();
-	// delete p_v_target;
+	//Position Differences
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1, mode);
+	Eigen::VectorXd prevTargetPositions = p_v_target->GetPosition();
+	delete p_v_target;
 
-	// Eigen::VectorXd axis = skel->getPositionDifferences(targetPositions, prevTargetPositions); 
-	// Eigen::VectorXd p = skel->getPositions();
-	// Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(axis, targetPositions, p);
-	// Eigen::VectorXd p_diff = skel->getPositionDifferences(p, nearest);
+	Eigen::VectorXd aa = skel->getPositionDifferences(targetPositions, prevTargetPositions); 
+	aa *= 2.0;
+	Eigen::VectorXd targetPositionsExtended = DPhy::RotatePosition(prevTargetPositions, aa);
+	Eigen::VectorXd p = skel->getPositions();
+	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, targetPositions, p);
+	Eigen::VectorXd p_diff_axis = skel->getPositionDifferences(p, nearest);
+	Eigen::VectorXd nearest_aa = skel->getPositionDifferences(nearest, prevTargetPositions);
 
-	// //Velocity Differences
-
-	// Eigen::VectorXd vec1_n(skel->getVelocities().size());
-	// Eigen::VectorXd vec2_n(skel->getVelocities().size());
-
-	// for(int i = 0; i < skel->getVelocities().size(); i += 3) {
-	// 	Eigen::Vector3d x = targetVelocities.segment<3>(i).normalized();
-	// 	Eigen::Vector3d y = skel->getVelocities().segment<3>(i).normalized();
-	// 	vec1_n.segment<3>(i) = x;
-	// 	vec2_n.segment<3>(i) = y;
-	// }
-
-	// Eigen::VectorXd v_diff = skel->getVelocityDifferences(vec1_n, vec2_n);
-
+	for(int i = 0; i < p.rows(); i += 3) {
+		if(i != 3) {
+			double sign = aa.segment<3>(i).normalized().dot(nearest_aa.segment<3>(i).normalized());
+			double range = aa.segment<3>(i).norm();
+			double x;
+			if(sign > 0) x = nearest_aa.segment<3>(i).norm();
+			else x = 2 * M_PI - nearest_aa.segment<3>(i).norm();
+			if(x > range) {
+				Eigen::VectorXd p_joint = p.segment<3>(i);
+				Eigen::VectorXd p1 = DPhy::JointPositionDifferences(p_joint, targetPositionsExtended.segment<3>(i));
+				Eigen::VectorXd p2 = DPhy::JointPositionDifferences(p_joint, prevTargetPositions.segment<3>(i));
+				if(p1.norm() > p2.norm()) p_diff_axis.segment<3>(i) = p2;
+				else p_diff_axis.segment<3>(i) = p1;
+			}
+		}
+	}
 
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(targetPositions, skel->getPositions());
 	Eigen::VectorXd v_diff = skel->getVelocityDifferences(targetVelocities, skel->getVelocities());
@@ -346,15 +350,29 @@ UpdateAdaptiveReward()
 
 	for(int i = 0; i < num_reward_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		if (mRewardBodies[i].find("Femur") != std::string::npos || mRewardBodies[i].find("Tibia") != std::string::npos) {
-			p_diff_reward.segment<3>(3*i).setZero();
+		if (mRewardBodies[i].find("Tibia") != std::string::npos || mRewardBodies[i].find("Femur") != std::string::npos) {
+			p_diff_reward.segment<3>(3*i) = p_diff_axis.segment<3>(idx);
 			v_diff_reward.segment<3>(3*i).setZero();
 		} else {
 			p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
 			v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
 		}
-
 	}
+
+	// if(mCurrentFrame > 45 && mCurrentFrame < 65) {
+	// 	std::cout << mCurrentFrame << std::endl;
+	// 	for(int i = 0; i < num_reward_body_nodes; i++){
+	// 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+	// 		if (mRewardBodies[i].find("Tibia") != std::string::npos || mRewardBodies[i].find("Femur") != std::string::npos) {
+	// 			std::cout << mRewardBodies[i] << std::endl;
+	// 			std::cout << "current position: " << p.segment<3>(idx).transpose() << std::endl;
+	// 			std::cout << "target position: " << targetPositions.segment<3>(idx).transpose() << std::endl;
+	// 			std::cout << "new target axis & norm : " << aa.segment<3>(idx).normalized().transpose() << " " << aa.segment<3>(idx).norm() << std::endl;
+	// 			std::cout << "old reward: " << p_diff.segment<3>(idx).transpose() << std::endl;
+	// 			std::cout << "new reward: " << p_diff_axis.segment<3>(idx).transpose() << std::endl;
+	// 		} 
+	// 	}
+	// }
 	//End-effector position and COM Differences
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	Eigen::VectorXd p_save = skel->getPositions();
@@ -378,8 +396,9 @@ UpdateAdaptiveReward()
 	skel->computeForwardKinematics(true,true,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
-			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
-			ee_diff.segment<3>(3*i) = diff.translation();
+		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+		ee_diff.segment<3>(3*i) = diff.translation();
+		ee_diff(3*i + 1) = 0;
 	}
 	com_diff -= skel->getCOM();
 
@@ -455,7 +474,7 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - 80; // mReferenceManager->GetAvgWork()*1.5;
+	double work_diff = work_avg - 10; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
@@ -478,7 +497,7 @@ UpdateAdaptiveReward()
 
 	double r_con = exp_of_squared(contact_diff, sig_con);
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
-	double r_tot = 0.5 * r_p + 0.2 * r_con +  0.3 * r_w;
+	double r_tot = 0.5 * r_p + 0.3 * r_w + 0.2 * r_ee; 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -492,7 +511,6 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(r_con);
 		mRewardParts.push_back(r_w);
 	}
-
 }
 void
 Controller::

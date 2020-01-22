@@ -187,7 +187,6 @@ Eigen::MatrixXd toEigenMatrix(const np::ndarray& array,int n,int m)
 	}
 	return mat;
 }
-
 // trim from start (in place)
 static inline void ltrim(std::string &s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
@@ -424,6 +423,33 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source
 		}
 	}
 	return v_target;
+}
+Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)
+{
+	Eigen::VectorXd vec(pos.rows());
+	for(int i = 0; i < pos.rows(); i += 3) {
+		if(i != 3) {
+			Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(pos.segment<3>(i).norm(), pos.segment<3>(i).normalized());
+			Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(rot.segment<3>(i).norm(), rot.segment<3>(i).normalized());
+			Eigen::Matrix3d m;
+			m = aa1 * aa2;
+			Eigen::AngleAxisd vec_seg(m);
+			vec.segment<3>(i) = vec_seg.axis() * vec_seg.angle();
+		}
+	}
+	return vec;
+}
+Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1)
+{
+	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(q1.norm(), q1.normalized());
+	Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(q2.norm(), q2.normalized());
+  	Eigen::Matrix3d R1(aa1);
+  	Eigen::Matrix3d R2(aa2);
+  	Eigen::Matrix3d m;
+  	m = R1.transpose() * R2;
+  	Eigen::AngleAxisd aa(m);
+
+  	return aa.axis() * aa.angle();
 }
 Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position){
 	Eigen::VectorXd result(targetAxis.rows());
