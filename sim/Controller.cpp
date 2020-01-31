@@ -12,7 +12,7 @@ Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool r
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->sig_torque = 0.1;
+	this->sig_torque = 0.01;
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 
 	this->mRecord = record;
@@ -133,13 +133,18 @@ Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool r
 	this->mRecordWork.clear();
 
 	this->mMask.resize(dof);
-	for(int i = 0; i < dof; i++) {
-		if(i % 3 != 1) {
-			mMask[i] = 1;
-		} else {
-			mMask[i] = 0;
+	this->mMask.setZero();
+	
+	int num_body_nodes = this->mInterestedBodies.size();
+	for(int i = 0; i < num_body_nodes; i++){
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		if(mInterestedBodies[i].find("Tibia") != std::string::npos ||
+			mInterestedBodies[i].find("Femur") != std::string::npos ||
+			mInterestedBodies[i].find("Foot") != std::string::npos ) {
+			this->mMask.segment<3>(idx) = Eigen::Vector3d::Constant(1);
 		}
 	}
+
 }
 void
 Controller::
@@ -158,14 +163,14 @@ SetReference(std::string orignal_ref, std::string adaptive_ref)
 
 	if(mode.compare("b") == 0) {
 		mReferenceManager->LoadMotionFromBVH(orignal_ref);
-
+	//	mReferenceManager->EditMotion(1.5, "b");
 	} else {
 		mReferenceManager->LoadMotionFromTrainedData(adaptive_ref);
 		if(orignal_ref.compare("") != 0)
 			mReferenceManager->LoadMotionFromBVH(orignal_ref);
 	}
 
-	RescaleCharacter(std::get<0>(mRescaleParameter), std::get<1>(mRescaleParameter));
+//	RescaleCharacter(std::get<0>(mRescaleParameter), std::get<1>(mRescaleParameter));
 	
 }
 void
@@ -257,19 +262,23 @@ Step()
 		}
 
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
-		torque_sum += torque * 2.0 / mSimulationHz;
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step();
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
+			torque = torque.cwiseProduct(this->mMask);
+
 			// work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
-			work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
+			work_sum += torque.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
 
 		}
+		torque_sum += torque * 2.0 / mSimulationHz;
+
 		mTimeElapsed += 2;
 	}
+
 	// std::cout << (int) mCurrentFrame % (int) mBVH->GetMaxFrame() << " " <<  work_sum << std::endl;
 	mRecordWork.push_back(work_sum);
 // 	torque_sum /= (this->mSimPerCon  + mAdaptiveStep);
@@ -279,7 +288,7 @@ Step()
 	this->mRecordDCOM.push_back(mAdaptiveCOM);
 
 	// if(mode.compare("b") == 0) this->UpdateReward();
-	// else 
+	// else  this->UpdateAdaptiveReward();
 	this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
 
@@ -474,7 +483,9 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - 10; // mReferenceManager->GetAvgWork()*1.5;
+	std::cout << work_avg << std::endl;
+
+	double work_diff = work_avg - 20; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
@@ -497,7 +508,7 @@ UpdateAdaptiveReward()
 
 	double r_con = exp_of_squared(contact_diff, sig_con);
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
-	double r_tot = 0.5 * r_p + 0.3 * r_w + 0.2 * r_ee; 
+	double r_tot = 0.7 * r_p + 0.3 * r_w; 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -586,7 +597,20 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 
-	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
+	double work_avg = 0;
+	int count = 0;
+	int back = mRecordWork.size() - 1;
+	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+		if(back - i < 0) break;
+		work_avg += mRecordWork[back - i];
+		count++;
+	}
+	work_avg /= count;
+	double work_diff = work_avg - 50; // mReferenceManager->GetAvgWork()*1.5;
+	double r_w = exp(-pow(work_diff, 2)*sig_torque);
+
+	// double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
+	double r_tot = 0.7*r_p + 0.3*r_w;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -599,7 +623,7 @@ UpdateReward()
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(r_w);
 	}
 
 }
@@ -659,7 +683,6 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
-
 }
 bool
 Controller::
@@ -1013,6 +1036,21 @@ Controller::SaveTrainedData(std::string directory) {
 	}
 	std::cout << "saved velocity: " << mRecordVelocity.size() << ", "<<  mReferenceManager->GetPhaseLength() << ", " << mRecordVelocity[0].rows() << std::endl;
 	ofs.close();
+}
+void
+Controller::SaveStats(std::string directory) {
+	std::string path = std::string(CAR_DIR) + std::string("/") +  directory;
+	std::cout << "save results to" << path << std::endl;
+
+	std::ofstream ofs(path);
+
+	ofs << mRecordWork.size() << std::endl;
+	for(auto t: mRecordWork) {
+		ofs << t << std::endl;
+	}
+	std::cout << "saved work: " << mRecordWork.size() << std::endl;
+	ofs.close();
+
 }
 std::vector<Eigen::VectorXd>
 Controller::GetGRF() {

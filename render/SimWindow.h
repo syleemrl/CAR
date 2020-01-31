@@ -68,6 +68,8 @@ protected:
 	void MemoryClear();
 	void Save(int n);
 	
+	void SaveReferenceData(std::string path);
+
 	bool mIsRotate;
 	bool mIsAuto;
 	bool mTrackCamera;

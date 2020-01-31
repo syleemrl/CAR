@@ -46,37 +46,8 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 		this->mController = new DPhy::Controller(std::string("/motion/") + motion, "", true);
 		mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 	}
+//	mReferenceManager->EditMotion(1.5, "b");
 	this->mWorld = this->mController->GetWorld();
-
-	double w0 = 1.0, w1 = 1.0;
-	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-	deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-
-	deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-
-	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
-	deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
-
-	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
-	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
-
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef->GetSkeleton(), deform);
-	DPhy::SkeletonBuilder::DeformSkeleton(mRef2->GetSkeleton(), deform);
-
-	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
-
-	mReferenceManager->RescaleMotion(std::sqrt(w0), mode);
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
@@ -86,9 +57,11 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 
 	this->mController->Reset(false);
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
-	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
-	mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
-	mCharacter->GetSkeleton()->setPositions(p_v_target->GetPosition());
+	Eigen::VectorXd position = p_v_target->GetPosition();
+//	position.segment<6>(0).setZero();
+	mRef->GetSkeleton()->setPositions(position);
+	mRef2->GetSkeleton()->setPositions(position);
+	mCharacter->GetSkeleton()->setPositions(position);
 
 	if(this->mRunPPO)
 	{
@@ -117,7 +90,6 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->MemoryClear();
 	this->Save(this->mCurFrame);
 	this->SetFrame(this->mCurFrame);
-
 }
 void 
 SimWindow::
@@ -136,7 +108,9 @@ void
 SimWindow::
 Save(int n) {
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n, mode);
-	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
+	Eigen::VectorXd position = p_v_target->GetPosition();
+//	position.segment<6>(0).setZero();
+	mRef->GetSkeleton()->setPositions(position);
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
     this->mTotalFrame++;
@@ -148,7 +122,9 @@ Save(int n) {
     	// 	mMemoryGRF.emplace_back(this->mController->GetGRF());
 
     	// }
-    	mMemory.emplace_back(this->mController->GetPositions(n));
+    	position = this->mController->GetPositions(n);
+ //   	position.segment<6>(0).setZero();
+    	mMemory.emplace_back(position);
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
     	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n), mode);
@@ -158,9 +134,23 @@ Save(int n) {
 
     	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
 	}
+}
+void
+SimWindow::
+SaveReferenceData(std::string path) 
+{
+	std::string path_full = std::string(CAR_DIR) + std::string("/") + path  + std::string("_ref");
+	std::cout << "save results to" << path_full << std::endl;
+
+	std::ofstream ofs(path_full);
+
+	ofs << mMemoryRef.size() << std::endl;
+	for(auto t: mMemoryRef) {
+		ofs << t.transpose() << std::endl;
+	}
+	std::cout << "saved position: " << mMemoryRef.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mMemoryRef[0].rows() << std::endl;
 
 }
-
 void
 SimWindow::
 SetFrame(int n)
@@ -237,8 +227,7 @@ DrawGround()
 	else 
 		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
 
-	double ground_height = this->mCharacter->GetSkeleton()->getRootBodyNode()->getCOM()[1]-0.5;
-	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
+	GUI::DrawGround((int)com_root[0], (int)com_root[2], -1);
 }
 void
 SimWindow::
@@ -296,8 +285,10 @@ Reset()
 	this->mController->Reset(false);
 
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
-	mRef->GetSkeleton()->setPositions(p_v_target->GetPosition());
-	mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
+	Eigen::VectorXd position = p_v_target->GetPosition();
+//	position.segment<6>(0).setZero();
+	mRef->GetSkeleton()->setPositions(position);
+	mRef2->GetSkeleton()->setPositions(position);
 
 	this->mRewardTotal = 0;
 	this->mCurFrame = 0;
@@ -331,8 +322,10 @@ Keyboard(unsigned char key,int x,int y)
 		case ' ':
 			mIsAuto = !mIsAuto;
 			break;
+		case 'R': SaveReferenceData(filename); break;
 		case 'D': this->mController->SaveDisplayedData(filename); break;
 		case 'T': this->mController->SaveTrainedData(filename); break;
+		case 'S': this->mController->SaveStats(filename); break;
 		case 27: exit(0);break;
 		default : break;
 	}

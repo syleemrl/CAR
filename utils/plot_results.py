@@ -67,24 +67,24 @@ def plot_data_joint(data, directory, filename):
 def plot_data_double(data, directory, filename):
 	plt.figure(figsize=(20,10))
 	plt.plot(data, color='red')
-	plt.savefig(directory+'_'+filename+'.png') 
+	# plt.savefig(directory+'_'+filename+'.png') 
 
 def plot(filename):
 	data = open(filename)
-	if not os.path.exists('./result_'+filename):
-		os.mkdir('result_'+filename)
-	directory = './result_'+filename+'/'+filename
+	# if not os.path.exists('./result_'+filename):
+	# 	os.mkdir('result_'+filename)
+	# directory = './result_'+filename+'/'+filename
 	
-	x1, y1, z1 = read_data_joint(data)
+#	x1, y1, z1 = read_data_joint(data)
 	w = read_data_double(data)
-	x2, y2, z2 = read_data_joint(data)
+#	x2, y2, z2 = read_data_joint(data)
 	data.close()
 
 	# time_dt = [t-20 for t in time]
-	plot_data_double(w, directory, 'w')
-	plot_data_joint(x1, directory, 'tqx')
-	plot_data_joint(y1, directory, 'tqy')
-	plot_data_joint(z1, directory, 'tqz')
+	plot_data_double(w, "", 'w')
+#	plot_data_joint(x1, directory, 'tqx')
+#	plot_data_joint(y1, directory, 'tqy')
+#	plot_data_joint(z1, directory, 'tqz')
 
 	plt.show()
 

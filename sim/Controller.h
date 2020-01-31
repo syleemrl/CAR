@@ -58,6 +58,7 @@ Controller(std::string orignal_ref, std::string adaptive_ref, bool record=false,
 	void RescaleCharacter(double w0, double w1);
 	void SaveTrainedData(std::string directory);
 	void SaveDisplayedData(std::string directory);
+	void SaveStats(std::string directory);
 	void UpdateReferenceData(std::string directory);
 	void UpdateSigTorque();
 	void UpdateGRF(std::vector<std::string> joints);

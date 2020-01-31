@@ -39,6 +39,7 @@ public:
 	void LoadContactInfoFromBVHData(std::string filename);
 	void LoadMotionFromTrainedData(std::string filename);
 	void RescaleMotion(double w, std::string mode);
+	void EditMotion(double w, std::string mode);
 	Motion* GetMotion(double t, std::string mode);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }

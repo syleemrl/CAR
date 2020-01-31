@@ -435,6 +435,8 @@ Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)
 			m = aa1 * aa2;
 			Eigen::AngleAxisd vec_seg(m);
 			vec.segment<3>(i) = vec_seg.axis() * vec_seg.angle();
+		} else {
+			vec.segment<3>(i) = pos.segment<3>(i);
 		}
 	}
 	return vec;

@@ -60,16 +60,18 @@ std::pair<bool, bool> ReferenceManager::CalculateContactInfo(Eigen::VectorXd p, 
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
 {
-	auto vec = mMotions.find("b")->second;
-	for(int i = 0; i < vec.size(); i++) {
-		delete vec.back();
-		vec.pop_back();
+	int vec_size = mMotions.find("b")->second.size();
+	for(int i = 0; i < vec_size; i++) {
+		delete mMotions.find("b")->second.back();
+		mMotions.find("b")->second.pop_back();
 	}
-	vec = mMotions_phase.find("b")->second;
-	for(int i = 0; i < vec.size(); i++) {
-		delete vec.back();
-		vec.pop_back();
+
+	vec_size = mMotions_phase.find("b")->second.size();
+	for(int i = 0; i < vec_size; i++) {
+		delete mMotions_phase.find("b")->second.back();
+		mMotions_phase.find("b")->second.pop_back();
 	}
+
 
 	this->mCharacter->LoadBVHMap();
 
@@ -174,16 +176,18 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 }
 void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 {
-	auto vec = mMotions.find("t")->second;
-	for(int i = 0; i < vec.size(); i++) {
-		delete vec.back();
-		vec.pop_back();
+	int vec_size = mMotions.find("t")->second.size();
+	for(int i = 0; i < vec_size; i++) {
+		delete mMotions.find("t")->second.back();
+		mMotions.find("t")->second.pop_back();
 	}
-	vec = mMotions_phase.find("t")->second;
-	for(int i = 0; i < vec.size(); i++) {
-		delete vec.back();
-		vec.pop_back();
+
+	vec_size = mMotions_phase.find("t")->second.size();
+	for(int i = 0; i < vec_size; i++) {
+		delete mMotions_phase.find("t")->second.back();
+		mMotions_phase.find("t")->second.pop_back();
 	}
+
 	mTorques_phase.clear();
 	mWorks_phase.clear();
 
@@ -299,6 +303,46 @@ void ReferenceManager::RescaleMotion(double w, std::string mode)
 		}
 
 	}
+}
+void ReferenceManager::EditMotion(double w, std::string mode)
+{
+	auto& skel = mCharacter->GetSkeleton();
+	int dof = mCharacter->GetSkeleton()->getPositions().rows();
+
+	skel->setPositions((mMotions_phase.find(mode)->second)[0]->GetPosition());
+	skel->setVelocities((mMotions_phase.find(mode)->second)[0]->GetVelocity());
+	skel->computeForwardKinematics(true,true,false);
+ 	std::vector<Motion*> result;
+	for(int i = 0; i < mPhaseLength; i++)
+	{
+		if(i != 0) {
+			Eigen::VectorXd p(dof);
+			Eigen::VectorXd v = (mMotions_phase.find(mode)->second)[i]->GetVelocity() * 0.033 * w;
+			p = DPhy::RotatePosition(result[i-1]->GetPosition(), v);
+			p.segment<3>(3) = (mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(3);
+			result.push_back(new Motion(p, v));
+		} else {
+			result.push_back(new Motion((mMotions_phase.find(mode)->second)[i]));
+		}
+	}
+
+	int vec_size = mMotions.find(mode)->second.size();
+	for(int i = 0; i < vec_size; i++) {
+		delete mMotions.find(mode)->second.back();
+		mMotions.find(mode)->second.pop_back();
+	}
+
+	vec_size = mMotions_phase.find(mode)->second.size();
+	for(int i = 0; i < vec_size; i++) {
+		delete mMotions_phase.find(mode)->second.back();
+		mMotions_phase.find(mode)->second.pop_back();
+	}
+
+	for(int i = 0; i < mPhaseLength; i++)
+	{
+		mMotions_phase.find(mode)->second.push_back(result[i]);
+	}
+
 }
 Motion* ReferenceManager::GetMotion(double t, std::string mode)
 {
