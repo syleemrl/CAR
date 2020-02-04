@@ -15,7 +15,8 @@ using namespace dart::dynamics;
 SimWindow::
 SimWindow(std::string motion, std::string network, std::string mode, std::string filename)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
-	mDrawOutput(true), mDrawRef(true), mDrawRef2(true), mRunPPO(true), mTimeStep(1 / 30.0)
+	mDrawOutput(true), mDrawRef(true), mDrawRef2(true), mRunPPO(true), mTimeStep(1 / 30.0),
+	mWrap(false)
 {
 	if(network.compare("") == 0) {
 		this->mDrawOutput = false;
@@ -58,7 +59,10 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mController->Reset(false);
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
 	Eigen::VectorXd position = p_v_target->GetPosition();
-//	position.segment<6>(0).setZero();
+	if(mWrap) {
+		position.segment<6>(0).setZero();
+		position[4] = 1.0;
+	}	
 	mRef->GetSkeleton()->setPositions(position);
 	mRef2->GetSkeleton()->setPositions(position);
 	mCharacter->GetSkeleton()->setPositions(position);
@@ -109,7 +113,10 @@ SimWindow::
 Save(int n) {
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n, mode);
 	Eigen::VectorXd position = p_v_target->GetPosition();
-//	position.segment<6>(0).setZero();
+	if(mWrap) {
+		position.segment<6>(0).setZero();
+		position[4] = 1.0;
+	}
 	mRef->GetSkeleton()->setPositions(position);
     mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
@@ -123,8 +130,11 @@ Save(int n) {
 
     	// }
     	position = this->mController->GetPositions(n);
- //   	position.segment<6>(0).setZero();
-    	mMemory.emplace_back(position);
+		if(mWrap) {
+			position.segment<6>(0).setZero();
+			position[4] = 1.0;
+		}		    	
+		mMemory.emplace_back(position);
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
     	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n), mode);
@@ -227,7 +237,7 @@ DrawGround()
 	else 
 		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
 
-	GUI::DrawGround((int)com_root[0], (int)com_root[2], -1);
+	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
 void
 SimWindow::
@@ -286,7 +296,10 @@ Reset()
 
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
 	Eigen::VectorXd position = p_v_target->GetPosition();
-//	position.segment<6>(0).setZero();
+	if(mWrap) {
+		position.segment<6>(0).setZero();
+		position[4] = 1.0;
+	}	
 	mRef->GetSkeleton()->setPositions(position);
 	mRef2->GetSkeleton()->setPositions(position);
 
@@ -315,6 +328,7 @@ Keyboard(unsigned char key,int x,int y)
 		case 'p': this->mCurFrame+=99; this->NextFrame();break;
 		case 's': std::cout << this->mCurFrame << std::endl;break;
 		case 'r': Reset();break;
+		case 'w': mWrap = !mWrap; break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
 		case '3': if(this->mRunPPO) mDrawRef2 = !mDrawRef2;break;
 		case '2': mDrawRef = !mDrawRef;break;

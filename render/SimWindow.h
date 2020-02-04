@@ -76,7 +76,8 @@ protected:
 	bool mDrawRef, mDrawRef2;
 	bool mDrawOutput;
 	bool mRunPPO;
-
+	bool mWrap;
+	
 	double mTimeStep;
 	int mCurFrame;
 	int mTotalFrame;

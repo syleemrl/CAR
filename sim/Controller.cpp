@@ -278,7 +278,7 @@ Step()
 
 		mTimeElapsed += 2;
 	}
-
+	std::cout << mCurrentFrame << " " << work_sum << std::endl;
 	// std::cout << (int) mCurrentFrame % (int) mBVH->GetMaxFrame() << " " <<  work_sum << std::endl;
 	mRecordWork.push_back(work_sum);
 // 	torque_sum /= (this->mSimPerCon  + mAdaptiveStep);
@@ -291,7 +291,7 @@ Step()
 	// else  this->UpdateAdaptiveReward();
 	this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
-
+	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	// this->UpdateGRF(mGRFJoints);
 
 }
@@ -326,27 +326,29 @@ UpdateAdaptiveReward()
 	Eigen::VectorXd aa = skel->getPositionDifferences(targetPositions, prevTargetPositions); 
 	aa *= 2.0;
 	Eigen::VectorXd targetPositionsExtended = DPhy::RotatePosition(prevTargetPositions, aa);
-	Eigen::VectorXd p = skel->getPositions();
-	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, targetPositions, p);
+	Eigen::VectorXd p =  skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
+	Eigen::VectorXd zero(p.rows());
+	zero.setZero();
+	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, zero, p);
 	Eigen::VectorXd p_diff_axis = skel->getPositionDifferences(p, nearest);
-	Eigen::VectorXd nearest_aa = skel->getPositionDifferences(nearest, prevTargetPositions);
+//	Eigen::VectorXd nearest_aa = skel->getPositionDifferences(nearest, prevTargetPositions);
 
-	for(int i = 0; i < p.rows(); i += 3) {
-		if(i != 3) {
-			double sign = aa.segment<3>(i).normalized().dot(nearest_aa.segment<3>(i).normalized());
-			double range = aa.segment<3>(i).norm();
-			double x;
-			if(sign > 0) x = nearest_aa.segment<3>(i).norm();
-			else x = 2 * M_PI - nearest_aa.segment<3>(i).norm();
-			if(x > range) {
-				Eigen::VectorXd p_joint = p.segment<3>(i);
-				Eigen::VectorXd p1 = DPhy::JointPositionDifferences(p_joint, targetPositionsExtended.segment<3>(i));
-				Eigen::VectorXd p2 = DPhy::JointPositionDifferences(p_joint, prevTargetPositions.segment<3>(i));
-				if(p1.norm() > p2.norm()) p_diff_axis.segment<3>(i) = p2;
-				else p_diff_axis.segment<3>(i) = p1;
-			}
-		}
-	}
+	// for(int i = 0; i < p.rows(); i += 3) {
+	// 	if(i != 3) {
+	// 		double sign = aa.segment<3>(i).normalized().dot(nearest_aa.segment<3>(i).normalized());
+	// 		double range = aa.segment<3>(i).norm();
+	// 		double x;
+	// 		if(sign > 0) x = nearest_aa.segment<3>(i).norm();
+	// 		else x = 2 * M_PI - nearest_aa.segment<3>(i).norm();
+	// 		if(x > range) {
+	// 			Eigen::VectorXd p_joint = p.segment<3>(i);
+	// 			Eigen::VectorXd p1 = DPhy::JointPositionDifferences(p_joint, targetPositionsExtended.segment<3>(i));
+	// 			Eigen::VectorXd p2 = DPhy::JointPositionDifferences(p_joint, prevTargetPositions.segment<3>(i));
+	// 			if(p1.norm() > p2.norm()) p_diff_axis.segment<3>(i) = p2;
+	// 			else p_diff_axis.segment<3>(i) = p1;
+	// 		}
+	// 	}
+	// }
 
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(targetPositions, skel->getPositions());
 	Eigen::VectorXd v_diff = skel->getVelocityDifferences(targetVelocities, skel->getVelocities());
@@ -368,20 +370,20 @@ UpdateAdaptiveReward()
 		}
 	}
 
-	// if(mCurrentFrame > 45 && mCurrentFrame < 65) {
-	// 	std::cout << mCurrentFrame << std::endl;
-	// 	for(int i = 0; i < num_reward_body_nodes; i++){
-	// 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-	// 		if (mRewardBodies[i].find("Tibia") != std::string::npos || mRewardBodies[i].find("Femur") != std::string::npos) {
-	// 			std::cout << mRewardBodies[i] << std::endl;
-	// 			std::cout << "current position: " << p.segment<3>(idx).transpose() << std::endl;
-	// 			std::cout << "target position: " << targetPositions.segment<3>(idx).transpose() << std::endl;
-	// 			std::cout << "new target axis & norm : " << aa.segment<3>(idx).normalized().transpose() << " " << aa.segment<3>(idx).norm() << std::endl;
-	// 			std::cout << "old reward: " << p_diff.segment<3>(idx).transpose() << std::endl;
-	// 			std::cout << "new reward: " << p_diff_axis.segment<3>(idx).transpose() << std::endl;
-	// 		} 
-	// 	}
-	// }
+	if(mCurrentFrame > 30 && mCurrentFrame < 40) {
+		std::cout << mCurrentFrame << std::endl;
+		for(int i = 0; i < num_reward_body_nodes; i++){
+			int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+			if (mRewardBodies[i].find("Tibia") != std::string::npos || mRewardBodies[i].find("Femur") != std::string::npos) {
+				std::cout << mRewardBodies[i] << std::endl;
+				std::cout << "current position: " << p.segment<3>(idx).transpose() << std::endl;
+				std::cout << "target position: " << targetPositions.segment<3>(idx).transpose() << std::endl;
+				std::cout << "new target axis & norm : " << aa.segment<3>(idx).normalized().transpose() << " " << aa.segment<3>(idx).norm() << std::endl;
+				std::cout << "old reward: " << p_diff.segment<3>(idx).transpose() << std::endl;
+				std::cout << "new reward: " << p_diff_axis.segment<3>(idx).transpose() << std::endl;
+			} 
+		}
+	}
 	//End-effector position and COM Differences
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	Eigen::VectorXd p_save = skel->getPositions();
@@ -483,9 +485,8 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	std::cout << work_avg << std::endl;
 
-	double work_diff = work_avg - 20; // mReferenceManager->GetAvgWork()*1.5;
+	double work_diff = work_avg - 50; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
@@ -806,6 +807,7 @@ Reset(bool RSI)
 	}
 	mRecordEnergy.push_back(energy);
 	this->mRecordTime.push_back(0);
+	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 
 }
 int
