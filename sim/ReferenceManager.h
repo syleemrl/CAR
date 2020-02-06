@@ -36,6 +36,7 @@ class ReferenceManager
 public:
 	ReferenceManager(Character* character=nullptr);
 	void LoadMotionFromBVH(std::string filename);
+	void LoadWorkFromStats(std::string filename);
 	void LoadContactInfoFromBVHData(std::string filename);
 	void LoadMotionFromTrainedData(std::string filename);
 	void RescaleMotion(double w, std::string mode);

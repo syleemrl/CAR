@@ -19,7 +19,7 @@ class Character;
 class Controller
 {
 public:
-Controller(std::string orignal_ref, std::string adaptive_ref, bool record=false, std::string mode="b");
+Controller(std::string ref, std::string stats, bool record=false, std::string mode="b");
 
 	void Step();
 	void UpdateReward();
@@ -144,7 +144,6 @@ protected:
 	std::vector<std::vector<Eigen::VectorXd>> GRFs;
 	std::shared_ptr<dart::collision::DARTCollisionDetector> mGroundCollisionChecker;	
 
-	std::vector<Eigen::VectorXd> mTargetTorques;
 	Eigen::VectorXd mTorqueMean;
 	Eigen::VectorXd mTorqueMin;
 	Eigen::VectorXd mTorqueMax;

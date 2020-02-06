@@ -7,7 +7,7 @@
 namespace DPhy
 {	
 
-Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool record, std::string mode)
+Controller::Controller(std::string ref, std::string stats, bool record, std::string mode)
 	:mTimeElapsed(0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
@@ -31,7 +31,7 @@ Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool r
 	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	this->SetReference(orignal_ref, adaptive_ref);
+	this->SetReference(ref, stats);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -156,20 +156,14 @@ UpdateSigTorque()
 }
 void 
 Controller::
-SetReference(std::string orignal_ref, std::string adaptive_ref) 
+SetReference(std::string ref, std::string stats) 
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 	this->mRefCharacter = new DPhy::Character(path);
 	mReferenceManager = new ReferenceManager(this->mRefCharacter);
 
-	if(mode.compare("b") == 0) {
-		mReferenceManager->LoadMotionFromBVH(orignal_ref);
-	//	mReferenceManager->EditMotion(1.5, "b");
-	} else {
-		mReferenceManager->LoadMotionFromTrainedData(adaptive_ref);
-		if(orignal_ref.compare("") != 0)
-			mReferenceManager->LoadMotionFromBVH(orignal_ref);
-	}
+	mReferenceManager->LoadMotionFromBVH(ref);
+	if(stats.compare("") != 0) mReferenceManager->LoadWorkFromStats(stats);
 
 //	RescaleCharacter(std::get<0>(mRescaleParameter), std::get<1>(mRescaleParameter));
 	
@@ -476,18 +470,19 @@ UpdateAdaptiveReward()
 	}
 
 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
-
-	double work_avg = 0;
-	int count = 0;
-	int back = mRecordWork.size() - 1;
-	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-		if(back - i < 0) break;
-		work_avg += mRecordWork[back - i];
-		count++;
+	
+	double work_cur = 0;
+	int back_idx = mRecordWork.size() - 1;
+	int phase = (int) mCurrentFrame % mReferenceManager->GetPhaseLength();
+	if(back_idx == 0) {
+		work_cur = mRecordWork[back_idx];
+	} else if(back_idx == 1) {
+		work_cur = (mRecordWork[back_idx] + 2 * mRecordWork[back_idx - 1]) / 3.0;
+	} else {
+		work_cur = (mRecordWork[back_idx] + mRecordWork[back_idx - 1] + mRecordWork[back_idx - 2]) / 3.0;
 	}
-	work_avg /= count;
-	std::cout << work_avg << std::endl;
-	double work_diff = work_avg - 50; // mReferenceManager->GetAvgWork()*1.5;
+	double work_diff = work_cur - mReferenceManager->GetWork(phase) * 1.5;
+	
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
@@ -599,16 +594,18 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 
-	double work_avg = 0;
-	int count = 0;
-	int back = mRecordWork.size() - 1;
-	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-		if(back - i < 0) break;
-		work_avg += mRecordWork[back - i];
-		count++;
+	double work_cur = 0;
+	int back_idx = mRecordWork.size() - 1;
+	int phase = (int) mCurrentFrame % mReferenceManager->GetPhaseLength();
+	if(back_idx == 0) {
+		work_cur = mRecordWork[back_idx];
+	} else if(back_idx == 1) {
+		work_cur = (mRecordWork[back_idx] + 2 * mRecordWork[back_idx - 1]) / 3.0;
+	} else {
+		work_cur = (mRecordWork[back_idx] + mRecordWork[back_idx - 1] + mRecordWork[back_idx - 2]) / 3.0;
 	}
-	work_avg /= count;
-	double work_diff = work_avg - 50; // mReferenceManager->GetAvgWork()*1.5;
+
+	double work_diff = work_cur - mReferenceManager->GetWork(phase) * 1.5;
 	double r_w = exp(-pow(work_diff, 2)*sig_torque);
 
 	// double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
@@ -1050,12 +1047,12 @@ Controller::SaveStats(std::string directory) {
 	ofs << mRecordWork.size() << std::endl;
 	for(int i = 0; i < mRecordWork.size(); i++) {
 		if(i == 0) {
-			ofs << (mRecordWork[i]*2 + mRecordWork[i+1]) / 3.0 << std::endl;
-		} else if ( i == mRecordWork.size() - 1) {
-			ofs << (mRecordWork[i-1] + mRecordWork[i] + mRecordWork[i+1]) / 3.0 << std::endl;
+			ofs << mRecordWork[i] << std::endl;
+		} else if (i == 1) {
+			ofs << (2 * mRecordWork[i-1] + mRecordWork[i]) / 3.0 << std::endl;
 
 		} else {
-			ofs << (mRecordWork[i]*2 + mRecordWork[i-1]) / 3.0 << std::endl;
+			ofs << (mRecordWork[i] + mRecordWork[i-1] + mRecordWork[i-2]) / 3.0 << std::endl;
 		}
 	}
 	for(auto t: mRecordWork) {

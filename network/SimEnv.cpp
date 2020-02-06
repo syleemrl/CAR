@@ -5,7 +5,7 @@
 #include <iostream>
 
 SimEnv::
-SimEnv(int num_slaves, std::string original_ref, std::string adaptive_ref, std::string mode)
+SimEnv(int num_slaves, std::string ref, std::string stats, std::string mode)
 	:mNumSlaves(num_slaves)
 {
 	dart::math::seedRand();
@@ -13,9 +13,9 @@ SimEnv(int num_slaves, std::string original_ref, std::string adaptive_ref, std::
 	for(int i =0;i<num_slaves;i++)
 	{
 		if(mode.compare("adaptive") == 0) {
-			mSlaves.push_back(new DPhy::Controller(original_ref, adaptive_ref, true, "t"));
+			mSlaves.push_back(new DPhy::Controller(ref, stats, true, "t"));
 		}
-		else mSlaves.push_back(new DPhy::Controller(original_ref, adaptive_ref));
+		else mSlaves.push_back(new DPhy::Controller(ref, stats));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();

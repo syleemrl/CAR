@@ -8,11 +8,9 @@ from utils import RunningMeanStd
 from IPython import embed
 
 class Monitor(object):
-	def __init__(self, original_ref, adaptive_ref, num_slaves, directory, mode, load=False, plot=True, verbose=True):
-		self.env = Env(original_ref, adaptive_ref, mode, num_slaves)
+	def __init__(self, ref, stats, num_slaves, directory, mode, load=False, plot=True, verbose=True):
+		self.env = Env(ref, stats, mode, num_slaves)
 		self.num_slaves = self.env.num_slaves
-		self.original_ref = original_ref
-		self.adaptive_ref = adaptive_ref
 		self.sim_env = self.env.sim_env
 		
 		self.num_state = self.env.num_state

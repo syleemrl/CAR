@@ -174,6 +174,27 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	delete bvh;
 
 }
+void ReferenceManager::LoadWorkFromStats(std::string filename) 
+{
+	mWorks_phase.clear();
+	std::string path = std::string(CAR_DIR) + filename;
+	std::ifstream is(path);
+	char buffer[256];
+	is >> buffer;
+	int length = atoi(buffer);
+	int nphase = length / mPhaseLength;
+	for(int i = 0; i < nphase * mPhaseLength; i++) {
+		int phase = i % mPhaseLength;
+		is >> buffer;
+		double w = atof(buffer);
+		if(i < mPhaseLength) {
+			mWorks_phase.push_back(w / nphase);
+		}
+		else mWorks_phase[phase] += w / nphase;
+	}
+	is.close();
+	std::cout << "load work from: " << path << std::endl;
+}
 void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
 {
 	int vec_size = mMotions.find("t")->second.size();

@@ -103,8 +103,6 @@ class PPO(object):
 		print_list = []
 		print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 		print_list.append("test_name : {}".format(self.name))
-		print_list.append("original_ref : {}".format(self.env.original_ref))
-		print_list.append("adaptive_ref : {}".format(self.env.adaptive_ref))
 		print_list.append("num_slaves : {}".format(self.num_slaves))
 		print_list.append("num state : {}".format(self.num_state))
 		print_list.append("num action : {}".format(self.num_action))
@@ -337,8 +335,8 @@ class PPO(object):
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--ntimesteps", type=int, default=1000000)
-	parser.add_argument("--adaptive_ref", type=str, default=None)
-	parser.add_argument("--original_ref", type=str, default=None)
+	parser.add_argument("--ref", type=str, default="")
+	parser.add_argument("--stats", type=str, default="")
 	parser.add_argument("--test_name", type=str, default="")
 	parser.add_argument("--pretrain", type=str, default="")
 	parser.add_argument("--evaluation", type=bool, default=False)
@@ -359,9 +357,9 @@ if __name__=="__main__":
 			os.mkdir(directory)
 	
 	if args.pretrain != "":
-		env = Monitor(original_ref=args.original_ref, adaptive_ref=args.adaptive_ref, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, mode=args.mode)
+		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, mode=args.mode)
 	else:
-		env = Monitor(original_ref=args.original_ref, adaptive_ref=args.adaptive_ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, mode=args.mode)
+		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, mode=args.mode)
 	ppo = PPO()
 	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, mode=args.mode)
 	ppo.train(args.ntimesteps)
