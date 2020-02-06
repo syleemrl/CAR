@@ -141,6 +141,7 @@ Controller::Controller(std::string orignal_ref, std::string adaptive_ref, bool r
 		if(mInterestedBodies[i].find("Tibia") != std::string::npos ||
 			mInterestedBodies[i].find("Femur") != std::string::npos ||
 			mInterestedBodies[i].find("Foot") != std::string::npos ) {
+			// this->mMask[idx] = 1;
 			this->mMask.segment<3>(idx) = Eigen::Vector3d::Constant(1);
 		}
 	}
@@ -268,17 +269,17 @@ Step()
 			mWorld->step();
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
-			torque = torque.cwiseProduct(this->mMask);
+			Eigen::VectorXd torque_masked = torque.cwiseProduct(this->mMask);
 
 			// work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
-			work_sum += torque.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
+			work_sum += torque_masked.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
 
 		}
 		torque_sum += torque * 2.0 / mSimulationHz;
 
 		mTimeElapsed += 2;
 	}
-	std::cout << mCurrentFrame << " " << work_sum << std::endl;
+//	std::cout << mCurrentFrame << " " << work_sum << std::endl;
 	// std::cout << (int) mCurrentFrame % (int) mBVH->GetMaxFrame() << " " <<  work_sum << std::endl;
 	mRecordWork.push_back(work_sum);
 // 	torque_sum /= (this->mSimPerCon  + mAdaptiveStep);
@@ -370,20 +371,20 @@ UpdateAdaptiveReward()
 		}
 	}
 
-	if(mCurrentFrame > 30 && mCurrentFrame < 40) {
-		std::cout << mCurrentFrame << std::endl;
-		for(int i = 0; i < num_reward_body_nodes; i++){
-			int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-			if (mRewardBodies[i].find("Tibia") != std::string::npos || mRewardBodies[i].find("Femur") != std::string::npos) {
-				std::cout << mRewardBodies[i] << std::endl;
-				std::cout << "current position: " << p.segment<3>(idx).transpose() << std::endl;
-				std::cout << "target position: " << targetPositions.segment<3>(idx).transpose() << std::endl;
-				std::cout << "new target axis & norm : " << aa.segment<3>(idx).normalized().transpose() << " " << aa.segment<3>(idx).norm() << std::endl;
-				std::cout << "old reward: " << p_diff.segment<3>(idx).transpose() << std::endl;
-				std::cout << "new reward: " << p_diff_axis.segment<3>(idx).transpose() << std::endl;
-			} 
-		}
-	}
+	// if(mCurrentFrame > 30 && mCurrentFrame < 40) {
+	// 	std::cout << mCurrentFrame << std::endl;
+	// 	for(int i = 0; i < num_reward_body_nodes; i++){
+	// 		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+	// 		if (mRewardBodies[i].find("Tibia") != std::string::npos || mRewardBodies[i].find("Femur") != std::string::npos) {
+	// 			std::cout << mRewardBodies[i] << std::endl;
+	// 			std::cout << "current position: " << p.segment<3>(idx).transpose() << std::endl;
+	// 			std::cout << "target position: " << targetPositions.segment<3>(idx).transpose() << std::endl;
+	// 			std::cout << "new target axis & norm : " << aa.segment<3>(idx).normalized().transpose() << " " << aa.segment<3>(idx).norm() << std::endl;
+	// 			std::cout << "old reward: " << p_diff.segment<3>(idx).transpose() << std::endl;
+	// 			std::cout << "new reward: " << p_diff_axis.segment<3>(idx).transpose() << std::endl;
+	// 		} 
+	// 	}
+	// }
 	//End-effector position and COM Differences
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	Eigen::VectorXd p_save = skel->getPositions();
@@ -485,7 +486,7 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-
+	std::cout << work_avg << std::endl;
 	double work_diff = work_avg - 50; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
@@ -509,7 +510,7 @@ UpdateAdaptiveReward()
 
 	double r_con = exp_of_squared(contact_diff, sig_con);
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
-	double r_tot = 0.7 * r_p + 0.3 * r_w; 
+	double r_tot = 0.7 * r_p  + 0.3 * r_w; 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -1047,6 +1048,16 @@ Controller::SaveStats(std::string directory) {
 	std::ofstream ofs(path);
 
 	ofs << mRecordWork.size() << std::endl;
+	for(int i = 0; i < mRecordWork.size(); i++) {
+		if(i == 0) {
+			ofs << (mRecordWork[i]*2 + mRecordWork[i+1]) / 3.0 << std::endl;
+		} else if ( i == mRecordWork.size() - 1) {
+			ofs << (mRecordWork[i-1] + mRecordWork[i] + mRecordWork[i+1]) / 3.0 << std::endl;
+
+		} else {
+			ofs << (mRecordWork[i]*2 + mRecordWork[i-1]) / 3.0 << std::endl;
+		}
+	}
 	for(auto t: mRecordWork) {
 		ofs << t << std::endl;
 	}
