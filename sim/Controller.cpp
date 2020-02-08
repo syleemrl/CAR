@@ -604,22 +604,7 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 
-	double work_cur = 0;
-	int back_idx = mRecordWork.size() - 1;
-	int phase = (int) mCurrentFrame % mReferenceManager->GetPhaseLength();
-	if(back_idx == 0) {
-		work_cur = mRecordWork[back_idx];
-	} else if(back_idx == 1) {
-		work_cur = (mRecordWork[back_idx] + 2 * mRecordWork[back_idx - 1]) / 3.0;
-	} else {
-		work_cur = (mRecordWork[back_idx] + mRecordWork[back_idx - 1] + mRecordWork[back_idx - 2]) / 3.0;
-	}
-
-	double work_diff = work_cur - mReferenceManager->GetWork(phase) * 1.5;
-	double r_w = exp(-pow(work_diff, 2)*sig_torque);
-
-	// double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-	double r_tot = 0.7*r_p + 0.3*r_w;
+	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
