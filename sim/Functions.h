@@ -46,7 +46,8 @@ std::vector<dart::dynamics::BodyNode*> GetChildren(const dart::dynamics::Skeleto
 Eigen::Quaterniond DARTPositionToQuaternion(Eigen::Vector3d in);
 Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in);
 void QuaternionNormalize(Eigen::Quaterniond& in);
-Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight);
+Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight, bool blend_rootpos=true);
+Eigen::Vector3d NearestOnGeodesicCurve3d(Eigen::Vector3d targetAxis, Eigen::Vector3d targetPosition, Eigen::Vector3d position);
 Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position);
 Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot);
 Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1);

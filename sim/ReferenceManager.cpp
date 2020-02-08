@@ -9,7 +9,7 @@ namespace DPhy
 ReferenceManager::ReferenceManager(Character* character)
 {
 	mCharacter = character;
-	mBlendingInterval = 5;
+	mBlendingInterval = 2;
 	
 	mMotions.insert(std::make_pair("t", std::vector<Motion*>()));
 	mMotions.insert(std::make_pair("b", std::vector<Motion*>()));
@@ -85,7 +85,8 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	for(const auto ss :bvhMap){
 		bvh->AddMapping(ss.first,ss.second);
 	}
-	for(double t = 0; t < bvh->GetMaxTime(); t+=bvh->GetTimeStep())
+	double t = 0;
+	for(int i = 0; i < bvh->GetMaxFrame(); i++)
 	{
 		int dof = skel->getPositions().rows();
 		Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
@@ -166,6 +167,8 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 		}
 
 		mMotions_phase.find("b")->second.push_back(new Motion(p, v));
+		t += bvh->GetTimeStep();
+
 	}
 
 	mPhaseLength = mMotions_phase.find("b")->second.size();
@@ -396,6 +399,8 @@ Motion* ReferenceManager::GetMotion(double t, std::string mode)
 		Eigen::AngleAxisd root_next_ori(root_next.segment<3>(0).norm(), root_next.segment<3>(0).normalized());
 		Eigen::AngleAxisd root_prev_ori(root_prev.segment<3>(0).norm(), root_prev.segment<3>(0).normalized());
 		Eigen::Matrix3d root_dori;
+		Eigen::Matrix3d root_ori_prev;
+		root_ori_prev = root_prev_ori;
 		root_dori = root_next_ori.inverse() * root_prev_ori;
 		root_dori = DPhy::projectToXZ(root_dori);
 		std::vector<Eigen::VectorXd> positions;
@@ -410,12 +415,11 @@ Motion* ReferenceManager::GetMotion(double t, std::string mode)
 			Eigen::AngleAxisd cur_ori((mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(0).norm(), (mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(0).normalized());
 			Eigen::Matrix3d dori;
 	//			cur_ori = root_next_ori.inverse() * cur_ori;
-			dori = root_dori * cur_ori;
+			dori = cur_ori * root_dori;
 			Eigen::Quaterniond dori_q(dori);
 
 			position_next.segment<3>(3) = dpos;
 			position_next.segment<3>(0) = DPhy::QuaternionToDARTPosition(dori_q);
-
 			positions.push_back(position_next);
 			(mMotions.find(mode)->second).push_back(new Motion(positions[i], (mMotions_phase.find(mode)->second)[i]->GetVelocity()));
 

@@ -406,16 +406,17 @@ Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in){
 	return angle*aa.axis();
 }
 
-Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight) {
+Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight, bool blend_rootpos) {
 
 	for(int i = 0; i < v_target.size(); i += 3) {
 		if (i == 3) {
-			v_target.segment<3>(i) = weight * v_target.segment<3>(i) + (1-weight) * v_source.segment<3>(i); 
+			if(blend_rootpos)	v_target.segment<3>(i) = weight * v_target.segment<3>(i) + (1-weight) * v_source.segment<3>(i); 
+			else v_target[4] = (1-weight) * v_target[4] + weight * v_source[4]; 
 		}
 		else {
 			Eigen::AngleAxisd v1_aa(v_target.segment<3>(i).norm(), v_target.segment<3>(i).normalized());
 			Eigen::AngleAxisd v2_aa(v_source.segment<3>(i).norm(), v_source.segment<3>(i).normalized());
-				
+					
 			Eigen::Quaterniond v1_q(v1_aa);
 			Eigen::Quaterniond v2_q(v2_aa);
 
@@ -453,37 +454,38 @@ Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1)
 
   	return aa.axis() * aa.angle();
 }
+Eigen::Vector3d NearestOnGeodesicCurve3d(Eigen::Vector3d targetAxis, Eigen::Vector3d targetPosition, Eigen::Vector3d position) {
+	Eigen::Quaterniond v1_q = DARTPositionToQuaternion(position);
+	Eigen::Quaterniond q = DARTPositionToQuaternion(targetPosition);
+	Eigen::Vector3d axis = targetAxis.normalized();
+	double ws = v1_q.w();
+	Eigen::Vector3d vs = v1_q.vec();
+	double w0 = q.w();
+	Eigen::Vector3d v0 = q.vec();
+
+	double a = ws*w0 + vs.dot(v0);
+	double b = w0*(axis.dot(vs)) - ws*(axis.dot(v0)) + vs.dot(axis.cross(v0));
+
+	double alpha = atan2( a,b );
+
+	double t1 = -2*alpha + M_PI;
+	Eigen::Quaterniond t1_q(Eigen::AngleAxisd(t1, axis));
+	double t2 = -2*alpha - M_PI;
+	Eigen::Quaterniond t2_q(Eigen::AngleAxisd(t2, axis));
+
+	if (v1_q.dot(t1_q) > v1_q.dot(t2_q))
+	{	
+		return QuaternionToDARTPosition(t1_q);
+	} else {
+		return QuaternionToDARTPosition(t2_q);
+	}
+}
 Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position){
 	Eigen::VectorXd result(targetAxis.rows());
 	result.setZero();
 	for(int i = 0; i < targetAxis.size(); i += 3) {
 		if (i!= 3) {
-				
-			Eigen::Quaterniond v1_q = DARTPositionToQuaternion(position.segment<3>(i));
-			Eigen::Quaterniond q = DARTPositionToQuaternion(targetPosition.segment<3>(i));
-			Eigen::Vector3d axis = targetAxis.segment<3>(i).normalized();
-
-			double ws = v1_q.w();
-			Eigen::Vector3d vs = v1_q.vec();
-			double w0 = q.w();
-			Eigen::Vector3d v0 = q.vec();
-
-			double a = ws*w0 + vs.dot(v0);
-			double b = w0*(axis.dot(vs)) - ws*(axis.dot(v0)) + vs.dot(axis.cross(v0));
-
-			double alpha = atan2( a,b );
-
-			double t1 = -2*alpha + M_PI;
-			Eigen::Quaterniond t1_q = DARTPositionToQuaternion( t1 * axis/2.0 ) * q;
-			double t2 = -2*alpha - M_PI;
-			Eigen::Quaterniond t2_q = DARTPositionToQuaternion( t2 * axis/2.0 ) * q;
-
-			if (v1_q.dot(t1_q) > v1_q.dot(t2_q))
-			{	
-				result.segment<3>(i) = QuaternionToDARTPosition(t1_q);
-			} else {
-				result.segment<3>(i) = QuaternionToDARTPosition(t2_q);
-			}
+			result.segment<3>(i) = NearestOnGeodesicCurve3d(targetAxis.segment<3>(i), targetPosition.segment<3>(i), position.segment<3>(i));
 		}
 	}
 	return result;
@@ -804,46 +806,13 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 }
 
 Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m) {
-    double siny = -m(0,2);
-    double cosy = sqrt( 1.0f - siny*siny );
+	Eigen::AngleAxisd m_v;
+	m_v = m;
+	Eigen::Vector3d nearest = DPhy::NearestOnGeodesicCurve3d(Eigen::Vector3d(0, 1, 0), Eigen::Vector3d(0, 0, 0), m_v.axis() * m_v.angle());
+	Eigen::AngleAxisd nearest_aa(nearest.norm(), nearest.normalized());
+	Eigen::Matrix3d result;
+	result = nearest_aa;
+	return result;
 
-    double sinx;
-    double cosx;
-
-    double sinz;
-    double cosz;
-
-    if ( cosy>1.0e-4 )
-    {
-        sinx = m(2,1) / cosy;
-        cosx = m(2,2) / cosy;
-
-        sinz = m(1,0) / cosy;
-        cosz = m(0,0) / cosy;
-    }
-    else
-    {
-        sinx = - m(1,2);
-        cosx =   m(1,1);
-
-        sinz = 0.0;
-        cosz = 1.0;
-    }
-
-    double x = atan2( sinx, cosx );
-    double y = atan2( siny, cosy );
-    double z = atan2( sinz, cosz );
-
-    m(0, 0) = cos(y);
-    m(0, 1) = 0;
-    m(0, 2) = sin(y);
-    m(1, 0) = 0;
-    m(1, 1) = 1;
-    m(1, 2) = 0;
-    m(2, 0) = -sin(y);
-    m(2, 1) = 0;
-    m(2, 2) = cos(y);
-
-    return m;
 }
 }
