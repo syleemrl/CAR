@@ -9,7 +9,7 @@ namespace DPhy
 ReferenceManager::ReferenceManager(Character* character)
 {
 	mCharacter = character;
-	mBlendingInterval = 2;
+	mBlendingInterval = 5;
 	
 	mMotions.insert(std::make_pair("t", std::vector<Motion*>()));
 	mMotions.insert(std::make_pair("b", std::vector<Motion*>()));
@@ -152,7 +152,6 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 		else{
 			v = skel->getPositionDifferences(p, p1)*20;
 		}
-
 		for(auto& jn : skel->getJoints()){
 			if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
 				double v_ = v[jn->getIndexInSkeleton(0)];
@@ -165,6 +164,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 				v[jn->getIndexInSkeleton(0)] = v_;
 			}
 		}
+		std::cout << mMotions_phase.find("b")->second.size() << " "<< v.transpose() << std::endl;
 
 		mMotions_phase.find("b")->second.push_back(new Motion(p, v));
 		t += bvh->GetTimeStep();
@@ -421,7 +421,10 @@ Motion* ReferenceManager::GetMotion(double t, std::string mode)
 			position_next.segment<3>(3) = dpos;
 			position_next.segment<3>(0) = DPhy::QuaternionToDARTPosition(dori_q);
 			positions.push_back(position_next);
-			(mMotions.find(mode)->second).push_back(new Motion(positions[i], (mMotions_phase.find(mode)->second)[i]->GetVelocity()));
+
+			Eigen::VectorXd velocity = skel->getPositionDifferences(position_next, (mMotions.find(mode)->second).back()->GetPosition())* 1.0 / 0.033;
+			std::cout << i << " " << velocity.transpose() << std::endl;
+			(mMotions.find(mode)->second).push_back(new Motion(positions[i], velocity));
 
 				// Eigen::VectorXd temp_v = mSkeleton->getPositionDifferences(mBVHFrames_r[mBVHFrames_r.size()-1]->GetPosition(), mBVHFrames_r[mBVHFrames_r.size()-2]->GetPosition())* 1.0 / bvh->GetTimeStep();
 				// std::cout << mBVHFrames[i]->GetVelocity().transpose() << std::endl;
@@ -434,10 +437,7 @@ Motion* ReferenceManager::GetMotion(double t, std::string mode)
 
 			Eigen::VectorXd oldPosition =  (mMotions.find(mode)->second)[idx]->GetPosition();
 			(mMotions.find(mode)->second)[idx]->SetPosition(DPhy::BlendPosition(positions[0], oldPosition, weight));
-
-			Eigen::VectorXd position_prev = DPhy::BlendPosition((mMotions.find(mode)->second)[idx]->GetPosition(), (mMotions.find(mode)->second)[idx-1]->GetPosition(), 0.95);
-			(mMotions.find(mode)->second)[idx]->SetVelocity(skel->getPositionDifferences((mMotions.find(mode)->second)[idx]->GetPosition(), position_prev)* 20);
-			// position_next[4] = weight * position_next[4] + (1 - weight) * position_prev[4]; 
+			(mMotions.find(mode)->second)[idx]->SetVelocity(skel->getPositionDifferences((mMotions.find(mode)->second)[idx]->GetPosition(), (mMotions.find(mode)->second)[idx-1]->GetPosition()) * 1.0 / 0.033);
 
 		}
 		if (k0 == k1)
