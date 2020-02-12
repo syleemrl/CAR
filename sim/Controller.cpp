@@ -12,7 +12,7 @@ Controller::Controller(std::string ref, std::string stats, bool record, std::str
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->sig_torque = 0.3;
+	this->sig_torque = 0.2;
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 
 	this->mRecord = record;
@@ -281,10 +281,17 @@ Step()
 
 	this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 	this->mRecordDCOM.push_back(mAdaptiveCOM);
-
+	if((int)mCurrentFrame % mReferenceManager->GetPhaseLength() == 0 ) {
+		mMaxHeightPrev = mMaxHeight;
+		mMaxHeight = 0;
+	}
+	double height = mCharacter->GetSkeleton()->getCOM()[1];
+	if(mMaxHeight < height) {
+		mMaxHeight = height;
+	}
 	// if(mode.compare("b") == 0) this->UpdateReward();
 	// else  this->UpdateAdaptiveReward();
-	this->UpdateAdaptiveReward();
+	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	// this->UpdateGRF(mGRFJoints);
@@ -319,8 +326,8 @@ UpdateAdaptiveReward()
 	delete p_v_target;
 
 	Eigen::VectorXd aa = skel->getPositionDifferences(targetPositions, prevTargetPositions); 
-	Eigen::VectorXd p = skel->getPositionDifferences(skel->getPositions(), prevTargetPositions);
-	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, prevTargetPositions, skel->getPositions());
+	Eigen::VectorXd p = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
+	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, mPrevPositions, skel->getPositions());
 	Eigen::VectorXd p_diff_axis = skel->getPositionDifferences(p, nearest);
 
 //	Eigen::VectorXd nearest_aa = skel->getPositionDifferences(nearest, prevTargetPositions);
@@ -357,7 +364,7 @@ UpdateAdaptiveReward()
 		// 	p_diff_reward.segment<3>(3*i) = p_diff_axis.segment<3>(idx);
 		// 	v_diff_reward.segment<3>(3*i).setZero();
 		// } else {
-			p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
+			p_diff_reward.segment<3>(3*i) = p_diff_axis.segment<3>(idx);
 			v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
 		// }
 	}
@@ -390,7 +397,7 @@ UpdateAdaptiveReward()
 		ee_diff(3*i + 1) = 0;
 	}
 	com_diff -= skel->getCOM();
-
+	com_diff[1] = 0;
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, "b");
 	std::pair<bool, bool> contactInfo_ref = mReferenceManager->CalculateContactInfo(p_v_target->GetPosition(), p_v_target->GetVelocity());
 
@@ -463,13 +470,14 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	double work_diff = work_avg - 9; // mReferenceManager->GetAvgWork()*1.5;
+	std::cout << work_avg << std::endl;
+	double work_diff = work_avg - 10; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
-	double sig_com = 0.3 * scale;		// 4
-	double sig_ee = 0.3 * scale;		// 8
+	double sig_com = 0.2 * scale;		// 4
+	double sig_ee = 0.2 * scale;		// 8
 	// double sig_a = 0.7 * scale;
 	double sig_t = 1.0 * scale;
 	double sig_con = 0.1 * scale;
@@ -486,7 +494,7 @@ UpdateAdaptiveReward()
 	double r_con = exp_of_squared(contact_diff, sig_con);
 
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
-	double r_tot = 0.7*r_p + 0.3*r_w; 
+	double r_tot = 0.3*r_p + 0.2*r_com + 0.5*r_w; 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -561,6 +569,13 @@ UpdateReward()
 
 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 
+	double height_diff = 0;
+	double sig_h = 10.0;
+	if(mMaxHeightPrev != 0) {
+		height_diff = mMaxHeightPrev - 1.2;
+	} 
+	double r_h = exp(-pow(height_diff, 2)*sig_h);
+
 	double scale = 1.0;
 
 	double sig_p = 0.1 * scale; 		// 2
@@ -575,8 +590,8 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 
-	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-
+//	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
+	double r_tot = 0.5 *r_p + 0.5 * r_h;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -772,7 +787,8 @@ Reset(bool RSI)
 	mRecordEnergy.push_back(energy);
 	this->mRecordTime.push_back(0);
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
-
+	mMaxHeight = 0;
+	mMaxHeightPrev = 0;
 }
 int
 Controller::

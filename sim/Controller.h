@@ -81,7 +81,8 @@ protected:
 	int mTimeElapsed;
 	double mStartFrame;
 	double mCurrentFrame; // for discrete ref motion
-
+	double mMaxHeight;
+	double mMaxHeightPrev; 
 	int mControlHz;
 	int mSimulationHz;
 	int mSimPerCon;
