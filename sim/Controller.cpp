@@ -291,7 +291,7 @@ Step()
 	}
 	// if(mode.compare("b") == 0) this->UpdateReward();
 	// else  this->UpdateAdaptiveReward();
-	this->UpdateReward();
+	this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	// this->UpdateGRF(mGRFJoints);
@@ -326,8 +326,8 @@ UpdateAdaptiveReward()
 	delete p_v_target;
 
 	Eigen::VectorXd aa = skel->getPositionDifferences(targetPositions, prevTargetPositions); 
-	Eigen::VectorXd p = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
-	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, mPrevPositions, skel->getPositions());
+	Eigen::VectorXd p = skel->getPositionDifferences(skel->getPositions(), prevTargetPositions);
+	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, prevTargetPositions, skel->getPositions());
 	Eigen::VectorXd p_diff_axis = skel->getPositionDifferences(p, nearest);
 
 //	Eigen::VectorXd nearest_aa = skel->getPositionDifferences(nearest, prevTargetPositions);
@@ -470,8 +470,8 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	std::cout << work_avg << std::endl;
-	double work_diff = work_avg - 10; // mReferenceManager->GetAvgWork()*1.5;
+//	std::cout << work_avg << std::endl;
+	double work_diff = work_avg - 8.5; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
@@ -590,8 +590,14 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 
+	std::cout << mCurrentFrame << ", femurl: " << skel->getBodyNode("FemurL")->getCOM().transpose() << std::endl;
+//	std::cout << "tibial: " << skel->getBodyNode("TibiaL")->getCOM().transpose() << std::endl;
+//	std::cout << "femurr: " << skel->getBodyNode("FemurR")->getCOM().transpose() << std::endl;
+//	std::cout << "tibiar: " << skel->getBodyNode("TibiaR")->getCOM().transpose() << std::endl;
+
+
 //	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-	double r_tot = 0.5 *r_p + 0.5 * r_h;
+	double r_tot = 0.9 * r_h + 0.1 * r_p;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -603,7 +609,7 @@ UpdateReward()
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(r_h);
 	}
 
 }
