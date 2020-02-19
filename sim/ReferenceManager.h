@@ -38,27 +38,22 @@ public:
 	void LoadMotionFromBVH(std::string filename);
 	void LoadWorkFromStats(std::string filename);
 	void LoadContactInfoFromBVHData(std::string filename);
-	void LoadMotionFromTrainedData(std::string filename);
-	void RescaleMotion(double w, std::string mode);
-	void EditMotion(double w, std::string mode);
-	Motion* GetMotion(double t, std::string mode);
+	void GenerateMotionsFromSinglePhase(int frames, bool blend);
+	void RescaleMotion(double w);
+	Motion* GetMotion(double t);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
-	double GetAvgWork() {return mAvgWork; }
-	Eigen::VectorXd GetForce(int idx) {return mTorques_phase[idx]; }
-	double GetWork(int idx) {return mWorks_phase[idx]; }
 	std::pair<bool, bool> CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v);
 
 protected:
 	Character* mCharacter;
 	double mTimeStep;
-	double mAvgWork;
 	int mBlendingInterval;
 	int mPhaseLength;
-	std::map<std::string, std::vector<Motion*>> mMotions_phase;
-	std::vector<double> mWorks_phase;
-	std::vector<Eigen::VectorXd> mTorques_phase;
-	std::map<std::string, std::vector<Motion*>> mMotions;
+	std::vector<Motion*> mMotions_raw;
+	std::vector<Motion*> mMotions_phase;
+	std::vector<Motion*> mMotions_gen;
+
 };
 }
 

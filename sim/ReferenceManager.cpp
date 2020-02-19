@@ -11,19 +11,19 @@ ReferenceManager::ReferenceManager(Character* character)
 	mCharacter = character;
 	mBlendingInterval = 5;
 	
-	mMotions.insert(std::make_pair("t", std::vector<Motion*>()));
-	mMotions.insert(std::make_pair("b", std::vector<Motion*>()));
-	mMotions_phase.insert(std::make_pair("t", std::vector<Motion*>()));
-	mMotions_phase.insert(std::make_pair("b", std::vector<Motion*>()));
-	mTorques_phase.clear();
-	mWorks_phase.clear();
+	mMotions_gen.clear();
+	mMotions_raw.clear();
+	mMotions_phase.clear();
 }
 std::pair<bool, bool> ReferenceManager::CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v)
 {
 	double heightLimit = 0.05;
 	double velocityLimit = 6;
 	bool l, r;
+
 	auto& skel = mCharacter->GetSkeleton();
+	Eigen::VectorXd p_save = mCharacter->GetSkeleton()->getPositions();
+	Eigen::VectorXd v_save = mCharacter->GetSkeleton()->getVelocities();
 
 	skel->setPositions(p);
 	skel->setVelocities(v);
@@ -55,24 +55,18 @@ std::pair<bool, bool> ReferenceManager::CalculateContactInfo(Eigen::VectorXd p, 
 		l = false;
 	}
 
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
 	return std::pair<bool, bool>(l, r);
 
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
 {
-	int vec_size = mMotions.find("b")->second.size();
-	for(int i = 0; i < vec_size; i++) {
-		delete mMotions.find("b")->second.back();
-		mMotions.find("b")->second.pop_back();
-	}
-
-	vec_size = mMotions_phase.find("b")->second.size();
-	for(int i = 0; i < vec_size; i++) {
-		delete mMotions_phase.find("b")->second.back();
-		mMotions_phase.find("b")->second.pop_back();
-	}
-
-
+	mMotions_raw.clear();
+	mMotions_phase.clear();
+	
 	this->mCharacter->LoadBVHMap();
 
 	BVH* bvh = new BVH();
@@ -164,118 +158,31 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 				v[jn->getIndexInSkeleton(0)] = v_;
 			}
 		}
-		mMotions_phase.find("b")->second.push_back(new Motion(p, v));
+		mMotions_raw.push_back(new Motion(p, v));
 		t += bvh->GetTimeStep();
 
 	}
 
-	mPhaseLength = mMotions_phase.find("b")->second.size();
+	mPhaseLength = mMotions_raw.size();
 	mTimeStep = bvh->GetTimeStep();
+
+	for(int i = 0; i < mPhaseLength; i++) {
+		mMotions_phase.push_back(new Motion(mMotions_raw[i]));
+	}
 
 	delete bvh;
 
 }
-void ReferenceManager::LoadWorkFromStats(std::string filename) 
+void ReferenceManager::RescaleMotion(double w)
 {
-	mWorks_phase.clear();
-	std::string path = std::string(CAR_DIR) + filename;
-	std::ifstream is(path);
-	char buffer[256];
-	is >> buffer;
-	int length = atoi(buffer);
-	int nphase = length / mPhaseLength;
-	for(int i = 0; i < nphase * mPhaseLength; i++) {
-		int phase = i % mPhaseLength;
-		is >> buffer;
-		double w = atof(buffer);
-		if(i < mPhaseLength) {
-			mWorks_phase.push_back(w / nphase);
-		}
-		else mWorks_phase[phase] += w / nphase;
-	}
-	is.close();
-	std::cout << "load work from: " << path << std::endl;
-}
-void ReferenceManager::LoadMotionFromTrainedData(std::string filename)
-{
-	int vec_size = mMotions.find("t")->second.size();
-	for(int i = 0; i < vec_size; i++) {
-		delete mMotions.find("t")->second.back();
-		mMotions.find("t")->second.pop_back();
-	}
+	mMotions_phase.clear();
 
-	vec_size = mMotions_phase.find("t")->second.size();
-	for(int i = 0; i < vec_size; i++) {
-		delete mMotions_phase.find("t")->second.back();
-		mMotions_phase.find("t")->second.pop_back();
-	}
-
-	mTorques_phase.clear();
-	mWorks_phase.clear();
-
-	std::string path = std::string(CAR_DIR) + filename;
-	std::ifstream is(path);
-	char buffer[256];
-	is >> buffer;
-	mTimeStep = atof(buffer);
-
-	is >> buffer;
-	mPhaseLength = atoi(buffer);
-
-	int dof = mCharacter->GetSkeleton()->getPositions().rows();
-
-	for(int i = 0; i < mPhaseLength; i++) {
-		Eigen::VectorXd t(dof);
-		for(int j = 0; j < dof; j++) 
-		{
-			is >> buffer;
-			t[j] = atof(buffer);
-		}
-		mTorques_phase.push_back(t);
-	}
-
-	mAvgWork = 0;
-	for(int i = 0; i < mPhaseLength; i++) {
-		double w;
-
-		is >> buffer;
-		w = atof(buffer);
-	
-		mWorks_phase.push_back(w);
-		mAvgWork += w;
-	}
-	mAvgWork /= mPhaseLength;
-
-	for(int i = 0; i < mPhaseLength; i++) {
-		Eigen::VectorXd p(dof);
-		for(int j = 0; j < dof; j++) 
-		{
-			is >> buffer;
-			p[j] = atof(buffer);
-		}
-		mMotions_phase.find("t")->second.push_back(new Motion(p, Eigen::VectorXd(dof)));
-	}
-
-	for(int i = 0; i < mPhaseLength; i++) {
-		Eigen::VectorXd v(dof);
-		for(int j = 0; j < dof; j++) 
-		{
-			is >> buffer;
-			v[j] = atof(buffer);
-		}
-		(mMotions_phase.find("t")->second)[i]->SetVelocity(v);
-	}
-
-	is.close();
-	std::cout << "load trained data from: " << path << std::endl;
-	std::cout << "phase length: " << mPhaseLength << std::endl;
-}
-void ReferenceManager::RescaleMotion(double w, std::string mode)
-{
 	auto& skel = mCharacter->GetSkeleton();
+	Eigen::VectorXd p_save = mCharacter->GetSkeleton()->getPositions();
+	Eigen::VectorXd v_save = mCharacter->GetSkeleton()->getVelocities();
 
-	skel->setPositions((mMotions_phase.find(mode)->second)[0]->GetPosition());
-	skel->setVelocities((mMotions_phase.find(mode)->second)[0]->GetVelocity());
+	skel->setPositions(mMotions_raw[0]->GetPosition());
+	skel->setVelocities(mMotions_raw[0]->GetVelocity());
 	skel->computeForwardKinematics(true,true,false);
 
 	double minheight = 0.0;
@@ -293,11 +200,15 @@ void ReferenceManager::RescaleMotion(double w, std::string mode)
 		if(i == 0 || height < minheight) minheight = height;
 	}
 
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
 	for(int i = 0; i < mPhaseLength; i++)
 	{
-		Eigen::VectorXd p = (mMotions_phase.find(mode)->second)[i]->GetPosition();
+		Eigen::VectorXd p = mMotions_raw[i]->GetPosition();
 		p[4] -= minheight - 0.02;
-		(mMotions_phase.find(mode)->second)[i]->SetPosition(p);
+		mMotions_phase[i]->SetPosition(p);
 	}
 
 //calculate contact infomation
@@ -308,140 +219,132 @@ void ReferenceManager::RescaleMotion(double w, std::string mode)
 	for(int i = 0; i < mPhaseLength; i++)
 	{
 		if(i != 0) {
-			Eigen::VectorXd cur_p = (mMotions_phase.find(mode)->second)[i]->GetPosition();
+			Eigen::VectorXd cur_p = mMotions_raw[i]->GetPosition();
 			Eigen::Vector3d d_p = cur_p.segment<3>(3) - prev_p.segment<3>(3);
 			d_p *= w;
 			prev_p = cur_p;
-			cur_p.segment<3>(3) = (mMotions_phase.find(mode)->second)[i-1]->GetPosition().segment<3>(3) + d_p;
-			(mMotions_phase.find(mode)->second)[i]->SetPosition(cur_p);
+			cur_p.segment<3>(3) = mMotions_raw[i-1]->GetPosition().segment<3>(3) + d_p;
+			mMotions_phase[i]->SetPosition(cur_p);
 
-			Eigen::VectorXd cur_v = (mMotions_phase.find(mode)->second)[i]->GetVelocity();
+			Eigen::VectorXd cur_v = mMotions_raw[i]->GetVelocity();
 			cur_v.segment<3>(3) = w * cur_v.segment<3>(3);
 
-			(mMotions_phase.find(mode)->second)[i]->SetVelocity(cur_v);
+			mMotions_phase[i]->SetVelocity(cur_v);
 
 		} else {
-			prev_p = (mMotions_phase.find(mode)->second)[i]->GetPosition();
+			prev_p = mMotions_raw[i]->GetPosition();
+			mMotions_phase[i]->SetPosition(mMotions_raw[i]->GetPosition());
+			mMotions_phase[i]->SetVelocity(mMotions_raw[i]->GetVelocity());
 		}
 
 	}
 }
-void ReferenceManager::EditMotion(double w, std::string mode)
+void GenerateMotionsFromSinglePhase(int frames, bool blend)
 {
-	auto& skel = mCharacter->GetSkeleton();
-	int dof = mCharacter->GetSkeleton()->getPositions().rows();
+	mMotions_gen.clear();
+	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(mMotions_phase[0]->GetPosition().head<6>());
+	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(mMotions_phase.back()->GetPosition().head<6>());
 
-	skel->setPositions((mMotions_phase.find(mode)->second)[0]->GetPosition());
-	skel->setVelocities((mMotions_phase.find(mode)->second)[0]->GetVelocity());
-	skel->computeForwardKinematics(true,true,false);
- 	std::vector<Motion*> result;
-	for(int i = 0; i < mPhaseLength; i++)
-	{
-		if(i != 0) {
-			Eigen::VectorXd p(dof);
-			Eigen::VectorXd v = (mMotions_phase.find(mode)->second)[i]->GetVelocity() * 0.033 * w;
-			p = DPhy::RotatePosition(result[i-1]->GetPosition(), v);
-			p.segment<3>(3) = (mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(3);
-			result.push_back(new Motion(p, v));
+	Eigen::Isometry3d T0_gen = Eigen::Isometry3d::Identity();
+	
+	Eigen::Isometry3d T01 = T1_phase.inverse()*T0_phase;
+	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
+	p01[0] =0.0;
+	p01[2] =0.0;
+	T01.linear() = dart::math::expMapRot(p01);
+
+	for(int i = 0; i < frames; i++) {
+		if(i < mPhaseLength) {
+			mMotions_gen.push_back(new Motion(m));
 		} else {
-			result.push_back(new Motion((mMotions_phase.find(mode)->second)[i]));
+			int phase = i % mPhaseLength;
+			Eigen::VectorXd pos = mMotions_phase[phase]->GetPosition();
+			Eigen::Isometry3d Tcurrent = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+			T_current = T0_phase.inverse()*T_current;
+			T_current = T0_gen*T_current;
+			pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+
+			Eigen::VectorXd vel = skel->getPositionDifferences(pos, mMotions_gen.back()->GetPosition()) / 0.033;
+			mMotions_gen.push_back(new Motion(pos, vel));
+
+			if(phase == mPhaseLength - 1) {
+				T0_gen = T01*T0_gen;
+				T0_gen.translation()[1] = 0.0;
+			}
 		}
 	}
 
-	int vec_size = mMotions.find(mode)->second.size();
-	for(int i = 0; i < vec_size; i++) {
-		delete mMotions.find(mode)->second.back();
-		mMotions.find(mode)->second.pop_back();
-	}
+	// else {
+	// 	int prev_size = (mMotions.find(mode)->second).size();
 
-	vec_size = mMotions_phase.find(mode)->second.size();
-	for(int i = 0; i < vec_size; i++) {
-		delete mMotions_phase.find(mode)->second.back();
-		mMotions_phase.find(mode)->second.pop_back();
-	}
+	// 	Eigen::Vector6d root_next = (mMotions_phase.find(mode)->second)[0]->GetPosition().segment<6>(0);
+	// 	Eigen::Vector6d root_prev = (mMotions.find(mode)->second)[prev_size - 1]->GetPosition().segment<6>(0);
 
-	for(int i = 0; i < mPhaseLength; i++)
-	{
-		mMotions_phase.find(mode)->second.push_back(result[i]);
-	}
+	// 	Eigen::AngleAxisd root_next_ori(root_next.segment<3>(0).norm(), root_next.segment<3>(0).normalized());
+	// 	Eigen::AngleAxisd root_prev_ori(root_prev.segment<3>(0).norm(), root_prev.segment<3>(0).normalized());
+	// 	Eigen::Matrix3d root_dori;
+	// 	Eigen::Matrix3d root_ori_prev;
+	// 	root_ori_prev = root_prev_ori;
+	// 	root_dori = root_next_ori.inverse() * root_prev_ori;
+	// 	root_dori = DPhy::projectToXZ(root_dori);
+	// 	std::vector<Eigen::VectorXd> positions;
 
+	// 	for(int i = 0; i < mPhaseLength; i++) {
+	// 		Eigen::VectorXd position_next = (mMotions_phase.find(mode)->second)[i]->GetPosition();
+
+	// 		Eigen::Vector3d dpos = (mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(3) - (mMotions_phase.find(mode)->second)[0]->GetPosition().segment<3>(3);
+	// 		dpos =  root_dori * dpos + root_prev.segment<3>(3);
+	// 		dpos[1] = position_next[4];
+
+	// 		Eigen::AngleAxisd cur_ori((mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(0).norm(), (mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(0).normalized());
+	// 		Eigen::Matrix3d dori;
+	// //			cur_ori = root_next_ori.inverse() * cur_ori;
+	// 		dori = cur_ori * root_dori;
+	// 		Eigen::Quaterniond dori_q(dori);
+
+	// 		position_next.segment<3>(3) = dpos;
+	// 		position_next.segment<3>(0) = DPhy::QuaternionToDARTPosition(dori_q);
+	// 		positions.push_back(position_next);
+
+	// 		Eigen::VectorXd velocity = skel->getPositionDifferences(position_next, (mMotions.find(mode)->second).back()->GetPosition())* 1.0 / 0.033;
+	// 		(mMotions.find(mode)->second).push_back(new Motion(positions[i], velocity));
+
+	// 			// Eigen::VectorXd temp_v = mSkeleton->getPositionDifferences(mBVHFrames_r[mBVHFrames_r.size()-1]->GetPosition(), mBVHFrames_r[mBVHFrames_r.size()-2]->GetPosition())* 1.0 / bvh->GetTimeStep();
+	// 			// std::cout << mBVHFrames[i]->GetVelocity().transpose() << std::endl;
+	// 			// std::cout << temp_v.transpose() << std::endl;
+	// 	}
+	// 	for(int i = mBlendingInterval-1; i >= 0; i--) {
+
+	// 		int idx = prev_size - (i + 1);
+	// 		double weight = 1.0 - (i+1) / (double)(mBlendingInterval+1);
+
+	// 		Eigen::VectorXd oldPosition =  (mMotions.find(mode)->second)[idx]->GetPosition();
+	// 		(mMotions.find(mode)->second)[idx]->SetPosition(DPhy::BlendPosition(positions[0], oldPosition, weight));
+	// 		Eigen::VectorXd velocity = skel->getPositionDifferences((mMotions.find(mode)->second)[idx]->GetPosition(), (mMotions.find(mode)->second)[idx-1]->GetPosition()) * 1.0 / 0.033;
+	// 		(mMotions.find(mode)->second)[idx]->SetVelocity(velocity);
+	// 	}
+	// 	if (k0 == k1)
+	// 		return new Motion((mMotions.find(mode)->second)[k0]);
+	// 	else
+	// 		return new Motion(DPhy::BlendPosition((mMotions.find(mode)->second)[k1]->GetPosition(), (mMotions.find(mode)->second)[k0]->GetPosition(), (t-k0)), 
+	// 			DPhy::BlendPosition((mMotions.find(mode)->second)[k1]->GetVelocity(), (mMotions.find(mode)->second)[k0]->GetVelocity(), (t-k0)));	
+	// }	
 }
-Motion* ReferenceManager::GetMotion(double t, std::string mode)
+Motion* ReferenceManager::GetMotion(double t)
 {
 	auto& skel = mCharacter->GetSkeleton();
 
-	if(mMotions_phase.find(mode)->second.size() == 0) {
-		return new Motion(skel->getPositions(), skel->getVelocities());
+	if(mMotions_gen.size() <= t) {
+	 	return new Motion(skel->getPositions(), skel->getVelocities());
 	}
-
+	
 	int k0 = (int) std::floor(t);
 	int k1 = (int) std::ceil(t);	
-	if((mMotions.find(mode)->second).size() == 0) {
-		for(auto m: mMotions_phase.find(mode)->second) {
-			(mMotions.find(mode)->second).push_back(new Motion(m));
-		}
-	}
-	if(k1 / ((mMotions.find(mode)->second).size() - mBlendingInterval) < 1 ) {
-		if (k0 == k1)
-			return new Motion((mMotions.find(mode)->second)[k0]);
-		else
-			return new Motion(DPhy::BlendPosition((mMotions.find(mode)->second)[k1]->GetPosition(), (mMotions.find(mode)->second)[k0]->GetPosition(), (t-k0)), 
-				DPhy::BlendPosition((mMotions.find(mode)->second)[k1]->GetVelocity(), (mMotions.find(mode)->second)[k0]->GetVelocity(), (t-k0)));		
-	}
-	else {
-		int prev_size = (mMotions.find(mode)->second).size();
 
-		Eigen::Vector6d root_next = (mMotions_phase.find(mode)->second)[0]->GetPosition().segment<6>(0);
-		Eigen::Vector6d root_prev = (mMotions.find(mode)->second)[prev_size - 1]->GetPosition().segment<6>(0);
-
-		Eigen::AngleAxisd root_next_ori(root_next.segment<3>(0).norm(), root_next.segment<3>(0).normalized());
-		Eigen::AngleAxisd root_prev_ori(root_prev.segment<3>(0).norm(), root_prev.segment<3>(0).normalized());
-		Eigen::Matrix3d root_dori;
-		Eigen::Matrix3d root_ori_prev;
-		root_ori_prev = root_prev_ori;
-		root_dori = root_next_ori.inverse() * root_prev_ori;
-		root_dori = DPhy::projectToXZ(root_dori);
-		std::vector<Eigen::VectorXd> positions;
-
-		for(int i = 0; i < mPhaseLength; i++) {
-			Eigen::VectorXd position_next = (mMotions_phase.find(mode)->second)[i]->GetPosition();
-
-			Eigen::Vector3d dpos = (mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(3) - (mMotions_phase.find(mode)->second)[0]->GetPosition().segment<3>(3);
-			dpos =  root_dori * dpos + root_prev.segment<3>(3);
-			dpos[1] = position_next[4];
-
-			Eigen::AngleAxisd cur_ori((mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(0).norm(), (mMotions_phase.find(mode)->second)[i]->GetPosition().segment<3>(0).normalized());
-			Eigen::Matrix3d dori;
-	//			cur_ori = root_next_ori.inverse() * cur_ori;
-			dori = cur_ori * root_dori;
-			Eigen::Quaterniond dori_q(dori);
-
-			position_next.segment<3>(3) = dpos;
-			position_next.segment<3>(0) = DPhy::QuaternionToDARTPosition(dori_q);
-			positions.push_back(position_next);
-
-			Eigen::VectorXd velocity = skel->getPositionDifferences(position_next, (mMotions.find(mode)->second).back()->GetPosition())* 1.0 / 0.033;
-			(mMotions.find(mode)->second).push_back(new Motion(positions[i], velocity));
-
-				// Eigen::VectorXd temp_v = mSkeleton->getPositionDifferences(mBVHFrames_r[mBVHFrames_r.size()-1]->GetPosition(), mBVHFrames_r[mBVHFrames_r.size()-2]->GetPosition())* 1.0 / bvh->GetTimeStep();
-				// std::cout << mBVHFrames[i]->GetVelocity().transpose() << std::endl;
-				// std::cout << temp_v.transpose() << std::endl;
-		}
-		for(int i = mBlendingInterval-1; i >= 0; i--) {
-
-			int idx = prev_size - (i + 1);
-			double weight = 1.0 - (i+1) / (double)(mBlendingInterval+1);
-
-			Eigen::VectorXd oldPosition =  (mMotions.find(mode)->second)[idx]->GetPosition();
-			(mMotions.find(mode)->second)[idx]->SetPosition(DPhy::BlendPosition(positions[0], oldPosition, weight));
-			Eigen::VectorXd velocity = skel->getPositionDifferences((mMotions.find(mode)->second)[idx]->GetPosition(), (mMotions.find(mode)->second)[idx-1]->GetPosition()) * 1.0 / 0.033;
-			(mMotions.find(mode)->second)[idx]->SetVelocity(velocity);
-		}
-		if (k0 == k1)
-			return new Motion((mMotions.find(mode)->second)[k0]);
-		else
-			return new Motion(DPhy::BlendPosition((mMotions.find(mode)->second)[k1]->GetPosition(), (mMotions.find(mode)->second)[k0]->GetPosition(), (t-k0)), 
-				DPhy::BlendPosition((mMotions.find(mode)->second)[k1]->GetVelocity(), (mMotions.find(mode)->second)[k0]->GetVelocity(), (t-k0)));	
-	}	
+	if (k0 == k1)
+		return new Motion(mMotions_gen[k0]);
+	else
+		return new Motion(DPhy::BlendPosition(mMotions_gen[k1]->GetPosition(), mMotions_gen[k0]->GetPosition(), 1 - (t-k0)), 
+				DPhy::BlendPosition(mMotions_gen[k1]->GetVelocity(), mMotions_gen[k0]->GetVelocity(), 1 - (t-k0)));		
 }
 };

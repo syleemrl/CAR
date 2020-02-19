@@ -406,24 +406,27 @@ Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in){
 	return angle*aa.axis();
 }
 
-Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight, bool blend_rootpos) {
+Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b, double weight, bool blend_rootpos) {
 
+	Eigen::VectorXd result(target_a.rows());
+	result.setZero();
+	
 	for(int i = 0; i < v_target.size(); i += 3) {
 		if (i == 3) {
-			if(blend_rootpos)	v_target.segment<3>(i) = weight * v_target.segment<3>(i) + (1-weight) * v_source.segment<3>(i); 
-			else v_target[4] = (1-weight) * v_target[4] + weight * v_source[4]; 
+			if(blend_rootpos)	result.segment<3>(i) = weight * target_a.segment<3>(i) + (1-weight) * target_b.segment<3>(i); 
+			else result[4] = (1-weight) * target_b[4] + weight * target_a[4]; 
 		}
 		else {
-			Eigen::AngleAxisd v1_aa(v_target.segment<3>(i).norm(), v_target.segment<3>(i).normalized());
-			Eigen::AngleAxisd v2_aa(v_source.segment<3>(i).norm(), v_source.segment<3>(i).normalized());
+			Eigen::AngleAxisd v1_aa(target_a.segment<3>(i).norm(), target_a.segment<3>(i).normalized());
+			Eigen::AngleAxisd v2_aa(target_b.segment<3>(i).norm(), target_b.segment<3>(i).normalized());
 					
 			Eigen::Quaterniond v1_q(v1_aa);
 			Eigen::Quaterniond v2_q(v2_aa);
 
-			v_target.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(1 - weight, v2_q)); 
+			result.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(weight, v2_q)); 
 		}
 	}
-	return v_target;
+	return result;
 }
 Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)
 {
