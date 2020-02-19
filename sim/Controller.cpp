@@ -164,16 +164,9 @@ SetReference(std::string ref, std::string stats)
 	mReferenceManager = new ReferenceManager(this->mRefCharacter);
 
 	mReferenceManager->LoadMotionFromBVH(ref);
-	if(stats.compare("/result/stats/") != 0) mReferenceManager->LoadWorkFromStats(stats);
 
 //	RescaleCharacter(std::get<0>(mRescaleParameter), std::get<1>(mRescaleParameter));
 	
-}
-void
-Controller::
-UpdateReferenceData(std::string directory)
-{
-	mReferenceManager->LoadMotionFromTrainedData(directory);
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetRefSkeleton() { 
@@ -210,7 +203,7 @@ Step()
 
 	this->mCurrentFrame += 1;
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, "b");
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -315,13 +308,13 @@ UpdateAdaptiveReward()
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
 	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
 
 	//Position Differences
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1, mode);
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame-1);
 	Eigen::VectorXd prevTargetPositions = p_v_target->GetPosition();
 	delete p_v_target;
 
@@ -398,7 +391,7 @@ UpdateAdaptiveReward()
 	}
 	com_diff -= skel->getCOM();
 	com_diff[1] = 0;
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, "b");
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	std::pair<bool, bool> contactInfo_ref = mReferenceManager->CalculateContactInfo(p_v_target->GetPosition(), p_v_target->GetVelocity());
 
 	skel->setPositions(p_v_target->GetPosition());
@@ -611,7 +604,7 @@ void
 Controller::
 UpdateTerminalInfo()
 {	
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
 	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -672,7 +665,7 @@ FollowBvh()
 		return false;
 	auto& skel = mCharacter->GetSkeleton();
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, mode);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	mTargetPositions = p_v_target->GetPosition();
 	mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -717,7 +710,7 @@ RescaleCharacter(double w0,double w1)
 	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 	
-	if(w0 != 1) mReferenceManager->RescaleMotion(std::sqrt(w0), mode);
+	if(w0 != 1) mReferenceManager->RescaleMotion(std::sqrt(w0));
 
 	std::cout << "Deform done: " << w0 << " " << w1 << std::endl;
 
@@ -750,7 +743,7 @@ Reset(bool RSI)
 	this->mTimeElapsed = 0; // 0.0;
 	this->mStartFrame = this->mCurrentFrame;
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, "b");
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -924,7 +917,7 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, "b");
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
 	delete p_v_target;
 
@@ -951,73 +944,6 @@ Controller::SaveDisplayedData(std::string directory) {
 	}
 	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
 
-}
-void
-Controller::SaveTrainedData(std::string directory) {
-	std::string path = std::string(CAR_DIR) + directory;
-	std::cout << "save results to" << path << std::endl;
-
-	std::ofstream ofs(path);
-
-	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
-
-	std::vector<Eigen::VectorXd> meanForce(dof);
-	std::vector<double> meanWork;
-	meanForce.clear();
-	int phaseLength = mReferenceManager->GetPhaseLength();
-	int numPhase = mRecordWork.size() / phaseLength;
-	if(mode.compare("b") == 0) {
-		for(int i = 0; i < numPhase; i++) {
-			if(i == 0) {
-				for(int j = 0; j < phaseLength; j++) {
-					meanForce.push_back(mRecordTorque[phaseLength*i+j]);
-					meanWork.push_back(mRecordWork[phaseLength*i+j]);
-				}
-			} else {
-				for(int j = 0; j < phaseLength; j++) {
-					meanForce[j] += mRecordTorque[phaseLength*i+j];
-					meanWork[j] += mRecordWork[phaseLength*i+j];
-				}
-			}
-		}
-		for(int i = 0; i < phaseLength; i++) {
-			meanForce[i] /= numPhase;
-			meanWork[i] /= numPhase;
-		}
-
-	} else {
-		for(int i = 0; i < phaseLength; i++) {
-			meanForce.push_back(mReferenceManager->GetForce(i));
-			meanWork.push_back(mReferenceManager->GetWork(i));
-		}
-	}
-
-	ofs << mReferenceManager->GetTimeStep() << std::endl;
-	ofs << mReferenceManager->GetPhaseLength() << std::endl;
-
-	for(auto& t: meanForce) {
-		ofs << t.transpose() << std::endl;
-	}
-	std::cout << "saved torque: " << meanForce.size() << ", " << meanForce[0].rows() << std::endl;
-	for(auto& t: meanWork) {
-		ofs << t << std::endl;
-	}
-	std::cout << "saved work: " << meanWork.size() << std::endl;
-
-	if(mRecordPosition.size() >mReferenceManager->GetPhaseLength()*2) {
-		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-			ofs << mRecordPosition[mReferenceManager->GetPhaseLength()+i].transpose() << std::endl;
-		}
-	}
-	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
-
-	if(mRecordVelocity.size() > mReferenceManager->GetPhaseLength()*2) {
-		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-			ofs << mRecordVelocity[mReferenceManager->GetPhaseLength()+i].transpose() << std::endl;
-		}
-	}
-	std::cout << "saved velocity: " << mRecordVelocity.size() << ", "<<  mReferenceManager->GetPhaseLength() << ", " << mRecordVelocity[0].rows() << std::endl;
-	ofs.close();
 }
 void
 Controller::SaveStats(std::string directory) {

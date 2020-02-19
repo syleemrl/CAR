@@ -34,20 +34,11 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mCharacter = new DPhy::Character(path);
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
-	if(this->mRunPPO && mode.compare("t") == 0)
-	{
-		this->mController = new DPhy::Controller("", std::string("/network/output/") + motion, true, mode);
-		mReferenceManager->LoadMotionFromTrainedData(std::string("/network/output/") + motion);
 
-	} else if(mode.compare("t") == 0)
-	{
-		this->mController = new DPhy::Controller("", std::string("/network/output/") + motion, true, mode);
-		mReferenceManager->LoadMotionFromTrainedData(std::string("/network/output/") + motion);
-	} else {
-		this->mController = new DPhy::Controller(std::string("/motion/") + motion, "", true);
-		mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-	}
-//	mReferenceManager->EditMotion(1.5, "b");
+	this->mController = new DPhy::Controller(std::string("/motion/") + motion, "", true);
+	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
+	mReferenceManager->GenerateMotionsFromSinglePhase(1000, false);
+	//	mReferenceManager->EditMotion(1.5, "b");
 	this->mWorld = this->mController->GetWorld();
 
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
@@ -57,7 +48,7 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mSkelLength = 0.3;
 
 	this->mController->Reset(false);
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 	Eigen::VectorXd position = p_v_target->GetPosition();
 	if(mWrap) {
 		position.segment<6>(0).setZero();
@@ -111,7 +102,7 @@ MemoryClear() {
 void 
 SimWindow::
 Save(int n) {
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n, mode);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n);
 	Eigen::VectorXd position = p_v_target->GetPosition();
 	if(mWrap) {
 		position.segment<6>(0).setZero();
@@ -137,7 +128,7 @@ Save(int n) {
 		mMemory.emplace_back(position);
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
-    	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n), mode);
+    	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n);
 		mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
    	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
@@ -294,7 +285,7 @@ Reset()
 	
 	this->mController->Reset(false);
 
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0, mode);
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 	Eigen::VectorXd position = p_v_target->GetPosition();
 	if(mWrap) {
 		position.segment<6>(0).setZero();
@@ -338,7 +329,6 @@ Keyboard(unsigned char key,int x,int y)
 			break;
 		case 'R': SaveReferenceData(filename); break;
 		case 'D': this->mController->SaveDisplayedData(filename); break;
-		case 'T': this->mController->SaveTrainedData(filename); break;
 		case 'S': this->mController->SaveStats(filename); break;
 		case 27: exit(0);break;
 		default : break;

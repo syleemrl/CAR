@@ -247,7 +247,7 @@ void GenerateMotionsFromSinglePhase(int frames, bool blend)
 
 	Eigen::Isometry3d T0_gen = Eigen::Isometry3d::Identity();
 	
-	Eigen::Isometry3d T01 = T1_phase.inverse()*T0_phase;
+	Eigen::Isometry3d T01 = T0_phase.inverse()*T1_phase;
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
 	p01[0] =0.0;
 	p01[2] =0.0;

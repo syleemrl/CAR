@@ -56,10 +56,8 @@ Controller(std::string ref, std::string stats, bool record=false, std::string mo
 	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
 	void RescaleCharacter(double w0, double w1);
-	void SaveTrainedData(std::string directory);
 	void SaveDisplayedData(std::string directory);
 	void SaveStats(std::string directory);
-	void UpdateReferenceData(std::string directory);
 	void UpdateSigTorque();
 	void UpdateGRF(std::vector<std::string> joints);
 	std::vector<Eigen::VectorXd> GetGRF();

@@ -411,7 +411,7 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b
 	Eigen::VectorXd result(target_a.rows());
 	result.setZero();
 	
-	for(int i = 0; i < v_target.size(); i += 3) {
+	for(int i = 0; i < result.size(); i += 3) {
 		if (i == 3) {
 			if(blend_rootpos)	result.segment<3>(i) = weight * target_a.segment<3>(i) + (1-weight) * target_b.segment<3>(i); 
 			else result[4] = (1-weight) * target_b[4] + weight * target_a[4]; 
