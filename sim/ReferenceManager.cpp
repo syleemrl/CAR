@@ -239,38 +239,53 @@ void ReferenceManager::RescaleMotion(double w)
 
 	}
 }
-void GenerateMotionsFromSinglePhase(int frames, bool blend)
+void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend)
 {
 	mMotions_gen.clear();
+
+	auto& skel = mCharacter->GetSkeleton();
+
 	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(mMotions_phase[0]->GetPosition().head<6>());
 	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(mMotions_phase.back()->GetPosition().head<6>());
 
-	Eigen::Isometry3d T0_gen = Eigen::Isometry3d::Identity();
+	Eigen::Isometry3d T0_gen = T0_phase;
 	
-	Eigen::Isometry3d T01 = T0_phase.inverse()*T1_phase;
+	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
+
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
 	p01[0] =0.0;
 	p01[2] =0.0;
 	T01.linear() = dart::math::expMapRot(p01);
-
+	T01.translation()[1] = 0;
+	blend = true;
 	for(int i = 0; i < frames; i++) {
+		
+		int phase = i % mPhaseLength;
+		
 		if(i < mPhaseLength) {
-			mMotions_gen.push_back(new Motion(m));
+			mMotions_gen.push_back(new Motion(mMotions_phase[i]));
 		} else {
-			int phase = i % mPhaseLength;
 			Eigen::VectorXd pos = mMotions_phase[phase]->GetPosition();
-			Eigen::Isometry3d Tcurrent = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+			Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 			T_current = T0_phase.inverse()*T_current;
 			T_current = T0_gen*T_current;
-			pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
 
+			pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, mMotions_gen.back()->GetPosition()) / 0.033;
 			mMotions_gen.push_back(new Motion(pos, vel));
 
-			if(phase == mPhaseLength - 1) {
-				T0_gen = T01*T0_gen;
-				T0_gen.translation()[1] = 0.0;
+			if(blend && phase == 0) {
+				for(int j = mBlendingInterval; j > 0; j--) {
+					double weight = 1.0 - j / (double)(mBlendingInterval+1);
+					Eigen::VectorXd oldPos = mMotions_gen[i - j]->GetPosition();
+					mMotions_gen[i - j]->SetPosition(DPhy::BlendPosition(oldPos, pos, weight));
+					vel = skel->getPositionDifferences(mMotions_gen[i - j]->GetPosition(), mMotions_gen[i - j - 1]->GetPosition()) / 0.033;
+			 		mMotions_gen[i - j]->SetVelocity(vel);
+				}
 			}
+		}
+		if(phase == mPhaseLength - 1) {
+			T0_gen = T01*T0_gen;
 		}
 	}
 
