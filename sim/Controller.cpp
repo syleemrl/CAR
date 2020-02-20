@@ -240,9 +240,10 @@ Step()
 			mWorld->step();
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
+			work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
+
 			if(mRecord) 
 			{
-				work_sum += torque_masked.dot(curVelocity) * 1.0 / mSimulationHz;
 				for(int i = 6; i < curVelocity.rows(); i += 3) {
 					work_sum_joints[i/3 - 2] += torque.segment<3>(i).dot(curVelocity.segment<3>(i)) * 1.0 / mSimulationHz;
 				}
@@ -254,16 +255,18 @@ Step()
 		torque_sum += torque * 2.0 / mSimulationHz; 
 		mTimeElapsed += 2;
 	}
+	if((int)mCurrentFrame % this->mReferenceManager->GetPhaseLength() > 3)
+	{
+		mRecordWork.push_back(work_sum);
+	}
 
 	if(mRecord) {
 		this->mRecordTorque.push_back(torque_sum);
-		mRecordWork.push_back(work_sum);
 		mRecordWorkByJoints.push_back(work_sum_joints);
 		this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 		this->mRecordDCOM.push_back(mAdaptiveCOM);	
 	}
-
-	this->UpdateReward();
+	this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 
@@ -433,16 +436,20 @@ UpdateAdaptiveReward()
 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 	
 	double work_avg = 0;
+	double work_diff = 0;
 	int count = 0;
 	int back = mRecordWork.size() - 1;
-	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-		if(back - i < 0) break;
-		work_avg += mRecordWork[back - i];
-		count++;
+
+	if(mRecordWork.size() == 0) work_diff = 0;
+	else {
+		for(int i = 0; i < mReferenceManager->GetPhaseLength() - 4; i++) {
+			if(back - i < 0) break;
+			work_avg += mRecordWork[back - i];
+			count++;
+		}
+		work_avg /= count;
+		work_diff = work_avg - 17; // mReferenceManager->GetAvgWork()*1.5;
 	}
-	work_avg /= count;
-//	std::cout << work_avg << std::endl;
-	double work_diff = work_avg - 8.5; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
@@ -465,7 +472,7 @@ UpdateAdaptiveReward()
 	double r_con = exp_of_squared(contact_diff, sig_con);
 
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
-	double r_tot = 0.3*r_p + 0.2*r_com + 0.5*r_w; 
+	double r_tot = 0.3*r_p + 0.7*r_w; 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
