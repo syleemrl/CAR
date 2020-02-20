@@ -255,7 +255,7 @@ Step()
 
 	// if(mode.compare("b") == 0) this->UpdateReward();
 	// else  this->UpdateAdaptiveReward();
-	this->UpdateReward();
+	this->UpdateAdaptiveReward();
 	this->UpdateTerminalInfo();
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 
@@ -291,8 +291,8 @@ UpdateAdaptiveReward()
 	delete p_v_target;
 
 	Eigen::VectorXd aa = skel->getPositionDifferences(targetPositions, prevTargetPositions); 
-	Eigen::VectorXd p = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
-	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, mPrevPositions, skel->getPositions());
+	Eigen::VectorXd p = skel->getPositionDifferences(skel->getPositions(), prevTargetPositions);
+	Eigen::VectorXd nearest = DPhy::NearestOnGeodesicCurve(aa, prevTargetPositions, skel->getPositions());
 	Eigen::VectorXd p_diff_axis = skel->getPositionDifferences(p, nearest);
 
 //	Eigen::VectorXd nearest_aa = skel->getPositionDifferences(nearest, prevTargetPositions);
@@ -435,8 +435,8 @@ UpdateAdaptiveReward()
 		count++;
 	}
 	work_avg /= count;
-	std::cout << work_avg << std::endl;
-	double work_diff = work_avg - 10; // mReferenceManager->GetAvgWork()*1.5;
+//	std::cout << work_avg << std::endl;
+	double work_diff = work_avg - 8.5; // mReferenceManager->GetAvgWork()*1.5;
 	double scale = 1.0;
 	//mul
 	double sig_p = 0.1 * scale; 		// 2
@@ -561,7 +561,7 @@ UpdateReward()
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(r_h);
 	}
 
 }
