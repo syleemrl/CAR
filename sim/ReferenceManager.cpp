@@ -253,11 +253,9 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend)
 	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
 
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
-	p01[0] =0.0;
-	p01[2] =0.0;
-	T01.linear() = dart::math::expMapRot(p01);
+	T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
 	T01.translation()[1] = 0;
-	blend = true;
+
 	for(int i = 0; i < frames; i++) {
 		
 		int phase = i % mPhaseLength;
@@ -286,6 +284,7 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend)
 		}
 		if(phase == mPhaseLength - 1) {
 			T0_gen = T01*T0_gen;
+
 		}
 	}
 

@@ -413,8 +413,8 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b
 	
 	for(int i = 0; i < result.size(); i += 3) {
 		if (i == 3) {
-			if(blend_rootpos)	result.segment<3>(i) = weight * target_a.segment<3>(i) + (1-weight) * target_b.segment<3>(i); 
-			else result[4] = (1-weight) * target_b[4] + weight * target_a[4]; 
+			if(blend_rootpos)	result.segment<3>(i) = (1 - weight) * target_a.segment<3>(i) + weight * target_b.segment<3>(i); 
+			else result[4] = (1-weight) * target_a[4] + weight * target_b[4]; 
 		}
 		else {
 			Eigen::AngleAxisd v1_aa(target_a.segment<3>(i).norm(), target_a.segment<3>(i).normalized());
@@ -816,6 +816,12 @@ Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m) {
 	Eigen::Matrix3d result;
 	result = nearest_aa;
 	return result;
+
+}
+Eigen::Vector3d projectToXZ(Eigen::Vector3d v) {
+
+	Eigen::Vector3d nearest = DPhy::NearestOnGeodesicCurve3d(Eigen::Vector3d(0, 1, 0), Eigen::Vector3d(0, 0, 0), v);
+	return nearest;
 
 }
 }
