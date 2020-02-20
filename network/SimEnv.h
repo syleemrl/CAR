@@ -1,6 +1,7 @@
 #ifndef __DEEP_PHYSICS_H__
 #define __DEEP_PHYSICS_H__
 #include "Controller.h"
+#include "ReferenceManager.h"
 #include <vector>
 #include <string>
 #include <boost/python.hpp>
@@ -41,7 +42,6 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 
-	void UpdateTarget(std::string directory);
 	void UpdateSigTorque();
 	
 private:

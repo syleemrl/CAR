@@ -19,14 +19,13 @@ class Character;
 class Controller
 {
 public:
-Controller(std::string ref, std::string stats, bool record=false, std::string mode="b");
+Controller(ReferenceManager* ref, std::string stats, bool record=false);
 
 	void Step();
 	void UpdateReward();
 	void UpdateAdaptiveReward();
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
-	void SetReference(std::string orignal_ref, std::string adaptive_ref);
 	bool FollowBvh();
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
@@ -53,7 +52,6 @@ Controller(std::string ref, std::string stats, bool record=false, std::string mo
 	double GetStartFrame(){ return this->mStartFrame; }
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
-	const dart::dynamics::SkeletonPtr& GetRefSkeleton();
 
 	void RescaleCharacter(double w0, double w1);
 	void SaveDisplayedData(std::string directory);
@@ -85,10 +83,8 @@ protected:
 	int mSimulationHz;
 	int mSimPerCon;
 	double mStep;
-	std::string mode;
 
 	Character* mCharacter;
-	Character* mRefCharacter;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 

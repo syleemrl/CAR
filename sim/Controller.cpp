@@ -7,7 +7,7 @@
 namespace DPhy
 {	
 
-Controller::Controller(std::string ref, std::string stats, bool record, std::string mode)
+Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	:mTimeElapsed(0),mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
@@ -16,7 +16,7 @@ Controller::Controller(std::string ref, std::string stats, bool record, std::str
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 
 	this->mRecord = record;
-	this->mode = mode;
+	this->mReferenceManager = ref;
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
 	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
@@ -31,7 +31,6 @@ Controller::Controller(std::string ref, std::string stats, bool record, std::str
 	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	this->SetReference(ref, stats);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -155,23 +154,6 @@ UpdateSigTorque()
 	// if(sig_torque < 1) sig_torque *= 2;
 	std::cout << "sig torque updated : " << sig_torque << std::endl;
 }
-void 
-Controller::
-SetReference(std::string ref, std::string stats) 
-{
-	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
-	this->mRefCharacter = new DPhy::Character(path);
-	mReferenceManager = new ReferenceManager(this->mRefCharacter);
-
-	mReferenceManager->LoadMotionFromBVH(ref);
-
-//	RescaleCharacter(std::get<0>(mRescaleParameter), std::get<1>(mRescaleParameter));
-	
-}
-const dart::dynamics::SkeletonPtr& 
-Controller::GetRefSkeleton() { 
-	return this->mRefCharacter->GetSkeleton(); 
-}
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
 	return this->mCharacter->GetSkeleton(); 
@@ -207,10 +189,6 @@ Step()
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
-
-	mRefCharacter->GetSkeleton()->setPositions(this->mTargetPositions);
-	mRefCharacter->GetSkeleton()->setVelocities(this->mTargetVelocities);
-	mRefCharacter->GetSkeleton()->computeForwardKinematics(true,true,false);
 
 	this->mTargetVelocities *= ((double) this->mSimPerCon / (this->mSimPerCon + mAdaptiveStep));
 	this->mTargetPositions[4] += mAdaptiveCOM;
@@ -274,19 +252,13 @@ Step()
 
 	this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 	this->mRecordDCOM.push_back(mAdaptiveCOM);
-	if((int)mCurrentFrame % mReferenceManager->GetPhaseLength() == 0 ) {
-		mMaxHeightPrev = mMaxHeight;
-		mMaxHeight = 0;
-	}
-	double height = mCharacter->GetSkeleton()->getCOM()[1];
-	if(mMaxHeight < height) {
-		mMaxHeight = height;
-	}
+
 	// if(mode.compare("b") == 0) this->UpdateReward();
 	// else  this->UpdateAdaptiveReward();
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
+
 	// this->UpdateGRF(mGRFJoints);
 
 }
@@ -560,14 +532,7 @@ UpdateReward()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
-
-	double height_diff = 0;
-	double sig_h = 10.0;
-	if(mMaxHeightPrev != 0) {
-		height_diff = mMaxHeightPrev - 1.2;
-	} 
-	double r_h = exp(-pow(height_diff, 2)*sig_h);
+	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();
 
 	double scale = 1.0;
 
@@ -583,8 +548,8 @@ UpdateReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 
-//	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-	double r_tot = 0.5 *r_p + 0.5 * r_h;
+	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -604,16 +569,7 @@ void
 Controller::
 UpdateTerminalInfo()
 {	
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
-	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
-	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
-	delete p_v_target;
-
-	mRefCharacter->GetSkeleton()->setPositions(targetPositions);
-	mRefCharacter->GetSkeleton()->setVelocities(targetVelocities);
-	mRefCharacter->GetSkeleton()->computeForwardKinematics(true,true,false);
-
-	auto& skel = mCharacter->GetSkeleton();
+	auto& skel = this->mCharacter->GetSkeleton();
 
 	Eigen::VectorXd p = skel->getPositions();
 	Eigen::VectorXd v = skel->getVelocities();
@@ -621,7 +577,19 @@ UpdateTerminalInfo()
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
 
-	Eigen::Isometry3d root_diff = cur_root_inv * mRefCharacter->GetSkeleton()->getRootBodyNode()->getWorldTransform();
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
+	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
+	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
+	delete p_v_target;
+
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+
+	skel->setPositions(targetPositions);
+	skel->setVelocities(targetVelocities);
+	skel->computeForwardKinematics(true,true,false);
+
+	Eigen::Isometry3d root_diff = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
 	
 	Eigen::AngleAxisd root_diff_aa(root_diff.linear());
 	double angle = RadianClamp(root_diff_aa.angle());
@@ -656,6 +624,10 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
+
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
 }
 bool
 Controller::
@@ -707,7 +679,6 @@ RescaleCharacter(double w0,double w1)
 	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 
-	DPhy::SkeletonBuilder::DeformSkeleton(mRefCharacter->GetSkeleton(), deform);
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 	
 	if(w0 != 1) mReferenceManager->RescaleMotion(std::sqrt(w0));

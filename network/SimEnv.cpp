@@ -8,14 +8,17 @@ SimEnv::
 SimEnv(int num_slaves, std::string ref, std::string stats, std::string mode)
 	:mNumSlaves(num_slaves)
 {
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
 	for(int i =0;i<num_slaves;i++)
 	{
-		if(mode.compare("adaptive") == 0) {
-			mSlaves.push_back(new DPhy::Controller(ref, stats, true, "t"));
-		}
-		else mSlaves.push_back(new DPhy::Controller(ref, stats));
+		DPhy::Character* character = new DPhy::Character(path);
+		DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(character);
+		referenceManager->LoadMotionFromBVH(ref);
+		referenceManager->GenerateMotionsFromSinglePhase(1000, true);
+		mSlaves.push_back(new DPhy::Controller(referenceManager, stats));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -175,15 +178,6 @@ DeformCharacter(double w)
 {
 	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->RescaleCharacter(w, 1.0);
 }
-void 
-SimEnv::
-UpdateTarget(std::string directory)
-{
-	mSlaves[0]->SaveTrainedData(directory);
-
-	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->UpdateReferenceData(directory);
-	std::cout << "reference Updated: " << directory << std::endl;
-}
 void
 SimEnv::
 UpdateSigTorque()
@@ -200,7 +194,6 @@ BOOST_PYTHON_MODULE(simEnv)
 	class_<SimEnv>("Env",init<int, std::string, std::string, std::string>())
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
-		.def("UpdateTarget",&SimEnv::UpdateTarget)
 		.def("GetDeformParameter",&SimEnv::GetDeformParameter)
 		.def("Step",&SimEnv::Step)
 		.def("Reset",&SimEnv::Reset)
