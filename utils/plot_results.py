@@ -18,7 +18,7 @@ def butter_lowpass_filter(data, cutoff, fs, order=5):
     y = filtfilt(b, a, data)
     return y
 
-def read_data_joint(data):
+def read_data3d_joint(data):
 	result = []
 	size = int(data.readline())
 	for i in range(size):
@@ -43,6 +43,16 @@ def read_data_joint(data):
 
 	return x_list, y_list, z_list
 
+def read_data1d_joint(data):
+	result = []
+	size = int(data.readline())
+	for i in range(size):
+		l = data.readline()
+		l = [float(t) for t in l.split()]
+		result.append(l)
+	result = np.array(result).transpose()
+	return result
+	
 def read_data_double(data):
 	result = []
 	size = int(data.readline())
@@ -52,7 +62,7 @@ def read_data_double(data):
 		result.append(l)
 	return result
 
-def plot_data_joint(data, directory, filename):
+def plot_data1d_joint(data, filename, suffix):
 	plt.figure(figsize=(15,12))
 	plt.subplots_adjust(hspace = 0.4, wspace = 0.15)
 
@@ -62,30 +72,26 @@ def plot_data_joint(data, directory, filename):
 		plt.gca().set_title(joint[cnt-1])
 		plt.plot(d, color='blue')
 		cnt += 1
-	plt.savefig(directory+'_'+filename+'.png') 
+	plt.savefig(filename+'_'+suffix+'.png') 
 
-def plot_data_double(data, directory, filename):
+def plot_data_double(data, filename, suffix):
 	plt.figure(figsize=(20,10))
 	plt.plot(data, color='red')
-	# plt.savefig(directory+'_'+filename+'.png') 
+	plt.savefig(filename+'_'+suffix+'.png') 
 
 def plot(filename):
 	data = open(filename)
-	# if not os.path.exists('./result_'+filename):
-	# 	os.mkdir('result_'+filename)
-	# directory = './result_'+filename+'/'+filename
 	
-#	x1, y1, z1 = read_data_joint(data)
 	w = read_data_double(data)
-#	x2, y2, z2 = read_data_joint(data)
+	w_j = read_data1d_joint(data)
+	x, y, z = read_data3d_joint(data)
 	data.close()
 
-	# time_dt = [t-20 for t in time]
-	plot_data_double(w, "", 'w')
-#	plot_data_joint(x1, directory, 'tqx')
-#	plot_data_joint(y1, directory, 'tqy')
-#	plot_data_joint(z1, directory, 'tqz')
-
+	plot_data_double(w, filename, 'w')
+	plot_data1d_joint(w_j, filename, 'wj')
+	plot_data1d_joint(x, filename, 'tqx')
+	plot_data1d_joint(y, filename, 'tqy')
+	plot_data1d_joint(z, filename, 'tqz')
 	plt.show()
 
 if __name__=="__main__":

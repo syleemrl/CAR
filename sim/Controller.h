@@ -116,6 +116,7 @@ protected:
 	std::vector<double> mRecordEnergy;
 	std::vector<double> mRecordWork;
 	std::vector<double> mRecordDCOM;
+	std::vector<Eigen::VectorXd> mRecordWorkByJoints;
 	std::vector<Eigen::VectorXd> mRecordTorque;
 
 	std::vector<std::pair<bool, bool>> mRecordFootContact;

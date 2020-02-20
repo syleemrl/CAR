@@ -130,6 +130,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	this->mRecordDTime.clear();
 	this->mRecordDCOM.clear();
 	this->mRecordWork.clear();
+	this->mRecordWorkByJoints.clear();
 
 	this->mMask.resize(dof);
 	this->mMask.setZero();
@@ -219,8 +220,10 @@ Step()
 	Eigen::VectorXd torque;
 
 	double work_sum = 0;
+	Eigen::VectorXd work_sum_joints(this->mCharacter->GetSkeleton()->getNumDofs() / 3 - 2);
 	Eigen::VectorXd torque_sum(this->mCharacter->GetSkeleton()->getNumDofs());
 	torque_sum.setZero();
+	work_sum_joints.setZero();
 
 	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep; i += 2){
 		if(mRecord && this->mTimeElapsed != 0 && this->mTimeElapsed % (int) mSimPerCon == 0) {
@@ -237,29 +240,32 @@ Step()
 			mWorld->step();
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
-			work_sum += torque_masked.dot(curVelocity) * 1.0 / mSimulationHz;
+			if(mRecord) 
+			{
+				work_sum += torque_masked.dot(curVelocity) * 1.0 / mSimulationHz;
+				for(int i = 6; i < curVelocity.rows(); i += 3) {
+					work_sum_joints[i/3 - 2] += torque.segment<3>(i).dot(curVelocity.segment<3>(i)) * 1.0 / mSimulationHz;
+				}
+
+			}
 			// work_sum += torque_masked.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
 
 		}
-		torque_sum += torque * 2.0 / mSimulationHz;
-
+		torque_sum += torque * 2.0 / mSimulationHz; 
 		mTimeElapsed += 2;
 	}
-	// std::cout << (int) mCurrentFrame % (int) mBVH->GetMaxFrame() << " " <<  work_sum << std::endl;
-	mRecordWork.push_back(work_sum);
-// 	torque_sum /= (this->mSimPerCon  + mAdaptiveStep);
-	this->mRecordTorque.push_back(torque_sum);
 
-	this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
-	this->mRecordDCOM.push_back(mAdaptiveCOM);
+	if(mRecord) {
+		this->mRecordTorque.push_back(torque_sum);
+		mRecordWork.push_back(work_sum);
+		mRecordWorkByJoints.push_back(work_sum_joints);
+		this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
+		this->mRecordDCOM.push_back(mAdaptiveCOM);	
+	}
 
-	// if(mode.compare("b") == 0) this->UpdateReward();
-	// else  this->UpdateAdaptiveReward();
-	this->UpdateAdaptiveReward();
+	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
-
-	// this->UpdateGRF(mGRFJoints);
 
 }
 void
@@ -561,7 +567,7 @@ UpdateReward()
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_h);
+		mRewardParts.push_back(r_a);
 	}
 
 }
@@ -737,6 +743,7 @@ Reset(bool RSI)
 	this->mRecordDCOM.clear();
 	this->mRecordEnergy.clear();
 	this->mRecordWork.clear();
+	this->mRecordWorkByJoints.clear();
 	this->mRecordFootConstraint.clear();
 
 	SaveStepInfo();
@@ -924,20 +931,23 @@ Controller::SaveStats(std::string directory) {
 	std::ofstream ofs(path);
 
 	ofs << mRecordWork.size() << std::endl;
-	for(int i = 0; i < mRecordWork.size(); i++) {
-		if(i == 0) {
-			ofs << mRecordWork[i] << std::endl;
-		} else if (i == 1) {
-			ofs << (2 * mRecordWork[i-1] + mRecordWork[i]) / 3.0 << std::endl;
-
-		} else {
-			ofs << (mRecordWork[i] + mRecordWork[i-1] + mRecordWork[i-2]) / 3.0 << std::endl;
-		}
-	}
 	for(auto t: mRecordWork) {
 		ofs << t << std::endl;
 	}
 	std::cout << "saved work: " << mRecordWork.size() << std::endl;
+	
+	ofs << mRecordWorkByJoints.size() << std::endl;
+	for(auto t: mRecordWorkByJoints) {
+		ofs << t.transpose() << std::endl;
+	}
+	std::cout << "saved work by joints: " << mRecordWorkByJoints.size() << std::endl;
+
+	ofs << mRecordTorque.size() << std::endl;
+	for(auto t: mRecordTorque) {
+		ofs << t.transpose() << std::endl;
+	}
+	std::cout << "saved torque: " << mRecordTorque.size() << std::endl;
+
 	ofs.close();
 
 }
