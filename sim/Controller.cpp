@@ -31,6 +31,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
+	// this->RescaleCharacter(1, 1);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -266,7 +267,7 @@ Step()
 		this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 		this->mRecordDCOM.push_back(mAdaptiveCOM);	
 	}
-	this->UpdateAdaptiveReward();
+	this->UpdateReward();
 	this->UpdateTerminalInfo();
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 
@@ -671,32 +672,37 @@ RescaleCharacter(double w0,double w1)
 {
 
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-	deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 
-	deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
 
-	deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
-	deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
+	// deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
+	// deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
 
-	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
-	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
+	// deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
+	// deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
+	// deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
 
-	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 	
-	if(w0 != 1) mReferenceManager->RescaleMotion(std::sqrt(w0));
+	// if(w0 != 1) mReferenceManager->RescaleMotion(std::sqrt(w0));
 
-	std::cout << "Deform done: " << w0 << " " << w1 << std::endl;
+
+	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, 1, 1), 3));
+	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(1, 1, 1), 3));
+	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(1, 1, 1), 3));
+	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
+	std::cout << "Deform done "  << std::endl;
 
 }
 void 
