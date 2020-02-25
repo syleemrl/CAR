@@ -12,7 +12,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
-	this->sig_torque = 0.2;
+	this->sig_torque = 0.4;
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 
 	this->mRecord = record;
@@ -31,7 +31,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	// this->RescaleCharacter(1, 1);
+	//this->RescaleCharacter(1, 1);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -256,11 +256,8 @@ Step()
 		torque_sum += torque * 2.0 / mSimulationHz; 
 		mTimeElapsed += 2;
 	}
-	if((int)mCurrentFrame % this->mReferenceManager->GetPhaseLength() > 3)
-	{
-		mRecordWork.push_back(work_sum);
-	}
-
+	
+	mRecordWork.push_back(work_sum);
 	if(mRecord) {
 		this->mRecordTorque.push_back(torque_sum);
 		mRecordWorkByJoints.push_back(work_sum_joints);
@@ -372,68 +369,12 @@ UpdateAdaptiveReward()
 		ee_diff(3*i + 1) = 0;
 	}
 	com_diff -= skel->getCOM();
-	com_diff[1] = 0;
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
-	std::pair<bool, bool> contactInfo_ref = mReferenceManager->CalculateContactInfo(p_v_target->GetPosition(), p_v_target->GetVelocity());
-
-	skel->setPositions(p_v_target->GetPosition());
-	skel->setVelocities(p_v_target->GetVelocity());
-	skel->computeForwardKinematics(true,true,false);
-	delete p_v_target;
-
-	const dart::dynamics::BodyNode *bn1, *bn2;
-	bn1 = skel->getBodyNode("FootL");
-	bn2 = skel->getBodyNode("FootR");
-
-	Eigen::Vector3d p0(0.0375, -0.1, 0.025);
-	Eigen::Vector3d p1(-0.0375, -0.1, 0.025);
-	Eigen::Vector3d p2(0.0375, 0.1, 0.025);
-	Eigen::Vector3d p3(-0.0375, 0.1, 0.025);
-
-	Eigen::Vector3d p0_l = bn1->getWorldTransform()*p0;
-	Eigen::Vector3d p1_l = bn1->getWorldTransform()*p1;
-	Eigen::Vector3d p2_l = bn1->getWorldTransform()*p2;
-	Eigen::Vector3d p3_l = bn1->getWorldTransform()*p3;
-
-	Eigen::Vector3d p0_r = bn2->getWorldTransform()*p0;
-	Eigen::Vector3d p1_r = bn2->getWorldTransform()*p1;
-	Eigen::Vector3d p2_r = bn2->getWorldTransform()*p2;
-	Eigen::Vector3d p3_r = bn2->getWorldTransform()*p3;
 
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	bn1 = skel->getBodyNode("FootL");
-	bn2 = skel->getBodyNode("FootR");
-
-	p0_l -= bn1->getWorldTransform()*p0;
-	p1_l -= bn1->getWorldTransform()*p1;
-	p2_l -= bn1->getWorldTransform()*p2;
-	p3_l -= bn1->getWorldTransform()*p3;
-
-	p0_r -= bn2->getWorldTransform()*p0;
-	p1_r -= bn2->getWorldTransform()*p1;
-	p2_r -= bn2->getWorldTransform()*p2;
-	p3_r -= bn2->getWorldTransform()*p3;
 	
-	std::pair<bool, bool> contactInfo_sim = mReferenceManager->CalculateContactInfo(p_save, v_save);
-
-	Eigen::VectorXd contact_diff(24);
-	contact_diff.setZero();
-	if(contactInfo_ref.first || contactInfo_ref.first!= contactInfo_sim.first) {
-		contact_diff.segment<3>(0) =  p0_l;
-		contact_diff.segment<3>(3) =  p1_l;
-		contact_diff.segment<3>(6) =  p2_l;
-		contact_diff.segment<3>(9) =  p3_l;
-	}
-	if(contactInfo_ref.second || contactInfo_ref.second!= contactInfo_sim.second) {
-		contact_diff.segment<3>(12) =  p0_r;
-		contact_diff.segment<3>(15) =  p1_r;
-		contact_diff.segment<3>(18) =  p2_r;
-		contact_diff.segment<3>(21) =  p3_r;
-	}
-
 	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
 	
 	double work_avg = 0;
@@ -443,13 +384,13 @@ UpdateAdaptiveReward()
 
 	if(mRecordWork.size() == 0) work_diff = 0;
 	else {
-		for(int i = 0; i < mReferenceManager->GetPhaseLength() - 4; i++) {
+		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
 			if(back - i < 0) break;
 			work_avg += mRecordWork[back - i];
 			count++;
 		}
 		work_avg /= count;
-		work_diff = work_avg - 17; // mReferenceManager->GetAvgWork()*1.5;
+		work_diff = work_avg - 5; // mReferenceManager->GetAvgWork()*1.5;
 	}
 	double scale = 1.0;
 	//mul
@@ -470,10 +411,8 @@ UpdateAdaptiveReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp_of_squared(actions, 1.5);
 	double r_w = exp(-pow(work_diff, 2)*sig_torque);
-	double r_con = exp_of_squared(contact_diff, sig_con);
-
 //	double r_tot = 0.8*(w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a + w_con*r_con) + 0.2*r_w;
-	double r_tot = 0.3*r_p + 0.7*r_w; 
+	double r_tot = 0.5*r_p + 0.5*r_w; 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(7, 0.0);
@@ -484,7 +423,7 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_con);
+		mRewardParts.push_back(r_a);
 		mRewardParts.push_back(r_w);
 	}
 }
