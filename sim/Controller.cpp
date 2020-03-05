@@ -31,7 +31,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	this->RescaleCharacter(1, 1);
+	// this->RescaleCharacter(1, 1);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -196,7 +196,6 @@ Step()
 	this->mTargetPositions[4] += mAdaptiveCOM;
 	this->mPDTargetPositions = this->mTargetPositions;
 	this->mPDTargetVelocities = this->mTargetVelocities;
-
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		mPDTargetPositions.segment<3>(idx) += mActions.segment<3>(3*i);
@@ -262,10 +261,10 @@ Step()
 	mRecordWork.push_back(work_sum);
 	// 평균을 내는게 맞는지 아닌지
 	mRecordTorque.push_back(torque_sum / (this->mSimPerCon +mAdaptiveStep));
+	mRecordDTime.push_back((this->mSimPerCon + mAdaptiveStep) / (double) this->mSimPerCon);
 	if(mRecord) {
 		this->mRecordTorqueByJoints.push_back(torque_sum_joints);
 		mRecordWorkByJoints.push_back(work_sum_joints);
-		this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 		this->mRecordDCOM.push_back(mAdaptiveCOM);	
 	}
 	this->UpdateReward();
@@ -500,12 +499,33 @@ UpdateReward()
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
+	int phase = (int) mCurrentFrame % mReferenceManager->GetPhaseLength();
+
+	if(phase >= 35 && phase <= 57) {
+		if(com_diff[1] > 0 ) com_diff[1] = 0;
+	}
 	double r_com = exp_of_squared(com_diff,sig_com);
 
 	double r_a = exp(-pow(mAdaptiveStep, 2)*0.005);
 	double r_t = exp_of_squared(mRecordTorque.back(), 0.1);
+
+	double time_range = 0;
+	double time_diff = 0;
+
+	if(mRecordDTime.size() < mReferenceManager->GetPhaseLength()) time_diff = 0;
+	else {
+		int k = mCurrentFrame / mReferenceManager->GetPhaseLength() - 1;
+		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+			if(i >= 35 && i <= 57) {
+				time_range += mRecordDTime[i + k*mReferenceManager->GetPhaseLength()];
+			}
+		}
+		time_diff = time_range - 23 * 1.4;
+	}
+	double r_time = exp(-pow(time_diff, 2)*0.02);
+
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-	r_tot = r_t;
+	r_tot = 0.1 * r_p + 0.3 * r_com + 0.6 * r_time;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -518,7 +538,7 @@ UpdateReward()
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_t);
+		mRewardParts.push_back(r_time);
 	}
 
 }
