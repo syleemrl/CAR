@@ -31,7 +31,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	//this->RescaleCharacter(1, 1);
+	this->RescaleCharacter(1, 1);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -131,7 +131,9 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	this->mRecordDTime.clear();
 	this->mRecordDCOM.clear();
 	this->mRecordWork.clear();
+	this->mRecordTorque.clear();
 	this->mRecordWorkByJoints.clear();
+	this->mRecordTorqueByJoints.clear();
 
 	this->mMask.resize(dof);
 	this->mMask.setZero();
@@ -176,13 +178,11 @@ Step()
 
 	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.1, -0.2, 0.2);
 	mActions[num_body_nodes*3 + 1] = dart::math::clip(mActions[num_body_nodes*3 + 1]*0.5, -1.0, 1.0);
-
 	mAdaptiveCOM = mActions[num_body_nodes*3];
-	mAdaptiveStep = (int) floor(mActions[num_body_nodes*3 + 1] * 5) * 2;
-
+	mAdaptiveStep = round(mActions[num_body_nodes*3 + 1] * 5) * 2;
 	// TO DELETE
 	mAdaptiveCOM = 0;
-	mAdaptiveStep = 0;
+//	mAdaptiveStep = 0;
 
 
 	this->mCurrentFrame += 1;
@@ -221,9 +221,11 @@ Step()
 	Eigen::VectorXd torque;
 
 	double work_sum = 0;
-	Eigen::VectorXd work_sum_joints(this->mCharacter->GetSkeleton()->getNumDofs() / 3 - 2);
 	Eigen::VectorXd torque_sum(this->mCharacter->GetSkeleton()->getNumDofs());
+	Eigen::VectorXd work_sum_joints(this->mCharacter->GetSkeleton()->getNumDofs() / 3 - 2);
+	Eigen::VectorXd torque_sum_joints(this->mCharacter->GetSkeleton()->getNumDofs() / 3 - 2);
 	torque_sum.setZero();
+	torque_sum_joints.setZero();
 	work_sum_joints.setZero();
 
 	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep; i += 2){
@@ -242,24 +244,26 @@ Step()
 
 			Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
 			work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
-
+			torque_sum += torque * 1.0 / mSimulationHz;
 			if(mRecord) 
 			{
 				for(int i = 6; i < curVelocity.rows(); i += 3) {
 					work_sum_joints[i/3 - 2] += torque.segment<3>(i).dot(curVelocity.segment<3>(i)) * 1.0 / mSimulationHz;
+					torque_sum_joints[i/3 - 2] += torque.segment<3>(i).norm() * 1.0 / mSimulationHz;
 				}
 
 			}
 			// work_sum += torque_masked.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
 
 		}
-		torque_sum += torque * 2.0 / mSimulationHz; 
 		mTimeElapsed += 2;
 	}
 	
 	mRecordWork.push_back(work_sum);
+	// 평균을 내는게 맞는지 아닌지
+	mRecordTorque.push_back(torque_sum / (this->mSimPerCon +mAdaptiveStep));
 	if(mRecord) {
-		this->mRecordTorque.push_back(torque_sum);
+		this->mRecordTorqueByJoints.push_back(torque_sum_joints);
 		mRecordWorkByJoints.push_back(work_sum_joints);
 		this->mRecordDTime.push_back(this->mSimPerCon + mAdaptiveStep);
 		this->mRecordDCOM.push_back(mAdaptiveCOM);	
@@ -485,23 +489,23 @@ UpdateReward()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();
-
 	double scale = 1.0;
 
 	double sig_p = 0.1 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
 	double sig_com = 0.2 * scale;		// 4
 	double sig_ee = 0.2 * scale;		// 8
-	double w_a = 0.01;
+	double w_a = 0.5;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_a = exp_of_squared(actions, 1.5);
 
+	double r_a = exp(-pow(mAdaptiveStep, 2)*0.005);
+	double r_t = exp_of_squared(mRecordTorque.back(), 0.1);
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
+	r_tot = r_t;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -514,7 +518,7 @@ UpdateReward()
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(r_t);
 	}
 
 }
@@ -637,9 +641,24 @@ RescaleCharacter(double w0,double w1)
 	// if(w0 != 1) mReferenceManager->RescaleMotion(std::sqrt(w0));
 
 
-	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, 1, 1), 3));
-	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(1, 1, 1), 3));
-	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(1, 1, 1), 3));
+	// deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(1, 1, 1), 4));
+	// deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(1, 1, 1), 4));
+	// deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(1, 1, 1), 4));
+
+	// deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(1, 1, 1), 4));
+	// deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(1, 1, 1), 4));
+	// deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(1, 1, 1), 4));
+
+
+	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(1, 1, 1), 4));
+	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(1, 1, 1), 4));
+	deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(1, 1, 1), 4));
+	deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(1, 1, 1), 4));
+
+	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(1, 1, 1), 4));
+	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, 1, 1), 4));
+	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(1, 1, 1), 4));
+	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(1, 1, 1), 4));
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
 	std::cout << "Deform done "  << std::endl;
 
@@ -695,7 +714,9 @@ Reset(bool RSI)
 	this->mRecordDCOM.clear();
 	this->mRecordEnergy.clear();
 	this->mRecordWork.clear();
+	this->mRecordTorque.clear();
 	this->mRecordWorkByJoints.clear();
+	this->mRecordTorqueByJoints.clear();
 	this->mRecordFootConstraint.clear();
 
 	SaveStepInfo();
@@ -894,11 +915,11 @@ Controller::SaveStats(std::string directory) {
 	}
 	std::cout << "saved work by joints: " << mRecordWorkByJoints.size() << std::endl;
 
-	ofs << mRecordTorque.size() << std::endl;
-	for(auto t: mRecordTorque) {
+	ofs << mRecordTorqueByJoints.size() << std::endl;
+	for(auto t: mRecordTorqueByJoints) {
 		ofs << t.transpose() << std::endl;
 	}
-	std::cout << "saved torque: " << mRecordTorque.size() << std::endl;
+	std::cout << "saved torque by joints: " << mRecordTorqueByJoints.size() << std::endl;
 
 	ofs.close();
 

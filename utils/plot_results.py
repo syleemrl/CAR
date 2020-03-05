@@ -52,7 +52,7 @@ def read_data1d_joint(data):
 		result.append(l)
 	result = np.array(result).transpose()
 	return result
-	
+
 def read_data_double(data):
 	result = []
 	size = int(data.readline())
@@ -84,14 +84,12 @@ def plot(filename):
 	
 	w = read_data_double(data)
 	w_j = read_data1d_joint(data)
-	x, y, z = read_data3d_joint(data)
+	t_j = read_data1d_joint(data)
 	data.close()
 
 	plot_data_double(w, filename, 'w')
 	plot_data1d_joint(w_j, filename, 'wj')
-	plot_data1d_joint(x, filename, 'tqx')
-	plot_data1d_joint(y, filename, 'tqy')
-	plot_data1d_joint(z, filename, 'tqz')
+	plot_data1d_joint(t_j, filename, 'tj')
 	plt.show()
 
 if __name__=="__main__":
