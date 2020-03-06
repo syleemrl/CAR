@@ -492,21 +492,21 @@ UpdateReward()
 
 	double sig_p = 0.1 * scale; 		// 2
 	double sig_v = 1.0 * scale;		// 3
-	double sig_com = 0.2 * scale;		// 4
+	double sig_com = 0.1 * scale;		// 4
 	double sig_ee = 0.2 * scale;		// 8
-	double w_a = 0.5;
+	double w_a = 0.02;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	int phase = (int) mCurrentFrame % mReferenceManager->GetPhaseLength();
-
-	if(phase >= 35 && phase <= 57) {
-		if(com_diff[1] > 0 ) com_diff[1] = 0;
-	}
+	// if(phase >= 35 && phase <= 57) {
+	// 	if(com_diff[1] > 0 ) com_diff[1] = 0;
+	// }
+	std::cout << phase << " " << mAdaptiveStep << std::endl;
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_a = exp(-pow(mAdaptiveStep, 2)*0.005);
+	double r_a = exp(-pow(mAdaptiveStep, 2)*0.1);
 	double r_t = exp_of_squared(mRecordTorque.back(), 0.1);
 
 	double time_range = 0;
@@ -525,7 +525,7 @@ UpdateReward()
 	double r_time = exp(-pow(time_diff, 2)*0.02);
 
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-	r_tot = 0.1 * r_p + 0.3 * r_com + 0.6 * r_time;
+	// r_tot = 0.1 * r_p + 0.4 * r_com + 0.5 * r_time;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
