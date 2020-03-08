@@ -184,15 +184,15 @@ Step()
 	mAdaptiveCOM = 0;
 //	mAdaptiveStep = 0;
 
-
 	this->mCurrentFrame += 1;
+	this->mCurrentSteps += (double) (this->mSimPerCon + mAdaptiveStep) / this->mSimPerCon;
 
+	if((int)this->mCurrentFrame % mReferenceManager->GetPhaseLength() == 0) this->mCurrentSteps = 0;
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
-
-	this->mTargetVelocities *= ((double) this->mSimPerCon / (this->mSimPerCon + mAdaptiveStep));
+	this->mTargetVelocities *= ((double) this->mSimPerCon / (this->mSimPerCon ));
 	this->mTargetPositions[4] += mAdaptiveCOM;
 	this->mPDTargetPositions = this->mTargetPositions;
 	this->mPDTargetVelocities = this->mTargetVelocities;
@@ -503,7 +503,7 @@ UpdateReward()
 	// if(phase >= 35 && phase <= 57) {
 	// 	if(com_diff[1] > 0 ) com_diff[1] = 0;
 	// }
-	std::cout << phase << " " << mAdaptiveStep << std::endl;
+	// std::cout << phase << " " << mAdaptiveStep << std::endl;
 	double r_com = exp_of_squared(com_diff,sig_com);
 
 	double r_a = exp(-pow(mAdaptiveStep, 2)*0.1);
@@ -512,16 +512,16 @@ UpdateReward()
 	double time_range = 0;
 	double time_diff = 0;
 
-	if(mRecordDTime.size() < mReferenceManager->GetPhaseLength()) time_diff = 0;
-	else {
-		int k = mCurrentFrame / mReferenceManager->GetPhaseLength() - 1;
-		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-			if(i >= 35 && i <= 57) {
-				time_range += mRecordDTime[i + k*mReferenceManager->GetPhaseLength()];
-			}
-		}
-		time_diff = time_range - 23 * 1.4;
-	}
+	// if(mRecordDTime.size() < mReferenceManager->GetPhaseLength()) time_diff = 0;
+	// else {
+	// 	int k = mCurrentFrame / mReferenceManager->GetPhaseLength() - 1;
+	// 	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+	// 		if(i >= 35 && i <= 57) {
+	// 			time_range += mRecordDTime[i + k*mReferenceManager->GetPhaseLength()];
+	// 		}
+	// 	}
+	// 	time_diff = time_range - 23 * 0.7;
+	// }
 	double r_time = exp(-pow(time_diff, 2)*0.02);
 
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
@@ -538,7 +538,7 @@ UpdateReward()
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_time);
+		mRewardParts.push_back(r_a);
 	}
 
 }
@@ -708,6 +708,7 @@ Reset(bool RSI)
 	else {
 		this->mCurrentFrame = 0; // 0;
 	}
+	this->mCurrentSteps =  this->mCurrentFrame;
 	this->mTimeElapsed = 0; // 0.0;
 	this->mStartFrame = this->mCurrentFrame;
 
@@ -896,8 +897,8 @@ GetState()
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	Eigen::VectorXd state;
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows());
-	state<< p, v, up_vec_angle, root_height, p_next, ee; //, mInputVelocity.first;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentSteps; //, mInputVelocity.first;
 	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
 	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;
 	return state;

@@ -82,7 +82,7 @@ protected:
 	int mControlHz;
 	int mSimulationHz;
 	int mSimPerCon;
-	double mStep;
+	double mCurrentSteps;
 
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
