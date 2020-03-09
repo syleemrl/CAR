@@ -182,7 +182,7 @@ Step()
 	mAdaptiveStep = round(mActions[num_body_nodes*3 + 1] * 5) * 2;
 	// TO DELETE
 	mAdaptiveCOM = 0;
-//	mAdaptiveStep = 0;
+	mAdaptiveStep = 0;
 
 	this->mCurrentFrame += 1;
 	this->mCurrentSteps += (double) (this->mSimPerCon + mAdaptiveStep) / this->mSimPerCon;
@@ -227,7 +227,7 @@ Step()
 	torque_sum_joints.setZero();
 	work_sum_joints.setZero();
 
-	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep; i += 2){
+	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep + 10; i += 2){
 		if(mRecord && this->mTimeElapsed != 0 && this->mTimeElapsed % (int) mSimPerCon == 0) {
 			SaveStepInfo();
 			this->mRecordTime.push_back((this->mCurrentFrame-1) + i / (double) (this->mSimPerCon + mAdaptiveStep));
@@ -253,11 +253,11 @@ Step()
 
 			}
 			// work_sum += torque_masked.cwiseAbs().dot(curVelocity.cwiseAbs()) * 1.0 / mSimulationHz;
-
+			auto skel = this->mCharacter->GetSkeleton();
+			Eigen::VectorXd p_diff = skel->getBodyNode("FootL")->getParentJoint()->getPositionDifferences(this->mTargetPositions.segment<3>(15), skel->getPositions().segment<3>(15));
 		}
 		mTimeElapsed += 2;
 	}
-	
 	mRecordWork.push_back(work_sum);
 	// 평균을 내는게 맞는지 아닌지
 	mRecordTorque.push_back(torque_sum / (this->mSimPerCon +mAdaptiveStep));
@@ -506,7 +506,10 @@ UpdateReward()
 	// std::cout << phase << " " << mAdaptiveStep << std::endl;
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_a = exp(-pow(mAdaptiveStep, 2)*0.1);
+	Eigen::VectorXd actions = mActions.segment<2>(mInterestedBodies.size()*3).cwiseAbs();	
+	double r_a = exp_of_squared(actions, 1.5);
+
+//	double r_a = exp(-pow(mAdaptiveStep, 2)*0.1);
 	double r_t = exp_of_squared(mRecordTorque.back(), 0.1);
 
 	double time_range = 0;
