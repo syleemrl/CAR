@@ -96,7 +96,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool record)
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 2);
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1);
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -176,24 +176,18 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
 
-	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.1, -0.2, 0.2);
-	mActions[num_body_nodes*3 + 1] = dart::math::clip(mActions[num_body_nodes*3 + 1]*0.5, -1.0, 1.0);
-	mAdaptiveCOM = mActions[num_body_nodes*3];
-	mAdaptiveStep = round(mActions[num_body_nodes*3 + 1] * 5) * 2;
-	// TO DELETE
-	mAdaptiveCOM = 0;
-	mAdaptiveStep = 0;
+	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.4, -0.8, 0.8);
+	mAdaptiveStep = mActions[num_body_nodes*3];
 
-	this->mCurrentFrame += 1;
-	this->mCurrentSteps += (double) (this->mSimPerCon + mAdaptiveStep) / this->mSimPerCon;
+	this->mCurrentFrame += 1 - mAdaptiveStep;
+	this->mCurrentSteps += 1 - mAdaptiveStep;
 
 	if((int)this->mCurrentFrame % mReferenceManager->GetPhaseLength() == 0) this->mCurrentSteps = 0;
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
-	this->mTargetVelocities *= ((double) this->mSimPerCon / (this->mSimPerCon ));
-	this->mTargetPositions[4] += mAdaptiveCOM;
+
 	this->mPDTargetPositions = this->mTargetPositions;
 	this->mPDTargetVelocities = this->mTargetVelocities;
 	for(int i = 0; i < num_body_nodes; i++){
@@ -227,12 +221,7 @@ Step()
 	torque_sum_joints.setZero();
 	work_sum_joints.setZero();
 
-	for(int i = 0; i < this->mSimPerCon + mAdaptiveStep + 10; i += 2){
-		if(mRecord && this->mTimeElapsed != 0 && this->mTimeElapsed % (int) mSimPerCon == 0) {
-			SaveStepInfo();
-			this->mRecordTime.push_back((this->mCurrentFrame-1) + i / (double) (this->mSimPerCon + mAdaptiveStep));
-		}
-
+	for(int i = 0; i < this->mSimPerCon; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		Eigen::VectorXd torque_masked = torque.cwiseProduct(this->mMask);
 
@@ -258,14 +247,15 @@ Step()
 		}
 		mTimeElapsed += 2;
 	}
+	if(mRecord) {
+		SaveStepInfo();
+	}
+
 	mRecordWork.push_back(work_sum);
-	// 평균을 내는게 맞는지 아닌지
-	mRecordTorque.push_back(torque_sum / (this->mSimPerCon +mAdaptiveStep));
-	mRecordDTime.push_back((this->mSimPerCon + mAdaptiveStep) / (double) this->mSimPerCon);
+	mRecordTorque.push_back(torque_sum / this->mSimPerCon);
 	if(mRecord) {
 		this->mRecordTorqueByJoints.push_back(torque_sum_joints);
 		mRecordWorkByJoints.push_back(work_sum_joints);
-		this->mRecordDCOM.push_back(mAdaptiveCOM);	
 	}
 	this->UpdateReward();
 	this->UpdateTerminalInfo();
@@ -528,7 +518,7 @@ UpdateReward()
 	double r_time = exp(-pow(time_diff, 2)*0.02);
 
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee + w_a*r_a;
-	// r_tot = 0.1 * r_p + 0.4 * r_com + 0.5 * r_time;
+	r_tot = r_tot * mAdaptiveStep;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
