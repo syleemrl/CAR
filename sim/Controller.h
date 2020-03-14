@@ -23,7 +23,6 @@ Controller(ReferenceManager* ref, std::string stats, bool record=false);
 
 	void Step();
 	void UpdateReward();
-	void UpdateAdaptiveReward();
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
 	bool FollowBvh();
@@ -74,7 +73,7 @@ Controller(ReferenceManager* ref, std::string stats, bool record=false);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
-	int mTimeElapsed;
+	double mTimeElapsed;
 	double mStartFrame;
 	double mCurrentFrame; // for discrete ref motion
 	double mMaxHeight;
@@ -83,6 +82,7 @@ protected:
 	int mSimulationHz;
 	int mSimPerCon;
 	double mCurrentSteps;
+	int nTotalSteps;
 
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
@@ -99,7 +99,7 @@ protected:
 
 	Eigen::Vector3d mTargetCOMvelocity;
 	double mAdaptiveCOM;
-	int mAdaptiveStep;
+	double mAdaptiveStep;
 	double sig_torque;
 
 	std::vector<std::string> mInterestedBodies;

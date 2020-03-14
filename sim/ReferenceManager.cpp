@@ -348,8 +348,8 @@ Motion* ReferenceManager::GetMotion(double t)
 {
 	auto& skel = mCharacter->GetSkeleton();
 
-	if(mMotions_gen.size() <= t) {
-	 	return new Motion(skel->getPositions(), skel->getVelocities());
+	if(mMotions_gen.size()-1 < t) {
+	 	return new Motion(mMotions_gen.back()->GetPosition(), mMotions_gen.back()->GetVelocity());
 	}
 	
 	int k0 = (int) std::floor(t);
