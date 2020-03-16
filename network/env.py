@@ -3,9 +3,9 @@ import numpy as np
 import simEnv
 import time
 class Env(object):
-	def __init__(self, ref, stats, mode, num_slaves):
+	def __init__(self, ref, stats, adaptive, num_slaves):
 		self.num_slaves = num_slaves
-		self.sim_env = simEnv.Env(num_slaves, "/motion/"+ref, "/result/stats/"+stats, mode)
+		self.sim_env = simEnv.Env(num_slaves, "/motion/"+ref, "/result/stats/"+stats, adaptive)
 		
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()

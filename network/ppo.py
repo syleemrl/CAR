@@ -59,7 +59,7 @@ class PPO(object):
 			self.RMS = RunningMeanStd(shape=(self.num_state))
 			self.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 
-	def initTrain(self, name, env, mode, pretrain="", evaluation=False,
+	def initTrain(self, name, env, pretrain="", evaluation=False,
 		directory=None, batch_size=1024, steps_per_iteration=20000):
 
 		self.name = name
@@ -68,7 +68,6 @@ class PPO(object):
 		self.steps_per_iteration = steps_per_iteration
 		self.batch_size = batch_size
 		self.pretrain = pretrain
-		self.mode = mode
 
 		self.env = env
 		self.num_slaves = self.env.num_slaves
@@ -341,7 +340,7 @@ if __name__=="__main__":
 	parser.add_argument("--pretrain", type=str, default="")
 	parser.add_argument("--evaluation", type=bool, default=False)
 	parser.add_argument("--nslaves", type=int, default=4)
-	parser.add_argument("--mode", type=str, default="fixed")
+	parser.add_argument("--adaptive", type=bool, default=False)
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
 	parser.set_defaults(plot=True)
@@ -357,9 +356,9 @@ if __name__=="__main__":
 			os.mkdir(directory)
 	
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, mode=args.mode)
+		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, adaptive=args.adaptive)
 	else:
-		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, mode=args.mode)
+		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
 	ppo = PPO()
-	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, mode=args.mode)
+	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
 	ppo.train(args.ntimesteps)

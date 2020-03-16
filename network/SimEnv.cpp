@@ -5,7 +5,7 @@
 #include <iostream>
 
 SimEnv::
-SimEnv(int num_slaves, std::string ref, std::string stats, std::string mode)
+SimEnv(int num_slaves, std::string ref, std::string stats, bool adaptive)
 	:mNumSlaves(num_slaves)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
@@ -18,7 +18,7 @@ SimEnv(int num_slaves, std::string ref, std::string stats, std::string mode)
 		DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(character);
 		referenceManager->LoadMotionFromBVH(ref);
 		referenceManager->GenerateMotionsFromSinglePhase(1000, false);
-		mSlaves.push_back(new DPhy::Controller(referenceManager, stats));
+		mSlaves.push_back(new DPhy::Controller(referenceManager, stats, adaptive));
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
@@ -191,7 +191,7 @@ BOOST_PYTHON_MODULE(simEnv)
 	Py_Initialize();
 	np::initialize();
 
-	class_<SimEnv>("Env",init<int, std::string, std::string, std::string>())
+	class_<SimEnv>("Env",init<int, std::string, std::string, bool>())
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
 		.def("GetDeformParameter",&SimEnv::GetDeformParameter)

@@ -19,10 +19,11 @@ class Character;
 class Controller
 {
 public:
-Controller(ReferenceManager* ref, std::string stats, bool record=false);
+Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool record=false);
 
 	void Step();
 	void UpdateReward();
+	void UpdateAdaptiveReward();
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
 	bool FollowBvh();
@@ -73,16 +74,15 @@ Controller(ReferenceManager* ref, std::string stats, bool record=false);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
-	double mTimeElapsed;
 	double mStartFrame;
 	double mCurrentFrame; // for discrete ref motion
-	double mMaxHeight;
-	double mMaxHeightPrev; 
+	double mTimeElapsed;
 	int mControlHz;
 	int mSimulationHz;
 	int mSimPerCon;
-	double mCurrentSteps;
+	double mCurrentFrameOnPhase;
 	int nTotalSteps;
+	bool isAdaptive;
 
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
