@@ -20,7 +20,7 @@ if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
 	tf.contrib._warning = None
 class PPO(object):
 	def __init__(self, learning_rate_actor=2e-4, learning_rate_critic=0.001, learning_rate_decay=0.9993,
-		gamma=0.95, lambd=0.95, epsilon=0.2):
+		gamma=0.997, lambd=0.95, epsilon=0.2):
 		random.seed(int(time.time()))
 		np.random.seed(int(time.time()))
 		tf.set_random_seed(int(time.time()))
@@ -221,46 +221,11 @@ class PPO(object):
 		summary = self.env.printSummary()
 		if self.reward_max < summary['r_per_e']:
 			self.reward_max = summary['r_per_e']
-			self.env.RMS.save(self.directory+'rms-max')
+			self.env.RMS.save(self.directory+'rms-rmax')
 
-			os.system("cp {}/network-{}.data-00000-of-00001 {}/network-max.data-00000-of-00001".format(self.directory, 0, self.directory))
-			os.system("cp {}/network-{}.index {}/network-max.index".format(self.directory, 0, self.directory))
-			os.system("cp {}/network-{}.meta {}/network-max.meta".format(self.directory, 0, self.directory))
-
-		# if self.mode == 'adaptive' and self.last_target_update >= 0:
-		# 	if summary['s_per_e'] > 800 and summary['r_contact_per_e'] > 0.5 and self.env.r_target_avg_old < summary['r_target_avg_new']:
-		# 		self.env.r_target_avg_old = summary['r_target_avg_new']
-		# 		self.env.reset(0, False)
-		# 		state = self.env.getStates()[0]
-		# 		state = np.reshape(state, (1, self.num_state))
-						
-		# 		count = 0
-		# 		while True:
-		# 			action = self.actor.getMeanAction(state)
-		# 			state, reward, done = self.env.stepForEval(action, 0)
-		# 			count += 1
-		# 			if done:
-		# 				if count > 300:
-		# 					print(count)
-		# 					break
-		# 				else:
-		# 					count = 0
-		# 					self.env.reset(0, False)
-		# 					state = self.env.getStates()[0]
-		# 					state = np.reshape(state, (1, self.num_state))	
-
-		# 		self.env.sim_env.UpdateTarget('/network/output/'+self.name+'/trained_data-'+str(self.env.target_update_count)+'.txt')
-		# 		self.env.RMS.save(self.directory+'rms-adaptive-'+str(self.env.target_update_count))
-
-		# 		os.system("cp {}/network-{}.data-00000-of-00001 {}/network-adaptive-{}.data-00000-of-00001".format(self.directory, 0, self.directory, self.env.target_update_count))
-		# 		os.system("cp {}/network-{}.index {}/network-adaptive-{}.index".format(self.directory, 0, self.directory, self.env.target_update_count))
-		# 		os.system("cp {}/network-{}.meta {}/network-adaptive-{}.meta".format(self.directory, 0, self.directory, self.env.target_update_count))
-				
-		# 		self.last_target_update = 0
-		# 		self.env.target_update_count += 1
-		# elif self.mode == 'adaptive' and self.last_target_update < 0:
-		# 	self.last_target_update += 1
-
+			os.system("cp {}/network-{}.data-00000-of-00001 {}/network-rmax.data-00000-of-00001".format(self.directory, 0, self.directory))
+			os.system("cp {}/network-{}.index {}/network-rmax.index".format(self.directory, 0, self.directory))
+			os.system("cp {}/network-{}.meta {}/network-rmax.meta".format(self.directory, 0, self.directory))
 
 	def load(self, path):
 		self.saver.restore(self.sess, path)
@@ -310,7 +275,6 @@ class PPO(object):
 			print('')
 
 			if it % 5 == 4:				
-#			if 1:
 				self.update(epi_info_iter) 
 
 				if self.learning_rate_actor > 1e-5:
@@ -359,6 +323,7 @@ if __name__=="__main__":
 		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, adaptive=args.adaptive)
 	else:
 		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
+
 	ppo = PPO()
 	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation)
 	ppo.train(args.ntimesteps)

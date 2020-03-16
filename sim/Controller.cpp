@@ -138,6 +138,8 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	this->mMask.resize(dof);
 	this->mMask.setZero();
 	
+	mControlFlag.resize(2);
+
 	int num_body_nodes = this->mInterestedBodies.size();
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
@@ -149,7 +151,20 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 			this->mMask.segment<3>(idx) = Eigen::Vector3d::Constant(1);
 		}
 	}
-
+	
+	mRewardLabels.clear();
+	if(isAdaptive) {
+		mRewardLabels.push_back("total");
+		mRewardLabels.push_back("p");
+		mRewardLabels.push_back("h");
+	} else {
+		mRewardLabels.push_back("total");
+		mRewardLabels.push_back("p");
+		mRewardLabels.push_back("v");
+		mRewardLabels.push_back("com");
+		mRewardLabels.push_back("ee");
+		mRewardLabels.push_back("t");
+	}
 }
 void
 Controller::
@@ -180,7 +195,10 @@ Step()
 	mAdaptiveStep = mActions[num_body_nodes*3];
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
-	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength() - 1) this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
+	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength() - 1){
+		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
+		mControlFlag.setZero();
+	}
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -301,18 +319,9 @@ UpdateAdaptiveReward()
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-	std::vector<Eigen::Isometry3d> ee_transforms;
-	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
-	ee_diff.setZero();
 	Eigen::Vector3d com_diff;
 
 	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
-	
-	std::vector<bool> isContact;
-	for(int i=0;i<mEndEffectors.size();i++){
-		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
-	//	isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
-	}
 	
 	com_diff = skel->getCOM();
 
@@ -320,12 +329,6 @@ UpdateAdaptiveReward()
 	skel->setVelocities(this->mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
-	for(int i=0;i<mEndEffectors.size();i++){
-	//	if(isContact[i]) {
-			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
-			ee_diff.segment<3>(3*i) = diff.translation();
-	//	}
-	}
 	com_diff -= skel->getCOM();
 
 	skel->setPositions(p_save);
@@ -336,15 +339,14 @@ UpdateAdaptiveReward()
 
 	double sig_p = 0.1 * scale; 		// 2
 	double sig_com = 0.1 * scale;		// 4
-	double sig_ee = 0.2 * scale;		// 8
-	double w_a = 0.1;
 
 	double r_height = 0;
-	if(mCurrentFrameOnPhase >= 44 && mCurrentFrameOnPhase <= 46) {
-		double height_diff = skel->getCOM()[1] - 1.2;
+	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
+		double height_diff = skel->getCOM()[1] - 1.3;
 		r_height = exp(-pow(height_diff, 2) * 20);
+		mControlFlag[0] = 1;
 	}
-	else if(mCurrentFrameOnPhase >= 54 && mCurrentFrameOnPhase <= 56) {
+	else if(mCurrentFrameOnPhase >= 55 && mControlFlag[1] == 0) {
 		Eigen::VectorXd height_diff(2);
 		height_diff[0] = skel->getBodyNode("FootL")->getWorldTransform().translation()[1] - 0.04;
 		height_diff[1] = skel->getBodyNode("FootR")->getWorldTransform().translation()[1] - 0.04;
@@ -352,25 +354,22 @@ UpdateAdaptiveReward()
 		if(height_diff[1] < 0) height_diff[1] = 0;
 
 		r_height = exp_of_squared(height_diff, 0.2);
+		mControlFlag[1] = 1;
 	}
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
-	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_a = exp(-pow(mAdaptiveStep, 2)*100);
 
-	double r_tot = 0.1 * r_a;
+	double r_tot = 0.1*r_p + 10 * r_height;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
-		mRewardParts.resize(7, 0.0);
+		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
 		mRewardParts.push_back(r_p);
-		mRewardParts.push_back(r_com);
-		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(r_height);
 	}
 }
 void
@@ -448,7 +447,7 @@ UpdateReward()
 	r_tot = 0.9 * r_tot + 0.1 * r_a;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
-		mRewardParts.resize(7, 0.0);
+		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
@@ -456,7 +455,6 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_a);
 		mRewardParts.push_back(r_a);
 	}
 
@@ -631,6 +629,7 @@ Reset(bool RSI)
 	this->mStartFrame = this->mCurrentFrame;
 	this->nTotalSteps = 0;
 	this->mTimeElapsed = 0;
+	this->mControlFlag.setZero();
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
 	this->mTargetPositions = p_v_target->GetPosition();

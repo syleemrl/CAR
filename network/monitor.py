@@ -28,7 +28,9 @@ class Monitor(object):
 		self.total_time_elapsed = 0
 		self.total_rewards = []
 		self.max_episode_length = 0
-		self.total_rewards_by_parts = np.array([[]]*7)
+
+		self.reward_label = self.sim_env.GetRewardLabels();
+		self.total_rewards_by_parts = np.array([[]]*len(self.reward_label))
 		self.transition_per_episodes = []
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
@@ -148,8 +150,6 @@ class Monitor(object):
 
 		print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
 		print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
-		print_list.append('target rewards per episodes : {:.2f}'.format(self.total_rewards_by_parts[5][-1]))
-
 		print_list.append('max episode length : {}'.format(self.max_episode_length))
 
 		te_per_t  = 0
@@ -171,14 +171,9 @@ class Monitor(object):
 			out.close()
 
 		if self.plot:
-			y_list = [[np.asarray(self.transition_per_episodes), 'steps'], 
-						[np.asarray(self.total_rewards_by_parts[0]), 'r'], 
-						[np.asarray(self.total_rewards_by_parts[1]), 'p'], 
-						[np.asarray(self.total_rewards_by_parts[2]), 'v'], 
-						[np.asarray(self.total_rewards_by_parts[3]), 'com'],
-						[np.asarray(self.total_rewards_by_parts[4]), 'ee'],
-						[np.asarray(self.total_rewards_by_parts[5]), 'contact'],
-						[np.asarray(self.total_rewards_by_parts[6]), 'target']]
+			y_list = [[np.asarray(self.transition_per_episodes), 'steps']]
+			for i in range(len(self.total_rewards_by_parts)):
+				y_list.append([np.asarray(self.total_rewards_by_parts[i]), self.reward_label[i]])
 
 			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
@@ -188,24 +183,14 @@ class Monitor(object):
 
 			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
-		summary = dict()
-		summary['r_per_e'] = r_per_e
-		summary['s_per_e'] = t_per_e
-		summary['r_target_avg_total'] = np.average(self.total_rewards_by_parts[6] / self.transition_per_episodes) 
-		summary['r_target_avg_new'] = np.average(self.total_rewards_by_parts[6][-1] / self.transition_per_episodes[-1])
-		summary['r_position_per_e'] =  self.total_rewards_by_parts[1][-1] / self.transition_per_episodes[-1]
-		summary['r_velocity_per_e'] =  self.total_rewards_by_parts[2][-1] / self.transition_per_episodes[-1]
-		summary['r_com_per_e'] =  self.total_rewards_by_parts[3][-1] / self.transition_per_episodes[-1]
-		summary['r_ee_per_e'] =  self.total_rewards_by_parts[4][-1] / self.transition_per_episodes[-1]
-		summary['r_contact_per_e'] =  self.total_rewards_by_parts[5][-1] / self.transition_per_episodes[-1]
-		print(summary)
-		if summary['r_target_avg_new'] > 0.5:
-			self.sim_env.UpdateSigTorque();
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.total_time_elapsed = 0
-
+		
+		summary = dict()
+		summary['r_per_e'] = r_per_e
+		summary['s_per_e'] = t_per_e
 		return summary

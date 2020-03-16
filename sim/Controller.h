@@ -44,6 +44,7 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	void SetAction(const Eigen::VectorXd& action);
 	double GetReward() {return mRewardParts[0]; }
 	std::vector<double> GetRewardByParts() {return mRewardParts; }
+	std::vector<std::string> GetRewardLabels() {return mRewardLabels; }
 	const dart::simulation::WorldPtr& GetWorld() {return mWorld;}
 
 	double GetTimeElapsed(){return this->mTimeElapsed;}
@@ -105,7 +106,7 @@ protected:
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
 	std::vector<std::string> mEndEffectors;
-
+	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
 	// for foot collision, left, right foot, ground
 	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL; 
@@ -119,7 +120,6 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordTorque;
 	std::vector<Eigen::VectorXd> mRecordWorkByJoints;
 	std::vector<Eigen::VectorXd> mRecordTorqueByJoints;
-
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
@@ -148,6 +148,8 @@ protected:
 	Eigen::VectorXd mPrevPositions;
 	Eigen::VectorXd mTorqueSig;
 	Eigen::VectorXd mMask;
+	Eigen::VectorXd mControlFlag;
+
 };
 }
 #endif

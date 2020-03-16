@@ -39,6 +39,7 @@ public:
 
 	np::ndarray GetStates();
 	void SetActions(np::ndarray np_array);
+	p::list GetRewardLabels();
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 

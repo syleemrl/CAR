@@ -83,6 +83,15 @@ SetAction(np::ndarray np_array,int id)
 {
 	mSlaves[id]->SetAction(DPhy::toEigenVector(np_array,mNumAction));
 }
+p::list 
+SimEnv::
+GetRewardLabels()
+{
+	p::list l;
+	std::vector<std::string> sl = mSlaves[0]->GetRewardLabels();
+	for(int i =0 ; i <sl.size(); i++) l.append(sl[i]);
+	return l;
+}
 double 
 SimEnv::
 GetReward(int id)
@@ -199,6 +208,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("Reset",&SimEnv::Reset)
 		.def("GetState",&SimEnv::GetState)
 		.def("SetAction",&SimEnv::SetAction)
+		.def("GetRewardLabels",&SimEnv::GetRewardLabels)
 		.def("GetReward",&SimEnv::GetReward)
 		.def("GetRewardByParts",&SimEnv::GetRewardByParts)
 		.def("DeformCharacter",&SimEnv::DeformCharacter)
