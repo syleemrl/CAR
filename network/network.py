@@ -73,10 +73,10 @@ class Actor(object):
 
 
 class Critic(object):
-	def __init__(self, sess, scope, state):
+	def __init__(self, sess, scope, state, postfix=''):
 		self.sess = sess
 		self.name = scope
-		self.scope = scope + '_Critic'
+		self.scope = scope + '_Critic' + postfix
 		self.value = self.createNetwork(state, False, None)
 
 	def createNetwork(self, state, reuse, is_training):	

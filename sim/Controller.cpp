@@ -154,7 +154,8 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	
 	mRewardLabels.clear();
 	if(isAdaptive) {
-		mRewardLabels.push_back("total");
+		mRewardLabels.push_back("total_p");
+		mRewardLabels.push_back("total_h");
 		mRewardLabels.push_back("p");
 		mRewardLabels.push_back("h");
 	} else {
@@ -344,6 +345,7 @@ UpdateAdaptiveReward()
 	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
 		double height_diff = skel->getCOM()[1] - 1.3;
 		r_height = exp(-pow(height_diff, 2) * 20);
+		std::cout << height_diff << " " << r_height << std::endl;
 		mControlFlag[0] = 1;
 	}
 	else if(mCurrentFrameOnPhase >= 55 && mControlFlag[1] == 0) {
@@ -354,20 +356,20 @@ UpdateAdaptiveReward()
 		if(height_diff[1] < 0) height_diff[1] = 0;
 
 		r_height = exp_of_squared(height_diff, 0.2);
+		std::cout << height_diff.transpose() << " " << r_height << std::endl;
 		mControlFlag[1] = 1;
 	}
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_a = exp(-pow(mAdaptiveStep, 2)*100);
 
-	double r_tot = 0.1*r_p + 10 * r_height;
 	mRewardParts.clear();
-	if(dart::math::isNan(r_tot)){
+	if(dart::math::isNan(r_p)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
-		mRewardParts.push_back(r_tot);
+		mRewardParts.push_back(r_p);
+		mRewardParts.push_back(r_height*10);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_height);
 	}
