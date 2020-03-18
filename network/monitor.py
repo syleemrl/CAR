@@ -27,6 +27,7 @@ class Monitor(object):
 		self.num_transitions = 0
 		self.total_time_elapsed = 0
 		self.total_rewards = []
+		self.total_rewards_target = []
 		self.max_episode_length = 0
 
 		self.reward_label = self.sim_env.GetRewardLabels();
@@ -36,6 +37,7 @@ class Monitor(object):
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
+		self.rewards_target_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.target_update_count = 0
 		self.r_target_avg_old = 0
@@ -76,12 +78,15 @@ class Monitor(object):
 
 	def step(self, actions):
 		self.states, rewards, dones, times, frames, nan_count =  self.env.step(actions)
+		curframes = np.array(self.states)[:,-1]
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		self.num_nan_per_iteration += nan_count
 		for i in range(self.num_slaves):
 			if not self.terminated[i] and rewards[i][0] is not None:
 				self.rewards_per_iteration += rewards[i][0]
+				if self.adaptive:
+					self.rewards_target_per_iteration += rewards[i][1]
 				self.rewards_by_part_per_iteration.append(rewards[i])
 				
 				self.num_transitions_per_iteration += 1
@@ -92,13 +97,12 @@ class Monitor(object):
 
 					if frames[i] > self.max_episode_length:
 						self.max_episode_length = frames[i]
-		
 		if self.adaptive:
 			rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
 		else:	
 			rewards = [rewards[i][0] for i in range(len(rewards))]
 
-		return rewards, dones
+		return rewards, dones, curframes
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:
@@ -127,6 +131,9 @@ class Monitor(object):
 		self.num_evaluation += 1
 		r_per_e = self.rewards_per_iteration/self.num_episodes_per_iteration
 		self.total_rewards.append(r_per_e)
+		if self.adaptive:
+			rt_per_e = self.rewards_target_per_iteration/self.num_episodes_per_iteration
+			self.total_rewards_target.append(rt_per_e)
 		self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
 			np.asarray(self.rewards_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
 		print_list = []
@@ -153,6 +160,8 @@ class Monitor(object):
 
 		print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
 		print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
+		if self.adaptive:
+			print_list.append('target rewards per episodes : {:.2f}'.format(self.total_rewards_target[-1]))
 		print_list.append('max episode length : {}'.format(self.max_episode_length))
 
 		te_per_t  = 0
@@ -192,7 +201,8 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.total_time_elapsed = 0
-		
+		self.rewards_target_per_iteration = 0
+
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['s_per_e'] = t_per_e

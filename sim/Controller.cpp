@@ -154,9 +154,10 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	
 	mRewardLabels.clear();
 	if(isAdaptive) {
-		mRewardLabels.push_back("total_p");
-		mRewardLabels.push_back("total_h");
+		mRewardLabels.push_back("total_d");
+		mRewardLabels.push_back("total_s");
 		mRewardLabels.push_back("p");
+		mRewardLabels.push_back("com");
 		mRewardLabels.push_back("h");
 	} else {
 		mRewardLabels.push_back("total");
@@ -197,7 +198,7 @@ Step()
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength() - 1){
-		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
+		this->mCurrentFrameOnPhase -= (mReferenceManager->GetPhaseLength() - 1);
 		mControlFlag.setZero();
 	}
 
@@ -331,7 +332,7 @@ UpdateAdaptiveReward()
 	skel->computeForwardKinematics(true,true,false);
 
 	com_diff -= skel->getCOM();
-
+	com_diff[1] = 0;
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
@@ -343,34 +344,38 @@ UpdateAdaptiveReward()
 
 	double r_height = 0;
 	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
-		double height_diff = skel->getCOM()[1] - 1.3;
-		r_height = exp(-pow(height_diff, 2) * 20);
-		std::cout << height_diff << " " << r_height << std::endl;
+		double height_diff = skel->getCOM()[1] - 1.15;
+		r_height = exp(-pow(height_diff, 2) * 25)*1.5;
 		mControlFlag[0] = 1;
+		std::cout << height_diff << " " << r_height << std::endl;
 	}
 	else if(mCurrentFrameOnPhase >= 55 && mControlFlag[1] == 0) {
-		Eigen::VectorXd height_diff(2);
-		height_diff[0] = skel->getBodyNode("FootL")->getWorldTransform().translation()[1] - 0.04;
-		height_diff[1] = skel->getBodyNode("FootR")->getWorldTransform().translation()[1] - 0.04;
-		if(height_diff[0] < 0) height_diff[0] = 0;
-		if(height_diff[1] < 0) height_diff[1] = 0;
-
-		r_height = exp_of_squared(height_diff, 0.2);
-		std::cout << height_diff.transpose() << " " << r_height << std::endl;
+		Eigen::VectorXd height_diff(4);
+		height_diff[0] = skel->getBodyNode("FootL")->getWorldTransform().translation()[1] - 0.03;
+		height_diff[1] = skel->getBodyNode("FootR")->getWorldTransform().translation()[1] - 0.03;
+		height_diff[2] = skel->getBodyNode("FootEndL")->getWorldTransform().translation()[1] - 0.03;
+		height_diff[3] = skel->getBodyNode("FootEndR")->getWorldTransform().translation()[1] - 0.03;
+		for(int i = 0; i < height_diff.rows(); i++) {
+			if(height_diff[i] < 0) height_diff[i] = 0;
+		}
+		r_height = exp_of_squared(height_diff, 0.2)*0.75;
 		mControlFlag[1] = 1;
+		std::cout << height_diff.transpose() << " " << r_height << std::endl;
 	}
-
+	std::cout << nTotalSteps << " : " << mCurrentFrameOnPhase << std::endl;
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
+	double r_tot_dense = 0.7 * r_p + 0.3 * r_com;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_p)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
+		mRewardParts.push_back(r_tot_dense);
+		mRewardParts.push_back(r_height*5);
 		mRewardParts.push_back(r_p);
-		mRewardParts.push_back(r_height*10);
-		mRewardParts.push_back(r_p);
+		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_height);
 	}
 }

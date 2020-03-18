@@ -9,6 +9,7 @@ class Env(object):
 		
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()
+		self.adaptive = adaptive
 
 	def reset(self, i, b):
 		self.sim_env.Reset(i, b)
@@ -41,7 +42,10 @@ class Env(object):
 				times.append(time_elapsed)
 				frames.append(frame_elapsed)
 			else:
-				rewards.append([None])
+				if self.adaptive:
+					rewards.append([None, None])
+				else:
+					rewards.append([None])
 				dones.append(True)
 				times.append(time_elapsed)
 				frames.append(frame_elapsed)
