@@ -345,28 +345,28 @@ UpdateAdaptiveReward()
 	double r_height = 0;
 	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
 		double height_diff = skel->getCOM()[1] - 1.15;
-		r_height = exp(-pow(height_diff, 2) * 25)*1.5;
+		r_height = exp(-pow(height_diff, 2) * 10)*1.5;
 		mControlFlag[0] = 1;
-		std::cout << height_diff << " " << r_height << std::endl;
+	//	std::cout << height_diff << " " << r_height << std::endl;
 	}
-	else if(mCurrentFrameOnPhase >= 55 && mControlFlag[1] == 0) {
-		Eigen::VectorXd height_diff(4);
-		height_diff[0] = skel->getBodyNode("FootL")->getWorldTransform().translation()[1] - 0.03;
-		height_diff[1] = skel->getBodyNode("FootR")->getWorldTransform().translation()[1] - 0.03;
-		height_diff[2] = skel->getBodyNode("FootEndL")->getWorldTransform().translation()[1] - 0.03;
-		height_diff[3] = skel->getBodyNode("FootEndR")->getWorldTransform().translation()[1] - 0.03;
-		for(int i = 0; i < height_diff.rows(); i++) {
-			if(height_diff[i] < 0) height_diff[i] = 0;
-		}
-		r_height = exp_of_squared(height_diff, 0.2)*0.75;
-		mControlFlag[1] = 1;
-		std::cout << height_diff.transpose() << " " << r_height << std::endl;
-	}
-	std::cout << nTotalSteps << " : " << mCurrentFrameOnPhase << std::endl;
+	// else if(mCurrentFrameOnPhase >= 55 && mControlFlag[1] == 0) {
+	// 	Eigen::VectorXd height_diff(4);
+	// 	height_diff[0] = skel->getBodyNode("FootL")->getWorldTransform().translation()[1] - 0.03;
+	// 	height_diff[1] = skel->getBodyNode("FootR")->getWorldTransform().translation()[1] - 0.03;
+	// 	height_diff[2] = skel->getBodyNode("FootEndL")->getWorldTransform().translation()[1] - 0.03;
+	// 	height_diff[3] = skel->getBodyNode("FootEndR")->getWorldTransform().translation()[1] - 0.03;
+	// 	for(int i = 0; i < height_diff.rows(); i++) {
+	// 		if(height_diff[i] < 0) height_diff[i] = 0;
+	// 	}
+	// 	r_height = exp_of_squared(height_diff, 0.2)*0.75;
+	// 	mControlFlag[1] = 1;
+	// //	std::cout << height_diff.transpose() << " " << r_height << std::endl;
+	// }
+	// std::cout << nTotalSteps << " : " << mCurrentFrameOnPhase << std::endl;
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_tot_dense = 0.7 * r_p + 0.3 * r_com;
+	double r_tot_dense = 0.5 * r_p + 0.5 * r_com;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_p)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);

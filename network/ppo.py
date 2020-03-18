@@ -363,8 +363,6 @@ class PPO(object):
 			print(s)
 	def train(self, num_iteration):
 		epi_info_iter = []
-		embed()
-		exit()
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
