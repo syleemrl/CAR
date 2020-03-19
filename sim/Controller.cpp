@@ -366,14 +366,14 @@ UpdateAdaptiveReward()
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_tot_dense = 0.5 * r_p + 0.5 * r_com;
+	double r_tot_dense = r_com;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_p)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_height*5);
+		mRewardParts.push_back(r_height*3);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_height);

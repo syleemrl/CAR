@@ -308,7 +308,6 @@ class PPO(object):
 			TD_sparse = values_sparse[:size] + advantages_sparse
 			self.values_sparse += np.mean(values_sparse)
 			self.values_dense += np.mean(values_dense)
-
 			for i in range(size):
 				state_batch.append(states[i])
 				action_batch.append(actions[i])
