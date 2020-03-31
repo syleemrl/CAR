@@ -96,7 +96,11 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1);
+	if(isAdaptive) {
+		mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1);
+	} else {
+		mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3);
+	}
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -165,7 +169,6 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 		mRewardLabels.push_back("v");
 		mRewardLabels.push_back("com");
 		mRewardLabels.push_back("ee");
-		mRewardLabels.push_back("t");
 	}
 }
 void
@@ -193,12 +196,16 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
 
-	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.4, -0.8, 0.8);
-	mAdaptiveStep = mActions[num_body_nodes*3];
+	if(isAdaptive) {
+		mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.4, -0.8, 0.8);
+		mAdaptiveStep = mActions[num_body_nodes*3];
+	} else{
+		mAdaptiveStep = 0;
+	}
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
-	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength() - 1){
-		this->mCurrentFrameOnPhase -= (mReferenceManager->GetPhaseLength() - 1);
+	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
+		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mControlFlag.setZero();
 	}
 
@@ -344,10 +351,11 @@ UpdateAdaptiveReward()
 
 	double r_height = 0;
 	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
-		double height_diff = skel->getCOM()[1] - 1.15;
-		r_height = exp(-pow(height_diff, 2) * 10)*1.5;
+		double height_diff = skel->getCOM()[1] - 1.2;
+	//	r_height = exp(-pow(height_diff, 2) * 20);
+		r_height = 1 - abs(height_diff)*2;
 		mControlFlag[0] = 1;
-	//	std::cout << height_diff << " " << r_height << std::endl;
+	//	std::cout << skel->getCOM()[1] << " " << r_height << std::endl;
 	}
 	// else if(mCurrentFrameOnPhase >= 55 && mControlFlag[1] == 0) {
 	// 	Eigen::VectorXd height_diff(4);
@@ -366,14 +374,14 @@ UpdateAdaptiveReward()
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	double r_tot_dense = r_com;
+	double r_tot_dense = 0.1 * r_com + 0.1 * r_p;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_p)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_height*3);
+		mRewardParts.push_back(r_height*2);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_height);
@@ -449,9 +457,8 @@ UpdateReward()
 	double r_v = exp_of_squared(v_diff_reward,sig_v);
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_a = exp(-pow(mAdaptiveStep, 2)*100);
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee;
-	r_tot = 0.9 * r_tot + 0.1 * r_a;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -462,7 +469,6 @@ UpdateReward()
 		mRewardParts.push_back(r_v);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_a);
 	}
 
 }

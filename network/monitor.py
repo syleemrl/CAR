@@ -39,13 +39,13 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_target_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
+		self.num_phase = 0 
 		self.target_update_count = 0
 		self.r_target_avg_old = 0
 
 		self.terminated = [False]*self.num_slaves
 		self.states = [0]*self.num_slaves
-
-		print(self.sim_env.GetDeformParameter()) 	
+		self.prevframes = [0]*self.num_slaves
 
 		if self.plot:
 			plt.ion()
@@ -70,7 +70,8 @@ class Monitor(object):
 		state = np.array([self.sim_env.GetState(i)])
 		self.states[i] = self.RMS.apply(state)[0]
 		self.terminated[i] = False
-	
+		self.prevframes[i] = 0
+
 	def stepForEval(self, action, i):
 		s, r, t =  self.env.stepForEval(action, i)
 		states_updated = self.RMS.apply(s.reshape(1, -1))
@@ -99,9 +100,12 @@ class Monitor(object):
 						self.max_episode_length = frames[i]
 		if self.adaptive:
 			rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
+			if curframes[i] < self.prevframes[i]:
+				self.num_phase += 1
 		else:	
 			rewards = [rewards[i][0] for i in range(len(rewards))]
 
+		self.prevframes = curframes
 		return rewards, dones, curframes
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
@@ -115,7 +119,6 @@ class Monitor(object):
 		for y in y_list:
 			plt.plot(y[0], label=y[1])
 			i+= 1
-
 		plt.legend(loc=2)
 		if self.plot:
 			plt.show()
@@ -132,8 +135,12 @@ class Monitor(object):
 		r_per_e = self.rewards_per_iteration/self.num_episodes_per_iteration
 		self.total_rewards.append(r_per_e)
 		if self.adaptive:
-			rt_per_e = self.rewards_target_per_iteration/self.num_episodes_per_iteration
+			if self.num_phase == 0:
+				rt_per_e = 0
+			else:
+				rt_per_e = self.rewards_target_per_iteration/self.num_phase
 			self.total_rewards_target.append(rt_per_e)
+
 		self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
 			np.asarray(self.rewards_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
 		print_list = []
@@ -160,8 +167,6 @@ class Monitor(object):
 
 		print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
 		print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
-		if self.adaptive:
-			print_list.append('target rewards per episodes : {:.2f}'.format(self.total_rewards_target[-1]))
 		print_list.append('max episode length : {}'.format(self.max_episode_length))
 
 		te_per_t  = 0
@@ -181,11 +186,13 @@ class Monitor(object):
 			for s in print_list:
 				out.write(s+'\n')
 			out.close()
-
+# y_list에 타겟 추가하는거 고치기 transition_per_episodes로 또 나눠져서 겁나 작아짐
 		if self.plot:
 			y_list = [[np.asarray(self.transition_per_episodes), 'steps']]
 			for i in range(len(self.total_rewards_by_parts)):
 				y_list.append([np.asarray(self.total_rewards_by_parts[i]), self.reward_label[i]])
+			if self.adaptive:
+				y_list.append([np.asarray(self.total_rewards_target), "target"])
 
 			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
@@ -202,6 +209,7 @@ class Monitor(object):
 		self.rewards_by_part_per_iteration = []
 		self.total_time_elapsed = 0
 		self.rewards_target_per_iteration = 0
+		self.num_phase = 0
 
 		summary = dict()
 		summary['r_per_e'] = r_per_e

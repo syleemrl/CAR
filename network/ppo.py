@@ -45,7 +45,7 @@ class PPO(object):
 		config.intra_op_parallelism_threads = self.num_slaves
 		config.inter_op_parallelism_threads = self.num_slaves
 		self.sess = tf.Session(config=config)
-		self.mode='adaptive'
+		self.adaptive = False
 
 		#build network and optimizer
 		name = pretrain.split("/")[-2]
@@ -60,8 +60,9 @@ class PPO(object):
 			suffix = li[-1]
 			self.RMS = RunningMeanStd(shape=(self.num_state))
 			self.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
+			self.RMS.setNumStates(self.num_state)
 
-	def initTrain(self, name, env, mode, pretrain="", evaluation=False,
+	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False,
 		directory=None, batch_size=1024, steps_per_iteration=20000):
 
 		self.name = name
@@ -70,7 +71,7 @@ class PPO(object):
 		self.steps_per_iteration = steps_per_iteration
 		self.batch_size = batch_size
 		self.pretrain = pretrain
-		self.mode = mode
+		self.adaptive = adaptive
 
 		self.env = env
 		self.num_slaves = self.env.num_slaves
@@ -93,6 +94,7 @@ class PPO(object):
 			li = pretrain.split("network")
 			suffix = li[-1]
 			self.env.RMS.load(li[0]+'rms'+suffix)
+			self.env.RMS.setNumStates(self.num_state)
 
 		
 		self.printSetting()
@@ -160,7 +162,7 @@ class PPO(object):
 		grads_and_vars = list(zip(grads, params))
 		self.critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
 		
-		if self.mode == 'adaptive':
+		if self.adaptive:
 			self.critic_sparse = Critic(self.sess, name, self.state, postfix='_sparse')
 			
 			with tf.variable_scope(name+'_Optimize'):
@@ -169,7 +171,7 @@ class PPO(object):
 				self.loss_critic_sparse = value_sparse_loss
 
 			critic_trainer_sparse = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
-			grads, params = zip(*critic_trainer.compute_gradients(self.loss_critic_sparse));
+			grads, params = zip(*critic_trainer_sparse.compute_gradients(self.loss_critic_sparse));
 			grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
 		
 			grads_and_vars = list(zip(grads, params))
@@ -345,16 +347,37 @@ class PPO(object):
 				if v.shape == saved_v.shape:
 					print("Restore {}".format(v.name[:-2]))
 					restore_op.append(v.assign(saved_v))
+				elif "L1/kernel" in v.name and v.shape[0] > saved_v.shape[0]:
+					l = v.shape[0] - saved_v.shape[0]
+					new_v = np.zeros((l, v.shape[1]), dtype=np.float32)
+					saved_v = np.concatenate((saved_v, new_v), axis=0)
+					restore_op.append(v.assign(saved_v))
+					print("Restore {}, add {} input nodes".format(v.name[:-2], l))
+
+				elif ("mean/bias" in v.name or "std" in v.name) and v.shape[0] > saved_v.shape[0]:
+					l = v.shape[0] - saved_v.shape[0]
+					new_v = np.zeros(l, dtype=np.float32)
+					saved_v = np.concatenate((saved_v, new_v), axis=0)
+					restore_op.append(v.assign(saved_v))
+					print("Restore {}, add {} output nodes".format(v.name[:-2], l))
+
+				elif "mean/kernel" in v.name and v.shape[1] > saved_v.shape[1]:
+					l = v.shape[1] - saved_v.shape[1]
+					new_v = np.zeros((v.shape[0], l), dtype=np.float32)
+					saved_v = np.concatenate((saved_v, new_v), axis=1)
+					restore_op.append(v.assign(saved_v))
+					print("Restore {}, add {} output nodes".format(v.name[:-2], l))
 
 		restore_op = tf.group(*restore_op)
 		self.sess.run(restore_op)
+
 
 	def printNetworkSummary(self):
 		print_list = []
 		print_list.append('noise : {:.3f}'.format(self.sess.run(self.actor.std).mean()))
 		for v in self.lossvals:
 			print_list.append('{}: {:.3f}'.format(v[0], v[1]))
-		if self.mode == 'adaptive':
+		if self.adaptive:
 			print_list.append('avg sparse value : {:.3f}'.format(self.values_sparse))
 			print_list.append('avg dense value : {:.3f}'.format(self.values_dense))
 		print_list.append('===============================================================')
@@ -374,7 +397,7 @@ class PPO(object):
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
-				if self.mode == 'fixed':
+				if not self.adaptive:
 					values = self.critic.getValue(states)
 				else:
 					values = [self.critic.getValue(states), self.critic_sparse.getValue(states)]
@@ -383,10 +406,10 @@ class PPO(object):
 				rewards, dones, times = self.env.step(actions)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
-						if self.mode == 'fixed' and rewards[j] is not None:
+						if not self.adaptive and rewards[j] is not None:
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j]])
 							local_step += 1
-						if self.mode == 'adaptive' and rewards[j][0] is not None:
+						if self.adaptive and rewards[j][0] is not None:
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if dones[j]:
@@ -412,7 +435,7 @@ class PPO(object):
 
 			if it % 5 == 4:	
 		#	if 1:
-				if self.mode == 'adaptive':
+				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 				else:			
 					self.update(epi_info_iter) 
@@ -456,10 +479,11 @@ if __name__=="__main__":
 	parser.add_argument("--pretrain", type=str, default="")
 	parser.add_argument("--evaluation", type=bool, default=False)
 	parser.add_argument("--nslaves", type=int, default=4)
-	parser.add_argument("--mode", type=str, default="fixed")
+	parser.add_argument("--adaptive", dest='adaptive', action='store_true')
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
 	parser.set_defaults(plot=True)
+	parser.set_defaults(adaptive=False)
 	args = parser.parse_args()
 
 	directory = None
@@ -470,18 +494,12 @@ if __name__=="__main__":
 		directory = "./output/" + args.test_name + "/"
 		if not os.path.exists(directory):
 			os.mkdir(directory)
-	if args.mode == 'fixed':
-		adaptive = False
-		gamma = 0.95
-	else:
-		adaptive = True
-		gamma = 0.95
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, adaptive=adaptive)
+		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, adaptive=args.adaptive)
 	else:
-		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=adaptive)
+		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
 
-	ppo = PPO(gamma=gamma)
-	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, mode=args.mode)
+	ppo = PPO()
+	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, adaptive=args.adaptive)
 	ppo.train(args.ntimesteps)

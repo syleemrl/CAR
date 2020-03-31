@@ -36,7 +36,7 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-	mReferenceManager->GenerateMotionsFromSinglePhase(1000, true);
+	mReferenceManager->GenerateMotionsFromSinglePhase(1000, false);
 	this->mController = new DPhy::Controller(mReferenceManager, "", true, true);
 
 	//	mReferenceManager->EditMotion(1.5, "b");
