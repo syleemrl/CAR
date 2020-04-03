@@ -72,6 +72,8 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	
 	void computeEnergyConservation();
 
+	double ComputeLinearDifferenceFromEllipse();
+	double ComputeAngularDifferenceFromEllipse(bool root);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -150,6 +152,8 @@ protected:
 	Eigen::VectorXd mMask;
 	Eigen::VectorXd mControlFlag;
 
+	//target
+	Eigen::Vector3d mStartPosition;
 };
 }
 #endif

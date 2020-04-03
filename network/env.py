@@ -2,6 +2,7 @@ from utils import RunningMeanStd
 import numpy as np
 import simEnv
 import time
+from IPython import embed
 class Env(object):
 	def __init__(self, ref, stats, adaptive, num_slaves):
 		self.num_slaves = num_slaves
@@ -50,6 +51,5 @@ class Env(object):
 				times.append(time_elapsed)
 				frames.append(frame_elapsed)
 				nan_count += 1
-		
 		states = self.sim_env.GetStates()
 		return states, rewards, dones, times, frames, nan_count 

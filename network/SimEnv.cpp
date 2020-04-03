@@ -17,7 +17,7 @@ SimEnv(int num_slaves, std::string ref, std::string stats, bool adaptive)
 		DPhy::Character* character = new DPhy::Character(path);
 		DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(character);
 		referenceManager->LoadMotionFromBVH(ref);
-		referenceManager->GenerateMotionsFromSinglePhase(1000, false);
+		referenceManager->GenerateMotionsFromSinglePhase(1010, false);
 		mSlaves.push_back(new DPhy::Controller(referenceManager, stats, adaptive));
 	}
 	

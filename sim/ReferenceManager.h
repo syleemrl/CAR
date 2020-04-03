@@ -41,6 +41,7 @@ public:
 	void GenerateMotionsFromSinglePhase(int frames, bool blend);
 	void RescaleMotion(double w);
 	Motion* GetMotion(double t);
+	Eigen::VectorXd GetPosition(double t);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
 	std::pair<bool, bool> CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v);

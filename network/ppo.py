@@ -9,11 +9,13 @@ import pickle
 import datetime
 import os
 import time
+import sys
 from IPython import embed
 from copy import deepcopy
 from utils import RunningMeanStd
 from tensorflow.python import pywrap_tensorflow
 import types
+np.set_printoptions(threshold=sys.maxsize)
 
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
 if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
@@ -63,7 +65,7 @@ class PPO(object):
 			self.RMS.setNumStates(self.num_state)
 
 	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False,
-		directory=None, batch_size=1024, steps_per_iteration=20000):
+		directory=None, batch_size=1024, steps_per_iteration=10000):
 
 		self.name = name
 		self.evaluation = evaluation
@@ -287,6 +289,7 @@ class PPO(object):
 			size = len(data)		
 			# get values
 			states, actions, rewards, values, neglogprobs, times = zip(*data)
+
 			values_dense =  np.concatenate((np.array(values)[:,0], [0]), axis=0)
 			values_sparse =  np.concatenate((np.array(values)[:,1], [0]), axis=0)
 			advantages_dense = np.zeros(size)

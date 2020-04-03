@@ -344,6 +344,21 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend)
 	// 			DPhy::BlendPosition((mMotions.find(mode)->second)[k1]->GetVelocity(), (mMotions.find(mode)->second)[k0]->GetVelocity(), (t-k0)));	
 	// }	
 }
+Eigen::VectorXd ReferenceManager::GetPosition(double t) {
+	auto& skel = mCharacter->GetSkeleton();
+
+	if(mMotions_gen.size()-1 < t) {
+	 	return mMotions_gen.back()->GetPosition();
+	}
+	
+	int k0 = (int) std::floor(t);
+	int k1 = (int) std::ceil(t);	
+
+	if (k0 == k1)
+		return mMotions_gen[k0]->GetPosition();
+	else
+		return DPhy::BlendPosition(mMotions_gen[k1]->GetPosition(), mMotions_gen[k0]->GetPosition(), 1 - (t-k0));	
+}
 Motion* ReferenceManager::GetMotion(double t)
 {
 	auto& skel = mCharacter->GetSkeleton();

@@ -191,8 +191,8 @@ class Monitor(object):
 			y_list = [[np.asarray(self.transition_per_episodes), 'steps']]
 			for i in range(len(self.total_rewards_by_parts)):
 				y_list.append([np.asarray(self.total_rewards_by_parts[i]), self.reward_label[i]])
-			if self.adaptive:
-				y_list.append([np.asarray(self.total_rewards_target), "target"])
+			# if self.adaptive:
+			# 	y_list.append([np.asarray(self.total_rewards_target), "target"])
 
 			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
