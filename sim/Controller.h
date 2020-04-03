@@ -65,6 +65,7 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
 	double GetTime(int idx) { return this->mRecordTime[idx]; }
+	Eigen::VectorXd GetTargetPositions(int idx) { return this->mRecordTargetPosition[idx]; }
 
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
@@ -116,6 +117,8 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::VectorXd> mRecordVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOM;
+	std::vector<Eigen::VectorXd> mRecordTargetPosition;
+
 	std::vector<double> mRecordEnergy;
 	std::vector<double> mRecordWork;
 	std::vector<double> mRecordDCOM;
@@ -148,10 +151,12 @@ protected:
 	Eigen::VectorXd mTorqueMax;
 
 	Eigen::VectorXd mPrevPositions;
+	Eigen::VectorXd mPrevTargetPositions;
 	Eigen::VectorXd mTorqueSig;
 	Eigen::VectorXd mMask;
 	Eigen::VectorXd mControlFlag;
 
+	Eigen::Vector3d mExtra;
 	//target
 	Eigen::Vector3d mStartPosition;
 };

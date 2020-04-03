@@ -129,8 +129,7 @@ Save(int n) {
 		mMemory.emplace_back(position);
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
-    	p_v_target = mReferenceManager->GetMotion(this->mController->GetTime(n));
-		mRef2->GetSkeleton()->setPositions(p_v_target->GetPosition());
+		mRef2->GetSkeleton()->setPositions(this->mController->GetTargetPositions(n));
    	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
 
