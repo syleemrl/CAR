@@ -505,7 +505,7 @@ UpdateAdaptiveReward()
 	// 	mControlFlag[0] = 1;
 	// }
 	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
-		double target_diff = mTargetPositions[4] - 1.5;
+		double target_diff = skel->getCOM()[1] - 1.2;
 		r_target = exp(-pow(target_diff, 2) * 20);
 		mControlFlag[0] = 1;
 	}
@@ -523,7 +523,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target * 2);
+		mRewardParts.push_back(r_target * 0.5);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
