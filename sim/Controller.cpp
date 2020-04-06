@@ -200,12 +200,10 @@ Step()
 	}
 
 	if(isAdaptive) {
-		// std::cout << mActions[num_body_nodes*3] << " " << mActions.tail<3>().transpose() << std::endl;
-
 		mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.8, -0.8, 0.8);
 		mAdaptiveStep = mActions[num_body_nodes*3];
 		for(int i = num_body_nodes*3 + 1; i < mActions.size(); i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.05, -0.3, 0.3);
+			mActions[i] = dart::math::clip(mActions[i]*0.05, -0.05, 0.05);
 		}
 	} else{
 		mAdaptiveStep = 0;
@@ -226,24 +224,22 @@ Step()
 
 	delete p_v_target;
 	if(isAdaptive) {
-		this->mTargetPositions.segment<3>(3) += mActions.tail<3>();
-		// Eigen::VectorXd prev_target_position;
-		// if(mCurrentFrame-1 < 0 )
-		// 	prev_target_position = mReferenceManager->GetPosition(0);
-		// else 
-		// 	prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-1);
-		// Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
+		// this->mTargetPositions.segment<3>(3) += mActions.tail<3>();
+		Eigen::VectorXd prev_target_position;
+		if(mCurrentFrame-1 < 0 )
+			prev_target_position = mReferenceManager->GetPosition(0);
+		else 
+			prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-1);
+		Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 
-		// Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
-		// Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
-		// target_diff_local = prev_root_ori_target * target_diff_local;
+		Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
+		Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
+		target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
+		target_diff_local += mActions.tail<3>();
 
-
-		// Eigen::Vector3d linear_diff_local = mTargetPositions.segment<3>(3) - mPrevTargetPositions.segment<3>(3);
-		// Eigen::AngleAxisd prev_root_ori = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
-		// linear_diff_local = prev_root_ori * linear_diff_local;
-
-
+		Eigen::AngleAxisd prev_root_ori= Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
+		target_diff_local = prev_root_ori * target_diff_local;
+		this->mTargetPositions.segment<3>(3) = mPrevTargetPositions.segment<3>(3) + target_diff_local;
 	}
 
 	this->mPDTargetPositions = this->mTargetPositions;
@@ -971,7 +967,24 @@ GetState()
 	}
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
-	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
+	Eigen::VectorXd position = p_v_target->GetPosition();
+	if(isAdaptive && mCurrentFrame != 0) {
+		Eigen::VectorXd prev_target_position;
+		if(mCurrentFrame-1 < 0 )
+			prev_target_position = mReferenceManager->GetPosition(0);
+		else 
+			prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-1);
+		Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
+
+		Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
+		Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
+		target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
+
+		Eigen::AngleAxisd prev_root_ori= Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
+		target_diff_local = prev_root_ori * target_diff_local;
+		position.segment<3>(3) = mPrevTargetPositions.segment<3>(3) + target_diff_local;
+	}
+	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(position, p_v_target->GetVelocity());
 	delete p_v_target;
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
