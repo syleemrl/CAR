@@ -200,14 +200,17 @@ Step()
 	}
 
 	if(isAdaptive) {
+		// std::cout << mActions[num_body_nodes*3] << " " << mActions.tail<3>().transpose() << std::endl;
+
 		mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.8, -0.8, 0.8);
 		mAdaptiveStep = mActions[num_body_nodes*3];
 		for(int i = num_body_nodes*3 + 1; i < mActions.size(); i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.8, -0.3, 0.3);
+			mActions[i] = dart::math::clip(mActions[i]*0.05, -0.3, 0.3);
 		}
 	} else{
 		mAdaptiveStep = 0;
 	}
+
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -224,6 +227,23 @@ Step()
 	delete p_v_target;
 	if(isAdaptive) {
 		this->mTargetPositions.segment<3>(3) += mActions.tail<3>();
+		// Eigen::VectorXd prev_target_position;
+		// if(mCurrentFrame-1 < 0 )
+		// 	prev_target_position = mReferenceManager->GetPosition(0);
+		// else 
+		// 	prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-1);
+		// Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
+
+		// Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
+		// Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
+		// target_diff_local = prev_root_ori_target * target_diff_local;
+
+
+		// Eigen::Vector3d linear_diff_local = mTargetPositions.segment<3>(3) - mPrevTargetPositions.segment<3>(3);
+		// Eigen::AngleAxisd prev_root_ori = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
+		// linear_diff_local = prev_root_ori * linear_diff_local;
+
+
 	}
 
 	this->mPDTargetPositions = this->mTargetPositions;
@@ -320,18 +340,21 @@ double
 Controller::
 ComputeLinearDifferenceFromEllipse()
 {
-	if(mCurrentFrame-1 < 0 ) return 0;
 	
-	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-1);
+	Eigen::VectorXd prev_target_position;
+	if(mCurrentFrame-1 < 0 )
+		prev_target_position = mReferenceManager->GetPosition(0);
+	else 
+		prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-1);
 	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 
 	Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
 	Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
-	target_diff_local = prev_root_ori_target * target_diff_local;
+	target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
 
 	Eigen::Vector3d linear_diff_local = mTargetPositions.segment<3>(3) - mPrevTargetPositions.segment<3>(3);
 	Eigen::AngleAxisd prev_root_ori = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
-	linear_diff_local = prev_root_ori * linear_diff_local;
+	linear_diff_local = prev_root_ori.inverse() * linear_diff_local;
 
 	double x;
 	if (target_diff_local.norm() == 0) 
@@ -354,7 +377,7 @@ ComputeLinearDifferenceFromEllipse()
 
 			Eigen::Vector3d target_diff_local2 = cur_target_position2.segment<3>(3) - prev_target_position2.segment<3>(3);
 			Eigen::AngleAxisd prev_root_ori_target2 = Eigen::AngleAxisd(prev_target_position2.segment<3>(0).norm(), prev_target_position2.segment<3>(0).normalized());
-			target_diff_local2 = prev_root_ori_target2 * target_diff_local2;
+			target_diff_local2 = prev_root_ori_target2.inverse()  * target_diff_local2;
 
 			double angle;
 			if(target_diff_local.norm() == 0 || target_diff_local2.norm() == 0)
@@ -377,10 +400,9 @@ ComputeLinearDifferenceFromEllipse()
 	double size = target_diff_local.norm() * 33;
 	double max = 1.5 * size;
 	double min = 0.5 * size;
-	double a = std::max(max - dev * (max-min), min);
-	double b = min;
+	double a = std::max(max - dev * (max-min), min) + 1e-8;
+	double b = min + 1e-8;
 	double diff = pow(x - target_diff_local.norm(), 2) / (a*a) + y*y / (b*b);
-
 	return diff;
 }
 // double 
@@ -445,7 +467,6 @@ UpdateAdaptiveReward()
 	}
 
 	double root_linear_diff = ComputeLinearDifferenceFromEllipse();
-
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
@@ -477,8 +498,8 @@ UpdateAdaptiveReward()
 	double scale = 1.0;
 
 	double sig_p = 0.1 * scale; 		// 2
-	double sig_com = 0.3 * scale;		// 4
-	double sig_ee = 0.3 * scale;	
+	double sig_com = 0.1 * scale;		// 4
+	double sig_ee = 0.1 * scale;	
 	double r_target = 0;
 	// if(mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength()-2 && mControlFlag[0] == 0) {
 	// 	Eigen::Vector3d curPosition = skel->getRootBodyNode()->getWorldTransform().translation().transpose();
@@ -488,7 +509,7 @@ UpdateAdaptiveReward()
 	// 	mControlFlag[0] = 1;
 	// }
 	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
-		double target_diff = skel->getCOM()[1] - 1.2;
+		double target_diff = mTargetPositions[4] - 1.5;
 		r_target = exp(-pow(target_diff, 2) * 20);
 		mControlFlag[0] = 1;
 	}
@@ -498,13 +519,15 @@ UpdateAdaptiveReward()
 	double r_a = exp(-root_linear_diff*20);
 
 	double r_tot_dense = 0.2 * r_a + 0.05 * r_p + 0.05 * r_com + 0.05 * r_ee;
+	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_p)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target);
+		mRewardParts.push_back(r_target * 2);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
@@ -583,7 +606,6 @@ UpdateReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee;
-
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
