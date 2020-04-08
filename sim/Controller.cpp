@@ -90,11 +90,11 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	
 	mAdaptiveBodies.clear();
 	mAdaptiveBodies.push_back("Torso");
-	// mAdaptiveBodies.push_back("Spine");
-	// mAdaptiveBodies.push_back("FemurR");
-	// mAdaptiveBodies.push_back("FemurL");
-	// mAdaptiveBodies.push_back("ForeArmR");
-	// mAdaptiveBodies.push_back("ForeArmL");
+	mAdaptiveBodies.push_back("Spine");
+	mAdaptiveBodies.push_back("FemurR");
+	mAdaptiveBodies.push_back("FemurL");
+	mAdaptiveBodies.push_back("ForeArmR");
+	mAdaptiveBodies.push_back("ForeArmL");
 
 	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
 	this->mCGL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootL"));
@@ -677,17 +677,11 @@ UpdateTerminalInfo()
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
-	Eigen::VectorXd targetPositions = p_v_target->GetPosition();
-	Eigen::VectorXd targetVelocities = p_v_target->GetVelocity();
-	delete p_v_target;
-
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-	skel->setPositions(targetPositions);
-	skel->setVelocities(targetVelocities);
-	skel->computeForwardKinematics(true,true,false);
+	skel->setPositions(mTargetPositions);
+	skel->computeForwardKinematics(true,false,false);
 
 	Eigen::Isometry3d root_diff = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
 	
@@ -1044,6 +1038,8 @@ GetState()
 	}
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(position, p_v_target->GetVelocity());
 	delete p_v_target;
+
+	Eigen::VectorXd p_target = skel->getPositionDifferences(this->mTargetPositions, position);
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
