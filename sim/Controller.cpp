@@ -90,11 +90,11 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	
 	mAdaptiveBodies.clear();
 	mAdaptiveBodies.push_back("Torso");
-	mAdaptiveBodies.push_back("Spine");
-	mAdaptiveBodies.push_back("FemurR");
-	mAdaptiveBodies.push_back("FemurL");
-	mAdaptiveBodies.push_back("ForeArmR");
-	mAdaptiveBodies.push_back("ForeArmL");
+	// mAdaptiveBodies.push_back("Spine");
+	// mAdaptiveBodies.push_back("FemurR");
+	// mAdaptiveBodies.push_back("FemurL");
+	// mAdaptiveBodies.push_back("ForeArmR");
+	// mAdaptiveBodies.push_back("ForeArmL");
 
 	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
 	this->mCGL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootL"));
@@ -217,10 +217,10 @@ Step()
 		mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.8, -0.8, 0.8);
 		mAdaptiveStep = mActions[num_body_nodes*3];
 		for(int i = num_body_nodes*3 + 1; i < num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.1, -0.175*M_PI, 0.175*M_PI);
+			mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
 		}
 		for(int i = num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i < mActions.size(); i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.05, -0.05, 0.05);
+			mActions[i] = dart::math::clip(mActions[i]*0.01, -0.05, 0.05);
 		}
 	} else{
 		mAdaptiveStep = 0;
@@ -262,7 +262,6 @@ Step()
 
 			Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
 			target_diff_aa = target_diff_aa * action_aa;
-		
 			Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
 			target_diff_aa = prev_aa * target_diff_aa;
 
@@ -505,11 +504,11 @@ UpdateAdaptiveReward()
 
 	double root_linear_diff = ComputeLinearDifferenceFromEllipse();
 	double root_angular_diff;
-	Eigen::VectorXd joint_angular_diff(num_adaptive_body_nodes);
+	Eigen::VectorXd joint_angular_diff(num_adaptive_body_nodes-1);
 	for(int i = 0; i < num_adaptive_body_nodes; i++) {
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		if(idx == 0) root_angular_diff = ComputeAngularDifferenceFromEllipse(idx);
-		else joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
+		else joint_angular_diff[i-1] = ComputeAngularDifferenceFromEllipse(idx);
 	}
 
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
@@ -559,7 +558,9 @@ UpdateAdaptiveReward()
 	
 	double r_rl = exp(-root_linear_diff*20);
 	double r_ra = exp(-root_angular_diff*20);
-	double r_ja = exp_of_squared(joint_angular_diff, 20);
+	double r_ja;
+	if(joint_angular_diff.size() == 0) r_ja = 0;
+	else r_ja = exp_of_squared(joint_angular_diff, 20);
 
 	double r_tot_dense = 0.1 * (r_rl + r_ra + r_ja) + 0.05 * r_p + 0.05 * r_com + 0.05 * r_ee;
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
