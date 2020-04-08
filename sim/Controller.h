@@ -74,7 +74,7 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	void computeEnergyConservation();
 
 	double ComputeLinearDifferenceFromEllipse();
-	double ComputeAngularDifferenceFromEllipse(bool root);
+	double ComputeAngularDifferenceFromEllipse(int idx);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -108,6 +108,7 @@ protected:
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
+	std::vector<std::string> mAdaptiveBodies;
 	std::vector<std::string> mEndEffectors;
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
@@ -159,6 +160,11 @@ protected:
 	Eigen::Vector3d mExtra;
 	//target
 	Eigen::Vector3d mStartPosition;
+
+	std::random_device mRD;
+	std::mt19937 mMT;
+	std::uniform_real_distribution<double> mDistribution;
+	double mTarget;
 };
 }
 #endif

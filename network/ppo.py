@@ -64,7 +64,7 @@ class PPO(object):
 			self.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 			self.RMS.setNumStates(self.num_state)
 
-	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False,
+	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False, 
 		directory=None, batch_size=1024, steps_per_iteration=10000):
 
 		self.name = name
@@ -74,7 +74,6 @@ class PPO(object):
 		self.batch_size = batch_size
 		self.pretrain = pretrain
 		self.adaptive = adaptive
-
 		self.env = env
 		self.num_slaves = self.env.num_slaves
 		self.num_action = self.env.num_action
@@ -405,7 +404,6 @@ class PPO(object):
 				else:
 					values = [self.critic.getValue(states), self.critic_sparse.getValue(states)]
 					values = np.array(values).transpose()
-				
 				rewards, dones, times = self.env.step(actions)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
@@ -487,6 +485,7 @@ if __name__=="__main__":
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
 	parser.set_defaults(plot=True)
 	parser.set_defaults(adaptive=False)
+
 	args = parser.parse_args()
 
 	directory = None
@@ -504,5 +503,6 @@ if __name__=="__main__":
 		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
 
 	ppo = PPO()
-	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, adaptive=args.adaptive)
+	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, 
+		adaptive=args.adaptive)
 	ppo.train(args.ntimesteps)
