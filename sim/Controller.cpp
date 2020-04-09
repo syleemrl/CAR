@@ -1058,7 +1058,7 @@ GetState()
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
 	Eigen::VectorXd state;
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+p_target.rows());
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
 	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase; //, mInputVelocity.first;
 	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
 	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;

@@ -36,7 +36,9 @@ class RunningMeanStd(object):
                 self.mean = data['mean']
                 self.var = data['var']
                 self.count = data['count']
-    
+        # print('mean', self.mean)
+        # print('var', self.var)
+        
     def setNumStates(self, size):
         if size != self.mean.shape[0]:
             l = size - self.mean.shape[0]
