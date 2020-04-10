@@ -133,7 +133,7 @@ Save(int n) {
    	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
 
-    	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
+    //	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
 	}
 }
 void

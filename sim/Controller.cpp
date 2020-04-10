@@ -179,9 +179,8 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 		mRewardLabels.push_back("p");
 		mRewardLabels.push_back("com");
 		mRewardLabels.push_back("ee");
-		mRewardLabels.push_back("linear_r");
-		mRewardLabels.push_back("angular_r");
-		mRewardLabels.push_back("angular_j");
+		mRewardLabels.push_back("linear");
+		mRewardLabels.push_back("angular");
 		mRewardLabels.push_back("target");
 	} else {
 		mRewardLabels.push_back("total");
@@ -403,10 +402,16 @@ ComputeAngularDifferenceFromEllipse(int idx)
 			Eigen::VectorXd cur_target_position2 = mReferenceManager->GetPosition(mCurrentFrame+i);
 
 			Eigen::Vector3d target_diff_local2 = JointPositionDifferences(cur_target_position2.segment<3>(idx), prev_target_position2.segment<3>(idx));
+			Eigen::AngleAxisd target_diff_aa2 = Eigen::AngleAxisd(target_diff_local2.norm(), target_diff_local2.normalized());
+			Eigen::Vector3d nearest2 = NearestOnGeodesicCurve3d(target_diff_local.normalized(), Eigen::Vector3d(0, 0, 0), target_diff_local2);
+			double x2 = nearest2.norm() - target_diff_local.norm();
 
 			double angle = acos(target_diff_local2.normalized().dot(target_diff_local.normalized()));
-			values.push_back(std::pair<double, double>(angle, target_diff_local2.norm() * (1 - abs(i) * 0.3)));
-			total += target_diff_local2.norm() * (1 - abs(i) * 0.3);
+			// values.push_back(std::pair<double, double>(angle, target_diff_local2.norm() * (1 - abs(i) * 0.3)));
+			// total += target_diff_local2.norm() * (1 - abs(i) * 0.3);
+			
+			values.push_back(std::pair<double, double>(JointPositionDifferences(target_diff_local2, nearest2).norm(), (1 - abs(i) * 0.3)));
+			total +=  (1 - abs(i) * 0.3);
 		}
 	}
 	double dev = 0;
@@ -417,12 +422,16 @@ ComputeAngularDifferenceFromEllipse(int idx)
 		dev += n * values[i].first * values[i].first;
 	}
 	dev = std::sqrt(dev / (total_n-1.0));
-	double size = target_diff_local.norm() * 10;
-	double max = 1.5 * size;
+	double size = target_diff_local.norm() * 5;
+	double max = 2.5 * size;
 	double min = 0.5 * size;
 	double a = std::max(max - dev * (max-min), min) + 1e-8;
 	double b = min + 1e-8;
 	double diff = x*x / (a*a) + y*y / (b*b);
+	// if(idx == 33) {
+	// 	std::cout << mCurrentFrame << " moved: " << angular_diff_local.transpose() << " target: " << target_diff_local.transpose() << std::endl;
+	// 	std::cout << x << " " << y << " " << a << " " << b << " " << dev << " " << diff << " " << std::endl;
+	// }
 
 	return diff;
 }
@@ -446,7 +455,7 @@ ComputeLinearDifferenceFromEllipse()
 	if (target_diff_local.norm() == 0) 
 		x = 0;
 	else 
-		x = linear_diff_local.dot(target_diff_local) / target_diff_local.norm();
+		x = linear_diff_local.dot(target_diff_local.normalized());
 	double y = (linear_diff_local - x * target_diff_local.normalized()).norm(); 
 
 	double axis_diff;
@@ -480,12 +489,12 @@ ComputeLinearDifferenceFromEllipse()
 		dev += n * values[i].first * values[i].first;
 	}
 	dev = std::sqrt(dev / (total_n-1.0));
-	double size = target_diff_local.norm() * 33;
-	double max = 1.5 * size;
+	double size = target_diff_local.norm() * 10;
+	double max = 2.5 * size;
 	double min = 0.5 * size;
 	double a = std::max(max - dev * (max-min), min) + 1e-8;
 	double b = min + 1e-8;
-	double diff = pow(x - target_diff_local.norm(), 2) / (a*a) + y*y / (b*b);
+	double diff = pow(x - target_diff_local.norm(), 2) / (a*a) + y * y / (b*b);
 
 	return diff;
 }
@@ -509,11 +518,10 @@ UpdateAdaptiveReward()
 
 	double root_linear_diff = ComputeLinearDifferenceFromEllipse();
 	double root_angular_diff;
-	Eigen::VectorXd joint_angular_diff(num_adaptive_body_nodes-1);
+	Eigen::VectorXd joint_angular_diff(num_adaptive_body_nodes);
 	for(int i = 0; i < num_adaptive_body_nodes; i++) {
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		if(idx == 0) root_angular_diff = ComputeAngularDifferenceFromEllipse(idx);
-		else joint_angular_diff[i-1] = ComputeAngularDifferenceFromEllipse(idx);
+		joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
 	}
 
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
@@ -560,13 +568,17 @@ UpdateAdaptiveReward()
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	
-	double r_rl = exp(-root_linear_diff*20);
-	double r_ra = exp(-root_angular_diff*20);
-	double r_ja;
-	if(joint_angular_diff.size() == 0) r_ja = 0;
-	else r_ja = exp_of_squared(joint_angular_diff, 0.2);
-
-	double r_tot_dense = 0.1 * (r_rl + r_ra + r_ja) + 0.05 * r_p + 0.05 * r_com + 0.05 * r_ee;
+	double r_l = exp(-root_linear_diff*25);
+	double r_a;
+	if(joint_angular_diff.size() == 0) r_a = 0;
+	else {
+		for(int i = 0; i < joint_angular_diff.size(); i++) {
+			r_a += 1.0 / joint_angular_diff.size() * exp(-joint_angular_diff[i]*25);
+		}
+	}
+	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
+	double r_tot_dense = 0.2 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee);
+	std::cout << r_l << " " << r_a << " " << std::endl;
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 	mRewardParts.clear();
@@ -579,9 +591,8 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
-		mRewardParts.push_back(r_rl);
-		mRewardParts.push_back(r_ra);
-		mRewardParts.push_back(r_ja);
+		mRewardParts.push_back(r_l);
+		mRewardParts.push_back(r_a);
 		mRewardParts.push_back(r_target);
 	}
 }
