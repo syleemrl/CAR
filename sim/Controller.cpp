@@ -570,15 +570,19 @@ UpdateAdaptiveReward()
 	
 	double r_l = exp(-root_linear_diff*25);
 	double r_a;
+	// std::cout << mCurrentFrame << " ";
+	double sum = joint_angular_diff.size() * 1.5;
 	if(joint_angular_diff.size() == 0) r_a = 0;
 	else {
 		for(int i = 0; i < joint_angular_diff.size(); i++) {
-			r_a += 1.0 / joint_angular_diff.size() * exp(-joint_angular_diff[i]*25);
+			if(i == 0)
+				r_a = (1.0 + 0.5 * joint_angular_diff.size()) / sum * exp(-joint_angular_diff[i]*25);
+			else 
+				r_a += 1.0 / sum * exp(-joint_angular_diff[i]*25);
 		}
 	}
 	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
-	double r_tot_dense = 0.2 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee);
-	std::cout << r_l << " " << r_a << " " << std::endl;
+	double r_tot_dense = 0.15 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee);
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 	mRewardParts.clear();
@@ -1057,6 +1061,7 @@ GetState()
 			next_new.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
 		}
 	}
+
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(next_new, p_v_target->GetVelocity());
 	delete p_v_target;
 
