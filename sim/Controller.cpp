@@ -163,10 +163,9 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	int num_body_nodes = this->mInterestedBodies.size();
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		if(mInterestedBodies[i].find("Tibia") != std::string::npos ||
-			mInterestedBodies[i].find("Femur") != std::string::npos ||
-			mInterestedBodies[i].find("Spine") != std::string::npos ||
-			mInterestedBodies[i].find("Foot") != std::string::npos ) {
+		if( mInterestedBodies[i].find("ForeArmR") != std::string::npos ||
+			mInterestedBodies[i].find("ArmR") != std::string::npos ||
+			mInterestedBodies[i].find("HandR") != std::string::npos ) {
 			// this->mMask[idx] = 1;
 			this->mMask.segment<3>(idx) = Eigen::Vector3d::Constant(1);
 		}
@@ -233,7 +232,7 @@ Step()
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-		mStartPosition = mCharacter->GetSkeleton()->getRootBodyNode()->getWorldTransform().translation().transpose();
+		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		mControlFlag.setZero();
 	}
 
@@ -301,10 +300,10 @@ Step()
 	Eigen::VectorXd torque;
 
 	// double work_sum = 0;
-	// Eigen::VectorXd torque_sum(this->mCharacter->GetSkeleton()->getNumDofs());
+	Eigen::VectorXd torque_sum(this->mCharacter->GetSkeleton()->getNumDofs());
 	// Eigen::VectorXd work_sum_joints(this->mCharacter->GetSkeleton()->getNumDofs() / 3 - 2);
 	// Eigen::VectorXd torque_sum_joints(this->mCharacter->GetSkeleton()->getNumDofs() / 3 - 2);
-	// torque_sum.setZero();
+	torque_sum.setZero();
 	// torque_sum_joints.setZero();
 	// work_sum_joints.setZero();
 
@@ -319,7 +318,7 @@ Step()
 
 			// Eigen::VectorXd curVelocity = mCharacter->GetSkeleton()->getVelocities();
 			// work_sum += torque.dot(curVelocity) * 1.0 / mSimulationHz;
-			// torque_sum += torque * 1.0 / mSimulationHz;
+			torque_sum += torque_masked * 1.0 / mSimulationHz;
 			// if(mRecord) 
 			// {
 			// 	for(int i = 6; i < curVelocity.rows(); i += 3) {
@@ -335,7 +334,7 @@ Step()
 	}
 	nTotalSteps += 1;
 	// mRecordWork.push_back(work_sum);
-	// mRecordTorque.push_back(torque_sum / this->mSimPerCon);
+	mRecordTorque.push_back(torque_sum);
 	// if(mRecord) {
 	// 	this->mRecordTorqueByJoints.push_back(torque_sum_joints);
 	// 	mRecordWorkByJoints.push_back(work_sum_joints);
@@ -567,16 +566,47 @@ UpdateAdaptiveReward()
 	// }
 	
 	// backflip	
-	if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 0) {
-		mTarget = 0;
+	// if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 0) {
+	// 	mTarget = 0;
+	// 	mControlFlag[0] = 1;
+	// } else if(mCurrentFrameOnPhase >= 47.0 && mControlFlag[0] == 1) {
+	// 	mControlFlag[0] = -1;
+	// 	double target_diff = mTarget - 7.5;
+	// 	r_target = 1.5 * exp(-pow(target_diff, 2)*0.2);
+	// } else if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 1) {
+	// 	Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
+	// 	mTarget += diff.segment<3>(0).norm();
+	// }
+	
+	// punch - position
+	// if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
+	// 	Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
+	// 	hand = hand - mHeadRoot.segment<3>(3);
+	// 	Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(3).normalized());
+	// 	hand = root_aa.inverse() * hand;
+		
+	// 	Eigen::Vector3d target_hand = Eigen::Vector3d(-0.5, 0, 0.4);
+	// 	Eigen::Vector3d target_diff = target_hand - hand;
+	// 	target_diff[1] = 0;
+
+	// 	r_target = 1.5*exp_of_squared(target_diff,0.3);
+	// 	mControlFlag[0] = 1;
+	// }
+
+	// punch - force avg 0.55
+	if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 0) {
 		mControlFlag[0] = 1;
-	} else if(mCurrentFrameOnPhase >= 47.0 && mControlFlag[0] == 1) {
+		mTarget = 0;
+		mTarget2 = 0;
+	} else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
+		mTarget /= mTarget2;
+		double target_diff = mTarget - 0.8;
+		r_target = 1.5*exp(-pow(target_diff, 2)*10);
 		mControlFlag[0] = -1;
-		double target_diff = mTarget - 7.5;
-		r_target = 1.5 * exp(-pow(target_diff, 2)*0.2);
-	} else if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 1) {
-		Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
-		mTarget += diff.segment<3>(0).norm();
+
+	} else if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 1) {
+		mTarget += mRecordTorque.back().norm();
+		mTarget2 += 1;
 	}
 
 
@@ -929,7 +959,7 @@ Reset(bool RSI)
 	}
 	mRecordEnergy.push_back(energy);
 
-	mStartPosition = mCharacter->GetSkeleton()->getRootBodyNode()->getWorldTransform().translation().transpose();
+	mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 

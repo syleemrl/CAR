@@ -159,12 +159,13 @@ protected:
 
 	Eigen::Vector3d mExtra;
 	//target
-	Eigen::Vector3d mStartPosition;
+	Eigen::Vector6d mHeadRoot;
 
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mDistribution;
 	double mTarget;
+	double mTarget2;
 };
 }
 #endif
