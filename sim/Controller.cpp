@@ -561,8 +561,24 @@ UpdateAdaptiveReward()
 	
 	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
 		double target_diff = skel->getCOM()[1] - 1.2;
-		r_target = exp(-pow(target_diff, 2) * 20);
+		r_target = 5 * exp(-pow(target_diff, 2) * 20);
 		mControlFlag[0] = 1;
+	}
+	if(mControlFlag[1] == 0) {
+		Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame);
+		Eigen::VectorXd target_diff = skel->getPositionDifferences(this->mTargetPositions, target_old);
+		double root_height_diff = this->mTargetPositions[4] - target_old[4];
+		Eigen::AngleAxisd root_aa1 = Eigen::AngleAxisd(mTargetPositions.segment<3>(0).norm(), mTargetPositions.segment<3>(0).normalized());
+		Eigen::AngleAxisd root_aa2 = Eigen::AngleAxisd(target_old.segment<3>(0).norm(), target_old.segment<3>(0).normalized());
+
+		Eigen::Vector3d up_vec1 = root_aa1*Eigen::Vector3d::UnitY();
+		Eigen::Vector3d up_vec2 = root_aa2*Eigen::Vector3d::UnitY();
+		double up_vec_angle_diff = atan2(std::sqrt(up_vec1[0]*up_vec1[0]+up_vec1[2]*up_vec1[2]),up_vec1[1])
+								 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
+
+		target_diff.head<6>().setZero();
+		r_target = 0.3 * (exp_of_squared(target_diff, sig_p*0.5) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
+		mControlFlag[1] = 1;
 	}
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
@@ -582,7 +598,7 @@ UpdateAdaptiveReward()
 		}
 	}
 	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
-	double r_tot_dense = 0.15 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee);
+	double r_tot_dense = 0.1 * (r_l + r_a) + 0.075 * (r_p + r_com + r_ee);
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 	mRewardParts.clear();
@@ -591,7 +607,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target * 0.75);
+		mRewardParts.push_back(r_target);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
