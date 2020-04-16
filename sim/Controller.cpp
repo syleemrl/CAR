@@ -559,11 +559,27 @@ UpdateAdaptiveReward()
 	double sig_ee = 0.1 * scale;	
 	double r_target = 0;
 	
-	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
-		double target_diff = skel->getCOM()[1] - 1.2;
-		r_target = 5 * exp(-pow(target_diff, 2) * 20);
+	//jump	
+	// if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
+	// 	double target_diff = skel->getCOM()[1] - 1.2;
+	// 	r_target = 1.5 * exp(-pow(target_diff, 2) * 20);
+	// 	mControlFlag[0] = 1;
+	// }
+	
+	// backflip	
+	if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 0) {
+		mTarget = 0;
 		mControlFlag[0] = 1;
+	} else if(mCurrentFrameOnPhase >= 47.0 && mControlFlag[0] == 1) {
+		mControlFlag[0] = -1;
+		double target_diff = mTarget - 7.5;
+		r_target = 1.5 * exp(-pow(target_diff, 2)*0.2);
+	} else if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 1) {
+		Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
+		mTarget += diff.segment<3>(0).norm();
 	}
+
+
 	if(mControlFlag[1] == 0) {
 		Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame);
 		Eigen::VectorXd target_diff = skel->getPositionDifferences(this->mTargetPositions, target_old);
@@ -580,6 +596,8 @@ UpdateAdaptiveReward()
 		r_target = 0.3 * (exp_of_squared(target_diff, sig_p*0.5) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
 		mControlFlag[1] = 1;
 	}
+
+
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
