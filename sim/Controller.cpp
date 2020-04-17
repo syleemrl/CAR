@@ -559,11 +559,11 @@ UpdateAdaptiveReward()
 	double r_target = 0;
 	
 	//jump	
-	// if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
-	// 	double target_diff = skel->getCOM()[1] - 1.2;
-	// 	r_target = 1.5 * exp(-pow(target_diff, 2) * 20);
-	// 	mControlFlag[0] = 1;
-	// }
+	if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
+		double target_diff = skel->getCOM()[1] - 1.2;
+		r_target = 1.5 * exp(-pow(target_diff, 2) * 20);
+		mControlFlag[0] = 1;
+	}
 	
 	// backflip	
 	// if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 0) {
@@ -573,6 +573,7 @@ UpdateAdaptiveReward()
 	// 	mControlFlag[0] = -1;
 	// 	double target_diff = mTarget - 7.5;
 	// 	r_target = 1.5 * exp(-pow(target_diff, 2)*0.2);
+	// 	std::cout << mTarget << std::endl;
 	// } else if(mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 1) {
 	// 	Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
 	// 	mTarget += diff.segment<3>(0).norm();
@@ -594,20 +595,20 @@ UpdateAdaptiveReward()
 	// }
 
 	// punch - force avg 0.55
-	if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 0) {
-		mControlFlag[0] = 1;
-		mTarget = 0;
-		mTarget2 = 0;
-	} else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
-		mTarget /= mTarget2;
-		double target_diff = mTarget - 0.8;
-		r_target = 1.5*exp(-pow(target_diff, 2)*10);
-		mControlFlag[0] = -1;
+	// if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 0) {
+	// 	mControlFlag[0] = 1;
+	// 	mTarget = 0;
+	// 	mTarget2 = 0;
+	// } else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
+	// 	mTarget /= mTarget2;
+	// 	double target_diff = mTarget - 0.8;
+	// 	r_target = 1.5*exp(-pow(target_diff, 2)*10);
+	// 	mControlFlag[0] = -1;
 
-	} else if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 1) {
-		mTarget += mRecordTorque.back().norm();
-		mTarget2 += 1;
-	}
+	// } else if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 1) {
+	// 	mTarget += mRecordTorque.back().norm();
+	// 	mTarget2 += 1;
+	// }
 
 
 	if(mControlFlag[1] == 0) {
@@ -646,7 +647,7 @@ UpdateAdaptiveReward()
 		}
 	}
 	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
-	double r_tot_dense = 0.1 * (r_l + r_a) + 0.075 * (r_p + r_com + r_ee);
+	double r_tot_dense = 0.125 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee);
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 	mRewardParts.clear();
@@ -655,7 +656,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target);
+		mRewardParts.push_back(r_target * 0.75);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
@@ -910,7 +911,7 @@ Reset(bool RSI)
 	else {
 		this->mCurrentFrame = 0; // 0;
 	}
-	this->mCurrentFrameOnPhase =  this->mCurrentFrame;
+	this->mCurrentFrameOnPhase = this->mCurrentFrame;
 	this->mStartFrame = this->mCurrentFrame;
 	this->nTotalSteps = 0;
 	this->mTimeElapsed = 0;
