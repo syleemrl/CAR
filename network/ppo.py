@@ -22,7 +22,7 @@ if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
 	tf.contrib._warning = None
 class PPO(object):
 	def __init__(self, learning_rate_actor=2e-4, learning_rate_critic=0.001, learning_rate_decay=0.9993,
-		gamma=0.95, gamma_sparse=1, lambd=0.95, epsilon=0.2):
+		gamma=0.94, gamma_sparse=0.96, lambd=0.94, epsilon=0.2):
 		random.seed(int(time.time()))
 		np.random.seed(int(time.time()))
 		tf.set_random_seed(int(time.time()))
@@ -300,12 +300,12 @@ class PPO(object):
 				ad_t_dense = delta_dense + self.gamma * self.lambd * ad_t_dense
 				advantages_dense[i] = ad_t_dense
 
-				if i != len(data)-1 and times[i] > times[i+1]:
-					delta_sparse = rewards[i][1] - values_sparse[i]
-					ad_t_sparse = delta_sparse
-				else:
-					delta_sparse = rewards[i][1] + values_sparse[i+1] * self.gamma_sparse - values_sparse[i]
-					ad_t_sparse = delta_sparse + self.gamma_sparse * self.lambd * ad_t_sparse
+				# if i != len(data)-1 and times[i] > times[i+1]:
+				# 	delta_sparse = rewards[i][1] - values_sparse[i]
+				# 	ad_t_sparse = delta_sparse
+				# else:
+				delta_sparse = rewards[i][1] + values_sparse[i+1] * self.gamma_sparse - values_sparse[i]
+				ad_t_sparse = delta_sparse + self.gamma_sparse * self.lambd * ad_t_sparse
 
 				advantages_sparse[i] = ad_t_sparse
 

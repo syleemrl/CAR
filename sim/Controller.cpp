@@ -219,10 +219,10 @@ Step()
 		mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.8, -0.8, 0.8);
 		mAdaptiveStep = mActions[num_body_nodes*3];
 		for(int i = num_body_nodes*3 + 1; i < num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
+			mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1)*(1 + mAdaptiveStep);
 		}
 		for(int i = num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i < mActions.size(); i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.01, -0.05, 0.05);
+			mActions[i] = dart::math::clip(mActions[i]*0.01, -0.05, 0.05)*(1 + mAdaptiveStep);
 		}
 	} else{
 		mAdaptiveStep = 0;
@@ -521,6 +521,7 @@ UpdateAdaptiveReward()
 	for(int i = 0; i < num_adaptive_body_nodes; i++) {
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
+	//	std::cout << joint_angular_diff[i] << " " << ComputeAngularDifferenceFromEllipse2(idx) << std::endl;
 	}
 
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
@@ -632,7 +633,7 @@ UpdateAdaptiveReward()
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
-	
+	double r_time = exp(-pow(mAdaptiveStep,2)*5);
 	double r_l = exp(-root_linear_diff*25);
 	double r_a;
 	// std::cout << mCurrentFrame << " ";
@@ -646,10 +647,12 @@ UpdateAdaptiveReward()
 				r_a += 1.0 / sum * exp(-joint_angular_diff[i]*25);
 		}
 	}
+
 	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
-	double r_tot_dense = 0.125 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee);
+	double r_tot_dense =  0.15 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee);
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);

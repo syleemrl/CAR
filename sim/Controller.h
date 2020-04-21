@@ -75,6 +75,8 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 
 	double ComputeLinearDifferenceFromEllipse();
 	double ComputeAngularDifferenceFromEllipse(int idx);
+	double ComputeAngularDifferenceFromEllipse2(int idx);
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
