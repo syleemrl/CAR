@@ -107,7 +107,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 
 	if(isAdaptive) {
 		// pos, time, adaptive angular, adaptive angular root, adaptive linear root
-		mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1); // + mAdaptiveBodies.size() * 3 + 3);
+		mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1 + mAdaptiveBodies.size() * 3 + 3);
 	} else {
 		mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3);
 	}
@@ -218,12 +218,12 @@ Step()
 	if(isAdaptive) {
 		mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.05, -0.8, 0.8);
 		mAdaptiveStep = mActions[num_body_nodes*3];
-		// for(int i = num_body_nodes*3 + 1; i < num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i++){
-		// 	mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
-		// }
-		// for(int i = num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i < mActions.size(); i++){
-		// 	mActions[i] = dart::math::clip(mActions[i]*0.01, -0.05, 0.05);
-		// }
+		for(int i = num_body_nodes*3 + 1; i < num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i++){
+			mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
+		}
+		for(int i = num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i < mActions.size(); i++){
+			mActions[i] = dart::math::clip(mActions[i]*0.01, -0.05, 0.05);
+		}
 	} else{
 		mAdaptiveStep = 0;
 	}
@@ -243,36 +243,36 @@ Step()
 
 	delete p_v_target;
 
-	// if(isAdaptive) {
-	// 	// root linear;
-	// 	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
-	// 	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
+	if(isAdaptive) {
+		// root linear;
+		Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
+		Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 
-	// 	Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
-	// 	Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
-	// 	target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
-	// 	target_diff_local += mActions.tail<3>();
+		Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
+		Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
+		target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
+		target_diff_local += mActions.tail<3>();
 
-	// 	Eigen::AngleAxisd prev_root_ori= Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
-	// 	target_diff_local = prev_root_ori * target_diff_local;
-	// 	this->mTargetPositions.segment<3>(3) = mPrevTargetPositions.segment<3>(3) + target_diff_local;
+		Eigen::AngleAxisd prev_root_ori= Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
+		target_diff_local = prev_root_ori * target_diff_local;
+		this->mTargetPositions.segment<3>(3) = mPrevTargetPositions.segment<3>(3) + target_diff_local;
 
-	// 	int adaptive_idx = num_body_nodes*3 + 1;
-	// 	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
-	// 		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-	// 		target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
-	// 		Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
+		int adaptive_idx = num_body_nodes*3 + 1;
+		for(int i = 0; i < mAdaptiveBodies.size(); i++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+			target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
+			Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
 
-	// 		Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
-	// 		target_diff_aa = target_diff_aa * action_aa;
-	// 		Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
-	// 		target_diff_aa = prev_aa * target_diff_aa;
+			Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
+			target_diff_aa = target_diff_aa * action_aa;
+			Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
+			target_diff_aa = prev_aa * target_diff_aa;
 
-	// 		this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
+			this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
 
-	// 	}
+		}
 
-	// }
+	}
 	this->mPDTargetPositions = mTargetPositions;
 	this->mPDTargetVelocities = mTargetVelocities;
 
@@ -726,7 +726,7 @@ UpdateAdaptiveReward()
 
 	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
 	// std::cout << mAdaptiveStep << " " << r_time << std::endl;
-	double r_tot_dense = 0.15 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee) + r_time; // 0.15 * (r_l + r_a) + 
+	double r_tot_dense = 0.15 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee); // 0.15 * (r_l + r_a) + 
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 
@@ -736,7 +736,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target);
+		mRewardParts.push_back(r_target * 0.75);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
