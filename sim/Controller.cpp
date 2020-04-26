@@ -842,6 +842,21 @@ UpdateTerminalInfo()
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
 
+	Eigen::VectorXd p_old = mReferenceManager->GetPosition(mCurrentFrame);
+
+	Eigen::AngleAxisd root_old_aa = Eigen::AngleAxisd(p_old.segment<3>(0).norm(), p_old.segment<3>(0).normalized());
+	Eigen::AngleAxisd root_new_aa = Eigen::AngleAxisd(mTargetPositions.segment<3>(0).norm(), mTargetPositions.segment<3>(0).normalized());
+
+	Eigen::Vector3d up_vec1 = root_old_aa*Eigen::Vector3d::UnitY();
+	Eigen::Vector3d up_vec2 = root_new_aa*Eigen::Vector3d::UnitY();
+
+	Eigen::VectorXd pos_diff = skel->getPositionDifferences(mTargetPositions, p_old);
+	pos_diff.segment<6>(0).setZero();
+
+	double up_vec_angle_diff = atan2(std::sqrt(up_vec1[0]*up_vec1[0]+up_vec1[2]*up_vec1[2]),up_vec1[1])
+							 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
+	double root_y_diff = p_old[4] - mTargetPositions[4];
+
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
@@ -883,7 +898,14 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
-
+	
+	if(mCurrentFrameOnPhase < 3.0) {
+		if(std::abs(root_y_diff) > 0.3 || std::abs(up_vec_angle_diff) > 0.3 || pos_diff.norm() > 1.5) {
+			mIsTerminal = true;
+			terminationReason = 6;
+		}
+	}
+	
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
