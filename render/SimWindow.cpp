@@ -103,15 +103,8 @@ MemoryClear() {
 void 
 SimWindow::
 Save(int n) {
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(n);
-	Eigen::VectorXd position = p_v_target->GetPosition();
-	if(mWrap) {
-		position.segment<6>(0).setZero();
-		position[4] = 1.0;
-	}
-	mRef->GetSkeleton()->setPositions(position);
-    mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
-    mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
+	Eigen::VectorXd position;
+
     this->mTotalFrame++;
     if(this->mRunPPO && n < this->mController->GetRecordSize())
     {
@@ -132,8 +125,19 @@ Save(int n) {
 		mRef2->GetSkeleton()->setPositions(this->mController->GetTargetPositions(n));
    	 	mMemoryRef2.emplace_back(mRef2->GetSkeleton()->getPositions());
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
-
+		mRef->GetSkeleton()->setPositions(this->mController->GetBVHPositions(n));
+   	 	mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
+    	mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
     //	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
+	} else {
+		position = mReferenceManager->GetPosition(n);
+		if(mWrap) {
+			position.segment<6>(0).setZero();
+			position[4] = 1.0;
+		}
+		mRef->GetSkeleton()->setPositions(position);
+   	 	mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
+    	mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
 	}
 }
 void
@@ -317,7 +321,7 @@ Keyboard(unsigned char key,int x,int y)
 		case ']': mIsAuto=false;this->NextFrame();break;
 		case 'o': this->mCurFrame-=99; this->PrevFrame();break;
 		case 'p': this->mCurFrame+=99; this->NextFrame();break;
-		case 's': std::cout << this->mCurFrame << std::endl;break;
+		case 's': std::cout << this->mCurFrame << ": " << this->mController->GetTime(mCurFrame) << std::endl;break;
 		case 'r': Reset();break;
 		case 'w': mWrap = !mWrap; break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;

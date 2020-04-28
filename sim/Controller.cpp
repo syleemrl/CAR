@@ -154,7 +154,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	this->mRecordWorkByJoints.clear();
 	this->mRecordTorqueByJoints.clear();
 	this->mRecordTargetPosition.clear();
-
+	this->mRecordBVHPosition.clear();
 	this->mMask.resize(dof);
 	this->mMask.setZero();
 	
@@ -261,14 +261,12 @@ Step()
 		for(int i = 0; i < mAdaptiveBodies.size(); i++) {
 			int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 			target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
-			Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
-
-			Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
-			target_diff_aa = target_diff_aa * action_aa;
+		//	target_diff_local = target_diff_local + mActions.segment<3>(adaptive_idx + 3 * i);
+			Eigen::AngleAxisd target_diff_aa(target_diff_local.norm(), target_diff_local.normalized());
 			Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
 			target_diff_aa = prev_aa * target_diff_aa;
-
-			this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
+			
+			this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis()  + mActions.segment<3>(adaptive_idx + 3 * i);
 
 		}
 
@@ -356,6 +354,7 @@ void
 Controller::
 SaveStepInfo() 
 {
+	mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame));
 	mRecordTargetPosition.push_back(mTargetPositions);
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
@@ -701,7 +700,7 @@ UpdateAdaptiveReward()
 								 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
 
 		target_diff.head<6>().setZero();
-		r_target = 0.3 * (exp_of_squared(target_diff, sig_p*0.5) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
+		r_target = 0.5 * (exp_of_squared(target_diff, sig_p*0.5) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
 		mControlFlag[1] = 1;
 	}
 
@@ -712,7 +711,9 @@ UpdateAdaptiveReward()
 	double r_time = exp(-pow(mAdaptiveStep*10,2)*5);
 	double r_l = exp(-root_linear_diff*25);
 	double r_a;
-	// std::cout << mCurrentFrame << " ";
+
+	Eigen::VectorXd a = mActions.tail<22>();
+	double r_action = exp_of_squared(a, 0.05);
 	double sum = joint_angular_diff.size() * 1.5;
 	if(joint_angular_diff.size() == 0) r_a = 0;
 	else {
@@ -726,11 +727,12 @@ UpdateAdaptiveReward()
 
 	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
 	// std::cout << mAdaptiveStep << " " << r_time << std::endl;
-	double r_tot_dense = 0.15 * (r_l + r_a) + 0.05 * (r_p + r_com + r_ee); // 0.15 * (r_l + r_a) + 
+	double r_tot_dense = 0.05 * (r_p + r_com + r_ee) + 0.15 * r_action; // 0.15 * (r_l + r_a) + 
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 
 	mRewardParts.clear();
+	r_target = 0;
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -1050,6 +1052,7 @@ Reset(bool RSI)
 	this->mRecordTorqueByJoints.clear();
 	this->mRecordFootConstraint.clear();
 	this->mRecordTargetPosition.clear();
+	this->mRecordBVHPosition.clear();
 
 	SaveStepInfo();
 
