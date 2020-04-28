@@ -227,7 +227,6 @@ Step()
 	} else{
 		mAdaptiveStep = 0;
 	}
-
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -261,13 +260,22 @@ Step()
 		for(int i = 0; i < mAdaptiveBodies.size(); i++) {
 			int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 			target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
-		//	target_diff_local = target_diff_local + mActions.segment<3>(adaptive_idx + 3 * i);
-			Eigen::AngleAxisd target_diff_aa(target_diff_local.norm(), target_diff_local.normalized());
+			Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
+
+			Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
+			target_diff_aa = target_diff_aa * action_aa;
 			Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
 			target_diff_aa = prev_aa * target_diff_aa;
-			
-			this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis()  + mActions.segment<3>(adaptive_idx + 3 * i);
 
+			// this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
+		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		// 	target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
+		// //	target_diff_local = target_diff_local + mActions.segment<3>(adaptive_idx + 3 * i);
+		// 	Eigen::AngleAxisd target_diff_aa(target_diff_local.norm(), target_diff_local.normalized());
+		// 	Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
+		// 	target_diff_aa = prev_aa * target_diff_aa;
+			
+		// 	this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis()  + 0.5*mActions.segment<3>(adaptive_idx + 3 * i);
 		}
 
 	}
@@ -643,17 +651,17 @@ UpdateAdaptiveReward()
 	// }
 	
 	//jump turn	
-	if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {
-		mTarget = 0;
-		mControlFlag[0] = 1;
-	} else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
-		mControlFlag[0] = -1;
-		double target_diff = mTarget - 5;
-		r_target = 2*exp(-pow(target_diff, 2)*0.3);
-	} else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
-		Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
-		mTarget += diff[1]; //diff.segment<3>(0).norm();
-	}
+	// if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {
+	// 	mTarget = 0;
+	// 	mControlFlag[0] = 1;
+	// } else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
+	// 	mControlFlag[0] = -1;
+	// 	double target_diff = mTarget - 5;
+	// 	r_target = 2*exp(-pow(target_diff, 2)*0.3);
+	// } else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
+	// 	Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
+	// 	mTarget += diff[1]; //diff.segment<3>(0).norm();
+	// }
 	
 	// punch - position
 	// if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
@@ -732,7 +740,7 @@ UpdateAdaptiveReward()
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 
 	mRewardParts.clear();
-	r_target = 0;
+//	r_target = 0;
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
