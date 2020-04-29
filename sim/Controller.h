@@ -108,6 +108,8 @@ protected:
 	double mAdaptiveCOM;
 	double mAdaptiveStep;
 	double sig_torque;
+	double meanTargetReward;
+	int mCount;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;

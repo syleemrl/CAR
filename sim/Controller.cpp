@@ -160,6 +160,9 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	
 	mControlFlag.resize(2);
 
+	mCount = 0;
+	meanTargetReward = 0;
+
 	int num_body_nodes = this->mInterestedBodies.size();
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
@@ -258,24 +261,24 @@ Step()
 
 		int adaptive_idx = num_body_nodes*3 + 1;
 		for(int i = 0; i < mAdaptiveBodies.size(); i++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-			target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
-			Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
+			// int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+			// target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
+			// Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
 
-			Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
-			target_diff_aa = target_diff_aa * action_aa;
-			Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
-			target_diff_aa = prev_aa * target_diff_aa;
+			// Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
+			// target_diff_aa = target_diff_aa * action_aa;
+			// Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
+			// target_diff_aa = prev_aa * target_diff_aa;
 
 			// this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
-		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		// 	target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
-		// //	target_diff_local = target_diff_local + mActions.segment<3>(adaptive_idx + 3 * i);
-		// 	Eigen::AngleAxisd target_diff_aa(target_diff_local.norm(), target_diff_local.normalized());
-		// 	Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
-		// 	target_diff_aa = prev_aa * target_diff_aa;
+			int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+			target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
+		//	target_diff_local = target_diff_local + mActions.segment<3>(adaptive_idx + 3 * i);
+			Eigen::AngleAxisd target_diff_aa(target_diff_local.norm(), target_diff_local.normalized());
+			Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
+			target_diff_aa = prev_aa * target_diff_aa;
 			
-		// 	this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis()  + 0.5*mActions.segment<3>(adaptive_idx + 3 * i);
+			this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis()  + mActions.segment<3>(adaptive_idx + 3 * i);
 		}
 
 	}
@@ -578,6 +581,7 @@ ComputeLinearDifferenceFromEllipse()
 	double a = std::max(max - dev * (max-min), min) + 1e-8;
 	double b = min + 1e-8;
 	double diff = pow(x - target_diff_local.norm(), 2) / (a*a) + y * y / (b*b);
+	//std::cout << size << " " << x - target_diff_local.norm() << " " << y << " " << a << " " << b << std::endl;
 
 	return diff;
 }
@@ -651,17 +655,20 @@ UpdateAdaptiveReward()
 	// }
 	
 	//jump turn	
-	// if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {
-	// 	mTarget = 0;
-	// 	mControlFlag[0] = 1;
-	// } else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
-	// 	mControlFlag[0] = -1;
-	// 	double target_diff = mTarget - 5;
-	// 	r_target = 2*exp(-pow(target_diff, 2)*0.3);
-	// } else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
-	// 	Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
-	// 	mTarget += diff[1]; //diff.segment<3>(0).norm();
-	// }
+	if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {
+		mTarget = 0;
+		mControlFlag[0] = 1;
+	} else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
+		mControlFlag[0] = -1;
+		double target_diff = mTarget - 5;
+		r_target = 2*exp(-pow(target_diff, 2)*0.3);
+		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+		mCount += 1;
+
+	} else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
+		Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
+		mTarget += diff[1]; //diff.segment<3>(0).norm();
+	}
 	
 	// punch - position
 	// if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
@@ -695,7 +702,7 @@ UpdateAdaptiveReward()
 	// }
 
 
-	if(mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength()-2.0 && mControlFlag[1] == 0) {
+	if(mControlFlag[1] == 0) {
 		Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame);
 		Eigen::VectorXd target_diff = skel->getPositionDifferences(this->mTargetPositions, target_old);
 		double root_height_diff = this->mTargetPositions[4] - target_old[4];
@@ -733,9 +740,8 @@ UpdateAdaptiveReward()
 		}
 	}
 
-	// std::cout << mCurrentFrame << " " <<  r_l << " " << r_a << std::endl;
 	// std::cout << mAdaptiveStep << " " << r_time << std::endl;
-	double r_tot_dense = 0.05 * (r_p + r_com + r_ee) + 0.15 * r_action; // 0.15 * (r_l + r_a) + 
+	double r_tot_dense = 0.05 * (r_p + r_com + r_ee) + 0.5 * (r_l + r_a);
 	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
 	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
 
@@ -746,7 +752,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target);
+		mRewardParts.push_back(r_target * 5);
 		mRewardParts.push_back(r_p);
 		mRewardParts.push_back(r_com);
 		mRewardParts.push_back(r_ee);
@@ -909,13 +915,26 @@ UpdateTerminalInfo()
 		terminationReason =  8;
 	}
 	
-	if(mCurrentFrameOnPhase < 3.0) {
-		if(std::abs(root_y_diff) > 0.3 || std::abs(up_vec_angle_diff) > 0.3 || pos_diff.norm() > 1.5) {
-			mIsTerminal = true;
-			terminationReason = 6;
+	if(isAdaptive) {
+		if(mCurrentFrameOnPhase < 3.0) {
+			if(std::abs(root_y_diff) > 0.3 || std::abs(up_vec_angle_diff) > 0.3 || pos_diff.norm() > 1.5) {
+				mIsTerminal = true;
+				terminationReason = 6;
+			}
+		} else if(mRewardParts[7] != 0) {
+			std::cout << mRewardParts[7] << std::endl;
+
+			if(mRewardParts[7] < meanTargetReward && mRewardParts[7] < 1.8) {
+				mIsTerminal = true;
+				terminationReason = 7;
+			}
 		}
 	}
+
 	
+	if(mRecord) {
+		if(mIsTerminal) std::cout << terminationReason << std::endl;
+	}
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
