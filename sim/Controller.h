@@ -77,7 +77,7 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	double ComputeLinearDifferenceFromEllipse();
 	double ComputeAngularDifferenceFromEllipse(int idx);
 	double ComputeAngularDifferenceFromCovarianceEllipse(int idx);
-
+	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;

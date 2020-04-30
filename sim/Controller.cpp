@@ -349,10 +349,10 @@ Step()
 	// 	mRecordWorkByJoints.push_back(work_sum_joints);
 	// }
 
-	if(isAdaptive)
-		this->UpdateAdaptiveReward();
-	else
-		this->UpdateReward();
+	// if(isAdaptive)
+	// 	this->UpdateAdaptiveReward();
+	// else
+	// 	this->UpdateReward();
 
 	this->UpdateTerminalInfo();
 	if(mRecord) {
@@ -452,7 +452,7 @@ double
 Controller::
 ComputeAngularDifferenceFromCovarianceEllipse(int idx)
 {
-	
+
 	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
 	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 
@@ -521,7 +521,7 @@ double
 Controller::
 ComputeLinearDifferenceFromEllipse()
 {
-	
+
 	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
 	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 
@@ -585,38 +585,39 @@ ComputeLinearDifferenceFromEllipse()
 
 	return diff;
 }
-void
+std::vector<double> 
 Controller::
-UpdateAdaptiveReward()
+GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, 
+	Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity)
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 
-	//Position Differences
-	Eigen::VectorXd p_diff = skel->getPositionDifferences(this->mTargetPositions, skel->getPositions());
-
-	Eigen::VectorXd p_diff_reward;
-	int num_adaptive_body_nodes = this->mAdaptiveBodies.size();
-
-	p_diff_reward.resize(num_adaptive_body_nodes*3);
-	for(int i = 0; i < num_adaptive_body_nodes; i++){
-		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
-	}
-
-	double root_linear_diff = ComputeLinearDifferenceFromEllipse();
-	double root_angular_diff;
-	Eigen::VectorXd joint_angular_diff(num_adaptive_body_nodes);
-	for(int i = 0; i < num_adaptive_body_nodes; i++) {
-		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
-	//std::cout << joint_angular_diff[i] << " " << ComputeAngularDifferenceFromEllipse2(idx) << std::endl;
-	}
-
-	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
+	Eigen::VectorXd p_diff = skel->getPositionDifferences(position, position2);
+	Eigen::VectorXd p_diff_reward;
+	
+	p_diff_reward.resize(list.size()*3);
+	for(int i = 0; i < list.size(); i++){
+		int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
+		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
+	}
+
+	Eigen::VectorXd v_diff, v_diff_reward;
+
+	if(useVelocity) {
+		v_diff = skel->getVelocityDifferences(velocity, velocity2);
+		v_diff_reward.resize(list.size()*3);
+		for(int i = 0; i < list.size(); i++){
+			int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
+			v_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
+		}
+	}
+
+	skel->setPositions(position);
+	if(useVelocity) skel->setVelocities(velocity);
+	skel->computeForwardKinematics(true,useVelocity,false);
 
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
@@ -626,25 +627,70 @@ UpdateAdaptiveReward()
 	}
 	
 	Eigen::Vector3d com_diff = skel->getCOM();
-
-	skel->setPositions(this->mTargetPositions);
+	
+	skel->setPositions(position2);
 	skel->computeForwardKinematics(true,false,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
-			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
-			ee_diff.segment<3>(3*i) = diff.translation();
+		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+		ee_diff.segment<3>(3*i) = diff.translation();
 	}
 	com_diff -= skel->getCOM();
+
+	double scale = 1.0;
+
+	double sig_p = 0.1 * scale; 
+	double sig_v = 1.0 * scale;	
+	double sig_com = 0.1 * scale;		
+	double sig_ee = 0.2 * scale;		
+
+	double r_p = exp_of_squared(p_diff_reward,sig_p);
+	double r_v;
+	if(useVelocity)
+	{
+		r_v = exp_of_squared(v_diff_reward,sig_v);
+	}
+	double r_ee = exp_of_squared(ee_diff,sig_ee);
+	double r_com = exp_of_squared(com_diff,sig_com);
+
+	std::vector<double> rewards;
+	rewards.clear();
+
+	rewards.push_back(r_p);
+	rewards.push_back(r_com);
+	rewards.push_back(r_ee);
+	
+	if(useVelocity) {
+		rewards.push_back(r_v);
+	}
 
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	double scale = 1.0;
+	return rewards;
 
-	double sig_p = 0.1 * scale; 		// 2
-	double sig_com = 0.1 * scale;		// 4
-	double sig_ee = 0.1 * scale;	
+}
+void
+Controller::
+UpdateAdaptiveReward()
+{
+
+	auto& skel = this->mCharacter->GetSkeleton();
+	Eigen::VectorXd dummy = skel->getVelocities();
+	std::vector<double> tracking_rewards = this->GetTrackingReward(skel->getPositions(), this->mTargetPositions,
+								 dummy, dummy, mAdaptiveBodies, false);
+
+
+	double root_linear_diff = ComputeLinearDifferenceFromEllipse();
+	double root_angular_diff;
+	Eigen::VectorXd joint_angular_diff(this->mAdaptiveBodies.size());
+	for(int i = 0; i < this->mAdaptiveBodies.size(); i++) {
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
+	//std::cout << joint_angular_diff[i] << " " << ComputeAngularDifferenceFromEllipse2(idx) << std::endl;
+	}
+
 	double r_target = 0;
 	
 	//jump	
@@ -655,20 +701,20 @@ UpdateAdaptiveReward()
 	// }
 	
 	//jump turn	
-	if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {
-		mTarget = 0;
-		mControlFlag[0] = 1;
-	} else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
-		mControlFlag[0] = -1;
-		double target_diff = mTarget - 5;
-		r_target = 2*exp(-pow(target_diff, 2)*0.3);
-		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
-		mCount += 1;
+	// if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {
+	// 	mTarget = 0;
+	// 	mControlFlag[0] = 1;
+	// } else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
+	// 	mControlFlag[0] = -1;
+	// 	double target_diff = mTarget - 5;
+	// 	r_target = 2*exp(-pow(target_diff, 2)*0.3);
+	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+	// 	mCount += 1;
 
-	} else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
-		Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
-		mTarget += diff[1]; //diff.segment<3>(0).norm();
-	}
+	// } else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
+	// 	Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
+	// 	mTarget += diff[1]; //diff.segment<3>(0).norm();
+	// }
 	
 	// punch - position
 	// if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
@@ -702,27 +748,24 @@ UpdateAdaptiveReward()
 	// }
 
 
-	if(mControlFlag[1] == 0) {
-		Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame);
-		Eigen::VectorXd target_diff = skel->getPositionDifferences(this->mTargetPositions, target_old);
-		double root_height_diff = this->mTargetPositions[4] - target_old[4];
-		Eigen::AngleAxisd root_aa1 = Eigen::AngleAxisd(mTargetPositions.segment<3>(0).norm(), mTargetPositions.segment<3>(0).normalized());
-		Eigen::AngleAxisd root_aa2 = Eigen::AngleAxisd(target_old.segment<3>(0).norm(), target_old.segment<3>(0).normalized());
+	// if(mControlFlag[1] == 0) {
+	// 	Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame);
+	// 	Eigen::VectorXd target_diff = skel->getPositionDifferences(this->mTargetPositions, target_old);
+	// 	double root_height_diff = this->mTargetPositions[4] - target_old[4];
+	// 	Eigen::AngleAxisd root_aa1 = Eigen::AngleAxisd(mTargetPositions.segment<3>(0).norm(), mTargetPositions.segment<3>(0).normalized());
+	// 	Eigen::AngleAxisd root_aa2 = Eigen::AngleAxisd(target_old.segment<3>(0).norm(), target_old.segment<3>(0).normalized());
 
-		Eigen::Vector3d up_vec1 = root_aa1*Eigen::Vector3d::UnitY();
-		Eigen::Vector3d up_vec2 = root_aa2*Eigen::Vector3d::UnitY();
-		double up_vec_angle_diff = atan2(std::sqrt(up_vec1[0]*up_vec1[0]+up_vec1[2]*up_vec1[2]),up_vec1[1])
-								 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
+	// 	Eigen::Vector3d up_vec1 = root_aa1*Eigen::Vector3d::UnitY();
+	// 	Eigen::Vector3d up_vec2 = root_aa2*Eigen::Vector3d::UnitY();
+	// 	double up_vec_angle_diff = atan2(std::sqrt(up_vec1[0]*up_vec1[0]+up_vec1[2]*up_vec1[2]),up_vec1[1])
+	// 							 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
 
-		target_diff.head<6>().setZero();
-		r_target = 0.5 * (exp_of_squared(target_diff, sig_p*0.5) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
-		mControlFlag[1] = 1;
-	}
+	// 	target_diff.head<6>().setZero();
+	// 	r_target = 0.5 * (exp_of_squared(target_diff, sig_p*0.5) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
+	// 	mControlFlag[1] = 1;
+	// }
 
 
-	double r_ee = exp_of_squared(ee_diff,sig_ee);
-	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_time = exp(-pow(mAdaptiveStep*10,2)*5);
 	double r_l = exp(-root_linear_diff*25);
 	double r_a;
@@ -740,22 +783,19 @@ UpdateAdaptiveReward()
 		}
 	}
 
-	// std::cout << mAdaptiveStep << " " << r_time << std::endl;
-	double r_tot_dense = 0.05 * (r_p + r_com + r_ee) + 0.5 * (r_l + r_a);
-	//	std::cout << r_p << " " << r_com << " " << r_ee << std::endl;
-	// std::cout << r_rl << " " << r_ra << " " << joint_angular_diff.transpose() <<" " << r_ja << std::endl;
+	double r_tot_dense = 0.05 * (tracking_rewards[0] + tracking_rewards[1] + tracking_rewards[2]) + 0.5 * (r_time + r_a);
 
 	mRewardParts.clear();
-//	r_target = 0;
+	r_target = 0;
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target * 5);
-		mRewardParts.push_back(r_p);
-		mRewardParts.push_back(r_com);
-		mRewardParts.push_back(r_ee);
+		mRewardParts.push_back(r_target * 2);
+		mRewardParts.push_back(tracking_rewards[0]);
+		mRewardParts.push_back(tracking_rewards[1]);
+		mRewardParts.push_back(tracking_rewards[2]);
 		mRewardParts.push_back(r_l);
 		mRewardParts.push_back(r_a);
 		mRewardParts.push_back(r_target);
@@ -915,14 +955,13 @@ UpdateTerminalInfo()
 		terminationReason =  8;
 	}
 	
-	if(isAdaptive) {
+	if(isAdaptive && !mRecord) {
 		if(mCurrentFrameOnPhase < 3.0) {
 			if(std::abs(root_y_diff) > 0.3 || std::abs(up_vec_angle_diff) > 0.3 || pos_diff.norm() > 1.5) {
 				mIsTerminal = true;
 				terminationReason = 6;
 			}
 		} else if(mRewardParts[7] != 0) {
-			std::cout << mRewardParts[7] << std::endl;
 
 			if(mRewardParts[7] < meanTargetReward && mRewardParts[7] < 1.8) {
 				mIsTerminal = true;
