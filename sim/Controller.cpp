@@ -349,10 +349,10 @@ Step()
 	// 	mRecordWorkByJoints.push_back(work_sum_joints);
 	// }
 
-	// if(isAdaptive)
-	// 	this->UpdateAdaptiveReward();
-	// else
-	// 	this->UpdateReward();
+	if(isAdaptive)
+		this->UpdateAdaptiveReward();
+	else
+		this->UpdateReward();
 
 	this->UpdateTerminalInfo();
 	if(mRecord) {
@@ -639,7 +639,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	double scale = 1.0;
 
-	double sig_p = 0.1 * scale; 
+	double sig_p = 0.3 * scale; 
 	double sig_v = 1.0 * scale;	
 	double sig_com = 0.1 * scale;		
 	double sig_ee = 0.2 * scale;		
@@ -681,6 +681,9 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards = this->GetTrackingReward(skel->getPositions(), this->mTargetPositions,
 								 dummy, dummy, mAdaptiveBodies, false);
 
+	Eigen::VectorXd pos_bvh = mReferenceManager->GetPosition(mCurrentFrame);
+	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(this->mTargetPositions, pos_bvh,
+								 dummy, dummy, mAdaptiveBodies, false);
 
 	double root_linear_diff = ComputeLinearDifferenceFromEllipse();
 	double root_angular_diff;
@@ -766,7 +769,7 @@ UpdateAdaptiveReward()
 	// }
 
 
-	double r_time = exp(-pow(mAdaptiveStep*10,2)*5);
+	double r_time = exp(-pow(mCurrentFrame - nTotalSteps,2)*5);
 	double r_l = exp(-root_linear_diff*25);
 	double r_a;
 
@@ -783,8 +786,8 @@ UpdateAdaptiveReward()
 		}
 	}
 
-	double r_tot_dense = 0.05 * (tracking_rewards[0] + tracking_rewards[1] + tracking_rewards[2]) + 0.5 * (r_time + r_a);
-
+	double r_tot_dense = 0.05 * (tracking_rewards[0] + tracking_rewards[1] + tracking_rewards[2]) 
+	+ 0.15 * (r_time + tracking_rewards_bvh[0] + tracking_rewards_bvh[1] + tracking_rewards_bvh[2]);
 	mRewardParts.clear();
 	r_target = 0;
 	if(dart::math::isNan(r_tot_dense)){
@@ -798,7 +801,7 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(tracking_rewards[2]);
 		mRewardParts.push_back(r_l);
 		mRewardParts.push_back(r_a);
-		mRewardParts.push_back(r_target);
+		mRewardParts.push_back(r_time);
 	}
 }
 void
