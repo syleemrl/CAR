@@ -3,6 +3,7 @@
 #include <boost/filesystem.hpp>
 #include <Eigen/QR>
 #include <fstream>
+#include <numeric>
 #include <algorithm>
 namespace DPhy
 {	
@@ -380,7 +381,8 @@ double
 Controller::
 ComputeAngularDifferenceFromEllipse(int idx)
 {
-	
+	auto& skel = this->mCharacter->GetSkeleton();
+
 	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
 	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 
@@ -388,7 +390,7 @@ ComputeAngularDifferenceFromEllipse(int idx)
 	target_diff_local /= (1+mAdaptiveStep);
 	
 	Eigen::Vector3d pos = mCharacter->GetSkeleton()->getPositions();
-	Eigen::Vector3d angular_diff_local = JointPositionDifferences(mTargetPositions.segment<3>(idx), mPrevTargetPositions.segment<3>(idx));
+	Eigen::Vector3d angular_diff_local = JointPositionDifferences(skel->getPositions().segment<3>(idx), mPrevPositions.segment<3>(idx));
 	angular_diff_local /= (1+mAdaptiveStep);
 
 	Eigen::Vector3d nearest = NearestOnGeodesicCurve3d(target_diff_local.normalized(), Eigen::Vector3d(0, 0, 0), angular_diff_local);
@@ -521,6 +523,7 @@ double
 Controller::
 ComputeLinearDifferenceFromEllipse()
 {
+	auto& skel = this->mCharacter->GetSkeleton();
 
 	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
 	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
@@ -531,7 +534,7 @@ ComputeLinearDifferenceFromEllipse()
 	Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
 	target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
 
-	Eigen::Vector3d linear_diff_local = mTargetPositions.segment<3>(3) - mPrevTargetPositions.segment<3>(3);
+	Eigen::Vector3d linear_diff_local = skel->getPositions().segment<3>(3) - mPrevPositions.segment<3>(3);
 	linear_diff_local /= (1+mAdaptiveStep);
 
 	Eigen::AngleAxisd prev_root_ori = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
@@ -678,22 +681,28 @@ UpdateAdaptiveReward()
 
 	auto& skel = this->mCharacter->GetSkeleton();
 	Eigen::VectorXd dummy = skel->getVelocities();
-	std::vector<double> tracking_rewards = this->GetTrackingReward(skel->getPositions(), this->mTargetPositions,
-								 dummy, dummy, mAdaptiveBodies, false);
-
 	Eigen::VectorXd pos_bvh = mReferenceManager->GetPosition(mCurrentFrame);
-	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(this->mTargetPositions, pos_bvh,
+
+	std::vector<double> tracking_rewards_ref = this->GetTrackingReward(skel->getPositions(), this->mTargetPositions,
+								 dummy, dummy, mRewardBodies, false);
+	double accum_ref = std::accumulate(tracking_rewards_ref.begin(), tracking_rewards_ref.end(), 0.0);
+
+	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), pos_bvh,
+								 dummy, dummy, mRewardBodies, false);
+	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0);
+
+	std::vector<double> tracking_rewards_srl = this->GetTrackingReward(this->mTargetPositions, pos_bvh,
 								 dummy, dummy, mAdaptiveBodies, false);
+	double accum_srl = std::accumulate(tracking_rewards_srl.begin(), tracking_rewards_srl.end(), 0.0);
 
-	double root_linear_diff = ComputeLinearDifferenceFromEllipse();
-	double root_angular_diff;
-	Eigen::VectorXd joint_angular_diff(this->mAdaptiveBodies.size());
-	for(int i = 0; i < this->mAdaptiveBodies.size(); i++) {
-		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
-	//std::cout << joint_angular_diff[i] << " " << ComputeAngularDifferenceFromEllipse2(idx) << std::endl;
-	}
-
+	// double root_linear_diff = ComputeLinearDifferenceFromEllipse();
+	// double root_angular_diff;
+	// Eigen::VectorXd joint_angular_diff(this->mAdaptiveBodies.size());
+	// for(int i = 0; i < this->mAdaptiveBodies.size(); i++) {
+	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+	// 	joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
+	// //std::cout << joint_angular_diff[i] << " " << ComputeAngularDifferenceFromEllipse2(idx) << std::endl;
+	// }
 	double r_target = 0;
 	
 	//jump	
@@ -713,7 +722,6 @@ UpdateAdaptiveReward()
 	// 	r_target = 2*exp(-pow(target_diff, 2)*0.3);
 	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
 	// 	mCount += 1;
-
 	// } else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
 	// 	Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
 	// 	mTarget += diff[1]; //diff.segment<3>(0).norm();
@@ -764,30 +772,30 @@ UpdateAdaptiveReward()
 	// 							 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
 
 	// 	target_diff.head<6>().setZero();
-	// 	r_target = 0.5 * (exp_of_squared(target_diff, sig_p*0.5) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
+	// 	r_target = 0.5 * (exp_of_squared(target_diff, 0.1) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
 	// 	mControlFlag[1] = 1;
 	// }
 
 
 	double r_time = exp(-pow(mCurrentFrame - nTotalSteps,2)*5);
-	double r_l = exp(-root_linear_diff*25);
-	double r_a;
+	// double r_l = exp(-root_linear_diff*25);
+	// double r_a;
 
 	Eigen::VectorXd a = mActions.tail<22>();
 	double r_action = exp_of_squared(a, 0.05);
-	double sum = joint_angular_diff.size() * 1.5;
-	if(joint_angular_diff.size() == 0) r_a = 0;
-	else {
-		for(int i = 0; i < joint_angular_diff.size(); i++) {
-			if(i == 0)
-				r_a = (1.0 + 0.5 * joint_angular_diff.size()) / sum * exp(-joint_angular_diff[i]*25);
-			else 
-				r_a += 1.0 / sum * exp(-joint_angular_diff[i]*25);
-		}
-	}
+	// double sum = joint_angular_diff.size() * 1.5;
+	// if(joint_angular_diff.size() == 0) r_a = 0;
+	// else {
+	// 	for(int i = 0; i < joint_angular_diff.size(); i++) {
+	// 		if(i == 0)
+	// 			r_a = (1.0 + 0.5 * joint_angular_diff.size()) / sum * exp(-joint_angular_diff[i]*25);
+	// 		else 
+	// 			r_a += 1.0 / sum * exp(-joint_angular_diff[i]*25);
+	// 	}
+	// }
 
-	double r_tot_dense = 0.05 * (tracking_rewards[0] + tracking_rewards[1] + tracking_rewards[2]) 
-	+ 0.15 * (r_time + tracking_rewards_bvh[0] + tracking_rewards_bvh[1] + tracking_rewards_bvh[2]);
+	double r_tot_dense = 0.15 * accum_ref + 0.15 * accum_bvh + 0.15 * accum_srl + 0.15 * r_time + 0.05 * r_action;
+	// std::cout << mCurrentFrameOnPhase << " " << r_l << " " << r_a << std::endl;
 	mRewardParts.clear();
 	r_target = 0;
 	if(dart::math::isNan(r_tot_dense)){
@@ -796,11 +804,11 @@ UpdateAdaptiveReward()
 	else {
 		mRewardParts.push_back(r_tot_dense);
 		mRewardParts.push_back(r_target * 2);
-		mRewardParts.push_back(tracking_rewards[0]);
-		mRewardParts.push_back(tracking_rewards[1]);
-		mRewardParts.push_back(tracking_rewards[2]);
-		mRewardParts.push_back(r_l);
-		mRewardParts.push_back(r_a);
+		mRewardParts.push_back(tracking_rewards_ref[0]);
+		mRewardParts.push_back(tracking_rewards_ref[1]);
+		mRewardParts.push_back(tracking_rewards_ref[2]);
+		mRewardParts.push_back(accum_srl);
+		mRewardParts.push_back(r_action);
 		mRewardParts.push_back(r_time);
 	}
 }
