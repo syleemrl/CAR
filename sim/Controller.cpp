@@ -106,12 +106,9 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-	if(isAdaptive) {
-		// pos, time, adaptive angular, adaptive angular root, adaptive linear root
-		mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1 + mAdaptiveBodies.size() * 3 + 3);
-	} else {
-		mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3);
-	}
+	// pos, time, adaptive angular, adaptive angular root, adaptive linear root
+	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1 + mAdaptiveBodies.size() * 3 + 3);
+	
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -187,10 +184,10 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 		mRewardLabels.push_back("target");
 	} else {
 		mRewardLabels.push_back("total");
-		mRewardLabels.push_back("p");
-		mRewardLabels.push_back("v");
-		mRewardLabels.push_back("com");
-		mRewardLabels.push_back("ee");
+		mRewardLabels.push_back("t_ref");
+		mRewardLabels.push_back("t_bvh");
+		mRewardLabels.push_back("t_srl");
+		mRewardLabels.push_back("action");
 	}
 }
 void
@@ -219,18 +216,15 @@ Step()
 	}
 
 	double prevAdaptiveStep = mAdaptiveStep;
-	if(isAdaptive) {
-		mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.05, -0.8, 0.8);
-		mAdaptiveStep = mActions[num_body_nodes*3];
-		for(int i = num_body_nodes*3 + 1; i < num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
-		}
-		for(int i = num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i < mActions.size(); i++){
-			mActions[i] = dart::math::clip(mActions[i]*0.01, -0.05, 0.05);
-		}
-	} else{
-		mAdaptiveStep = 0;
+	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.05, -0.8, 0.8);
+	mAdaptiveStep = mActions[num_body_nodes*3];
+	for(int i = num_body_nodes*3 + 1; i < num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i++){
+		mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
 	}
+	for(int i = num_body_nodes*3 + 1 + mAdaptiveBodies.size() * 3; i < mActions.size(); i++){
+		mActions[i] = dart::math::clip(mActions[i]*0.01, -0.05, 0.05);
+	}
+
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -246,43 +240,32 @@ Step()
 
 	delete p_v_target;
 
-	if(isAdaptive) {
-		// root linear;
-		Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
-		Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
+	// root linear;
+	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
+	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 
-		Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
-		Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
-		target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
-		target_diff_local += mActions.tail<3>();
+	Eigen::Vector3d target_diff_local = cur_target_position.segment<3>(3) - prev_target_position.segment<3>(3);
+	Eigen::AngleAxisd prev_root_ori_target = Eigen::AngleAxisd(prev_target_position.segment<3>(0).norm(), prev_target_position.segment<3>(0).normalized());
+	target_diff_local = prev_root_ori_target.inverse() * target_diff_local;
+	target_diff_local += mActions.tail<3>();
 
-		Eigen::AngleAxisd prev_root_ori= Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
-		target_diff_local = prev_root_ori * target_diff_local;
-		this->mTargetPositions.segment<3>(3) = mPrevTargetPositions.segment<3>(3) + target_diff_local;
+	Eigen::AngleAxisd prev_root_ori= Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
+	target_diff_local = prev_root_ori * target_diff_local;
+	this->mTargetPositions.segment<3>(3) = mPrevTargetPositions.segment<3>(3) + target_diff_local;
 
-		int adaptive_idx = num_body_nodes*3 + 1;
-		for(int i = 0; i < mAdaptiveBodies.size(); i++) {
-			// int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-			// target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
-			// Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
+	int adaptive_idx = num_body_nodes*3 + 1;
+	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 
-			// Eigen::AngleAxisd action_aa = Eigen::AngleAxisd(mActions.segment<3>(adaptive_idx + 3 * i).norm(), mActions.segment<3>(adaptive_idx + 3 * i).normalized());
-			// target_diff_aa = target_diff_aa * action_aa;
-			// Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
-			// target_diff_aa = prev_aa * target_diff_aa;
-
-			// this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
-			int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-			target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
-		//	target_diff_local = target_diff_local + mActions.segment<3>(adaptive_idx + 3 * i);
-			Eigen::AngleAxisd target_diff_aa(target_diff_local.norm(), target_diff_local.normalized());
-			Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
-			target_diff_aa = prev_aa * target_diff_aa;
-			
-			this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis()  + mActions.segment<3>(adaptive_idx + 3 * i);
-		}
-
+		target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
+		Eigen::AngleAxisd target_diff_aa(target_diff_local.norm(), target_diff_local.normalized());
+		Eigen::AngleAxisd prev_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
+		target_diff_aa = prev_aa * target_diff_aa;
+		
+		this->mTargetPositions.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis()  + mActions.segment<3>(adaptive_idx + 3 * i);
 	}
+
+
 	this->mPDTargetPositions = mTargetPositions;
 	this->mPDTargetVelocities = mTargetVelocities;
 
@@ -817,83 +800,41 @@ Controller::
 UpdateReward()
 {
 	auto& skel = this->mCharacter->GetSkeleton();
-
-	//Position Differences
-	Eigen::VectorXd p_diff = skel->getPositionDifferences(this->mTargetPositions, skel->getPositions());
-
-	//Velocity Differences
-	Eigen::VectorXd v_diff = skel->getVelocityDifferences(this->mTargetVelocities, skel->getVelocities());
-	Eigen::VectorXd p_diff_reward, v_diff_reward;
-	int num_reward_body_nodes = this->mRewardBodies.size();
-
-	p_diff_reward.resize(num_reward_body_nodes*3);
-	v_diff_reward.resize(num_reward_body_nodes*3);
-	for(int i = 0; i < num_reward_body_nodes; i++){
-		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		p_diff_reward.segment<3>(3*i) = p_diff.segment<3>(idx);
-		v_diff_reward.segment<3>(3*i) = v_diff.segment<3>(idx);
-	}
-
-	//End-effector position and COM Differences
-	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
-	Eigen::VectorXd p_save = skel->getPositions();
-	Eigen::VectorXd v_save = skel->getVelocities();
-
-	std::vector<Eigen::Isometry3d> ee_transforms;
-	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
-	ee_diff.setZero();
-	Eigen::Vector3d com_diff;
-
-	Eigen::Matrix3d cur_root_ori_inv = skel->getRootBodyNode()->getWorldTransform().linear().inverse();
+	Eigen::VectorXd dummy = skel->getVelocities();
 	
-	std::vector<bool> isContact;
-	for(int i=0;i<mEndEffectors.size();i++){
-		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
-	//	isContact.push_back(CheckCollisionWithGround(mEndEffectors[i]));
-	}
-	
-	com_diff = skel->getCOM();
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
+	Eigen::VectorXd pos_bvh = p_v_target->GetPosition();
+	Eigen::VectorXd vel_bvh = p_v_target->GetVelocity();
+	delete p_v_target;
 
-	skel->setPositions(this->mTargetPositions);
-	skel->setVelocities(this->mTargetVelocities);
-	skel->computeForwardKinematics(true,true,false);
+	std::vector<double> tracking_rewards_ref = this->GetTrackingReward(skel->getPositions(), this->mTargetPositions,
+								 dummy, dummy, mRewardBodies, false);
+	double accum_ref = std::accumulate(tracking_rewards_ref.begin(), tracking_rewards_ref.end(), 0.0);
 
-	for(int i=0;i<mEndEffectors.size();i++){
-	//	if(isContact[i]) {
-			Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
-			ee_diff.segment<3>(3*i) = diff.translation();
-	//	}
-	}
-	com_diff -= skel->getCOM();
+	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), pos_bvh,
+								 dummy, vel_bvh, mRewardBodies, true);
+	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0);
 
-	skel->setPositions(p_save);
-	skel->setVelocities(v_save);
-	skel->computeForwardKinematics(true,true,false);
+	std::vector<double> tracking_rewards_srl = this->GetTrackingReward(this->mTargetPositions, pos_bvh,
+								 dummy, dummy, mAdaptiveBodies, false);
 
-	double scale = 1.0;
-
-	double sig_p = 0.1 * scale; 		// 2
-	double sig_v = 1.0 * scale;		// 3
-	double sig_com = 0.1 * scale;		// 4
-	double sig_ee = 0.2 * scale;		// 8
-	double w_a = 0.1;
-
-	double r_p = exp_of_squared(p_diff_reward,sig_p);
-	double r_v = exp_of_squared(v_diff_reward,sig_v);
-	double r_ee = exp_of_squared(ee_diff,sig_ee);
-	double r_com = exp_of_squared(com_diff,sig_com);
-	double r_tot = w_p*r_p + w_v*r_v + w_com*r_com + w_ee*r_ee;
-
+	double accum_srl = std::accumulate(tracking_rewards_srl.begin(), tracking_rewards_srl.end(), 0.0);
+	double r_time = exp(-pow(mCurrentFrame - nTotalSteps,2)*5);
+	Eigen::VectorXd a = mActions.tail(mAdaptiveBodies.size() * 3 + 3);
+	double r_action = exp_of_squared(a, 0.05);
 	mRewardParts.clear();
+
+	double r_tot = 0.05 * accum_ref + 0.2 * accum_bvh + 0.15 * accum_srl + 0.1 * r_time + 0.05 * r_action;
+
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(r_p);
-		mRewardParts.push_back(r_v);
-		mRewardParts.push_back(r_com);
-		mRewardParts.push_back(r_ee);
+		mRewardParts.push_back(accum_ref);
+		mRewardParts.push_back(accum_bvh);
+		mRewardParts.push_back(accum_srl);
+		mRewardParts.push_back(r_action);
 	}
 
 }
@@ -901,6 +842,11 @@ void
 Controller::
 UpdateTerminalInfo()
 {	
+	Eigen::VectorXd p_ideal;
+	if(isAdaptive) 
+		p_ideal = mTargetPositions;
+	else 
+		p_ideal = mReferenceManager->GetPosition(mCurrentFrame);
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	Eigen::VectorXd p = skel->getPositions();
@@ -912,22 +858,22 @@ UpdateTerminalInfo()
 	Eigen::VectorXd p_old = mReferenceManager->GetPosition(mCurrentFrame);
 
 	Eigen::AngleAxisd root_old_aa = Eigen::AngleAxisd(p_old.segment<3>(0).norm(), p_old.segment<3>(0).normalized());
-	Eigen::AngleAxisd root_new_aa = Eigen::AngleAxisd(mTargetPositions.segment<3>(0).norm(), mTargetPositions.segment<3>(0).normalized());
+	Eigen::AngleAxisd root_new_aa = Eigen::AngleAxisd(p_ideal.segment<3>(0).norm(), p_ideal.segment<3>(0).normalized());
 
 	Eigen::Vector3d up_vec1 = root_old_aa*Eigen::Vector3d::UnitY();
 	Eigen::Vector3d up_vec2 = root_new_aa*Eigen::Vector3d::UnitY();
 
-	Eigen::VectorXd pos_diff = skel->getPositionDifferences(mTargetPositions, p_old);
+	Eigen::VectorXd pos_diff = skel->getPositionDifferences(p_ideal, p_old);
 	pos_diff.segment<6>(0).setZero();
 
 	double up_vec_angle_diff = atan2(std::sqrt(up_vec1[0]*up_vec1[0]+up_vec1[2]*up_vec1[2]),up_vec1[1])
 							 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
-	double root_y_diff = p_old[4] - mTargetPositions[4];
+	double root_y_diff = p_old[4] - p_ideal[4];
 
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-	skel->setPositions(mTargetPositions);
+	skel->setPositions(p_ideal);
 	skel->computeForwardKinematics(true,false,false);
 
 	Eigen::Isometry3d root_diff = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
@@ -1285,7 +1231,7 @@ GetState()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
 	Eigen::VectorXd next_new = p_v_target->GetPosition();
 	Eigen::VectorXd next_old = next_new;
-	if(isAdaptive && mCurrentFrame != 0) {
+	if(mCurrentFrame != 0) {
 		Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
 		Eigen::VectorXd next_target_position = next_new;
 
@@ -1309,11 +1255,6 @@ GetState()
 
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(next_new, p_v_target->GetVelocity());
 	delete p_v_target;
-
-	Eigen::VectorXd p_target_save = skel->getPositionDifferences(next_old, skel->getPositions());
-	Eigen::VectorXd p_target;
-	p_target.resize(p_target_save.rows()-6);
-	p_target = p_target_save.tail(p_target_save.rows()-6);
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
