@@ -6,6 +6,8 @@
 #include "SkeletonBuilder.h"
 #include "Functions.h"
 #include "ReferenceManager.h"
+#include <tuple>
+
 namespace DPhy
 {
 class Character;
@@ -78,6 +80,8 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	double ComputeAngularDifferenceFromEllipse(int idx);
 	double ComputeAngularDifferenceFromCovarianceEllipse(int idx);
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
+	double GetTargetReward();
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -172,6 +176,9 @@ protected:
 	std::uniform_real_distribution<double> mDistribution;
 	double mTarget;
 	double mTarget2;
+
+	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
+
 };
 }
 #endif
