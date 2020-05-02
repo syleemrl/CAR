@@ -104,7 +104,13 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	this->mCGER = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootEndR"));
 	this->mCGHL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandL"));
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
+	this->mCGS = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("Spine"));
+	this->mCGT = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("Torso"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
+	this->mCGFAL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ForeArmL"));
+	this->mCGFAR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ForeArmR"));
+	this->mCGAL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ArmL"));
+	this->mCGAR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ArmR"));
 
 	// pos, time, adaptive angular, adaptive angular root, adaptive linear root
 	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1 + mAdaptiveBodies.size() * 3 + 3);
@@ -253,6 +259,7 @@ Step()
 
 	int adaptive_idx = num_body_nodes*3 + 1;
 	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
+
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 
 		target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
@@ -726,11 +733,11 @@ GetTargetReward()
 		double up_vec_angle_diff = up_vec_angle - std::get<2>(mStartPosition);
 
 		target_diff.head<6>().setZero();
-		r_target = 0.5 * (exp_of_squared(target_diff, 0.1) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
+		r_target = 0.5 * (exp_of_squared(target_diff, 0.05) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
 		
 		mControlFlag[1] = 1;
 		mStartPosition = std::make_tuple(mTargetPositions, mTargetPositions[4], up_vec_angle);
-
+		
 	}
 
 	return r_target;
@@ -772,7 +779,7 @@ UpdateAdaptiveReward()
 
 	double r_target = this->GetTargetReward();
 
-	double r_tot_dense = 0.3 * accum_ref + 0.15 * (r_l + r_a);
+	double r_tot_dense = 0.1 * accum_ref + 0.3 * (r_l + r_a);
 	// std::cout << mCurrentFrameOnPhase << " " << r_l << " " << r_a << std::endl;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
@@ -781,7 +788,7 @@ UpdateAdaptiveReward()
 	else {
 		mRewardParts.push_back(r_tot_dense);
 		mRewardParts.push_back(r_target * 2);
-		mRewardParts.push_back(accum_ref);
+		mRewardParts.push_back(accum_ref / tracking_rewards_ref.size());
 		mRewardParts.push_back(r_l);
 		mRewardParts.push_back(r_a);
 		mRewardParts.push_back(r_target);
@@ -823,9 +830,9 @@ UpdateReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(accum_ref);
-		mRewardParts.push_back(accum_bvh);
-		mRewardParts.push_back(accum_srl);
+		mRewardParts.push_back(accum_ref / tracking_rewards_ref.size());
+		mRewardParts.push_back(accum_bvh / tracking_rewards_bvh.size());
+		mRewardParts.push_back(accum_srl / tracking_rewards_srl.size());
 		mRewardParts.push_back(r_action);
 	}
 
@@ -910,9 +917,8 @@ UpdateTerminalInfo()
 				mIsTerminal = true;
 				terminationReason = 6;
 			}
-		} else if(mRewardParts[7] != 0) {
-
-			if(mRewardParts[7] < meanTargetReward && mRewardParts[7] < 1.8) {
+		} else if(mRewardParts[5] != 0) {
+			if(mRewardParts[5] < meanTargetReward && mRewardParts[5] < 1.8) {
 				mIsTerminal = true;
 				terminationReason = 7;
 			}
