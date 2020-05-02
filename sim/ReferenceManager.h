@@ -17,6 +17,8 @@ public:
 	Motion(Motion* m) {
 		position = m->position;
 		velocity = m->velocity;
+		// rightContact = m->rightContact;
+		// leftContact = m->leftContact;
 	}
 	Motion(Eigen::VectorXd pos, Eigen::VectorXd vel) {
 		position = pos;
@@ -24,12 +26,19 @@ public:
 	}
 	void SetPosition(Eigen::VectorXd pos) { position = pos; }
 	void SetVelocity(Eigen::VectorXd vel) { velocity = vel; }
+	// void SetLeftContact(bool contact) { leftContact = contact; }
+	// void SetRightContact(bool contact) { rightContact = contact; }
+
 	Eigen::VectorXd GetPosition() { return position; }
 	Eigen::VectorXd GetVelocity() { return velocity; }
+	// bool GetLeftContact() { return leftContact; }
+	// bool GetRightContact() { return rightContact; }
 
 protected:
 	Eigen::VectorXd position;
 	Eigen::VectorXd velocity;
+	// bool rightContact;
+	// bool leftContact;
 };
 class ReferenceManager
 {

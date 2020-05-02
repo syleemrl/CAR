@@ -742,6 +742,29 @@ GetTargetReward()
 
 	return r_target;
 }
+std::vector<bool> 
+Controller::
+GetContactInfo(Eigen::VectorXd pos) 
+{
+	auto& skel = this->mCharacter->GetSkeleton();
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+	
+	skel->setVelocities(pos);
+	skel->computeForwardKinematics(true,false,false);
+
+	std::vector<bool> contact;
+	contact.push_back(CheckCollisionWithGround("FootEndR"));
+	contact.push_back(CheckCollisionWithGround("FootR"));
+	contact.push_back(CheckCollisionWithGround("FootEndL"));
+	contact.push_back(CheckCollisionWithGround("FootL"));
+
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
+	return contact;
+}
 void
 Controller::
 UpdateAdaptiveReward()
@@ -779,7 +802,18 @@ UpdateAdaptiveReward()
 
 	double r_target = this->GetTargetReward();
 
-	double r_tot_dense = 0.1 * accum_ref + 0.3 * (r_l + r_a);
+	std::vector<bool> con_ref = this->GetContactInfo(mTargetPositions);
+	std::vector<bool> con_bvh = this->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrame));
+
+	double r_con = 0;
+	for(int i = 0; i < con_ref.size(); i++) {
+		if(con_ref[i] == con_bvh[i]) {
+			r_con += 1;
+		}
+	}
+	r_con /= con_ref.size();
+
+	double r_tot_dense = 0.1 * accum_ref + 0.3 * (r_l + r_a) + 0.2 * r_con;
 	// std::cout << mCurrentFrameOnPhase << " " << r_l << " " << r_a << std::endl;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
