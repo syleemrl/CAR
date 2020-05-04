@@ -730,7 +730,7 @@ GetTargetReward()
 		r_target = 0.5 * (exp_of_squared(target_diff, 0.05) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
 		
 		mControlFlag[1] = 1;
-		mStartPosition = std::make_tuple(mTargetPositions, mTargetPositions[4], up_vec_angle);
+		//mStartPosition = std::make_tuple(mTargetPositions, mTargetPositions[4], up_vec_angle);
 		
 	}
 
@@ -808,7 +808,7 @@ UpdateAdaptiveReward()
 	r_con /= con_ref.size();
 
 	double r_tot_dense = 0.1 * accum_ref + 1 * (r_l + r_a) + 0.2 * r_con;
-	// std::cout << mCurrentFrameOnPhase << " " << r_l << " " << r_a << std::endl;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -1222,6 +1222,22 @@ CheckCollisionWithGround(std::string bodyName){
 		return false;
 	}
 }
+void
+Controller::
+GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next ) 
+{
+	Eigen::AngleAxisd cur_root_ori= Eigen::AngleAxisd(cur.segment<3>(0).norm(), cur.segment<3>(0).normalized());
+	delta.segment<3>(0) = cur_root_ori * delta.segment<3>(0);
+	next.segment<3>(3) = cur.segment<3>(3) + delta.segment<3>(0);
+
+	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(delta.segment<3>(idx).norm(), delta.segment<3>(idx).normalized());
+		Eigen::AngleAxisd cur_aa = Eigen::AngleAxisd(cur.segment<3>(idx).norm(), cur.segment<3>(idx).normalized());
+		target_diff_aa = cur_aa * target_diff_aa;
+		next.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
+	}
+}
 Eigen::VectorXd 
 Controller::
 GetState()
@@ -1250,29 +1266,15 @@ GetState()
 	}
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1);
-	Eigen::VectorXd next_new = p_v_target->GetPosition();
-	Eigen::VectorXd next_old = next_new;
+	
+	Eigen::VectorXd cur_target = mReferenceManager->GetPosition(mCurrentFrame);
+	Eigen::VectorXd next_target = p_v_target->GetPosition();
+	Eigen::VectorXd delta = skel->getPositionDifferences(next_target, cur_target); 
+
+	Eigen::VectorXd next_new = next_target;
 	if(mCurrentFrame != 0) {
-		Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
-		Eigen::VectorXd next_target_position = next_new;
-
-		Eigen::Vector3d target_diff_local = next_target_position.segment<3>(3) - cur_target_position.segment<3>(3);
-		Eigen::AngleAxisd cur_root_ori_target = Eigen::AngleAxisd(cur_target_position.segment<3>(0).norm(), cur_target_position.segment<3>(0).normalized());
-		target_diff_local = cur_root_ori_target.inverse() * target_diff_local;
-
-		Eigen::AngleAxisd cur_root_ori= Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
-		target_diff_local = cur_root_ori * target_diff_local;
-		next_new.segment<3>(3) = mPrevTargetPositions.segment<3>(3) + target_diff_local;
-
-		for(int i = 0; i < mAdaptiveBodies.size(); i++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-			target_diff_local = JointPositionDifferences(next_target_position.segment<3>(idx), cur_target_position.segment<3>(idx));
-			Eigen::AngleAxisd target_diff_aa = Eigen::AngleAxisd(target_diff_local.norm(), target_diff_local.normalized());
-			Eigen::AngleAxisd cur_aa = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(idx).norm(), mPrevTargetPositions.segment<3>(idx).normalized());
-			target_diff_aa = cur_aa * target_diff_aa;
-			next_new.segment<3>(idx) = target_diff_aa.angle() * target_diff_aa.axis();
-		}
-	}
+		this->GetNextPosition(mTargetPositions, delta, next_new);
+	} 
 
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(next_new, p_v_target->GetVelocity());
 	delete p_v_target;

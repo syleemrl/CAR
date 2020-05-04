@@ -82,6 +82,9 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	double GetTargetReward();
 	std::vector<bool> GetContactInfo(Eigen::VectorXd pos);
+	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
+
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
