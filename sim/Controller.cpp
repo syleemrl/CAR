@@ -104,13 +104,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	this->mCGER = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("FootEndR"));
 	this->mCGHL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandL"));
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
-	this->mCGS = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("Spine"));
-	this->mCGT = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("Torso"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
-	this->mCGFAL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ForeArmL"));
-	this->mCGFAR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ForeArmR"));
-	this->mCGAL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ArmL"));
-	this->mCGAR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("ArmR"));
 
 	// pos, time, adaptive angular, adaptive angular root, adaptive linear root
 	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1 + mAdaptiveBodies.size() * 3 + 3);
@@ -813,7 +807,7 @@ UpdateAdaptiveReward()
 	}
 	r_con /= con_ref.size();
 
-	double r_tot_dense = 0.1 * accum_ref + 0.3 * (r_l + r_a) + 0.2 * r_con;
+	double r_tot_dense = 0.1 * accum_ref + 1 * (r_l + r_a) + 0.2 * r_con;
 	// std::cout << mCurrentFrameOnPhase << " " << r_l << " " << r_a << std::endl;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
@@ -821,7 +815,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target * 2);
+		mRewardParts.push_back(r_target);
 		mRewardParts.push_back(accum_ref / tracking_rewards_ref.size());
 		mRewardParts.push_back(r_l);
 		mRewardParts.push_back(r_a);

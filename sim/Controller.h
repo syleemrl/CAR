@@ -122,7 +122,7 @@ protected:
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
 	// for foot collision, left, right foot, ground
-	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGS, mCGT, mCGAL, mCGAR, mCGFAL, mCGFAR; 
+	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL; 
 
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::VectorXd> mRecordVelocity;
