@@ -586,7 +586,7 @@ GetTargetReward()
 		mControlFlag[0] = 1;
 	} else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
 		mControlFlag[0] = -1;
-		double target_diff = mTarget - 5.5;
+		double target_diff = mTarget - 5;
 		r_target = 2*exp(-pow(target_diff, 2)*0.3);
 		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
 		mCount += 1;
@@ -673,7 +673,7 @@ GetContactInfo(Eigen::VectorXd pos)
 	result.clear();
 	for(int i = 0; i < contact.size(); i++) {
 		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
-		if(p[1] < 0.035) {
+		if(p[1] < 0.04) {
 			result.push_back(true);
 		} else {
 			result.push_back(false);
@@ -715,7 +715,6 @@ UpdateAdaptiveReward()
 			r_a += 1.0 / joint_angular_diff.size() * exp(-joint_angular_diff[i]*25);
 		}
 	}
-	double r_la = r_l * 1.0 / (joint_angular_diff.size() + 1.0) + r_a * joint_angular_diff.size() / (joint_angular_diff.size() + 1.0);
 	double r_target = this->GetTargetReward();
 
 	std::vector<bool> con_ref = this->GetContactInfo(mTargetPositions);
@@ -729,8 +728,7 @@ UpdateAdaptiveReward()
 	}
 	r_con /= con_ref.size();
 
-	double r_tot_dense = 0.3 * accum_ref + 0.3 * r_la + 0.3 * r_con;
-	std::cout << r_l << " " << r_a << std::endl;
+	double r_tot_dense = 0.3 * accum_ref + 0.4 * r_a + 0.2 * r_l + 0.1 * r_con;
  	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
