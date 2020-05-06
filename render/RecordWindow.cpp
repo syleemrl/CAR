@@ -55,7 +55,7 @@ RecordWindow(std::vector<std::string> motion)
 	double dir = mMemoryRef[0][0][1];
 	dir = dir;
 	// Eigen::Vector3d ori_otho(cos(dir), 0, sin(dir));
-	Eigen::Vector3d ori_otho(-1.5, 0, 0);
+	Eigen::Vector3d ori_otho(-1.0, 0, 0);
 	for(int i = 1; i < motion.size(); i++) {
 		for(int j = 0; j < mMemoryRef[i].size(); j++) {
 			mMemoryRef[i][j].segment<3>(3) += ori_otho * i;

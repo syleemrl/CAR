@@ -586,7 +586,7 @@ GetTargetReward()
 		mControlFlag[0] = 1;
 	} else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
 		mControlFlag[0] = -1;
-		double target_diff = mTarget - 5;
+		double target_diff = mTarget - 3;
 		r_target = 2*exp(-pow(target_diff, 2)*0.3);
 		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
 		mCount += 1;
