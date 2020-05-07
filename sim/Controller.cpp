@@ -361,19 +361,18 @@ ComputeAngularDifferenceFromEllipse(int idx)
 	Eigen::Vector3d target = prev_aa.angle() * prev_aa.axis();
 	
 	Eigen::Vector3d diff3d = JointPositionDifferences(target, mTargetPositions.segment<3>(idx));
-	Eigen::Vector3d nearest = NearestOnGeodesicCurve3d(target_diff_local.normalized(), Eigen::Vector3d(0, 0, 0), diff3d);
 
 	double x;
 	if (target_diff_local.norm() == 0) 
 		x = 0;
 	else 
-		x = nearest.norm();
-	double y = (JointPositionDifferences(diff3d, nearest)).norm(); 
-
+		x = diff3d.dot(target_diff_local.normalized());
+	double y = (diff3d - x * target_diff_local.normalized()).norm() / std::max(target_diff_local.norm(), 0.0075); 
+	x /= std::max(target_diff_local.norm(), 0.0075);
 
 	double axis_diff;
 	std::vector<std::pair<double, double>> values;
-	int total = 0;
+	double total = 0;
 	target_diff_local /= (1+mAdaptiveStep);
 	for(int i = -3; i <= 3; i++) {
 		if (mCurrentFrame+(i-1) < 0 || mCurrentFrame+i > 500) continue;
@@ -385,11 +384,14 @@ ComputeAngularDifferenceFromEllipse(int idx)
 			Eigen::VectorXd cur_target_position2 = mReferenceManager->GetPosition(mCurrentFrame+i);
 
 			Eigen::Vector3d target_diff_local2 = JointPositionDifferences(cur_target_position2.segment<3>(idx), prev_target_position2.segment<3>(idx));
-			Eigen::Vector3d nearest2 = NearestOnGeodesicCurve3d(target_diff_local.normalized(), Eigen::Vector3d(0, 0, 0), target_diff_local2);
-			double y2 = JointPositionDifferences(target_diff_local2, nearest2).norm();
-			// values.push_back(std::pair<double, double>(angle, target_diff_local2.norm() * (1 - abs(i) * 0.3)));
-			// total += target_diff_local2.norm() * (1 - abs(i) * 0.3);
-			
+			double x2 = target_diff_local2.dot(target_diff_local.normalized());
+			double y2;
+			if(x2 > 0) 
+				y2 = (target_diff_local2 - x2 * target_diff_local.normalized()).norm();
+			else
+				y2 = target_diff_local2.norm();
+			y2 /= std::max(target_diff_local.norm(), 0.0075);
+
 			values.push_back(std::pair<double, double>(y2, (1 - abs(i) * 0.3)));
 			total += (1 - abs(i) * 0.3);
 		}
@@ -402,15 +404,92 @@ ComputeAngularDifferenceFromEllipse(int idx)
 		dev += n * values[i].first * values[i].first;
 	}
 	dev = std::sqrt(dev / (total_n-1.0));
-	double size = std::max(target_diff_local.norm(), 0.0075) * 5;
-	double max = 2.5 * size;
-	double min = 0.5 * size;
-	double a = std::max(max - dev * (max-min), min) + 1e-8;
-	double b = min + 1e-8;
-	double diff = (x*x) / (a*a) + (y*y) / (b*b);
+	// double size = std::max(target_diff_local.norm(), 0.0075) * 2.5;
+	double max = 5;
+	double min = 0.5;
+	double a = std::max(max - dev * (max-min), 1.0) + 1e-8;
+	double b = std::min(min + 0.2 * dev * (max-min), 1.0) + 1e-8;
+
+	double diff = (x * x) / (a*a) + (y * y) / (b*b);
+	// std::cout << dev << " " << a << " " << b << std::endl;
+	// std::cout << x << " " << diff << " ";
 
 	return diff;
+
 }
+// double 
+// Controller::
+// ComputeAngularDifferenceFromEllipse(int idx)
+// {
+// 	auto& skel = this->mCharacter->GetSkeleton();
+
+// 	Eigen::VectorXd prev_target_position = mReferenceManager->GetPosition(mCurrentFrame-(1+mAdaptiveStep));
+// 	Eigen::VectorXd cur_target_position = mReferenceManager->GetPosition(mCurrentFrame);
+
+// 	Eigen::Vector3d target_diff_local = JointPositionDifferences(cur_target_position.segment<3>(idx), prev_target_position.segment<3>(idx));
+// 	target_diff_local /= (1+mAdaptiveStep);
+	
+// 	Eigen::Vector3d pos = mCharacter->GetSkeleton()->getPositions();
+// 	Eigen::Vector3d angular_diff_local = JointPositionDifferences(skel->getPositions().segment<3>(idx), mPrevPositions.segment<3>(idx));
+// 	angular_diff_local /= (1+mAdaptiveStep);
+
+// 	Eigen::Vector3d nearest = NearestOnGeodesicCurve3d(target_diff_local.normalized(), Eigen::Vector3d(0, 0, 0), angular_diff_local);
+// 	double x;
+// 	if(x > M_PI) {
+// 		x = 2 * M_PI - x + target_diff_local.norm();
+// 	} else {
+// 		x = nearest.norm() - target_diff_local.norm();
+// 	}
+// 	double y = JointPositionDifferences(angular_diff_local, nearest).norm();
+
+// 	double axis_diff;
+// 	std::vector<std::pair<double, double>> values;
+// 	double total = 0;
+// 	for(int i = -3; i <= 3; i++) {
+// 		if (mCurrentFrame+(i-1) < 0 || mCurrentFrame+i > 500) continue;
+// 		else if(i == 0) {
+// 			values.push_back(std::pair<double, double>(0, target_diff_local.norm()));
+// 			total += target_diff_local.norm();
+// 		} else {
+// 			Eigen::VectorXd prev_target_position2 = mReferenceManager->GetPosition(mCurrentFrame+i-1);
+// 			Eigen::VectorXd cur_target_position2 = mReferenceManager->GetPosition(mCurrentFrame+i);
+
+// 			Eigen::Vector3d target_diff_local2 = JointPositionDifferences(cur_target_position2.segment<3>(idx), prev_target_position2.segment<3>(idx));
+// 			Eigen::AngleAxisd target_diff_aa2 = Eigen::AngleAxisd(target_diff_local2.norm(), target_diff_local2.normalized());
+// 			Eigen::Vector3d nearest2 = NearestOnGeodesicCurve3d(target_diff_local.normalized(), Eigen::Vector3d(0, 0, 0), target_diff_local2);
+// 			double x2 = nearest2.norm() - target_diff_local.norm();
+
+// 			double angle = acos(target_diff_local2.normalized().dot(target_diff_local.normalized()));
+// 			// values.push_back(std::pair<double, double>(angle, target_diff_local2.norm() * (1 - abs(i) * 0.3)));
+// 			// total += target_diff_local2.norm() * (1 - abs(i) * 0.3);
+			
+// 			values.push_back(std::pair<double, double>(JointPositionDifferences(target_diff_local2, nearest2).norm(), (1 - abs(i) * 0.3)));
+// 			total +=  (1 - abs(i) * 0.3);
+// 		}
+// 	}
+// 	double dev = 0;
+// 	int total_n = 0;	
+// 	for(int i = 0; i < values.size(); i++) {
+// 		int n = (int)(values[i].second / total * 100.0);
+// 		total_n += n;
+// 		dev += n * values[i].first * values[i].first;
+// 	}
+// 	dev = std::sqrt(dev / (total_n-1.0));
+// 	double size = target_diff_local.norm() * 5;
+// 	double max = 2.5 * size;
+// 	double min = 0.5 * size;
+// 	double a = std::max(max - dev * (max-min), min) + 1e-8;
+// 	double b = min + 1e-8;
+// 	double diff = x*x / (a*a) + y*y / (b*b);
+// 	// if(idx == 33) {
+// 	// 	std::cout << mCurrentFrame << " moved: " << angular_diff_local.transpose() << " target: " << target_diff_local.transpose() << std::endl;
+// 	// 	std::cout << x << " " << y << " " << a << " " << b << " " << dev << " " << diff << " " << std::endl;
+// 	// }
+// 	// std::cout << angular_diff_local.transpose() << " " <<a << " " << b << std::endl;
+// 	// std::cout <<  x << " " << y << " " << diff << std::endl;
+// //	std::cout << diff << " " ;
+// 	return diff;
+// }
 double 
 Controller::
 ComputeLinearDifferenceFromEllipse()
@@ -430,13 +509,15 @@ ComputeLinearDifferenceFromEllipse()
 	Eigen::Vector3d target = mPrevTargetPositions.segment<3>(3) + target_diff;
 
 	Eigen::Vector3d diff3d = target - mTargetPositions.segment<3>(3);
+	diff3d = prev_root_ori.inverse() * diff3d;
 
 	double x;
 	if (target_diff_local.norm() == 0) 
 		x = 0;
 	else 
 		x = diff3d.dot(target_diff_local.normalized());
-	double y = (diff3d - x * target_diff_local.normalized()).norm(); 
+	double y = (diff3d - x * target_diff_local.normalized()).norm() / std::max(target_diff_local.norm(), 0.0075); 
+	x /= std::max(target_diff_local.norm(), 0.0075);
 
 	double axis_diff;
 	std::vector<std::pair<double, double>> values;
@@ -456,9 +537,13 @@ ComputeLinearDifferenceFromEllipse()
 			target_diff_local2 = prev_root_ori_target2.inverse() * target_diff_local2;
 
 			double x2 = target_diff_local2.dot(target_diff_local.normalized());
-			double y2 = (target_diff_local2 - x2 * target_diff_local.normalized()).norm();
+			double y2;
+			if(x2 > 0) 
+				y2 = (target_diff_local2 - x2 * target_diff_local.normalized()).norm();
+			else
+				y2 = target_diff_local2.norm();
+			y2 /= std::max(target_diff_local.norm(), 0.0075);
 
-			// if(angle > M_PI / 2.0) angle = M_PI - angle;
 			values.push_back(std::pair<double, double>(y2, (1 - abs(i) * 0.3)));
 			total += (1 - abs(i) * 0.3);
 		}
@@ -471,12 +556,15 @@ ComputeLinearDifferenceFromEllipse()
 		dev += n * values[i].first * values[i].first;
 	}
 	dev = std::sqrt(dev / (total_n-1.0));
-	double size = std::max(target_diff_local.norm(), 0.0075) * 5;
-	double max = 2.5 * size;
-	double min = 0.5 * size;
-	double a = std::max(max - dev * (max-min), min) + 1e-8;
-	double b = min + 1e-8;
+	// double size = std::max(target_diff_local.norm(), 0.0075) * 2.5;
+	double max = 5;
+	double min = 0.5;
+	double a = std::max(max - 2 * dev * (max-min), 1.0) + 1e-8;
+	double b = std::min(min + 0.3 * dev * (max-min), 1.0) + 1e-8;
+
 	double diff = (x * x) / (a*a) + (y * y) / (b*b);
+	// std::cout << dev << " " << a << " " << b << std::endl;
+	// std::cout << x << " " << diff << " ";
 
 	return diff;
 }
@@ -517,7 +605,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
 	ee_diff.setZero();	
-	for(int i=0;i<mEndEffectors.size();i++){
+	for(int i=0;i<mEndEffectors.size(); i++){
 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
 	}
 	
@@ -575,9 +663,11 @@ GetTargetReward()
 
 	//jump	
 	// if(mCurrentFrameOnPhase >= 44.5 && mControlFlag[0] == 0) {
-	// 	double target_diff = skel->getCOM()[1] - 1.2;
-	// 	r_target = 1.5 * exp(-pow(target_diff, 2) * 20);
+	// 	double target_diff = skel->getCOM()[1] - 1.15;
+	// 	r_target = 2 * exp(-pow(target_diff, 2) * 20);
 	// 	mControlFlag[0] = 1;
+	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+	// 	mCount += 1;
 	// }
 	
 	//jump turn	
@@ -707,12 +797,12 @@ UpdateAdaptiveReward()
 	}
 
 
-	double r_l = exp(-root_linear_diff*25);
+	double r_l = exp(-root_linear_diff*2);
 	double r_a = 0;
 	if(joint_angular_diff.size() == 0) r_a = 0;
 	else {
 		for(int i = 0; i < joint_angular_diff.size(); i++) {
-			r_a += 1.0 / joint_angular_diff.size() * exp(-joint_angular_diff[i]*25);
+			r_a += 1.0 / joint_angular_diff.size() * exp(-joint_angular_diff[i]*2);
 		}
 	}
 	double r_target = this->GetTargetReward();
@@ -728,7 +818,7 @@ UpdateAdaptiveReward()
 	}
 	r_con /= con_ref.size();
 
-	double r_tot_dense = 0.3 * accum_ref + 0.4 * r_a + 0.2 * r_l + 0.1 * r_con;
+	double r_tot_dense = 0.5 * accum_ref + 0.4 * r_a + 0.2 * r_l + 0.1 * r_con;
  	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -866,10 +956,10 @@ UpdateTerminalInfo()
 				terminationReason = 6;
 			}
 		} else if(mRewardParts[5] != 0) {
-			if(mRewardParts[5] < meanTargetReward && mRewardParts[5] < 1.8) {
-				mIsTerminal = true;
-				terminationReason = 7;
-			}
+			// if(mRewardParts[5] < meanTargetReward && mRewardParts[5] < 1.8) {
+			// 	mIsTerminal = true;
+			// 	terminationReason = 7;
+			// }
 		}
 	}
 
