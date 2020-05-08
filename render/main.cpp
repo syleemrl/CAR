@@ -6,10 +6,6 @@
 
 int main(int argc,char** argv)
 {
-	if( argc < 2 ) {
-		std::cout << "Please input a filename" << std::endl;
-		return 0;
-	}
 
 	std::cout<<"[ : Frame --"<<std::endl;
 	std::cout<<"] : Frame ++"<<std::endl;

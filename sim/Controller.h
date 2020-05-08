@@ -6,12 +6,11 @@
 #include "SkeletonBuilder.h"
 #include "Functions.h"
 #include "ReferenceManager.h"
+#include "AxisController.h"
 #include <tuple>
 
 namespace DPhy
 {
-class Character;
-
 /**
 *
 * @brief World class expresses individual virtual world which contains character and ground.
@@ -21,7 +20,8 @@ class Character;
 class Controller
 {
 public:
-Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool record=false);
+Controller(ReferenceManager* ref, AxisController* ac,
+	std::string stats, bool adaptive=true, bool record=false, int id=0);
 
 	void Step();
 	void UpdateReward();
@@ -79,12 +79,14 @@ Controller(ReferenceManager* ref, std::string stats, bool adaptive=true, bool re
 	double ComputeLinearDifferenceFromEllipse();
 	double ComputeAngularDifferenceFromEllipse(int idx);
 	double ComputeAngularDifferenceFromCovarianceEllipse(int idx);
+	std::vector<double> GetAdaptiveRefReward();
+
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	double GetTargetReward();
 	std::vector<bool> GetContactInfo(Eigen::VectorXd pos);
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
 
-
+	std::vector<double> GetAdaptiveIdxs();
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -97,9 +99,11 @@ protected:
 	double mCurrentFrameOnPhase;
 	int nTotalSteps;
 	bool isAdaptive;
+	int id;
 
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
+	AxisController* mAxisController;
 	dart::dynamics::SkeletonPtr mGround;
 
 	Eigen::VectorXd mTargetPositions;

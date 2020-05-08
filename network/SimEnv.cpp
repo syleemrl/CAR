@@ -2,6 +2,7 @@
 #include <omp.h>
 #include "dart/math/math.hpp"
 #include "Functions.h"
+#include "AxisController.h"
 #include <iostream>
 
 SimEnv::
@@ -12,15 +13,22 @@ SimEnv(int num_slaves, std::string ref, std::string stats, bool adaptive)
 
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
+	DPhy::Character* character;
+	DPhy::ReferenceManager* referenceManager;
+	ac = new DPhy::AxisController();
+
 	for(int i =0;i<num_slaves;i++)
 	{
-		DPhy::Character* character = new DPhy::Character(path);
-		DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(character);
+		character = new DPhy::Character(path);
+		referenceManager = new DPhy::ReferenceManager(character);
 		referenceManager->LoadMotionFromBVH(ref);
 		referenceManager->GenerateMotionsFromSinglePhase(1010, false);
-		mSlaves.push_back(new DPhy::Controller(referenceManager, stats, adaptive));
+		mSlaves.push_back(new DPhy::Controller(referenceManager, ac, stats, adaptive, false, i));
 	}
 	
+	ac->SetIdxs(mSlaves[0]->GetAdaptiveIdxs());
+	ac->Initialize(referenceManager);
+
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
 }
@@ -193,6 +201,12 @@ UpdateSigTorque()
 {
 	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->UpdateSigTorque();
 }
+void
+SimEnv::
+UpdateAxis()
+{
+	ac->UpdateAxis();
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -219,5 +233,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("UpdateSigTorque",&SimEnv::UpdateSigTorque)
+		.def("UpdateAxis",&SimEnv::UpdateAxis)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

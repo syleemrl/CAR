@@ -2,6 +2,7 @@
 #include "SimWindow.h"
 #include "dart/external/lodepng/lodepng.h"
 #include "Functions.h"
+#include "AxisController.h"
 //#include "matplotlibcpp.h"
 #include <algorithm>
 #include <fstream>
@@ -37,8 +38,11 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 	mReferenceManager->GenerateMotionsFromSinglePhase(1000, false);
-	this->mController = new DPhy::Controller(mReferenceManager, "", true, true);
+	DPhy::AxisController* ac = new DPhy::AxisController();
 
+	this->mController = new DPhy::Controller(mReferenceManager, ac, "", true, true);
+	ac->SetIdxs(mController->GetAdaptiveIdxs());
+	ac->Initialize(mReferenceManager);
 	//	mReferenceManager->EditMotion(1.5, "b");
 	this->mWorld = this->mController->GetWorld();
 

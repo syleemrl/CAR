@@ -211,6 +211,8 @@ class Monitor(object):
 		self.rewards_target_per_iteration = 0
 		self.num_phase = 0
 
+		self.sim_env.UpdateAxis()
+		
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['s_per_e'] = t_per_e

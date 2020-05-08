@@ -44,12 +44,13 @@ public:
 	np::ndarray GetRewardsByParts();
 
 	void UpdateSigTorque();
-	
+	void UpdateAxis();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
+	DPhy::AxisController* ac;
 };
 
 
