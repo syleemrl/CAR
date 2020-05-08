@@ -45,6 +45,10 @@ public:
 
 	void UpdateSigTorque();
 	void UpdateAxis();
+	
+	void SaveAxis(std::string path);
+	void LoadAxis(std::string path);
+
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	int mNumSlaves;

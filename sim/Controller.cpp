@@ -180,8 +180,8 @@ Controller::Controller(ReferenceManager* ref, AxisController* ac, std::string st
 		mRewardLabels.push_back("total_d");
 		mRewardLabels.push_back("total_s");
 		mRewardLabels.push_back("tracking");
-		mRewardLabels.push_back("linear");
-		mRewardLabels.push_back("angular");
+		mRewardLabels.push_back("root");
+		mRewardLabels.push_back("joints");
 		mRewardLabels.push_back("contact");
 		mRewardLabels.push_back("target");
 	} else {
@@ -395,7 +395,7 @@ GetAdaptiveRefReward()
 	diff.clear();
 
 	for(int i = 0; i < x.rows(); i++) {
- 		double max = 3;
+ 		double max = 5;
 		double min = 0.5;
 
 		double a = std::max(max - 0.03 * dev(i) * (max-min), 1.0) + 1e-8;
@@ -403,7 +403,6 @@ GetAdaptiveRefReward()
 
 		diff.push_back((x(i) * x(i)) / (a * a) + (y(i) * y(i)) / (a * a));
 	}
-
 	return diff;
 }
 
@@ -633,26 +632,6 @@ UpdateAdaptiveReward()
 	for(int i = 2; i < ref_adaptive_diff.size(); i++) {
 		r_ad_joint += 1.0 / (ref_adaptive_diff.size() - 2) * exp(-ref_adaptive_diff[i]*25);
 	}
-	// std::cout << tracking_rewards_ref[0] << " " << tracking_rewards_ref[1] << " " << tracking_rewards_ref[2] << std::endl;
-	// double root_linear_diff = ComputeLinearDifferenceFromEllipse();
-	// double root_angular_diff;
-	// Eigen::VectorXd joint_angular_diff(this->mAdaptiveBodies.size());
-
-	// for(int i = 0; i < this->mAdaptiveBodies.size(); i++) {
-	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-	// 	joint_angular_diff[i] = ComputeAngularDifferenceFromEllipse(idx);
-	// //std::cout << joint_angular_diff[i] << " " << ComputeAngularDifferenceFromEllipse2(idx) << std::endl;
-	// }
-
-
-	// double r_l = exp(-root_linear_diff*2);
-	// double r_a = 0;
-	// if(joint_angular_diff.size() == 0) r_a = 0;
-	// else {
-	// 	for(int i = 0; i < joint_angular_diff.size(); i++) {
-	// 		r_a += 1.0 / joint_angular_diff.size() * exp(-joint_angular_diff[i]*2);
-	// 	}
-	// }
 	double r_target = this->GetTargetReward();
 
 	std::vector<bool> con_ref = this->GetContactInfo(mTargetPositions);
@@ -1165,7 +1144,7 @@ Controller::SaveDisplayedData(std::string directory) {
 		ofs << t.transpose() << std::endl;
 	}
 	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
-
+	ofs.close();
 }
 void
 Controller::SaveStats(std::string directory) {

@@ -67,6 +67,8 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m);
 Eigen::Vector3d projectToXZ(Eigen::Vector3d v);
 
+std::vector<std::string> split(const std::string &s, char delim);
+
 }
 
 #endif

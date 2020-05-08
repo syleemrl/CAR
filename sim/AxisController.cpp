@@ -1,5 +1,7 @@
 #include "AxisController.h"
 #include <iostream>
+#include <fstream>
+
 namespace DPhy
 {	
 void
@@ -191,5 +193,47 @@ GetDev(double time) {
 	int t = static_cast <int> (std::round(time)) % mDev.size();
 
 	return mDev[t];
+}
+void 
+AxisController::
+Save(std::string path) {
+	std::cout << "save axis and deviation to:" << path << std::endl;
+
+	std::ofstream ofs(path);
+
+	for(auto t: mAxis) {
+		ofs << t.transpose() << std::endl;
+	}
+	for(auto t: mDev) {
+		ofs << t.transpose() << std::endl;
+	}
+	ofs.close();
+
+}
+void 
+AxisController::
+Load(std::string path) {
+
+	std::ifstream is(path);
+	if(is.fail())
+		return;
+	std::cout << "load axis and deviation from: " << path << std::endl;
+
+	char buffer[256];
+	for(int i = 0; i < mAxis.size(); i++) {
+		for(int j = 0; j < mIdxs.size() * 3; j++) 
+		{
+			is >> buffer;
+			mAxis[i](j) = atof(buffer);
+		}
+	}
+	for(int i = 0; i < mAxis.size(); i++) {
+		for(int j = 0; j < mIdxs.size(); j++) 
+		{
+			is >> buffer;
+			mDev[i](j) = atof(buffer);
+		}
+	}
+	is.close();
 }
 }

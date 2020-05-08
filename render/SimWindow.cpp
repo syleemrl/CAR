@@ -43,6 +43,9 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mController = new DPhy::Controller(mReferenceManager, ac, "", true, true);
 	ac->SetIdxs(mController->GetAdaptiveIdxs());
 	ac->Initialize(mReferenceManager);
+
+	ac->Load(std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/axis"));
+
 	//	mReferenceManager->EditMotion(1.5, "b");
 	this->mWorld = this->mController->GetWorld();
 

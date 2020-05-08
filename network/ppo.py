@@ -96,7 +96,7 @@ class PPO(object):
 			suffix = li[-1]
 			self.env.RMS.load(li[0]+'rms'+suffix)
 			self.env.RMS.setNumStates(self.num_state)
-
+			self.env.sim_env.LoadAxis(li[0]+'axis')
 		
 		self.printSetting()
 		
@@ -327,6 +327,7 @@ class PPO(object):
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms-0')
+		self.env.sim_env.SaveAxis(self.directory+'axis')
 
 	def load(self, path):
 		print("Loading parameters from {}".format(path))

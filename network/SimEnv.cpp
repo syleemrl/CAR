@@ -207,6 +207,18 @@ UpdateAxis()
 {
 	ac->UpdateAxis();
 }
+void
+SimEnv::
+SaveAxis(std::string path)
+{
+	ac->Save(path);
+}
+void
+SimEnv::
+LoadAxis(std::string path)
+{
+	ac->Load(path);
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -234,5 +246,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("UpdateSigTorque",&SimEnv::UpdateSigTorque)
 		.def("UpdateAxis",&SimEnv::UpdateAxis)
+		.def("SaveAxis",&SimEnv::SaveAxis)
+		.def("LoadAxis",&SimEnv::LoadAxis)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

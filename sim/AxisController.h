@@ -20,9 +20,11 @@ public:
 	void SetTargetReward(double reward, int slave);
 	void UpdateAxis();
 	void UpdateDev();
-
+	void Save(std::string path);
+	void Load(std::string path);
 	Eigen::VectorXd GetMean(double time);
 	Eigen::VectorXd GetDev(double time);
+
 protected:
 	std::vector<double> mIdxs;
 
