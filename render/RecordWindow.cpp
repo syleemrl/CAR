@@ -33,13 +33,15 @@ RecordWindow(std::vector<std::string> motion)
 		std::ifstream is(record_path);
 		
 		char buffer[256];
-		is >> buffer;
-		int length = atoi(buffer);
-		if(this->mTotalFrame == 0 || length < mTotalFrame) {
-			mTotalFrame = length;
-		}
+		// is >> buffer;
+		// int length = atoi(buffer);
+		// if(this->mTotalFrame == 0 || length < mTotalFrame) {
+		// 	mTotalFrame = length;
+		// }
 
-		for(int k = 0; k < length; k++) {
+	//	for(int k = 0; k < length; k++) {
+		int length = 0;
+		while(!is.eof()) {
 			Eigen::VectorXd p(dof);
 			for(int j = 0; j < dof; j++) 
 			{
@@ -47,9 +49,14 @@ RecordWindow(std::vector<std::string> motion)
 				p[j] = atof(buffer);
 			}
 			record_pos.push_back(p);
+			length++;
 		}
+	//	}
 
 		is.close();
+		if(this->mTotalFrame == 0 || length < mTotalFrame) {
+			mTotalFrame = length;
+		}
 		mMemoryRef.push_back(record_pos);
 	}
 	double dir = mMemoryRef[0][0][1];

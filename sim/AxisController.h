@@ -3,6 +3,7 @@
 #include "dart/dart.hpp"
 #include "Functions.h"
 #include "ReferenceManager.h"
+#include <queue>
 
 namespace DPhy
 {

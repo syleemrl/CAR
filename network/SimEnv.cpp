@@ -203,6 +203,13 @@ UpdateSigTorque()
 }
 void
 SimEnv::
+SaveTrainingTuples(std::string path) {
+	for(int i = 0; i < mNumSlaves; i++) {
+		mSlaves[i]->SaveEliteData(path);
+	}
+}
+void
+SimEnv::
 UpdateAxis()
 {
 	ac->UpdateAxis();
@@ -248,5 +255,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UpdateAxis",&SimEnv::UpdateAxis)
 		.def("SaveAxis",&SimEnv::SaveAxis)
 		.def("LoadAxis",&SimEnv::LoadAxis)
+		.def("SaveTrainingTuples", &SimEnv::SaveTrainingTuples)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

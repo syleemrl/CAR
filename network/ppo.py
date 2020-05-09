@@ -328,6 +328,7 @@ class PPO(object):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms-0')
 		self.env.sim_env.SaveAxis(self.directory+'axis')
+		self.env.sim_env.SaveTrainingTuples(self.directory + 'trained_data')
 
 	def load(self, path):
 		print("Loading parameters from {}".format(path))
@@ -446,11 +447,12 @@ class PPO(object):
 				if self.learning_rate_actor > 1e-5:
 					self.learning_rate_actor = self.learning_rate_actor * self.learning_rate_decay
 
-				if self.directory is not None:
-					self.save()
-
 				summary = self.env.printSummary()
 				self.printNetworkSummary()
+
+
+				if self.directory is not None:
+					self.save()
 
 				if self.directory is not None and self.reward_max < summary['r_per_e']:
 					self.reward_max = summary['r_per_e']

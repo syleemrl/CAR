@@ -57,6 +57,7 @@ Controller(ReferenceManager* ref, AxisController* ac,
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 
 	void RescaleCharacter(double w0, double w1);
+	void SaveEliteData(std::string path);
 	void SaveDisplayedData(std::string directory);
 	void SaveStats(std::string directory);
 	void UpdateSigTorque();
@@ -69,7 +70,7 @@ Controller(ReferenceManager* ref, AxisController* ac,
 	double GetTime(int idx) { return this->mRecordTime[idx]; }
 	Eigen::VectorXd GetTargetPositions(int idx) { return this->mRecordTargetPosition[idx]; }
 	Eigen::VectorXd GetBVHPositions(int idx) { return this->mRecordBVHPosition[idx]; }
-
+	Eigen::VectorXd GetRewardPositions(int idx) { return this->mRecordRewardPosition[idx];}
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
@@ -85,7 +86,7 @@ Controller(ReferenceManager* ref, AxisController* ac,
 	double GetTargetReward();
 	std::vector<bool> GetContactInfo(Eigen::VectorXd pos);
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
-
+	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
 	std::vector<double> GetAdaptiveIdxs();
 protected:
 	dart::simulation::WorldPtr mWorld;
@@ -136,6 +137,7 @@ protected:
 	std::vector<Eigen::Vector3d> mRecordCOM;
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
+	std::vector<Eigen::VectorXd> mRecordRewardPosition;
 
 	std::vector<double> mRecordEnergy;
 	std::vector<double> mRecordWork;
@@ -153,7 +155,7 @@ protected:
 	std::vector<double> mRecordTime;
 	std::vector<double> mRecordDTime;
 	std::vector<Eigen::VectorXd> mRecordFootConstraint;
-
+	std::vector<std::tuple<double, double, Eigen::VectorXd>> mRecordTrainingTuple;
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::pair<double, int> mInputVelocity;
@@ -183,7 +185,7 @@ protected:
 	std::uniform_real_distribution<double> mDistribution;
 	double mTarget;
 	double mTarget2;
-
+	double target_reward = 0;
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
 };

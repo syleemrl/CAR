@@ -73,7 +73,7 @@ protected:
 	bool mIsRotate;
 	bool mIsAuto;
 	bool mTrackCamera;
-	bool mDrawRef, mDrawRef2;
+	bool mDrawRef, mDrawRef2, mDrawRef3;
 	bool mDrawOutput;
 	bool mRunPPO;
 	bool mWrap;
@@ -85,7 +85,7 @@ protected:
 	double mSkelLength;
 	double mRewardTotal;
 	std::string mode;
-	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRef2;
+	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRef2, mMemoryRef3;
 	std::vector<Eigen::Vector3d> mMemoryCOM, mMemoryCOMRef, mMemoryCOMRef2;
 	std::vector<std::vector<Eigen::VectorXd>> mMemoryGRF;
 	std::vector<std::pair<bool, bool>> mMemoryFootContact;
@@ -95,6 +95,7 @@ protected:
 	DPhy::Character* mCharacter;
 	DPhy::Character* mRef;
 	DPhy::Character* mRef2;
+	DPhy::Character* mRef3;
 	DPhy::ReferenceManager* mReferenceManager;
 	DPhy::BVH* mBVH;
 

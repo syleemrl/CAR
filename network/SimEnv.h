@@ -48,7 +48,8 @@ public:
 	
 	void SaveAxis(std::string path);
 	void LoadAxis(std::string path);
-
+	void SaveTrainingTuples(std::string path);
+	
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	int mNumSlaves;

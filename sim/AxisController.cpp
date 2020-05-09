@@ -49,8 +49,9 @@ Initialize(ReferenceManager* referenceManager) {
 	mTuples_temp.clear();
 	mPrevPosition.clear();
 	mTargetReward.clear();
+
 	for(int i = 0; i < mslaves; i++) {
-		std::vector<std::tuple<double, double, Eigen::VectorXd>> tuple_slaves;
+		std::vector<std::tuple<double, double, Eigen::VectorXd>> tuple_slaves;	
 		tuple_slaves.clear();
 		mTuples_temp.push_back(tuple_slaves);
 		mPrevPosition.push_back(Eigen::VectorXd::Zero(ndof));
@@ -70,6 +71,7 @@ SaveTuple(double time, double interval, Eigen::VectorXd position, int slave) {
 	for(int j = 0; j < mIdxs.size(); j++) {
 		Eigen::Vector3d target_diff_local;
 		if(mIdxs[j] == 3) {
+
 			target_diff_local = position.segment<3>(mIdxs[j]) - mPrevPosition[slave].segment<3>(mIdxs[j]);
 			Eigen::AngleAxisd root_prev = Eigen::AngleAxisd(mPrevPosition[slave].segment<3>(0).norm(), mPrevPosition[slave].segment<3>(0).normalized());
 			target_diff_local = root_prev.inverse() * target_diff_local;
@@ -80,6 +82,7 @@ SaveTuple(double time, double interval, Eigen::VectorXd position, int slave) {
 	}
 	mTuples_temp[slave].push_back(std::tuple<double, double, Eigen::VectorXd>(time, 0, axis / interval));
 	mPrevPosition[slave] = position;
+
 }
 void
 AxisController::
@@ -114,41 +117,41 @@ void
 AxisController::
 UpdateAxis() {
 	for(int i = 0; i < mTuples.size(); i++) {
-		Eigen::VectorXd mean(mIdxs.size() * 3);
-		Eigen::VectorXd square_mean(mIdxs.size() * 3);
-		mean.setZero();
-		square_mean.setZero();
-		int count = 0;
-		for(int j = 0; j < mTuples[i].size(); j++) {
-			if(mTuples[i][j].first > rewards) {
-				mean += mTuples[i][j].second;
-				square_mean += mTuples[i][j].second.cwiseProduct(mTuples[i][j].second);
-				count += 1;
-			}
-		}
-		if(count != 0) {
-			mean /= count;
-			square_mean /= count;
-			Eigen::VectorXd std_ewise = square_mean - mean.cwiseProduct(mean);
-			Eigen::VectorXd rates(mIdxs.size());
-			for(int k = 0; k < std_ewise.rows(); k+= 3) {
-				double std_mean;
-				std_mean = (std_ewise[k] + std_ewise[k+1] + std_ewise[k+2]) / 3.0;
-				double rate = 0.3 * (1.0 / (std_mean * 1e5));
-				mAxis[i].segment<3>(k) = (1 - rate) * mAxis[i].segment<3>(k) + rate * mean.segment<3>(k);
-				rates(k / 3) = rate;
-			}
+		// Eigen::VectorXd mean(mIdxs.size() * 3);
+		// Eigen::VectorXd square_mean(mIdxs.size() * 3);
+		// mean.setZero();
+		// square_mean.setZero();
+		// int count = 0;
+		// for(int j = 0; j < mTuples[i].size(); j++) {
+		// 	if(mTuples[i][j].first > rewards) {
+		// 		mean += mTuples[i][j].second;
+		// 		square_mean += mTuples[i][j].second.cwiseProduct(mTuples[i][j].second);
+		// 		count += 1;
+		// 	}
+		// }
+		// if(count >= 100) {
+		// 	mean /= count;
+		// 	square_mean /= count;
+		// 	Eigen::VectorXd std_ewise = square_mean - mean.cwiseProduct(mean);
+		// 	Eigen::VectorXd rates(mIdxs.size());
+		// 	for(int k = 0; k < std_ewise.rows(); k+= 3) {
+		// 		double std_mean;
+		// 		std_mean = (std_ewise[k] + std_ewise[k+1] + std_ewise[k+2]) / 3.0;
+		// 		double rate = std::min(0.3 * (1.0 / (std_mean * 1e5)), 0.3);
+		// 		mAxis[i].segment<3>(k) = (1 - rate) * mAxis[i].segment<3>(k) + rate * mean.segment<3>(k);
+		// 		rates(k / 3) = rate;
+		// 	}
 
-			if(i == 39) {
-				std::cout << mAxis[i].transpose() << std::endl;
-				std::cout << mean.transpose() << std::endl;
-				std::cout << std_ewise.transpose() << std::endl;
-				std::cout << rates.transpose() << std::endl;
-			}
-		}
-		mTuples[i].clear();
+		// 	if(i == 53) {
+		// 		std::cout << mAxis[i].transpose() << std::endl;
+		// 		std::cout << mean.transpose() << std::endl;
+		// 		std::cout << std_ewise.transpose() << std::endl;
+		// 		std::cout << rates.transpose() << std::endl;
+		// 	}
+			mTuples[i].clear();
+		//}
 	}
-	this->UpdateDev();
+	//this->UpdateDev();
 }
 void
 AxisController::
