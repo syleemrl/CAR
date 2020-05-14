@@ -6,7 +6,6 @@
 #include "SkeletonBuilder.h"
 #include "Functions.h"
 #include "ReferenceManager.h"
-#include "AxisController.h"
 #include <tuple>
 
 namespace DPhy
@@ -20,7 +19,7 @@ namespace DPhy
 class Controller
 {
 public:
-Controller(ReferenceManager* ref, AxisController* ac,
+Controller(ReferenceManager* ref,
 	std::string stats, bool adaptive=true, bool record=false, int id=0);
 
 	void Step();
@@ -104,7 +103,6 @@ protected:
 
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
-	AxisController* mAxisController;
 	dart::dynamics::SkeletonPtr mGround;
 
 	Eigen::VectorXd mTargetPositions;
@@ -113,6 +111,8 @@ protected:
 
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;
+
+	Eigen::VectorXd mRewardTargetPositions;
 
 	Eigen::VectorXd mActions;
 

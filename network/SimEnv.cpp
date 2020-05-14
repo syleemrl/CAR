@@ -2,7 +2,6 @@
 #include <omp.h>
 #include "dart/math/math.hpp"
 #include "Functions.h"
-#include "AxisController.h"
 #include <iostream>
 
 SimEnv::
@@ -13,21 +12,18 @@ SimEnv(int num_slaves, std::string ref, std::string stats, bool adaptive)
 
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
-	DPhy::Character* character;
-	DPhy::ReferenceManager* referenceManager;
-	ac = new DPhy::AxisController();
+
+	DPhy::Character* character = new DPhy::Character(path);
+	mReferenceManager = new DPhy::ReferenceManager(character);
+	mReferenceManager->LoadMotionFromBVH(ref);
+	mReferenceManager->GenerateMotionsFromSinglePhase(1010, false);
 
 	for(int i =0;i<num_slaves;i++)
 	{
-		character = new DPhy::Character(path);
-		referenceManager = new DPhy::ReferenceManager(character);
-		referenceManager->LoadMotionFromBVH(ref);
-		referenceManager->GenerateMotionsFromSinglePhase(1010, false);
-		mSlaves.push_back(new DPhy::Controller(referenceManager, ac, stats, adaptive, false, i));
+		mSlaves.push_back(new DPhy::Controller(mReferenceManager, stats, adaptive, false, i));
 	}
 	
-	ac->SetIdxs(mSlaves[0]->GetAdaptiveIdxs());
-	ac->Initialize(referenceManager);
+	mReferenceManager->InitializeAdaptiveSettings(mSlaves[0]->GetAdaptiveIdxs(), num_slaves);
 
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
@@ -210,21 +206,21 @@ SaveTrainingTuples(std::string path) {
 }
 void
 SimEnv::
-UpdateAxis()
+UpdateMotion()
 {
-	ac->UpdateAxis();
+	mReferenceManager->UpdateMotion();
 }
 void
 SimEnv::
-SaveAxis(std::string path)
+SaveAdaptiveMotion(std::string path)
 {
-	ac->Save(path);
+	mReferenceManager->SaveAdaptiveMotion(path);
 }
 void
 SimEnv::
-LoadAxis(std::string path)
+LoadAdaptiveMotion(std::string path)
 {
-	ac->Load(path);
+	mReferenceManager->LoadAdaptiveMotion(path);
 }
 using namespace boost::python;
 
@@ -252,9 +248,9 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("UpdateSigTorque",&SimEnv::UpdateSigTorque)
-		.def("UpdateAxis",&SimEnv::UpdateAxis)
-		.def("SaveAxis",&SimEnv::SaveAxis)
-		.def("LoadAxis",&SimEnv::LoadAxis)
+		.def("UpdateMotion",&SimEnv::UpdateMotion)
+		.def("SaveAdaptiveMotion",&SimEnv::SaveAdaptiveMotion)
+		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("SaveTrainingTuples", &SimEnv::SaveTrainingTuples)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

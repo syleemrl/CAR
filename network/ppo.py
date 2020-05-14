@@ -96,7 +96,7 @@ class PPO(object):
 			suffix = li[-1]
 			self.env.RMS.load(li[0]+'rms'+suffix)
 			self.env.RMS.setNumStates(self.num_state)
-			self.env.sim_env.LoadAxis(li[0]+'axis')
+			self.env.sim_env.LoadAdaptiveMotion(li[0]+'adaptive')
 		
 		self.printSetting()
 		
@@ -327,7 +327,7 @@ class PPO(object):
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms-0')
-		self.env.sim_env.SaveAxis(self.directory+'axis')
+		self.env.sim_env.SaveAdaptiveMotion(self.directory+'adaptive')
 		self.env.sim_env.SaveTrainingTuples(self.directory + 'trained_data')
 
 	def load(self, path):
@@ -467,8 +467,8 @@ class PPO(object):
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
-	#	action, _ = self.actor.getAction(state)
-		action = self.actor.getMeanAction(state)
+		action, _ = self.actor.getAction(state)
+	#	action = self.actor.getMeanAction(state)
 		return action
 
 	def eval(self):

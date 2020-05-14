@@ -7,6 +7,7 @@
 #include "BVH.h"
 
 #include <tuple>
+#include <mutex>
 
 
 namespace DPhy
@@ -44,13 +45,19 @@ class ReferenceManager
 {
 public:
 	ReferenceManager(Character* character=nullptr);
+	void SaveAdaptiveMotion(std::string path);
+	void LoadAdaptiveMotion(std::string path);
 	void LoadMotionFromBVH(std::string filename);
-	void LoadWorkFromStats(std::string filename);
-	void LoadContactInfoFromBVHData(std::string filename);
-	void GenerateMotionsFromSinglePhase(int frames, bool blend);
+	void GenerateMotionsFromSinglePhase(int frames, bool blend, bool adaptive=false);
 	void RescaleMotion(double w);
-	Motion* GetMotion(double t);
-	Eigen::VectorXd GetPosition(double t);
+	void InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves);
+	void SaveTuple(double time, Eigen::VectorXd position, int slave);
+	void EndEpisode(int slave);
+	void EndPhase(int slave);
+	void SetTargetReward(double reward, int slave);
+	void UpdateMotion();
+	Motion* GetMotion(double t, bool adaptive=false);
+	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
 	std::pair<bool, bool> CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v);
@@ -62,8 +69,20 @@ protected:
 	int mPhaseLength;
 	std::vector<Motion*> mMotions_raw;
 	std::vector<Motion*> mMotions_phase;
+	std::vector<Motion*> mMotions_phase_adaptive;
 	std::vector<Motion*> mMotions_gen;
+	std::vector<Motion*> mMotions_gen_adaptive;
+	std::vector<double> mIdxs;
+	
+	//position, target
+	std::vector<std::vector<Eigen::VectorXd>> mTuples;
+	//time, target, position
+	std::vector<std::vector<std::tuple<double, double, Eigen::VectorXd>>> mTuples_temp;
+	std::vector<Eigen::VectorXd> mPrevPosition;
+	std::vector<double> mTargetReward;
 
+	double mSlaves;
+	std::mutex mLock;
 };
 }
 

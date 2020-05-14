@@ -2,7 +2,6 @@
 #include "SimWindow.h"
 #include "dart/external/lodepng/lodepng.h"
 #include "Functions.h"
-#include "AxisController.h"
 //#include "matplotlibcpp.h"
 #include <algorithm>
 #include <fstream>
@@ -40,13 +39,13 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 	mReferenceManager->GenerateMotionsFromSinglePhase(1000, false);
-	DPhy::AxisController* ac = new DPhy::AxisController();
 
-	this->mController = new DPhy::Controller(mReferenceManager, ac, "", true, true);
-	ac->SetIdxs(mController->GetAdaptiveIdxs());
-	ac->Initialize(mReferenceManager);
-	if(this->mRunPPO)
-		ac->Load(std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/axis"));
+	this->mController = new DPhy::Controller(mReferenceManager, "", true, true);
+	
+	if(this->mRunPPO) {
+		mReferenceManager->InitializeAdaptiveSettings(mController->GetAdaptiveIdxs(), 1);
+		mReferenceManager->LoadAdaptiveMotion(std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/adaptive"));
+	}
 
 	//	mReferenceManager->EditMotion(1.5, "b");
 	this->mWorld = this->mController->GetWorld();
@@ -60,6 +59,7 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 
 	this->mController->Reset(false);
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
+
 	Eigen::VectorXd position = p_v_target->GetPosition();
 	if(mWrap) {
 		position.segment<6>(0).setZero();
@@ -96,8 +96,10 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mRewardTotal = 0;
 
 	this->MemoryClear();
+
 	this->Save(this->mCurFrame);
 	this->SetFrame(this->mCurFrame);
+
 }
 void 
 SimWindow::
@@ -128,6 +130,7 @@ Save(int n) {
 
     	// }
     	position = this->mController->GetPositions(n);
+
 		if(mWrap) {
 			position.segment<3>(3).setZero();
 			position[4] = 1.0;
@@ -135,8 +138,10 @@ Save(int n) {
 		mMemory.emplace_back(position);
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
+
     	mRef3->GetSkeleton()->setPositions(this->mController->GetRewardPositions(n));
     	position = mRef3->GetSkeleton()->getPositions();
+
 		if(mWrap) {
 			position.segment<3>(3).setZero();
 			position[4] = 1.0;
@@ -146,6 +151,7 @@ Save(int n) {
     	mMemoryRef3.emplace_back(mRef3->GetSkeleton()->getPositions());
 		mRef2->GetSkeleton()->setPositions(this->mController->GetTargetPositions(n));
    	 	position = mRef2->GetSkeleton()->getPositions();
+
 		if(mWrap) {
 			position.segment<3>(3).setZero();
 			position[4] = 1.0;
@@ -156,6 +162,7 @@ Save(int n) {
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
 		mRef->GetSkeleton()->setPositions(this->mController->GetBVHPositions(n));
    	 	position = mRef->GetSkeleton()->getPositions();
+
 		if(mWrap) {
 			position.segment<3>(3).setZero();
 			position[4] = 1.0;

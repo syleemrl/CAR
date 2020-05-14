@@ -44,18 +44,19 @@ public:
 	np::ndarray GetRewardsByParts();
 
 	void UpdateSigTorque();
-	void UpdateAxis();
 	
-	void SaveAxis(std::string path);
-	void LoadAxis(std::string path);
+	void UpdateMotion();
+	
+	void SaveAdaptiveMotion(std::string path);
+	void LoadAdaptiveMotion(std::string path);
 	void SaveTrainingTuples(std::string path);
 	
 private:
 	std::vector<DPhy::Controller*> mSlaves;
+	DPhy::ReferenceManager* mReferenceManager;
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
-	DPhy::AxisController* ac;
 };
 
 
