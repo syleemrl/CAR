@@ -41,7 +41,7 @@ Controller(ReferenceManager* ref,
 	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
 
 	bool CheckCollisionWithGround(std::string bodyName);
-	Eigen::VectorXd GetState();
+	Eigen::VectorXd GetState(bool dummy=false);
 	void SetAction(const Eigen::VectorXd& action);
 	double GetReward() {return mRewardParts[0]; }
 	std::vector<double> GetRewardByParts() {return mRewardParts; }

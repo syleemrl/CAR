@@ -142,7 +142,7 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	//temp
 	this->mRewardParts.resize(7, 0.0);
 
-	this->mNumState = this->GetState().rows();
+	this->mNumState = this->GetState(true).rows();
 	this->mNumAction = mActions.size();
 	
 	this->GRFs.clear();
@@ -229,6 +229,7 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*0.1, -0.3*M_PI, 0.3*M_PI);
 	}
 
+	double prevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -297,7 +298,7 @@ Step()
 	mRecordWork.push_back(torque_sum);
 
 	if(isAdaptive)
-		mReferenceManager->SaveTuple(mCurrentFrameOnPhase, mCharacter->GetSkeleton()->getPositions(), id);
+		mReferenceManager->SaveTuple(prevFrameOnPhase, mCharacter->GetSkeleton()->getPositions(), id);
 
 	if(isAdaptive)
 		this->UpdateAdaptiveReward();
@@ -320,7 +321,7 @@ SaveStepInfo()
 {
 	mRecordRewardPosition.push_back(mRewardTargetPositions);
 	mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, false));
-	mRecordTargetPosition.push_back(mTargetPositions);
+	mRecordTargetPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, true));
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
@@ -946,7 +947,7 @@ CheckCollisionWithGround(std::string bodyName){
 }
 Eigen::VectorXd 
 Controller::
-GetState()
+GetState(bool dummy)
 {
 	if(mIsTerminal)
 		return Eigen::VectorXd::Zero(this->mNumState);
@@ -971,7 +972,11 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, isAdaptive);
+	Motion* p_v_target;
+	if(dummy)
+		p_v_target = mReferenceManager->GetMotion(0, false);
+	else 
+		p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, isAdaptive);
 
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
 	delete p_v_target;

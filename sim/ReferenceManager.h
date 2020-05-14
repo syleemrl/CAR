@@ -21,6 +21,9 @@ public:
 		// rightContact = m->rightContact;
 		// leftContact = m->leftContact;
 	}
+	Motion(Eigen::VectorXd pos) {
+		position = pos;
+	}
 	Motion(Eigen::VectorXd pos, Eigen::VectorXd vel) {
 		position = pos;
 		velocity = vel;
@@ -80,6 +83,7 @@ protected:
 	std::vector<std::vector<std::tuple<double, double, Eigen::VectorXd>>> mTuples_temp;
 	std::vector<Eigen::VectorXd> mPrevPosition;
 	std::vector<double> mTargetReward;
+	std::vector<Eigen::VectorXd> mAxis;
 
 	double mSlaves;
 	std::mutex mLock;

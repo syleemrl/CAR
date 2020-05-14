@@ -36,15 +36,14 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mCharacter = new DPhy::Character(path);
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
-
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 	mReferenceManager->GenerateMotionsFromSinglePhase(1000, false);
 
 	this->mController = new DPhy::Controller(mReferenceManager, "", true, true);
-	
 	if(this->mRunPPO) {
 		mReferenceManager->InitializeAdaptiveSettings(mController->GetAdaptiveIdxs(), 1);
 		mReferenceManager->LoadAdaptiveMotion(std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/adaptive"));
+
 	}
 
 	//	mReferenceManager->EditMotion(1.5, "b");

@@ -71,6 +71,32 @@ InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves)
 		mPrevPosition.push_back(Eigen::VectorXd::Zero(ndof));
 		mTargetReward.push_back(0);
 	}
+
+	mAxis.clear();
+	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
+		int t_next = (i+1) % mPhaseLength;
+		Eigen::VectorXd m_cur = mMotions_gen_adaptive[i]->GetPosition();
+		Eigen::VectorXd m_next = mMotions_gen_adaptive[t_next]->GetPosition();
+
+		Eigen::VectorXd axis(mIdxs.size()*3);
+		for(int j = 0; j < mIdxs.size(); j++) {
+			if(mIdxs[j] == 3) {
+
+				Eigen::AngleAxisd root_ori = Eigen::AngleAxisd(m_cur.segment<3>(0).norm(), m_cur.segment<3>(0).normalized());
+				Eigen::Vector3d v = m_next.segment<3>(mIdxs[j]) - m_cur.segment<3>(mIdxs[j]);
+				axis.segment<3>(j*3) = root_ori.inverse() * v;
+			} else {
+				Eigen::AngleAxisd joint_ori_cur = Eigen::AngleAxisd(m_cur.segment<3>(mIdxs[j]).norm(), m_cur.segment<3>(mIdxs[j]).normalized());
+				Eigen::AngleAxisd joint_ori_next = Eigen::AngleAxisd(m_next.segment<3>(mIdxs[j]).norm(), m_next.segment<3>(mIdxs[j]).normalized());
+
+				Eigen::AngleAxisd joint_ori_delta;
+				joint_ori_delta = joint_ori_cur.inverse() * joint_ori_next;
+				axis.segment<3>(j*3) = joint_ori_delta.axis() * joint_ori_delta.angle();
+			}
+		}
+		mAxis.push_back(axis);
+	}
+
 }
 void 
 ReferenceManager::
@@ -115,15 +141,39 @@ UpdateMotion() {
 		Eigen::VectorXd pearson_coef = covar.array() / (std.head(adaptive_ndof) * std.tail(1)).array();
 
 		if(update_count >= 100) {
-			
-			std::cout << i << std::endl;
-			std::cout << pearson_coef.segment<3>(0).transpose() << std::endl;
-			
+			for(int j = 0; j < adaptive_ndof; j+=3) {
+				mAxis[i].segment<3>(j) = 0.1 * pearson_coef.segment<3>(j).cwiseProduct(update_mean.segment<3>(j))
+				 + (Eigen::Vector3d(1.0, 1.0, 1.0) - 0.1 * pearson_coef.segment<3>(j)).cwiseProduct(mAxis[i].segment<3>(j));
+			}	
 			mTuples[i].clear();
 		}
 	}
-	this->GenerateMotionsFromSinglePhase(1000, false, true);
+	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
+		int t_next = (i+1) % mPhaseLength;
+		Eigen::VectorXd m_cur = mMotions_phase_adaptive[i]->GetPosition();
+		Eigen::VectorXd m_next = mMotions_phase_adaptive[t_next]->GetPosition();
 
+		for(int j = 0; j < mIdxs.size(); j++) {
+			if(mIdxs[j] == 3) {
+				Eigen::AngleAxisd root_ori = Eigen::AngleAxisd(m_cur.segment<3>(0).norm(), m_cur.segment<3>(0).normalized());
+				m_next.segment<3>(mIdxs[j]) = m_cur.segment<3>(mIdxs[j]) + root_ori * mAxis[i].segment<3>(j*3);
+			} else {
+				Eigen::AngleAxisd joint_ori_cur = Eigen::AngleAxisd(m_cur.segment<3>(mIdxs[j]).norm(), m_cur.segment<3>(mIdxs[j]).normalized());
+				Eigen::AngleAxisd joint_ori_delta = Eigen::AngleAxisd(mAxis[i].segment<3>(j*3).norm(), mAxis[i].segment<3>(j*3).normalized());
+
+				Eigen::AngleAxisd joint_ori_next;
+				joint_ori_next = joint_ori_cur * joint_ori_delta;
+				m_next.segment<3>(mIdxs[j]) = joint_ori_next.axis() * joint_ori_next.angle();
+			}
+		}
+
+		if(t_next != 0)
+			mMotions_phase_adaptive[t_next]->SetPosition(m_next);
+	
+		Eigen::VectorXd vel = mCharacter->GetSkeleton()->getPositionDifferences(m_next, m_cur) / 0.033;
+		mMotions_phase_adaptive[i]->SetVelocity(vel);
+	}
+	this->GenerateMotionsFromSinglePhase(1000, false, true);
 }
 void
 ReferenceManager::
@@ -194,8 +244,8 @@ LoadAdaptiveMotion(std::string path) {
 			is >> buffer;
 			vel[j] = atof(buffer);
 		}
-		mMotions_phase[i]->SetPosition(pos);
-		mMotions_phase[i]->SetVelocity(pos);
+		mMotions_phase_adaptive[i]->SetPosition(pos);
+		mMotions_phase_adaptive[i]->SetVelocity(vel);
 	}
 
 	is.close();
@@ -294,57 +344,27 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 			}
 		}
 		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
-		//Set p1
-		double prev_time;
-		if( t < 0.05 )
-			prev_time = t+0.05;
-		else
-			prev_time = t-0.05;
-
-		bvh->SetMotion(prev_time);
-		for(auto ss :bvhMap)
-		{
-			dart::dynamics::BodyNode* bn = skel->getBodyNode(ss.first);
-			Eigen::Matrix3d R = bvh->Get(ss.first);
-			dart::dynamics::Joint* jn = bn->getParentJoint();
-
-			Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
-			a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
-			// p1.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-			if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr
-				|| dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
-				p1.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
-			}
-			else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
-				p1[jn->getIndexInSkeleton(0)] = a[0];
-				if(p1[jn->getIndexInSkeleton(0)]>M_PI)
-					p1[jn->getIndexInSkeleton(0)] -= 2*M_PI;
-				else if(p1[jn->getIndexInSkeleton(0)]<-M_PI)
-					p1[jn->getIndexInSkeleton(0)] += 2*M_PI;
-			}
-		}
-		p1.block<3,1>(3,0) = bvh->GetRootCOM();
 
 		Eigen::VectorXd v;
-		if( t < 0.05 ){
-			v = skel->getPositionDifferences(p1, p)*20;
-		}
-		else{
-			v = skel->getPositionDifferences(p, p1)*20;
-		}
-		for(auto& jn : skel->getJoints()){
-			if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
-				double v_ = v[jn->getIndexInSkeleton(0)];
-				if(v_ > M_PI){
-					v_ -= 2*M_PI;
+		if(t != 0)
+		{
+			v = skel->getPositionDifferences(p, mMotions_raw.back()->GetPosition()) / 0.033;
+			for(auto& jn : skel->getJoints()){
+				if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
+					double v_ = v[jn->getIndexInSkeleton(0)];
+					if(v_ > M_PI){
+						v_ -= 2*M_PI;
+					}
+					else if(v_ < -M_PI){
+						v_ += 2*M_PI;
+					}
+					v[jn->getIndexInSkeleton(0)] = v_;
 				}
-				else if(v_ < -M_PI){
-					v_ += 2*M_PI;
-				}
-				v[jn->getIndexInSkeleton(0)] = v_;
 			}
+			mMotions_raw.back()->SetVelocity(v);
 		}
-		mMotions_raw.push_back(new Motion(p, v));
+		mMotions_raw.push_back(new Motion(p, Eigen::VectorXd(p.rows())));
+
 		t += bvh->GetTimeStep();
 
 	}
@@ -468,6 +488,7 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, bo
 
 			pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, (*p_gen).back()->GetPosition()) / 0.033;
+			(*p_gen).back()->SetVelocity(vel);
 			(*p_gen).push_back(new Motion(pos, vel));
 
 			if(blend && phase == 0) {
@@ -476,7 +497,7 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, bo
 					Eigen::VectorXd oldPos = (*p_gen)[i - j]->GetPosition();
 					(*p_gen)[i - j]->SetPosition(DPhy::BlendPosition(oldPos, pos, weight));
 					vel = skel->getPositionDifferences((*p_gen)[i - j]->GetPosition(), (*p_gen)[i - j - 1]->GetPosition()) / 0.033;
-			 		(*p_gen)[i - j]->SetVelocity(vel);
+			 		(*p_gen)[i - j - 1]->SetVelocity(vel);
 				}
 			}
 		}
@@ -532,7 +553,7 @@ Motion* ReferenceManager::GetMotion(double t, bool adaptive)
 	int k1 = (int) std::ceil(t);	
 
 	if (k0 == k1)
-		return new Motion(mMotions_gen[k0]);
+		return new Motion((*p_gen)[k0]);
 	else
 		return new Motion(DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0)), 
 				DPhy::BlendPosition((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
