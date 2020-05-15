@@ -131,7 +131,6 @@ UpdateMotion() {
 			double data_target = mTuples[i][j][mean.rows()-1];
 			covar += (mTuples[i][j].head(adaptive_ndof) - mean.head(adaptive_ndof)) 
 				* (data_target - mean_target) * 1.0 / mTuples[i].size();
-
 			if(mean_target*1.1 < data_target || data_target >= 0.9*REWARD_MAX) {
 				update_count += 1;
 				update_mean += mTuples[i][j].head(adaptive_ndof);
@@ -141,10 +140,17 @@ UpdateMotion() {
 		Eigen::VectorXd pearson_coef = covar.array() / (std.head(adaptive_ndof) * std.tail(1)).array();
 
 		if(update_count >= 100) {
+			std::cout << i << std::endl;
+			std::cout << pearson_coef.segment<3>(0).transpose() << std::endl;
+			std::cout << mAxis[i].segment<3>(0).transpose() << std::endl;
+			std::cout << update_mean.segment<3>(0).transpose() << std::endl;
+
 			for(int j = 0; j < adaptive_ndof; j+=3) {
-				mAxis[i].segment<3>(j) = 0.1 * pearson_coef.segment<3>(j).cwiseProduct(update_mean.segment<3>(j))
-				 + (Eigen::Vector3d(1.0, 1.0, 1.0) - 0.1 * pearson_coef.segment<3>(j)).cwiseProduct(mAxis[i].segment<3>(j));
+				Eigen::Vector3d rate = 0.1 * pearson_coef.segment<3>(j).cwiseAbs();
+				mAxis[i].segment<3>(j) = rate.cwiseProduct(update_mean.segment<3>(j))
+				 + (Eigen::Vector3d(1.0, 1.0, 1.0) - rate).cwiseProduct(mAxis[i].segment<3>(j));
 			}	
+			std::cout << mAxis[i].segment<3>(0).transpose() << std::endl;
 			mTuples[i].clear();
 		}
 	}
@@ -164,6 +170,13 @@ UpdateMotion() {
 				Eigen::AngleAxisd joint_ori_next;
 				joint_ori_next = joint_ori_cur * joint_ori_delta;
 				m_next.segment<3>(mIdxs[j]) = joint_ori_next.axis() * joint_ori_next.angle();
+				for(int k = 0; k < 3; k++) {
+					if(m_next(mIdxs[j + k]) > M_PI)
+						m_next(mIdxs[j + k]) -= 2*M_PI;
+					if(m_next(mIdxs[j + k]) < -M_PI)
+						m_next(mIdxs[j + k]) += 2*M_PI;
+				}
+
 			}
 		}
 
@@ -250,6 +263,32 @@ LoadAdaptiveMotion(std::string path) {
 
 	is.close();
 	this->GenerateMotionsFromSinglePhase(1000, false, true);
+	
+	mAxis.clear();
+	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
+		int t_next = (i+1) % mPhaseLength;
+		Eigen::VectorXd m_cur = mMotions_gen_adaptive[i]->GetPosition();
+		Eigen::VectorXd m_next = mMotions_gen_adaptive[t_next]->GetPosition();
+
+		Eigen::VectorXd axis(mIdxs.size()*3);
+		for(int j = 0; j < mIdxs.size(); j++) {
+			if(mIdxs[j] == 3) {
+
+				Eigen::AngleAxisd root_ori = Eigen::AngleAxisd(m_cur.segment<3>(0).norm(), m_cur.segment<3>(0).normalized());
+				Eigen::Vector3d v = m_next.segment<3>(mIdxs[j]) - m_cur.segment<3>(mIdxs[j]);
+				axis.segment<3>(j*3) = root_ori.inverse() * v;
+			} else {
+				Eigen::AngleAxisd joint_ori_cur = Eigen::AngleAxisd(m_cur.segment<3>(mIdxs[j]).norm(), m_cur.segment<3>(mIdxs[j]).normalized());
+				Eigen::AngleAxisd joint_ori_next = Eigen::AngleAxisd(m_next.segment<3>(mIdxs[j]).norm(), m_next.segment<3>(mIdxs[j]).normalized());
+
+				Eigen::AngleAxisd joint_ori_delta;
+				joint_ori_delta = joint_ori_cur.inverse() * joint_ori_next;
+				axis.segment<3>(j*3) = joint_ori_delta.axis() * joint_ori_delta.angle();
+			}
+		}
+		mAxis.push_back(axis);
+	}
+
 }
 std::pair<bool, bool> ReferenceManager::CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v)
 {

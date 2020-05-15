@@ -218,15 +218,15 @@ Step()
 	}
 
 	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.05, -0.8, 0.8);
-	mAdaptiveStep = mActions[num_body_nodes*3];
+	mAdaptiveStep = mActions[num_body_nodes*3]*0.1;
 
 	int adaptive_action_idx_l = num_body_nodes*3 + 1;
 	int adaptive_action_idx_a = num_body_nodes*3 + 4;
 	for(int i = adaptive_action_idx_l; i < adaptive_action_idx_a; i++){
-		mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
+		mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1)*0.1;
 	}
 	for(int i = adaptive_action_idx_a; i < mActions.size(); i++){
-		mActions[i] = dart::math::clip(mActions[i]*0.1, -0.3*M_PI, 0.3*M_PI);
+		mActions[i] = dart::math::clip(mActions[i]*0.1, -0.3*M_PI, 0.3*M_PI)*0.1;
 	}
 
 	double prevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -240,7 +240,7 @@ Step()
 		mControlFlag.setZero();
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
@@ -593,22 +593,18 @@ UpdateReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	Eigen::VectorXd dummy = skel->getVelocities();
 	
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame);
-	Eigen::VectorXd pos_bvh = p_v_target->GetPosition();
-	Eigen::VectorXd vel_bvh = p_v_target->GetVelocity();
-	delete p_v_target;
+	Eigen::VectorXd pos_bvh = mRewardTargetPositions;
+	Eigen::VectorXd vel_bvh = mTargetVelocities;
 
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), pos_bvh,
 								 skel->getVelocities(), vel_bvh, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0);
 
-	double r_time = exp(-pow(mCurrentFrame - nTotalSteps,2)*5);
+	double r_time = exp(-pow(mAdaptiveStep*10,2)*50);
 	Eigen::VectorXd a = mActions.tail(mAdaptiveBodies.size() * 3 + 3);
-	double r_action = exp_of_squared(a, 0.05);
+	double r_action = exp_of_squared(a, 0.01);
 	mRewardParts.clear();
-
 	double r_tot = 0.6 * accum_bvh + 0.2 * r_time + 0.2 * r_action;
-
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
