@@ -19,8 +19,7 @@ namespace DPhy
 class Controller
 {
 public:
-Controller(ReferenceManager* ref,
-	std::string stats, bool adaptive=true, bool record=false, int id=0);
+Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=0);
 
 	void Step();
 	void UpdateReward();
@@ -56,7 +55,6 @@ Controller(ReferenceManager* ref,
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 
 	void RescaleCharacter(double w0, double w1);
-	void SaveEliteData(std::string path);
 	void SaveDisplayedData(std::string directory);
 	void SaveStats(std::string directory);
 	void UpdateSigTorque();
@@ -155,7 +153,6 @@ protected:
 	std::vector<double> mRecordTime;
 	std::vector<double> mRecordDTime;
 	std::vector<Eigen::VectorXd> mRecordFootConstraint;
-	std::vector<std::tuple<double, double, Eigen::VectorXd>> mRecordTrainingTuple;
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::pair<double, int> mInputVelocity;

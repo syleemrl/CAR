@@ -96,7 +96,7 @@ class PPO(object):
 			suffix = li[-1]
 			self.env.RMS.load(li[0]+'rms'+suffix)
 			self.env.RMS.setNumStates(self.num_state)
-			self.env.sim_env.LoadAdaptiveMotion(li[0]+'adaptive')
+			self.env.sim_env.LoadAdaptiveMotion()
 		
 		self.printSetting()
 		
@@ -327,8 +327,7 @@ class PPO(object):
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms-0')
-		self.env.sim_env.SaveAdaptiveMotion(self.directory+'adaptive')
-		self.env.sim_env.SaveTrainingTuples(self.directory + 'trained_data')
+		self.env.sim_env.SaveAdaptiveMotion()
 
 	def load(self, path):
 		print("Loading parameters from {}".format(path))
@@ -467,8 +466,8 @@ class PPO(object):
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
-		action, _ = self.actor.getAction(state)
-	#	action = self.actor.getMeanAction(state)
+	#	action, _ = self.actor.getAction(state)
+		action = self.actor.getMeanAction(state)
 		return action
 
 	def eval(self):
@@ -479,7 +478,6 @@ if __name__=="__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--ntimesteps", type=int, default=1000000)
 	parser.add_argument("--ref", type=str, default="")
-	parser.add_argument("--stats", type=str, default="")
 	parser.add_argument("--test_name", type=str, default="")
 	parser.add_argument("--pretrain", type=str, default="")
 	parser.add_argument("--evaluation", type=bool, default=False)
@@ -502,9 +500,9 @@ if __name__=="__main__":
 			os.mkdir(directory)
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, adaptive=args.adaptive)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, adaptive=args.adaptive)
 	else:
-		env = Monitor(ref=args.ref, stats=args.stats, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
 
 	ppo = PPO()
 	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, 

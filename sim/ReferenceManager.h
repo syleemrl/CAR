@@ -48,12 +48,12 @@ class ReferenceManager
 {
 public:
 	ReferenceManager(Character* character=nullptr);
-	void SaveAdaptiveMotion(std::string path);
-	void LoadAdaptiveMotion(std::string path);
+	void SaveAdaptiveMotion();
+	void LoadAdaptiveMotion();
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, bool adaptive=false);
 	void RescaleMotion(double w);
-	void InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves);
+	void InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves, std::string path = "", bool saveTrajectory=false);
 	void SaveTuple(double time, Eigen::VectorXd position, int slave);
 	void EndEpisode(int slave);
 	void EndPhase(int slave);
@@ -64,7 +64,7 @@ public:
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
 	std::pair<bool, bool> CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v);
-
+	void SaveEliteTrajectories(int slave);
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -81,12 +81,16 @@ protected:
 	std::vector<std::vector<Eigen::VectorXd>> mTuples;
 	//time, target, position
 	std::vector<std::vector<std::tuple<double, double, Eigen::VectorXd>>> mTuples_temp;
+	std::vector<std::vector<Eigen::VectorXd>> mTuples_position;
+
 	std::vector<Eigen::VectorXd> mPrevPosition;
 	std::vector<double> mTargetReward;
 	std::vector<Eigen::VectorXd> mAxis;
 
 	double mSlaves;
 	std::mutex mLock;
+	bool mSaveTrajectory;
+	std::string mPath;
 };
 }
 

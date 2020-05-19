@@ -16,7 +16,7 @@ class SimEnv
 {
 public:
 	
-	SimEnv(int num_slaves, std::string ref, std::string stats, bool adaptive);
+	SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive);
 	//For general properties
 	int GetNumState();
 	int GetNumAction();
@@ -47,9 +47,8 @@ public:
 	
 	void UpdateMotion();
 	
-	void SaveAdaptiveMotion(std::string path);
-	void LoadAdaptiveMotion(std::string path);
-	void SaveTrainingTuples(std::string path);
+	void SaveAdaptiveMotion();
+	void LoadAdaptiveMotion();
 	
 private:
 	std::vector<DPhy::Controller*> mSlaves;

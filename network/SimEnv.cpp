@@ -5,7 +5,7 @@
 #include <iostream>
 
 SimEnv::
-SimEnv(int num_slaves, std::string ref, std::string stats, bool adaptive)
+SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive)
 	:mNumSlaves(num_slaves)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
@@ -20,10 +20,10 @@ SimEnv(int num_slaves, std::string ref, std::string stats, bool adaptive)
 
 	for(int i =0;i<num_slaves;i++)
 	{
-		mSlaves.push_back(new DPhy::Controller(mReferenceManager, stats, adaptive, false, i));
+		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, false, i));
 	}
 	
-	mReferenceManager->InitializeAdaptiveSettings(mSlaves[0]->GetAdaptiveIdxs(), num_slaves);
+	mReferenceManager->InitializeAdaptiveSettings(mSlaves[0]->GetAdaptiveIdxs(), num_slaves, training_path, true);
 
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
@@ -199,28 +199,21 @@ UpdateSigTorque()
 }
 void
 SimEnv::
-SaveTrainingTuples(std::string path) {
-	for(int i = 0; i < mNumSlaves; i++) {
-		mSlaves[i]->SaveEliteData(path);
-	}
-}
-void
-SimEnv::
 UpdateMotion()
 {
 	mReferenceManager->UpdateMotion();
 }
 void
 SimEnv::
-SaveAdaptiveMotion(std::string path)
+SaveAdaptiveMotion()
 {
-	mReferenceManager->SaveAdaptiveMotion(path);
+	mReferenceManager->SaveAdaptiveMotion();
 }
 void
 SimEnv::
-LoadAdaptiveMotion(std::string path)
+LoadAdaptiveMotion()
 {
-	mReferenceManager->LoadAdaptiveMotion(path);
+	mReferenceManager->LoadAdaptiveMotion();
 }
 using namespace boost::python;
 
@@ -251,6 +244,5 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UpdateMotion",&SimEnv::UpdateMotion)
 		.def("SaveAdaptiveMotion",&SimEnv::SaveAdaptiveMotion)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
-		.def("SaveTrainingTuples", &SimEnv::SaveTrainingTuples)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

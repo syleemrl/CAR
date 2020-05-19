@@ -4,9 +4,9 @@ import simEnv
 import time
 from IPython import embed
 class Env(object):
-	def __init__(self, ref, stats, adaptive, num_slaves):
+	def __init__(self, ref, directory, adaptive, num_slaves):
 		self.num_slaves = num_slaves
-		self.sim_env = simEnv.Env(num_slaves, "/motion/"+ref, "/result/stats/"+stats, adaptive)
+		self.sim_env = simEnv.Env(num_slaves, "/motion/"+ref, directory, adaptive)
 		
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()

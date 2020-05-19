@@ -37,13 +37,16 @@ SaveTuple(double time, Eigen::VectorXd position, int slave) {
 		axis.segment<3>(j * 3) = target_diff_local;
 	}
 	mTuples_temp[slave].push_back(std::tuple<double, double, Eigen::VectorXd>(time, 0, axis));
+	mTuples_position[slave].push_back(position);
 	mPrevPosition[slave] = position;
 
 }
 void
 ReferenceManager::
-InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves)
+InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves, std::string path, bool saveTrajectory)
 {
+	mPath = path;
+	mSaveTrajectory = saveTrajectory;
 	mSlaves = nslaves;
 	mIdxs = idxs;
 	int ndof = mMotions_phase[0]->GetPosition().rows();
@@ -61,6 +64,7 @@ InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves)
 	}
 
 	mTuples_temp.clear();
+	mTuples_position.clear();
 	mPrevPosition.clear();
 	mTargetReward.clear();
 
@@ -70,6 +74,10 @@ InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves)
 		mTuples_temp.push_back(tuple_slaves);
 		mPrevPosition.push_back(Eigen::VectorXd::Zero(ndof));
 		mTargetReward.push_back(0);
+
+		std::vector<Eigen::VectorXd> tuple_slaves_pos;
+		tuple_slaves_pos.clear();	
+		mTuples_position.push_back(tuple_slaves_pos);
 	}
 
 	mAxis.clear();
@@ -140,17 +148,16 @@ UpdateMotion() {
 		Eigen::VectorXd pearson_coef = covar.array() / (std.head(adaptive_ndof) * std.tail(1)).array();
 
 		if(update_count >= 100) {
-			std::cout << i << std::endl;
-			std::cout << pearson_coef.segment<3>(0).transpose() << std::endl;
-			std::cout << mAxis[i].segment<3>(0).transpose() << std::endl;
-			std::cout << update_mean.segment<3>(0).transpose() << std::endl;
+			// std::cout << i << std::endl;
+			// std::cout << pearson_coef.transpose() << std::endl;
+			// std::cout << mAxis[i].transpose() << std::endl;
+			// std::cout << update_mean.transpose() << std::endl;
 
 			for(int j = 0; j < adaptive_ndof; j+=3) {
-				Eigen::Vector3d rate = 0.1 * pearson_coef.segment<3>(j).cwiseAbs();
+				Eigen::Vector3d rate = 0.5 * pearson_coef.segment<3>(j).cwiseAbs();
 				mAxis[i].segment<3>(j) = rate.cwiseProduct(update_mean.segment<3>(j))
 				 + (Eigen::Vector3d(1.0, 1.0, 1.0) - rate).cwiseProduct(mAxis[i].segment<3>(j));
 			}	
-			std::cout << mAxis[i].segment<3>(0).transpose() << std::endl;
 			mTuples[i].clear();
 		}
 	}
@@ -218,11 +225,15 @@ EndEpisode(int slave) {
 			mLock.unlock();
 		}
 	}
+	if(mSaveTrajectory)
+		this->SaveEliteTrajectories(slave);
+	mTuples_position[slave].clear();
 	mTuples_temp[slave].clear();
 }
 void 
 ReferenceManager::
-SaveAdaptiveMotion(std::string path) {
+SaveAdaptiveMotion() {
+	std::string path = mPath + std::string("adaptive");
 	std::cout << "save motion to:" << path << std::endl;
 
 	std::ofstream ofs(path);
@@ -236,8 +247,8 @@ SaveAdaptiveMotion(std::string path) {
 }
 void 
 ReferenceManager::
-LoadAdaptiveMotion(std::string path) {
-
+LoadAdaptiveMotion() {
+	std::string path = mPath + std::string("adaptive");
 	std::ifstream is(path);
 	if(is.fail())
 		return;
@@ -596,5 +607,24 @@ Motion* ReferenceManager::GetMotion(double t, bool adaptive)
 	else
 		return new Motion(DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0)), 
 				DPhy::BlendPosition((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+}
+void 
+ReferenceManager::
+SaveEliteTrajectories(int slave) {
+	std::string path = mPath + std::string("trajectories");
+	// std::cout << "save elite tuples to:" << path << std::endl;
+	std::ofstream ofs(path, std::ios_base::app);
+	double prev_reward = 0;
+
+	for(int i = 0; i < mTuples_temp[slave].size(); i++) {
+		if(std::get<1>(mTuples_temp[slave][i]) != prev_reward) {
+			prev_reward = std::get<1>(mTuples_temp[slave][i]); 
+		//	std::cout << prev_reward << std::endl;
+		}
+		if(std::get<1>(mTuples_temp[slave][i]) >= 1.5) {
+			ofs << std::get<2>(mTuples_temp[slave][i]).transpose() << std::endl;
+		}
+	}
+	ofs.close();
 }
 };

@@ -8,7 +8,7 @@
 namespace DPhy
 {	
 
-Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, bool record, int id)
+Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id)
 	:mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false),
@@ -159,7 +159,6 @@ Controller::Controller(ReferenceManager* ref, std::string stats, bool adaptive, 
 	this->mRecordTargetPosition.clear();
 	this->mRecordBVHPosition.clear();
 	this->mRecordRewardPosition.clear();
-	this->mRecordTrainingTuple.clear();
 	this->mMask.resize(dof);
 	this->mMask.setZero();
 
@@ -425,15 +424,15 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//jump	
-	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-		double target_diff = skel->getCOM()[1] - 1.15;
-		r_target = 2 * exp(-pow(target_diff, 2) * 20);
-		mControlFlag[0] = 1;
-		target_reward = r_target;
-		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
-		mCount += 1;
-		mReferenceManager->SetTargetReward(target_reward, id);
-	}
+	// if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+	// 	double target_diff = skel->getCOM()[1] - 1.15;
+	// 	r_target = 2 * exp(-pow(target_diff, 2) * 20);
+	// 	mControlFlag[0] = 1;
+	// 	target_reward = r_target;
+	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+	// 	mCount += 1;
+	// 	mReferenceManager->SetTargetReward(target_reward, id);
+	// }
 
 	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
 	// 	mTarget = mRecordWork.back();
@@ -468,19 +467,18 @@ GetTargetReward()
 	// }
 	
 	// punch - position
-	// if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
-	// 	Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-	// 	hand = hand - mHeadRoot.segment<3>(3);
-	// 	Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(3).normalized());
-	// 	hand = root_aa.inverse() * hand;
-		
-	// 	Eigen::Vector3d target_hand = Eigen::Vector3d(-0.5, 0, 0.4);
-	// 	Eigen::Vector3d target_diff = target_hand - hand;
-	// 	target_diff[1] = 0;
+	if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
+		Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
+		Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+		hand = hand - mHeadRoot.segment<3>(3);
+		hand = root_aa.inverse() * hand;
+		Eigen::Vector3d target_hand = Eigen::Vector3d(0.6, 0.3, 0.5);
+		Eigen::Vector3d target_diff = target_hand - hand;
 
-	// 	r_target = 1.5*exp_of_squared(target_diff,0.3);
-	// 	mControlFlag[0] = 1;
-	// }
+		r_target = 2*exp_of_squared(target_diff,0.2);
+		mControlFlag[0] = 1;
+		mReferenceManager->SetTargetReward(r_target, id);
+	}
 
 	// punch - force avg 0.55
 	// if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 0) {
@@ -519,7 +517,6 @@ GetTargetReward()
 		
 	// 	mControlFlag[1] = 1;		
 	// }
-
 	return r_target;
 }
 std::vector<bool> 
@@ -987,26 +984,6 @@ GetState(bool dummy)
 	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
 	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;
 	return state;
-}
-void 
-Controller::
-SaveEliteData(std::string path) {
-	std::cout << "save elite tuples to:" << path << std::endl;
-	std::ofstream ofs(path, std::ios_base::app);
-
-	int b = 0;
-	for(int i = 0; i < mRecordTrainingTuple.size(); i++) {
-		if(std::get<0>(mRecordTrainingTuple[i]) >= 1.7 &&std::get<1>(mRecordTrainingTuple[i]) < 1900 ) {
-			if(b == 0)
-				std::cout << std::get<1>(mRecordTrainingTuple[i]) << std::endl;
-			ofs << std::get<2>(mRecordTrainingTuple[i]).transpose() << std::endl;
-			b = 1;
-		} else {
-			b = 0;
-		}
-	}
-	mRecordTrainingTuple.clear();
-	ofs.close();
 }
 void
 Controller::SaveDisplayedData(std::string directory) {
