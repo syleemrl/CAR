@@ -65,11 +65,17 @@ public:
 	int GetPhaseLength() {return mPhaseLength; }
 	std::pair<bool, bool> CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v);
 	void SaveEliteTrajectories(int slave);
+	void SaveTuples(std::vector<Eigen::VectorXd> vecs, std::string postfix, int n);
+	void GetNewMotionFromAxis();
+	void GetNewAxisFromMotion();
+	void CleanupMotion();
+
 protected:
 	Character* mCharacter;
 	double mTimeStep;
 	int mBlendingInterval;
 	int mPhaseLength;
+	std::vector<bool> mFootSliding;
 	std::vector<Motion*> mMotions_raw;
 	std::vector<Motion*> mMotions_phase;
 	std::vector<Motion*> mMotions_phase_adaptive;

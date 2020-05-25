@@ -7,6 +7,7 @@
 #include <algorithm> 
 #include <cctype>
 #include <locale>
+#include <Eigen/Eigenvalues>
 
 namespace DPhy
 {
@@ -409,14 +410,20 @@ Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in){
 Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b, double weight, bool blend_rootpos) {
 
 	Eigen::VectorXd result(target_a.rows());
-	result.setZero();
-	
+	result = target_a;
+
 	for(int i = 0; i < result.size(); i += 3) {
 		if (i == 3) {
 			if(blend_rootpos)	result.segment<3>(i) = (1 - weight) * target_a.segment<3>(i) + weight * target_b.segment<3>(i); 
 			else result[4] = (1-weight) * target_a[4] + weight * target_b[4]; 
-		}
-		else {
+		} else if (i == 0 && !blend_rootpos) {
+			Eigen::Vector3d v_a = target_a.segment<3>(i);
+			Eigen::Vector3d v_b = target_b.segment<3>(i);
+	
+			result(i) = v_a(0) * (1-weight) + v_b(0) * weight;
+			result(i+1) = target_a(i+1);
+			result(i+2) = v_a(2) * (1-weight) + v_b(2) * weight;
+		} else {
 			Eigen::AngleAxisd v1_aa(target_a.segment<3>(i).norm(), target_a.segment<3>(i).normalized());
 			Eigen::AngleAxisd v2_aa(target_b.segment<3>(i).norm(), target_b.segment<3>(i).normalized());
 					
@@ -426,6 +433,7 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b
 			result.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(weight, v2_q)); 
 		}
 	}
+
 	return result;
 }
 Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)

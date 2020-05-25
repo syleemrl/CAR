@@ -112,8 +112,19 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("HandR"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
+	int num_body_nodes = this->mInterestedBodies.size();
+	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
+
+	this->mMask.resize(dof);
+	this->mMask.setZero();	
+	for(int i = 0; i < num_body_nodes; i++){
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		if( mInterestedBodies[i].find("Foot") != std::string::npos ||
+			mInterestedBodies[i].find("FootEnd") != std::string::npos) {
+			this->mMask.segment<3>(idx) = Eigen::Vector3d::Constant(1);
+		}
+	}
 	mActions = Eigen::VectorXd::Zero(this->mInterestedBodies.size()* 3 + 1 + 3 + mAdaptiveBodies.size() * 3);
-	
 	mActions.setZero();
 
 	mEndEffectors.clear();
@@ -128,8 +139,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	mGRFJoints.push_back("FootL");
 	mGRFJoints.push_back("FootEndR");
 	mGRFJoints.push_back("FootEndL");
-
-	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
 
 	this->mTargetPositions = Eigen::VectorXd::Zero(dof);
 	this->mTargetVelocities = Eigen::VectorXd::Zero(dof);
@@ -159,8 +168,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mRecordTargetPosition.clear();
 	this->mRecordBVHPosition.clear();
 	this->mRecordRewardPosition.clear();
-	this->mMask.resize(dof);
-	this->mMask.setZero();
+
 
 	mControlFlag.resize(2);
 	mRewardLabels.clear();
@@ -217,15 +225,15 @@ Step()
 	}
 
 	mActions[num_body_nodes*3] = dart::math::clip(mActions[num_body_nodes*3]*0.05, -0.8, 0.8);
-	mAdaptiveStep = mActions[num_body_nodes*3]*0.1;
+	mAdaptiveStep = mActions[num_body_nodes*3];
 
 	int adaptive_action_idx_l = num_body_nodes*3 + 1;
 	int adaptive_action_idx_a = num_body_nodes*3 + 4;
 	for(int i = adaptive_action_idx_l; i < adaptive_action_idx_a; i++){
-		mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1)*0.1;
+		mActions[i] = dart::math::clip(mActions[i]*0.02, -0.1, 0.1);
 	}
 	for(int i = adaptive_action_idx_a; i < mActions.size(); i++){
-		mActions[i] = dart::math::clip(mActions[i]*0.1, -0.3*M_PI, 0.3*M_PI)*0.1;
+		mActions[i] = dart::math::clip(mActions[i]*0.1, -0.3*M_PI, 0.3*M_PI);
 	}
 
 	double prevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -284,7 +292,8 @@ Step()
 	double torque_sum = 0;
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
-
+		Eigen::VectorXd torque_masked = torque.cwiseProduct(this->mMask);
+		torque_sum += 2.0 * torque_masked.norm() / mSimulationHz;
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
@@ -424,32 +433,33 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//jump	
-	// if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-	// 	double target_diff = skel->getCOM()[1] - 1.15;
-	// 	r_target = 2 * exp(-pow(target_diff, 2) * 20);
-	// 	mControlFlag[0] = 1;
-	// 	target_reward = r_target;
-	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
-	// 	mCount += 1;
-	// 	mReferenceManager->SetTargetReward(target_reward, id);
-	// }
+	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+		double target_diff = skel->getCOM()[1] - 1.15;
+		r_target = 2 * exp(-pow(target_diff, 2) * 20);
+		mControlFlag[0] = 1;
+		target_reward = r_target;
+		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+		mCount += 1;
+		mReferenceManager->SetTargetReward(skel->getCOM()[1], id);
+	}
 
-	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
-	// 	mTarget = mRecordWork.back();
-	// 	mTarget2 = 1;
-	// 	mControlFlag[0] = 1;
-	// } else if (mCurrentFrameOnPhase >= 39 && mCurrentFrameOnPhase < 44 && mControlFlag[0] == 1) {
-	// 	mTarget = mTarget / mTarget2;
-	// 	mControlFlag[0] = 0;
-	// 	r_target = exp(-pow(mTarget - 1.2, 2)*0.5)*1.5;
-	// 	// meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
-	// 	// mCount += 1;
+	if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
+		mTarget = mRecordWork.back();
+		mTarget2 = 1;
+		mControlFlag[0] = 1;
+	} else if (mCurrentFrameOnPhase >= 39 && mCurrentFrameOnPhase < 44 && mControlFlag[0] == 1) {
+		mTarget = mTarget / mTarget2;
+		mControlFlag[0] = 0;
+		r_target = exp(-pow(mTarget - 1.2, 2)*0.5)*1.5;
+		std::cout << mTarget << std::endl;
+		// meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+		// mCount += 1;
 
-	// //	std::cout << mTarget << " " << r_target << std::endl;
-	// } if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 1) {
-	// 	mTarget += mRecordWork.back();
-	// 	mTarget2 += 1;
-	// }
+	//	std::cout << mTarget << " " << r_target << std::endl;
+	} if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 1) {
+		mTarget += mRecordWork.back();
+		mTarget2 += 1;
+	}
 
 	//jump turn	
 	// if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {
@@ -457,28 +467,30 @@ GetTargetReward()
 	// 	mControlFlag[0] = 1;
 	// } else if(mCurrentFrameOnPhase >= 68.0 && mControlFlag[0] == 1) {
 	// 	mControlFlag[0] = -1;
-	// 	double target_diff = mTarget - 3;
+	// 	double target_diff = mTarget - 5.5;
 	// 	r_target = 2*exp(-pow(target_diff, 2)*0.3);
+	// 	mReferenceManager->SetTargetReward(mTarget, id);
 	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
 	// 	mCount += 1;
+	// //	std::cout << mTarget << " " << r_target << std::endl;
 	// } else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 1) {
 	// 	Eigen::VectorXd diff = skel->getPositionDifferences(skel->getPositions(), mPrevPositions);
 	// 	mTarget += diff[1]; //diff.segment<3>(0).norm();
 	// }
 	
 	// punch - position
-	if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
-		Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-		Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-		hand = hand - mHeadRoot.segment<3>(3);
-		hand = root_aa.inverse() * hand;
-		Eigen::Vector3d target_hand = Eigen::Vector3d(0.6, 0.3, 0.5);
-		Eigen::Vector3d target_diff = target_hand - hand;
+	// if(mCurrentFrameOnPhase >= 27.0 && mControlFlag[0] == 0) {
+	// 	Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
+	// 	Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+	// 	hand = hand - mHeadRoot.segment<3>(3);
+	// 	hand = root_aa.inverse() * hand;
+	// 	Eigen::Vector3d target_hand = Eigen::Vector3d(0.6, 0.3, 0.5);
+	// 	Eigen::Vector3d target_diff = target_hand - hand;
 
-		r_target = 2*exp_of_squared(target_diff,0.2);
-		mControlFlag[0] = 1;
-		mReferenceManager->SetTargetReward(r_target, id);
-	}
+	// 	r_target = 2*exp_of_squared(target_diff,0.2);
+	// 	mControlFlag[0] = 1;
+	// 	mReferenceManager->SetTargetReward(r_target, id);
+	// }
 
 	// punch - force avg 0.55
 	// if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 0) {
@@ -569,7 +581,17 @@ UpdateAdaptiveReward()
 	Eigen::VectorXd a = mActions.tail(mAdaptiveBodies.size() * 3 + 3);
 	double r_action = exp_of_squared(a, 0.1);
 
-	double r_tot_dense = 0.99 * accum_ref + 0.01 * r_action;
+	std::vector<bool> con_cur = this->GetContactInfo(skel->getPositions());
+	std::vector<bool> con_bvh = this->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrame, false));
+	double r_con = 0;
+	for(int i = 0; i < con_cur.size(); i++) {
+		if(con_cur[i] == con_bvh[i]) {
+			r_con += 1;
+		}
+	}
+	r_con /= con_cur.size();
+
+	double r_tot_dense = 0.8 * accum_ref + 0.2 * r_con; //+ 0.01 * r_action;
 
  	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
@@ -579,7 +601,7 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(r_tot_dense);
 		mRewardParts.push_back(r_target * 2);
 		mRewardParts.push_back(accum_ref);
-		mRewardParts.push_back(r_action);
+		mRewardParts.push_back(r_con);
 		mRewardParts.push_back(r_target);
 	}
 }
