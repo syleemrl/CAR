@@ -23,7 +23,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, false, i));
 	}
 	
-	mReferenceManager->InitializeAdaptiveSettings(mSlaves[0]->GetAdaptiveIdxs(), num_slaves, training_path, true);
+	mReferenceManager->InitializeAdaptiveSettings(mSlaves[0]->GetAdaptiveIdxs(), num_slaves, training_path, false);
 
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();

@@ -185,8 +185,8 @@ UpdateMotion() {
 		Eigen::VectorXd update_mean(adaptive_ndof);
 		update_mean.setZero();
 		for(int j = 0; j < mTuples[i].size(); j++) {
-			double mean_diff = abs(mean[mean.rows()-1] - 1.15);
-			double data_diff = abs(mTuples[i][j][mean.rows()-1] - 1.15);
+			double mean_diff = abs(mean[mean.rows()-1] - 1.25);
+			double data_diff = abs(mTuples[i][j][mean.rows()-1] - 1.25);
 			covar += (mTuples[i][j].head(adaptive_ndof) - mean.head(adaptive_ndof)) 
 				* (data_diff - mean_diff) * 1.0 / mTuples[i].size();
 			if(mean_diff > data_diff*1.1 || data_diff <= 0.05) {

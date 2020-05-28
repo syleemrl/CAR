@@ -29,7 +29,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
 	dynamic_cast<dart::constraint::BoxedLcpConstraintSolver*>(mWorld->getConstraintSolver())->setBoxedLcpSolver(std::make_shared<dart::constraint::PgsBoxedLcpSolver>());
 	
-	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/ground.xml"));
+	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/ground.xml")).first;
 	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
 	this->mWorld->addSkeleton(this->mGround);
 	
@@ -277,7 +277,7 @@ Step()
 
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		if(mInterestedBodies[i] == "Spine" || mInterestedBodies[i] == "FemurR" || mInterestedBodies[i] == "FemurL"){
+		if(mInterestedBodies[i] == "Spine"){
 			kp.segment<3>(idx) = Eigen::Vector3d::Constant(1000);
 		}
 		else{
@@ -292,6 +292,13 @@ Step()
 	double torque_sum = 0;
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
+		for(int j = 0; j < num_body_nodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getIndexInSkeleton(0);
+			double torquelim = mCharacter->GetTorqueLimit(mInterestedBodies[j]);
+			double torque_norm = torque.segment<3>(idx).norm();
+			torque.segment<3>(idx) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.segment<3>(idx).normalized();
+		}
+
 		Eigen::VectorXd torque_masked = torque.cwiseProduct(this->mMask);
 		torque_sum += 2.0 * torque_masked.norm() / mSimulationHz;
 		for(int j = 0; j < 2; j++)
@@ -434,7 +441,7 @@ GetTargetReward()
 
 	//jump	
 	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-		double target_diff = skel->getCOM()[1] - 1.15;
+		double target_diff = skel->getCOM()[1] - 1.25;
 		r_target = 2 * exp(-pow(target_diff, 2) * 20);
 		mControlFlag[0] = 1;
 		target_reward = r_target;
@@ -443,23 +450,23 @@ GetTargetReward()
 		mReferenceManager->SetTargetReward(skel->getCOM()[1], id);
 	}
 
-	if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
-		mTarget = mRecordWork.back();
-		mTarget2 = 1;
-		mControlFlag[0] = 1;
-	} else if (mCurrentFrameOnPhase >= 39 && mCurrentFrameOnPhase < 44 && mControlFlag[0] == 1) {
-		mTarget = mTarget / mTarget2;
-		mControlFlag[0] = 0;
-		r_target = exp(-pow(mTarget - 1.2, 2)*0.5)*1.5;
-		std::cout << mTarget << std::endl;
-		// meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
-		// mCount += 1;
+	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
+	// 	mTarget = mRecordWork.back();
+	// 	mTarget2 = 1;
+	// 	mControlFlag[0] = 1;
+	// } else if (mCurrentFrameOnPhase >= 39 && mCurrentFrameOnPhase < 44 && mControlFlag[0] == 1) {
+	// 	mTarget = mTarget / mTarget2;
+	// 	mControlFlag[0] = 0;
+	// 	r_target = exp(-pow(mTarget - 1.2, 2)*0.5)*1.5;
+	// 	std::cout << mTarget << std::endl;
+	// 	// meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+	// 	// mCount += 1;
 
-	//	std::cout << mTarget << " " << r_target << std::endl;
-	} if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 1) {
-		mTarget += mRecordWork.back();
-		mTarget2 += 1;
-	}
+	// //	std::cout << mTarget << " " << r_target << std::endl;
+	// } if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 1) {
+	// 	mTarget += mRecordWork.back();
+	// 	mTarget2 += 1;
+	// }
 
 	//jump turn	
 	// if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] == 0) {

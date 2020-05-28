@@ -14,7 +14,10 @@ namespace DPhy
 */ 
 Character::Character(const std::string& path)
 {
-	this->mSkeleton = SkeletonBuilder::BuildFromFile(path);
+	std::pair<SkeletonPtr, std::map<std::string, double>*> p = SkeletonBuilder::BuildFromFile(path);
+	this->mSkeleton = p.first;
+	this->mTorqueMap = p.second;
+
 	mPath = path;
 }
 // Character::Character(const dart::dynamics::SkeletonPtr& skeleton)
@@ -56,6 +59,10 @@ void Character::SetPDParameters(const Eigen::VectorXd& k)
 	this->mKv.segment(6, dof-6) = k.segment(dof-6, dof-6).array()*this->mKv_default.segment(6, dof-6).array();
 }
 
+double Character::GetTorqueLimit(const std::string name)
+{
+	return mTorqueMap->find(name)->second;
+}
 
 void Character::ApplyForces(const Eigen::VectorXd& forces)
 {

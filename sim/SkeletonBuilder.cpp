@@ -1,4 +1,5 @@
 #include <tinyxml.h>
+#include <tinyxml.h>
 #include <cmath>
 #include "SkeletonBuilder.h"
 #include "Functions.h"
@@ -112,13 +113,13 @@ DeformSkeleton(const dart::dynamics::SkeletonPtr& skel,
 		}
 	}
 }
-SkeletonPtr 
+std::pair<SkeletonPtr, std::map<std::string, double>*>
 SkeletonBuilder::
 BuildFromFile(const std::string& filename){
 	TiXmlDocument doc;
 	if(!doc.LoadFile(filename)){
 		std::cout << "Can't open file : " << filename << std::endl;
-		return nullptr;
+		// return nullptr;
 	}
 
 	TiXmlElement *skeldoc = doc.FirstChildElement("Skeleton");
@@ -126,6 +127,7 @@ BuildFromFile(const std::string& filename){
 	std::string skelname = skeldoc->Attribute("name");
 	SkeletonPtr skel = Skeleton::create(skelname);
 	std::cout << skelname << std::endl;
+	std::map<std::string, double>* torqueMap = new std::map<std::string, double>();
 
 	for(TiXmlElement *body = skeldoc->FirstChildElement("Joint"); body != nullptr; body = body->NextSiblingElement("Joint")){
 		// type
@@ -156,6 +158,13 @@ BuildFromFile(const std::string& filename){
 			jointPosition.linear() = DPhy::string_to_matrix3d(jointPosElem->Attribute("linear"));
 		jointPosition.translation() = DPhy::string_to_vector3d(jointPosElem->Attribute("translation"));
 		jointPosition = Orthonormalize(jointPosition);
+
+		double torquelim = 1e6;
+		TiXmlElement *torquelimElem = body->FirstChildElement("TorqueLimit");
+		if(torquelimElem != nullptr) {
+			torquelim = std::stod(torquelimElem->Attribute("norm"));
+		}
+		torqueMap->insert(std::pair<std::string, double>(name, torquelim));
 
 		// shape : capsule, sphere, none, cylinder, box
 		double shape_radius = 0;
@@ -350,7 +359,7 @@ BuildFromFile(const std::string& filename){
 		}
 
 	}
-	return skel;
+	return std::pair<SkeletonPtr, std::map<std::string, double>*>(skel, torqueMap);
 }
 
 BodyNode* SkeletonBuilder::MakeFreeJointBall(

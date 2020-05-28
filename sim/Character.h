@@ -23,6 +23,7 @@ public:
 	void SetPDParameters(const Eigen::VectorXd& kp, const Eigen::VectorXd& kv);
 	void SetPDParameters(const Eigen::VectorXd& k);
 	void ApplyForces(const Eigen::VectorXd& forces);
+	double GetTorqueLimit(const std::string name);
 	Eigen::VectorXd GetPDForces(const Eigen::VectorXd& p_desired, const Eigen::VectorXd& v_desired);
 	Eigen::VectorXd GetSPDForces(const Eigen::VectorXd& p_desired, const Eigen::VectorXd& v_desired);
 	std::map<std::string,std::string> GetBVHMap() {return mBVHMap;} //body_node name and bvh_node name
@@ -32,6 +33,7 @@ public:
 protected:
 	std::string mPath;
 	dart::dynamics::SkeletonPtr mSkeleton;
+	std::map<std::string, double>* mTorqueMap; //body_node name and bvh_node name
 	std::map<std::string,std::string> mBVHMap; //body_node name and bvh_node name
 	Eigen::VectorXd mKp, mKv;
 	Eigen::VectorXd mKp_default, mKv_default;
