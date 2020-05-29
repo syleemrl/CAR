@@ -176,6 +176,8 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		mRewardLabels.push_back("total_d");
 		mRewardLabels.push_back("total_s");
 		mRewardLabels.push_back("tracking");
+		mRewardLabels.push_back("joint");
+		mRewardLabels.push_back("root");
 		mRewardLabels.push_back("contact");
 		mRewardLabels.push_back("target");
 	} else {
@@ -236,7 +238,7 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*0.1, -0.3*M_PI, 0.3*M_PI);
 	}
 
-	double prevFrameOnPhase = this->mCurrentFrameOnPhase;
+	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -313,7 +315,7 @@ Step()
 	mRecordWork.push_back(torque_sum);
 
 	if(isAdaptive)
-		mReferenceManager->SaveTuple(prevFrameOnPhase, mCharacter->GetSkeleton()->getPositions(), id);
+		mReferenceManager->SaveTuple(mPrevFrameOnPhase, mCharacter->GetSkeleton()->getPositions(), id);
 
 	if(isAdaptive)
 		this->UpdateAdaptiveReward();
@@ -326,7 +328,7 @@ Step()
 		SaveStepInfo();
 	}
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
-	mPrevTargetPositions = mTargetPositions;
+	mPrevTargetPositions = mRewardTargetPositions;
 
 
 }
@@ -432,6 +434,45 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	return rewards;
 
 }
+std::vector<double> 
+Controller::
+GetAdaptiveRefReward()
+{
+	Eigen::AngleAxisd prev_root_ori = Eigen::AngleAxisd(mPrevTargetPositions.segment<3>(0).norm(), mPrevTargetPositions.segment<3>(0).normalized());
+ 	Eigen::VectorXd diff_local(mAdaptiveBodies.size() * 3 + 3);
+ 	diff_local.segment<3>(0) = mRewardTargetPositions.segment<3>(3) - mPrevTargetPositions.segment<3>(3);
+ 	diff_local.segment<3>(0) = prev_root_ori.inverse() * diff_local.segment<3>(0);
+ 	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
+ 		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+ 		diff_local.segment<3>((i+1) * 3) = JointPositionDifferences(mRewardTargetPositions.segment<3>(idx), mPrevTargetPositions.segment<3>(idx));
+ 	}
+
+ 	Eigen::VectorXd x(mAdaptiveBodies.size() + 1);
+ 	Eigen::VectorXd y(mAdaptiveBodies.size() + 1);
+
+ 	Eigen::VectorXd mean = mReferenceManager->GetAxis(mPrevFrameOnPhase);
+ 	Eigen::VectorXd dev = mReferenceManager->GetDev(mPrevFrameOnPhase);
+
+ 	for(int i = 0; i < x.rows(); i++) {
+ 		Eigen::Vector3d v = diff_local.segment<3>(i*3) - mean.segment<3>(i*3);
+	 	x(i) = v.dot(mean.segment<3>(i * 3).normalized());
+ 		y(i) = (v - x(i) * mean.segment<3>(i * 3).normalized()).norm() / std::max(mean.segment<3>(i * 3).norm(), 0.0075);
+ 		x(i) /= std::max(mean.segment<3>(i * 3).norm(), 0.0075);
+ 	}
+
+	std::vector<double> diff;
+	diff.clear();
+
+	for(int i = 0; i < x.rows(); i++) {
+ 		double max = 10;
+		double min = 0.5;
+
+		double a = std::max(max - 0.05 * dev(i) * (max-min), 1.0) + 1e-8;
+		double b = std::min(min + 0.01 * dev(i) * (max-min), 1.0) + 1e-8;
+		diff.push_back((x(i) * x(i)) / (a * a) + (y(i) * y(i)) / (a * a));
+	}
+	return diff;
+}
 double 
 Controller::
 GetTargetReward()
@@ -441,7 +482,7 @@ GetTargetReward()
 
 	//jump	
 	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-		double target_diff = skel->getCOM()[1] - 1.25;
+		double target_diff = skel->getCOM()[1] - 1.3;
 		r_target = 2 * exp(-pow(target_diff, 2) * 20);
 		mControlFlag[0] = 1;
 		target_reward = r_target;
@@ -588,7 +629,7 @@ UpdateAdaptiveReward()
 	Eigen::VectorXd a = mActions.tail(mAdaptiveBodies.size() * 3 + 3);
 	double r_action = exp_of_squared(a, 0.1);
 
-	std::vector<bool> con_cur = this->GetContactInfo(skel->getPositions());
+	std::vector<bool> con_cur = this->GetContactInfo(mRewardTargetPositions);
 	std::vector<bool> con_bvh = this->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrame, false));
 	double r_con = 0;
 	for(int i = 0; i < con_cur.size(); i++) {
@@ -598,7 +639,13 @@ UpdateAdaptiveReward()
 	}
 	r_con /= con_cur.size();
 
-	double r_tot_dense = 0.8 * accum_ref + 0.2 * r_con; //+ 0.01 * r_action;
+	std::vector<double> ref_adaptive_diff = this->GetAdaptiveRefReward();
+	double r_ad_root = (exp(-ref_adaptive_diff[0]*25) + exp(-ref_adaptive_diff[1])) * 0.5;
+	double r_ad_joint = 0;
+	for(int i = 2; i < ref_adaptive_diff.size(); i++) {
+		r_ad_joint += 1.0 / (ref_adaptive_diff.size() - 2) * exp(-ref_adaptive_diff[i]);
+	}
+	double r_tot_dense = 0.3 * accum_ref + 0.3 * r_ad_joint + 0.3 * r_ad_root + 0.1 * r_con;
 
  	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
@@ -608,6 +655,8 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(r_tot_dense);
 		mRewardParts.push_back(r_target * 2);
 		mRewardParts.push_back(accum_ref);
+		mRewardParts.push_back(r_ad_joint);
+		mRewardParts.push_back(r_ad_root);
 		mRewardParts.push_back(r_con);
 		mRewardParts.push_back(r_target);
 	}

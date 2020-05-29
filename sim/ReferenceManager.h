@@ -67,8 +67,11 @@ public:
 	void SaveEliteTrajectories(int slave);
 	void SaveTuples(std::vector<Eigen::VectorXd> vecs, std::string postfix, int n);
 	void GetNewMotionFromAxis();
-	void GetNewAxisFromMotion();
+	void GetNewAxisFromMotion(bool adaptive=true);
+	void ComputeDeviation();
 	void CleanupMotion();
+	Eigen::VectorXd GetAxis(double t);
+	Eigen::VectorXd GetDev(double t);
 
 protected:
 	Character* mCharacter;
@@ -92,6 +95,8 @@ protected:
 	std::vector<Eigen::VectorXd> mPrevPosition;
 	std::vector<double> mTargetReward;
 	std::vector<Eigen::VectorXd> mAxis;
+	std::vector<Eigen::VectorXd> mAxis_BVH;
+	std::vector<Eigen::VectorXd> mDev_BVH;
 
 	double mSlaves;
 	std::mutex mLock;

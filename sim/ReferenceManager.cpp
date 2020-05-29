@@ -77,15 +77,33 @@ InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves, std::string
 		tuple_slaves_pos.clear();	
 		mTuples_position.push_back(tuple_slaves_pos);
 	}
-	this->GetNewAxisFromMotion();
+	this->GetNewAxisFromMotion(false);
+	this->GetNewAxisFromMotion(true);
+	this->ComputeDeviation();
 }
 void
 ReferenceManager::
-GetNewAxisFromMotion(){
-	mAxis.clear();
-	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
-		Eigen::VectorXd m_cur = mMotions_gen_adaptive[i]->GetPosition();
-		Eigen::VectorXd m_next = mMotions_gen_adaptive[i+1]->GetPosition();
+GetNewAxisFromMotion(bool adaptive){
+	std::vector<Motion*>* p_phase;
+	std::vector<Motion*>* p_gen;
+	std::vector<Eigen::VectorXd>* p_axis;
+
+	if(adaptive)
+	{
+		p_phase = &mMotions_phase_adaptive;
+		p_gen = &mMotions_gen_adaptive;
+		p_axis = &mAxis;
+	}
+	else {
+		p_phase = &mMotions_phase;
+		p_gen = &mMotions_gen;
+		p_axis = &mAxis_BVH;
+	}
+
+	(*p_axis).clear();
+	for(int i = 0; i < (*p_phase).size(); i++) {
+		Eigen::VectorXd m_cur = (*p_gen)[i]->GetPosition();
+		Eigen::VectorXd m_next = (*p_gen)[i+1]->GetPosition();
 
 		Eigen::VectorXd axis(mIdxs.size()*3);
 		for(int j = 0; j < mIdxs.size(); j++) {
@@ -103,7 +121,36 @@ GetNewAxisFromMotion(){
 				axis.segment<3>(j*3) = joint_ori_delta.axis() * joint_ori_delta.angle();
 			}
 		}
-		mAxis.push_back(axis);
+		(*p_axis).push_back(axis);
+	}
+}
+void
+ReferenceManager::
+ComputeDeviation() {
+	mDev_BVH.clear();
+	for(int i = 0; i < mPhaseLength; i++) {
+		int t = i + mPhaseLength;
+		std::vector<std::pair<Eigen::VectorXd, double>> data;
+		data.clear();
+		for(int j = t - 3; j <= t + 3; j++) {
+			int t_ = j % mPhaseLength;
+			Eigen::VectorXd diff(mIdxs.size() * 3);
+			Eigen::VectorXd y(mIdxs.size());
+			for(int k = 0; k < mIdxs.size(); k++) {
+				diff.segment<3>(k * 3) = mAxis_BVH[i].segment<3>(k * 3) - mAxis_BVH[t_].segment<3>(k * 3);
+				double x = diff.segment<3>(k * 3).dot(mAxis_BVH[i].segment<3>(k * 3).normalized());
+ 				y(k) = (diff.segment<3>(k * 3) - x * mAxis_BVH[i].segment<3>(k * 3).normalized()).norm() / std::max(mAxis_BVH[i].segment<3>(k * 3).norm(), 0.0075);
+			}
+ 			data.push_back(std::pair<Eigen::VectorXd, double>(y, (1 - abs(t - j) * 0.3)));
+		}
+	 	Eigen::VectorXd dev(mIdxs.size());
+		dev.setZero();
+		for(int i = 0; i < data.size(); i++) {
+			int n = (int)(data[i].second * 100.0);
+			Eigen::VectorXd y = data[i].first;
+			dev += n * y.cwiseProduct(y);
+		}
+		mDev_BVH.push_back(dev.cwiseSqrt());
 	}
 }
 void
@@ -185,8 +232,8 @@ UpdateMotion() {
 		Eigen::VectorXd update_mean(adaptive_ndof);
 		update_mean.setZero();
 		for(int j = 0; j < mTuples[i].size(); j++) {
-			double mean_diff = abs(mean[mean.rows()-1] - 1.25);
-			double data_diff = abs(mTuples[i][j][mean.rows()-1] - 1.25);
+			double mean_diff = abs(mean[mean.rows()-1] - 1.3);
+			double data_diff = abs(mTuples[i][j][mean.rows()-1] - 1.3);
 			covar += (mTuples[i][j].head(adaptive_ndof) - mean.head(adaptive_ndof)) 
 				* (data_diff - mean_diff) * 1.0 / mTuples[i].size();
 			if(mean_diff > data_diff*1.1 || data_diff <= 0.05) {
@@ -206,7 +253,7 @@ UpdateMotion() {
 			for(int j = 0; j < adaptive_ndof; j++) {
 				if(abs(pearson_coef(j)) < 0.05)
 					continue;
-				double rate = 0.5 * abs(pearson_coef(j));
+				double rate = 0.2 * abs(pearson_coef(j));
 				(mAxis[i])(j) = rate * update_mean(j) + (1.0 - rate) * (mAxis[i])(j);
 			}
 			this->SaveTuples(mTuples[i], std::to_string(i), 50);	
@@ -644,5 +691,21 @@ SaveEliteTrajectories(int slave) {
 		}
 	}
 	ofs.close();
+}
+Eigen::VectorXd 
+ReferenceManager::
+GetAxis(double t) {
+	int k0 = (int) std::floor(t);
+	if(k0 == mPhaseLength)
+		k0 -= 1;
+	return mAxis_BVH[k0];
+}
+Eigen::VectorXd 
+ReferenceManager::
+GetDev(double t) {
+	int k0 = (int) std::floor(t);
+	if(k0 == mPhaseLength)
+		k0 -= 1;
+	return mDev_BVH[k0];
 }
 };

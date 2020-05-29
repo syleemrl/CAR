@@ -98,7 +98,8 @@ protected:
 	int nTotalSteps;
 	bool isAdaptive;
 	int id;
-
+	double mPrevFrameOnPhase;
+	
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
