@@ -2,7 +2,8 @@
 #include <tinyxml.h>
 #include <fstream>
 #include <stdlib.h>
-
+#include <cmath>
+#define TARGET_FRAME 44
 using namespace dart::dynamics;
 namespace DPhy
 {
@@ -14,12 +15,19 @@ ReferenceManager::ReferenceManager(Character* character)
 	mMotions_gen.clear();
 	mMotions_raw.clear();
 	mMotions_phase.clear();
+
+	mContact_name.clear();
+	mContact_name.push_back("FootEndR");
+	mContact_name.push_back("FootR");
+	mContact_name.push_back("FootEndL");
+	mContact_name.push_back("FootL");
+
 }
 void
 ReferenceManager::
 SaveTuple(double time, Eigen::VectorXd position, int slave) {
 	Eigen::VectorXd axis(mIdxs.size() * 3);
-	if(time == 0) {
+	if(time == 0 || time > TARGET_FRAME) {
 		mPrevPosition[slave] = position;
 		return;
 	}
@@ -192,6 +200,8 @@ GetNewMotionFromAxis(){
 void 
 ReferenceManager::
 CleanupMotion() {
+	for(int i = 0; i < mContact_name.size(); i++)
+		this->glueFootAndSmooth(i);
 	for(int i = mBlendingInterval; i >= 0; i--) {
 		int end = mMotions_phase.size() - 1;
 		double weight = 1 - i / (double)(mBlendingInterval+1);
@@ -203,6 +213,92 @@ CleanupMotion() {
 		mMotions_phase_adaptive[end - i]->SetVelocity(newVel);
 	}
 }
+void
+ReferenceManager::
+glueFootAndSmooth(int contact_idx) {
+	std::vector<int> flag;
+ 	std::vector<std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>> constraints;
+ 	flag.clear();
+ 	constraints.clear();
+	for(int i = 0; i < mPhaseLength; i++) {
+		int flag_cur = 0;
+
+		auto& skel = this->mCharacter->GetSkeleton();
+		skel->setPositions(mMotions_phase_adaptive[i]->GetPosition());
+		skel->computeForwardKinematics(true,false,false);
+
+ 		std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>> constraints_cur;
+ 		constraints_cur.clear();
+
+		Eigen::Vector3d p = skel->getBodyNode(mContact_name[contact_idx])->getWorldTransform().translation();
+		if(mContact_BVH[i][contact_idx] && p[1] >= 0.06) {
+			flag_cur = 1;
+			p[1] = mContact_BVH[i][contact_idx];
+			constraints_cur.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>(mContact_name[contact_idx], p, Eigen::Vector3d::Zero()));
+		}
+
+		if(constraints_cur.size() != 0) {
+			Eigen::Vector3d p = mMotions_phase[i]->GetPosition().segment<3>(3);
+			constraints_cur.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("Torso", p, Eigen::Vector3d::Zero()));
+
+			for(int j = 0; j < mContact_name.size(); j++) {
+				int pair = contact_idx / 2;
+				if(j / 2 != pair) {
+					Eigen::Vector3d p = skel->getBodyNode(mContact_name[j])->getWorldTransform().translation();
+					constraints_cur.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>(mContact_name[j], p, Eigen::Vector3d::Zero()));
+				}
+			}
+		}
+
+		flag.push_back(flag_cur);
+		constraints.push_back(constraints_cur);
+	}
+
+	int start_idx = 0;
+	int end_idx = 0;
+	for(int i = 0; i < mPhaseLength; i++) {
+		if(flag[i]) {
+			auto& skel = this->mCharacter->GetSkeleton();
+			skel->setPositions(mMotions_phase_adaptive[i]->GetPosition());
+			skel->computeForwardKinematics(true,false,false);
+
+			DPhy::solveMCIK(skel, constraints[i]);
+			mMotions_phase_adaptive[i]->SetPosition(skel->getPositions());
+		}
+		if(i != 0 && mContact_BVH[i-1][contact_idx] != 0 && mContact_BVH[i][contact_idx] == 0) {
+			end_idx = i-1;
+
+			int d = mBlendingInterval / 2;
+
+			for(int j = 1; j <= d; j++) {
+				int idx = start_idx - j;
+				if(idx < 0 || mContact_BVH[idx][contact_idx] != 0)
+					break;
+
+				double weight = 0.5*std::cos(0.5 * M_PI * (j / (d + 1.0)));
+				Eigen::VectorXd newPos = DPhy::BlendPosition(mMotions_phase_adaptive[idx]->GetPosition(), mMotions_phase_adaptive[idx+1]->GetPosition(), weight, true);
+				mMotions_phase_adaptive[idx]->SetPosition(newPos);
+			}
+			for(int j = 1; j <= d; j++) {
+				int idx = end_idx + j - 1;
+				if(idx >= mPhaseLength || mContact_BVH[idx][contact_idx] != 0)
+					break;
+
+				double weight = 0.5*std::cos(0.5 * M_PI * (j / (d + 1.0)));
+				Eigen::VectorXd newPos = DPhy::BlendPosition(mMotions_phase_adaptive[idx]->GetPosition(), mMotions_phase_adaptive[idx-1]->GetPosition(), weight, true);
+
+				mMotions_phase_adaptive[idx]->SetPosition(newPos);
+			}
+		}
+		else if(i != 0 && mContact_BVH[i-1][contact_idx] == 0 && mContact_BVH[i][contact_idx] != 0){
+			start_idx = i;
+		}
+	}
+	for(int i = 1; i < mPhaseLength; i++) {
+		Eigen::VectorXd newVel = mCharacter->GetSkeleton()->getPositionDifferences(mMotions_phase_adaptive[i]->GetPosition(), mMotions_phase_adaptive[i - 1]->GetPosition()) / 0.033;
+		mMotions_phase_adaptive[i]->SetVelocity(newVel);
+	}
+}
 void 
 ReferenceManager::
 UpdateMotion() {
@@ -210,7 +306,7 @@ UpdateMotion() {
 	delta.clear();
 
 	int adaptive_ndof = mIdxs.size() * 3;
-	for(int i = 0; i < mPhaseLength; i++) {
+	for(int i = 0; i <= TARGET_FRAME; i++) {
 		Eigen::VectorXd mean(adaptive_ndof + 1);
 		Eigen::VectorXd square_mean(adaptive_ndof + 1);
 		mean.setZero();
@@ -244,16 +340,18 @@ UpdateMotion() {
 		update_mean /= update_count;
 		Eigen::VectorXd pearson_coef = covar.array() / (std.head(adaptive_ndof) * std.tail(1)).array();
 		if(update_count >= 200) {
-			std::cout << i << std::endl;
-			std::cout << pearson_coef.transpose() << std::endl;
-			std::cout << mAxis[i].transpose() << std::endl;
-			std::cout << mean.transpose() << std::endl;
-			std::cout << update_mean.transpose() << std::endl;
+			if(i <= 3) {
+				std::cout << i << std::endl;
+				std::cout << pearson_coef.transpose() << std::endl;
+				std::cout << mAxis[i].transpose() << std::endl;
+				std::cout << mean.transpose() << std::endl;
+				std::cout << update_mean.transpose() << std::endl;
+			}
 
 			for(int j = 0; j < adaptive_ndof; j++) {
 				if(abs(pearson_coef(j)) < 0.05)
 					continue;
-				double rate = 0.2 * abs(pearson_coef(j));
+				double rate = 0.1 * abs(pearson_coef(j));
 				(mAxis[i])(j) = rate * update_mean(j) + (1.0 - rate) * (mAxis[i])(j);
 			}
 			this->SaveTuples(mTuples[i], std::to_string(i), 50);	
@@ -489,6 +587,22 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		mMotions_phase.push_back(new Motion(mMotions_raw[i]));
+
+		auto& skel = this->mCharacter->GetSkeleton();
+		skel->setPositions(mMotions_phase.back()->GetPosition());
+		skel->computeForwardKinematics(true,false,false);
+
+		std::vector<double> result;
+		result.clear();
+		for(int i = 0; i < mContact_name.size(); i++) {
+			Eigen::Vector3d p = skel->getBodyNode(mContact_name[i])->getWorldTransform().translation();
+			if(p[1] < 0.06) {
+				result.push_back(p[1]);
+			} else {
+				result.push_back(0);
+			}
+		}
+		mContact_BVH.push_back(result);
 	}
 
 	delete bvh;

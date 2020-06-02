@@ -640,13 +640,12 @@ UpdateAdaptiveReward()
 	r_con /= con_cur.size();
 
 	std::vector<double> ref_adaptive_diff = this->GetAdaptiveRefReward();
-	double r_ad_root = (exp(-ref_adaptive_diff[0]*25) + exp(-ref_adaptive_diff[1])) * 0.5;
+	double r_ad_root = (exp(-ref_adaptive_diff[0]*25) + exp(-ref_adaptive_diff[1]*25)) * 0.5;
 	double r_ad_joint = 0;
 	for(int i = 2; i < ref_adaptive_diff.size(); i++) {
-		r_ad_joint += 1.0 / (ref_adaptive_diff.size() - 2) * exp(-ref_adaptive_diff[i]);
+		r_ad_joint += 1.0 / (ref_adaptive_diff.size() - 2) * exp(-ref_adaptive_diff[i]*25);
 	}
-	double r_tot_dense = 0.3 * accum_ref + 0.3 * r_ad_joint + 0.3 * r_ad_root + 0.1 * r_con;
-
+	double r_tot_dense = 0.2 * accum_ref + 0.4 * r_ad_joint + 0.4 * r_ad_root + 0.1 * r_con;
  	mRewardParts.clear();
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);

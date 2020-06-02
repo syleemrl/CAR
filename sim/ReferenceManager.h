@@ -58,6 +58,7 @@ public:
 	void EndEpisode(int slave);
 	void EndPhase(int slave);
 	void SetTargetReward(double reward, int slave);
+	void glueFootAndSmooth(int contact_idx);
 	void UpdateMotion();
 	Motion* GetMotion(double t, bool adaptive=false);
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
@@ -97,6 +98,8 @@ protected:
 	std::vector<Eigen::VectorXd> mAxis;
 	std::vector<Eigen::VectorXd> mAxis_BVH;
 	std::vector<Eigen::VectorXd> mDev_BVH;
+	std::vector<std::vector<double>> mContact_BVH;
+	std::vector<std::string> mContact_name;
 
 	double mSlaves;
 	std::mutex mLock;

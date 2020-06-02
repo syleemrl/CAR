@@ -753,7 +753,7 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 		Eigen::MatrixXd jacobian_concatenated(3*num_constraints, nDofs);
 		for(int j = 0; j < num_constraints; j++){
 			dart::math::LinearJacobian jacobian = skel->getLinearJacobian(bodynodes[j], offsets[j]);
-			jacobian.block<3,6>(0,0).setZero();
+			jacobian.block<3,3>(0,0).setZero();
 			// jacobian.block<3,3>(0,foot_l_idx).setZero();
 			// jacobian.block<3,3>(0,foot_r_idx).setZero();
 			jacobian.block<3,3>(0,footend_l_idx).setZero();
