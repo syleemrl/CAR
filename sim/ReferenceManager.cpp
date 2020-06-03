@@ -27,7 +27,7 @@ void
 ReferenceManager::
 SaveTuple(double time, Eigen::VectorXd position, int slave) {
 	Eigen::VectorXd axis(mIdxs.size() * 3);
-	if(time == 0 || time > TARGET_FRAME) {
+	if(time == 0 || time > TARGET_FRAME + 1) {
 		mPrevPosition[slave] = position;
 		return;
 	}
@@ -42,6 +42,7 @@ SaveTuple(double time, Eigen::VectorXd position, int slave) {
 		}
 		axis.segment<3>(j * 3) = target_diff_local;
 	}
+
 	mTuples_temp[slave].push_back(std::tuple<double, double, Eigen::VectorXd>(time, 0, axis));
 	mTuples_position[slave].push_back(position);
 	mPrevPosition[slave] = position;
@@ -164,10 +165,11 @@ ComputeDeviation() {
 void
 ReferenceManager::
 GetNewMotionFromAxis(){
+
 	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
 		int t_next = (i+1) % mPhaseLength;
-		Eigen::VectorXd m_cur = mMotions_phase_adaptive[i]->GetPosition();
-		Eigen::VectorXd m_next = mMotions_phase_adaptive[t_next]->GetPosition();
+		Eigen::VectorXd m_cur = mMotions_phase[i]->GetPosition();
+		Eigen::VectorXd m_next = mMotions_phase[t_next]->GetPosition();
 
 		for(int j = 0; j < mIdxs.size(); j++) {
 			if(mIdxs[j] == 3) {
@@ -327,31 +329,37 @@ UpdateMotion() {
 		int update_count = 0;
 		Eigen::VectorXd update_mean(adaptive_ndof);
 		update_mean.setZero();
+		if(i >= 40) {
+			std::cout << i << std::endl;
+		}
 		for(int j = 0; j < mTuples[i].size(); j++) {
 			double mean_diff = abs(mean[mean.rows()-1] - 1.3);
 			double data_diff = abs(mTuples[i][j][mean.rows()-1] - 1.3);
 			covar += (mTuples[i][j].head(adaptive_ndof) - mean.head(adaptive_ndof)) 
 				* (data_diff - mean_diff) * 1.0 / mTuples[i].size();
-			if(mean_diff > data_diff*1.1 || data_diff <= 0.05) {
+			if(i >= 40) {
+				std::cout << mean_diff << " " << data_diff << " " <<mTuples[i][j].segment<3>(0).transpose() << std::endl;
+			}
+			if(mean_diff > data_diff*1.2 || data_diff <= 0.03) {
 				update_count += 1;
 				update_mean += mTuples[i][j].head(adaptive_ndof);
 			}
 		}
 		update_mean /= update_count;
 		Eigen::VectorXd pearson_coef = covar.array() / (std.head(adaptive_ndof) * std.tail(1)).array();
-		if(update_count >= 200) {
-			if(i <= 3) {
+		if(update_count >= 100) {
+			if(i >= 40) {
 				std::cout << i << std::endl;
-				std::cout << pearson_coef.transpose() << std::endl;
-				std::cout << mAxis[i].transpose() << std::endl;
-				std::cout << mean.transpose() << std::endl;
-				std::cout << update_mean.transpose() << std::endl;
+				std::cout << pearson_coef.segment<3>(0).transpose() << std::endl;
+				std::cout << mAxis[i].segment<3>(0).transpose() << std::endl;
+				std::cout << mean.segment<3>(0).transpose() << std::endl;
+				std::cout << update_mean.segment<3>(0).transpose() << std::endl;
 			}
 
 			for(int j = 0; j < adaptive_ndof; j++) {
 				if(abs(pearson_coef(j)) < 0.05)
 					continue;
-				double rate = 0.1 * abs(pearson_coef(j));
+				double rate = 0.5 * abs(pearson_coef(j));
 				(mAxis[i])(j) = rate * update_mean(j) + (1.0 - rate) * (mAxis[i])(j);
 			}
 			this->SaveTuples(mTuples[i], std::to_string(i), 50);	
@@ -360,7 +368,7 @@ UpdateMotion() {
 	}
 	this->GetNewMotionFromAxis();
 	this->CleanupMotion();
-	this->GetNewAxisFromMotion();
+	//this->GetNewAxisFromMotion();
 
 	this->GenerateMotionsFromSinglePhase(1000, false, true);
 }
@@ -425,9 +433,10 @@ SaveAdaptiveMotion() {
 
 	std::ofstream ofs(path);
 
-	for(auto t: mMotions_phase_adaptive) {
-		ofs << t->GetPosition().transpose() << std::endl;
-		ofs << t->GetVelocity().transpose() << std::endl;
+	for(int i = 0; i < mAxis.size(); i++) {
+		// ofs << mMotions_phase_adaptive[i]->GetPosition().transpose() << std::endl;
+		// ofs << mMotions_phase_adaptive[i]->GetVelocity().transpose() << std::endl;
+		ofs << mAxis[i].transpose() << std::endl;
 	}
 	ofs.close();
 
@@ -445,24 +454,30 @@ LoadAdaptiveMotion() {
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd pos(mMotions_phase[0]->GetPosition().rows());
 		Eigen::VectorXd vel(mMotions_phase[0]->GetPosition().rows());
-		for(int j = 0; j < mMotions_phase[0]->GetPosition().rows(); j++) 
+		// for(int j = 0; j < mMotions_phase[0]->GetPosition().rows(); j++) 
+		// {
+		// 	is >> buffer;
+		// 	pos[j] = atof(buffer);
+		// }
+		// for(int j = 0; j < mMotions_phase[0]->GetVelocity().rows(); j++) 
+		// {
+		// 	is >> buffer;
+		// 	vel[j] = atof(buffer);
+		// }
+		for(int j = 0; j < mAxis[0].rows(); j++) 
 		{
 			is >> buffer;
-			pos[j] = atof(buffer);
+			mAxis[i][j] = atof(buffer);
 		}
-		for(int j = 0; j < mMotions_phase[0]->GetVelocity().rows(); j++) 
-		{
-			is >> buffer;
-			vel[j] = atof(buffer);
-		}
-		mMotions_phase_adaptive[i]->SetPosition(pos);
-		mMotions_phase_adaptive[i]->SetVelocity(vel);
+	//	mMotions_phase_adaptive[i]->SetPosition(pos);
+	//	mMotions_phase_adaptive[i]->SetVelocity(vel);
 	}
-
 	is.close();
+	this->GetNewMotionFromAxis();
 	this->CleanupMotion();
+
 	this->GenerateMotionsFromSinglePhase(1000, false, true);
-	this->GetNewAxisFromMotion();
+//	this->GetNewAxisFromMotion();
 }
 std::pair<bool, bool> ReferenceManager::CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v)
 {
