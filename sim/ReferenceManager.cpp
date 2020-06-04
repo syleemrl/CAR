@@ -274,6 +274,7 @@ glueFootAndSmooth(int contact_idx) {
 
 			for(int j = 1; j <= d; j++) {
 				int idx = start_idx - j;
+
 				if(idx < 0 || mContact_BVH[idx][contact_idx] != 0)
 					break;
 
@@ -282,7 +283,8 @@ glueFootAndSmooth(int contact_idx) {
 				mMotions_phase_adaptive[idx]->SetPosition(newPos);
 			}
 			for(int j = 1; j <= d; j++) {
-				int idx = end_idx + j - 1;
+				int idx = end_idx + j;
+
 				if(idx >= mPhaseLength || mContact_BVH[idx][contact_idx] != 0)
 					break;
 
@@ -321,50 +323,37 @@ UpdateMotion() {
 		mean /= mTuples[i].size();
 		square_mean /= mTuples[i].size();
 
+		if(mTuples[i].size() < 50)
+			continue;
+
 		Eigen::VectorXd var = square_mean - mean.cwiseProduct(mean);
 		Eigen::VectorXd std = var.cwiseSqrt();
 		Eigen::VectorXd covar(adaptive_ndof);
 		covar.setZero();
 
-		int update_count = 0;
-		Eigen::VectorXd update_mean(adaptive_ndof);
-		update_mean.setZero();
-		if(i >= 40) {
-			std::cout << i << std::endl;
-		}
 		for(int j = 0; j < mTuples[i].size(); j++) {
 			double mean_diff = abs(mean[mean.rows()-1] - 1.3);
 			double data_diff = abs(mTuples[i][j][mean.rows()-1] - 1.3);
 			covar += (mTuples[i][j].head(adaptive_ndof) - mean.head(adaptive_ndof)) 
 				* (data_diff - mean_diff) * 1.0 / mTuples[i].size();
-			if(i >= 40) {
-				std::cout << mean_diff << " " << data_diff << " " <<mTuples[i][j].segment<3>(0).transpose() << std::endl;
-			}
-			if(mean_diff > data_diff*1.2 || data_diff <= 0.03) {
-				update_count += 1;
-				update_mean += mTuples[i][j].head(adaptive_ndof);
-			}
 		}
-		update_mean /= update_count;
 		Eigen::VectorXd pearson_coef = covar.array() / (std.head(adaptive_ndof) * std.tail(1)).array();
-		if(update_count >= 100) {
-			if(i >= 40) {
-				std::cout << i << std::endl;
-				std::cout << pearson_coef.segment<3>(0).transpose() << std::endl;
-				std::cout << mAxis[i].segment<3>(0).transpose() << std::endl;
-				std::cout << mean.segment<3>(0).transpose() << std::endl;
-				std::cout << update_mean.segment<3>(0).transpose() << std::endl;
-			}
-
-			for(int j = 0; j < adaptive_ndof; j++) {
-				if(abs(pearson_coef(j)) < 0.05)
-					continue;
-				double rate = 0.5 * abs(pearson_coef(j));
-				(mAxis[i])(j) = rate * update_mean(j) + (1.0 - rate) * (mAxis[i])(j);
-			}
-			this->SaveTuples(mTuples[i], std::to_string(i), 50);	
-			mTuples[i].clear();
+		if(i >= 40) {
+			std::cout << i << std::endl;
+			std::cout << mTuples[i].size() << std::endl;
+			std::cout << pearson_coef.segment<3>(0).transpose() << std::endl;
+			std::cout << mAxis[i].segment<3>(0).transpose() << std::endl;
+			std::cout << mean.segment<3>(0).transpose() << std::endl;
 		}
+
+		for(int j = 0; j < adaptive_ndof; j++) {
+			if(abs(pearson_coef(j)) < 0.05)
+				continue;
+			double rate = 1;
+			(mAxis[i])(j) = (mAxis[i])(j) + rate * -pearson_coef(j) * (mAxis[i])(j);
+		}
+		this->SaveTuples(mTuples[i], std::to_string(i), 50);	
+		mTuples[i].clear();
 	}
 	this->GetNewMotionFromAxis();
 	this->CleanupMotion();
