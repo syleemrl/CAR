@@ -15,14 +15,13 @@ using namespace dart::dynamics;
 SimWindow::
 SimWindow(std::string motion, std::string network, std::string mode, std::string filename)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
-	mDrawOutput(true), mDrawRef(true), mDrawRef2(true), mDrawRef3(true), 
+	mDrawOutput(true), mDrawRef(true), mDrawRef2(true),
 	mRunPPO(true), mTimeStep(1 / 30.0), mWrap(false)
 {
 	if(network.compare("") == 0) {
 		this->mDrawOutput = false;
 		this->mRunPPO = false;
 		this->mDrawRef2 = false;
-		this->mDrawRef3 = false;
 	}
 	this->filename = filename;
 	this->mode = mode;
@@ -31,7 +30,6 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 
 	this->mRef = new DPhy::Character(path);
 	this->mRef2 = new DPhy::Character(path);
-	this->mRef3 = new DPhy::Character(path);
 
 	this->mCharacter = new DPhy::Character(path);
 
@@ -52,7 +50,6 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
-	DPhy::SetSkeletonColor(this->mRef3->GetSkeleton(), Eigen::Vector4d(87./255., 87./255., 235./255., 1.0));
 
 	this->mSkelLength = 0.3;
 
@@ -66,7 +63,6 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	}	
 	mRef->GetSkeleton()->setPositions(position);
 	mRef2->GetSkeleton()->setPositions(position);
-	mRef3->GetSkeleton()->setPositions(position);
 
 	mCharacter->GetSkeleton()->setPositions(position);
 
@@ -109,7 +105,6 @@ MemoryClear() {
     mMemoryCOMRef.clear();
     mMemoryRef2.clear();
     mMemoryCOMRef2.clear();
-    mMemoryRef3.clear();
     mMemoryGRF.clear();
     mMemoryFootContact.clear();
     mReward.clear();
@@ -138,16 +133,6 @@ Save(int n) {
     	mMemoryCOM.emplace_back(this->mController->GetCOM(n));	
     	mMemoryFootContact.emplace_back(this->mController->GetFootContact(n));
 
-    	mRef3->GetSkeleton()->setPositions(this->mController->GetRewardPositions(n));
-    	position = mRef3->GetSkeleton()->getPositions();
-
-		if(mWrap) {
-			position.segment<3>(3).setZero();
-			position[4] = 1.0;
-			mRef3->GetSkeleton()->setPositions(position);
-		}	
-
-    	mMemoryRef3.emplace_back(mRef3->GetSkeleton()->getPositions());
 		mRef2->GetSkeleton()->setPositions(this->mController->GetTargetPositions(n));
    	 	position = mRef2->GetSkeleton()->getPositions();
 
@@ -217,7 +202,6 @@ SetFrame(int n)
   		mCharacter->GetSkeleton()->setPositions(mMemory[n]);
   		mFootContact = mMemoryFootContact[n];
   		mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
-  		mRef3->GetSkeleton()->setPositions(mMemoryRef3[n]);
 
   	}
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
@@ -263,9 +247,6 @@ DrawSkeletons()
 	if(this->mDrawRef2) {
 		GUI::DrawSkeleton(this->mRef2->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOMRef2, this->mCurFrame);
-	}
-	if(this->mDrawRef3) {
-		GUI::DrawSkeleton(this->mRef3->GetSkeleton(), 0);
 	}
 }
 void
@@ -372,7 +353,6 @@ Keyboard(unsigned char key,int x,int y)
 		case 'w': mWrap = !mWrap; break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
 		case '3': if(this->mRunPPO) mDrawRef2 = !mDrawRef2;break;
-		case '4': if(this->mRunPPO) mDrawRef3 = !mDrawRef3;break;
 		case '2': mDrawRef = !mDrawRef;break;
 		case '1': if(this->mRunPPO) mDrawOutput = !mDrawOutput;break;
 		case ' ':
