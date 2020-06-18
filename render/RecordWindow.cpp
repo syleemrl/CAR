@@ -58,6 +58,11 @@ RecordWindow(std::vector<std::string> motion)
 			mTotalFrame = length;
 		}
 		mMemoryRef.push_back(record_pos);
+		if(i == motion.size()-1)
+			DPhy::SetSkeletonColor(this->mRef.back()->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
+		else
+			DPhy::SetSkeletonColor(this->mRef.back()->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+
 	}
 	double dir = mMemoryRef[0][0][1];
 	dir = dir;

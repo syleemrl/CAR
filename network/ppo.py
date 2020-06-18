@@ -56,6 +56,8 @@ class PPO(object):
 		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
+		self.step = 0
+
 		if self.pretrain is not "":
 			self.load(self.pretrain)
 			li = pretrain.split("network")
@@ -466,8 +468,9 @@ class PPO(object):
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
-	#	action, _ = self.actor.getAction(state)
+		#action, _ = self.actor.getAction(state)
 		action = self.actor.getMeanAction(state)
+
 		return action
 
 	def eval(self):

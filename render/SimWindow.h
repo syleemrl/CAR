@@ -96,6 +96,7 @@ protected:
 	DPhy::Character* mRef;
 	DPhy::Character* mRef2;
 	DPhy::Character* mRef3;
+	DPhy::Character* mObject;
 	DPhy::ReferenceManager* mReferenceManager;
 	DPhy::BVH* mBVH;
 

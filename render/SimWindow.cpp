@@ -27,7 +27,7 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 	this->mode = mode;
 
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
-
+	this->mObject = new DPhy::Character(std::string(CAR_DIR)+std::string("/character/sandbag.xml"));
 	this->mRef = new DPhy::Character(path);
 	this->mRef2 = new DPhy::Character(path);
 
@@ -231,6 +231,8 @@ void
 SimWindow::
 DrawSkeletons()
 {
+	GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
+
 	if(this->mDrawOutput) {
 		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOM, this->mCurFrame, Eigen::Vector3d(0.9, 0.9, 0.9));
