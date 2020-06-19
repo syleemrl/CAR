@@ -124,6 +124,9 @@ protected:
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
+	int mInterestedDof;
+	int mRewardDof;
+
 	std::vector<std::string> mAdaptiveBodies;
 	std::vector<std::string> mEndEffectors;
 	std::vector<std::string> mRewardLabels;

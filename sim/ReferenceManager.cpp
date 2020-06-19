@@ -553,7 +553,11 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 				p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
 			}
 			else if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
-				p[jn->getIndexInSkeleton(0)] = a[0];
+				if(ss.first.find("Arm") != std::string::npos)
+					p[jn->getIndexInSkeleton(0)] = a[1];
+				else	
+					p[jn->getIndexInSkeleton(0)] = a[0];
+
 				if(p[jn->getIndexInSkeleton(0)]>M_PI)
 					p[jn->getIndexInSkeleton(0)] -= 2*M_PI;
 				else if(p[jn->getIndexInSkeleton(0)]<-M_PI)
