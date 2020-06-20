@@ -278,6 +278,7 @@ Step()
 				kp(idx) = 500;
 		}
 	}
+
 	// KV_RATIO from CharacterConfiguration.h
 	kv = KV_RATIO * kp;
 	mCharacter->SetPDParameters(kp, kv);
@@ -286,6 +287,14 @@ Step()
 	double torque_sum = 0;
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
+		for(int j = 0; j < num_body_nodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getNumDofs();
+
+			double torquelim = mCharacter->GetTorqueLimit(mInterestedBodies[j]);
+			double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+		}
 
 		Eigen::VectorXd torque_masked = torque.cwiseProduct(this->mMask);
 		torque_sum += 2.0 * torque_masked.norm() / mSimulationHz;
