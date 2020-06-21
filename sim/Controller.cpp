@@ -125,7 +125,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 
 	this->mMask.resize(dof);
 	this->mMask.setZero();	
-	
 	mActions = Eigen::VectorXd::Zero(mInterestedDof + 1);
 	mActions.setZero();
 
@@ -229,9 +228,10 @@ Step()
 	}
 
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*0.05, -0.8, 0.8);
-	mAdaptiveStep = mActions[mInterestedDof];
-	if(isAdaptive)
-		mAdaptiveStep *= 0.1;
+	// mAdaptiveStep = mActions[mInterestedDof];
+	// if(isAdaptive)
+	// 	mAdaptiveStep *= 0.1;
+	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -255,7 +255,7 @@ Step()
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getNumDofs();
-		mPDTargetPositions.block(idx, 0, dof, 1) += mActions.block(count_dof, 0, dof, 1);
+		// mPDTargetPositions.block(idx, 0, dof, 1) += mActions.block(count_dof, 0, dof, 1);
 		count_dof += dof;
 
 	}
@@ -350,14 +350,14 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	
 	p_diff_reward.resize(mRewardDof);
 	int count_dof = 0;
+
 	for(int i = 0; i < list.size(); i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
 		int dof = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getNumDofs();
 		
-		p_diff_reward.block(count_dof, 0, dof, 1) += p_diff.block(idx, 0, dof, 1);
+		p_diff_reward.block(count_dof, 0, dof, 1) = p_diff.block(idx, 0, dof, 1);
 		count_dof += dof;
 	}
-
 	Eigen::VectorXd v_diff, v_diff_reward;
 
 	if(useVelocity) {
@@ -369,7 +369,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 			int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
 			int dof = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getNumDofs();
 
-			v_diff_reward.block(count_dof, 0, dof, 1) += v_diff.block(idx, 0, dof, 1);
+			v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
 			count_dof += dof;
 		}
 	}
@@ -398,10 +398,10 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	double scale = 1.0;
 
-	double sig_p = 0.1 * scale; 
+	double sig_p = 0.3 * scale; 
 	double sig_v = 1.0 * scale;	
-	double sig_com = 0.1 * scale;		
-	double sig_ee = 0.1 * scale;		
+	double sig_com = 0.2 * scale;		
+	double sig_ee = 0.2 * scale;		
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -678,6 +678,8 @@ UpdateReward()
 
 	mRewardParts.clear();
 	double r_tot = 0.9 * accum_bvh + 0.1 * r_time;
+	std::cout << mCurrentFrame << std::endl;
+	std::cout << tracking_rewards_bvh[0] << " " << tracking_rewards_bvh[1] << " " << tracking_rewards_bvh[2] << " " << tracking_rewards_bvh[3] << " " << r_time << std::endl;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
