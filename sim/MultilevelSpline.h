@@ -1,31 +1,38 @@
 #ifndef __DEEP_PHYSICS_MULTILEVEL_SPLINE_H__
 #define __DEEP_PHYSICS_MULTILEVEL_SPLINE_H__
 
-#include "Motion.h"
+#include <vector>
+#include <Eigen/Core>
+#include <string>
+#include <fstream>
+#include <iostream>
 
 namespace DPhy
 {
 class Spline
 {
 public:
-	Spline(std::vector<double> knots);
-	void Approximate(std::vector<Eigen::VectorXd> pos);
+	Spline(std::vector<double> knots, double end);
+	Spline(double knot_interval, double end);
+	void Approximate(std::vector<std::pair<Eigen::VectorXd,double>> motion);
 	Eigen::VectorXd GetPosition(double t);
+	void Save(std::string path);
 protected:
-	double B(int idx, int t);
+	double B(int idx, double t);
 
+	double mEnd;
 	std::vector<double> mKnots;
+	std::vector<double> mKnotMap;
 	std::vector<Eigen::VectorXd> mControlPoints;
-	std::vector<Eigen::VectorXd> mPositions;
 };
 class MultilevelSpline
 {
 public:
 	MultilevelSpline() {};
-	void ConvertMotionToSpline(std::vector<Motion*> motions, int numLevels);
-	std::vector<Motion*> ConvertSplineToMotion();
+//	void ConvertMotionToSpline(std::vector<*> motions, int numLevels);
+//	std::vector<Motion*> ConvertSplineToMotion();
 protected:
-	std::vector<Motion*> mBaseMotions;
+//	std::vector<Motion*> mBaseMotions;
 	std::vector<Spline*> mSplines;
 	int mNumLevels;
 };

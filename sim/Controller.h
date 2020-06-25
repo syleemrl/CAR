@@ -94,6 +94,7 @@ protected:
 	int mControlHz;
 	int mSimulationHz;
 	int mSimPerCon;
+	int nPhase;
 	double mCurrentFrameOnPhase;
 	int nTotalSteps;
 	bool isAdaptive;
@@ -189,6 +190,7 @@ protected:
 	double target_reward = 0;
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
+	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
 };
 }
 #endif

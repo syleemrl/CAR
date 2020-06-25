@@ -1,5 +1,6 @@
 #include "Controller.h"
 #include "Character.h"
+#include "MultilevelSpline.h"
 #include <boost/filesystem.hpp>
 #include <Eigen/QR>
 #include <fstream>
@@ -228,10 +229,9 @@ Step()
 	}
 
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*0.05, -0.8, 0.8);
-	// mAdaptiveStep = mActions[mInterestedDof];
+	mAdaptiveStep = mActions[mInterestedDof];
 	// if(isAdaptive)
 	// 	mAdaptiveStep *= 0.1;
-	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -240,6 +240,32 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		mControlFlag.setZero();
+		if(nPhase == 3) {
+			std::vector<double> knots;
+			knots.push_back(0);
+			knots.push_back(31);
+			knots.push_back(36);
+			knots.push_back(44);
+			knots.push_back(58);
+			knots.push_back(76);
+
+			Spline* s = new Spline(knots, this->mReferenceManager->GetPhaseLength());
+		//	Spline* s = new Spline(4, this->mReferenceManager->GetPhaseLength());
+
+			s->Approximate(data_spline);
+
+			for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+				std::cout << i << std::endl;
+				std::cout << s->GetPosition(i).segment<6>(0).transpose() << std::endl;
+				std::cout << data_spline[i].second << std::endl;
+				std::cout << data_spline[i].first.segment<6>(0).transpose() << std::endl;
+			}
+			std::string path = std::string(CAR_DIR)+std::string("/result/spline1");
+			s->Save(path);
+			delete s;
+		}
+
+		nPhase += 1;
 	}
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
@@ -255,7 +281,7 @@ Step()
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
 		int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getNumDofs();
-		// mPDTargetPositions.block(idx, 0, dof, 1) += mActions.block(count_dof, 0, dof, 1);
+		mPDTargetPositions.block(idx, 0, dof, 1) += mActions.block(count_dof, 0, dof, 1);
 		count_dof += dof;
 
 	}
@@ -314,6 +340,9 @@ Step()
 
 	if(mRecord) {
 		SaveStepInfo();
+	}
+	if(nPhase == 3) {
+		data_spline.push_back(std::pair<Eigen::VectorXd, double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrameOnPhase));
 	}
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
@@ -536,8 +565,6 @@ GetTargetReward()
 		r_target = 2*exp(-pow(target_diff, 2)*5);
 		mControlFlag[0] = -1;
 
-		std::cout << mTarget << std::endl;
-
 	} else if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] > 0) {
 		mTarget += mRecordWork.back();
 		mTarget2 += 1;
@@ -554,8 +581,6 @@ GetTargetReward()
 			mControlFlag[0] = 1;
 			mReferenceManager->SetTargetReward(r_target, id);
 			mControlFlag[0] += 1;
-
-			std::cout << target_diff.transpose() << std::endl;
 
 		}
 	}
@@ -678,8 +703,6 @@ UpdateReward()
 
 	mRewardParts.clear();
 	double r_tot = 0.9 * accum_bvh + 0.1 * r_time;
-	std::cout << mCurrentFrame << std::endl;
-	std::cout << tracking_rewards_bvh[0] << " " << tracking_rewards_bvh[1] << " " << tracking_rewards_bvh[2] << " " << tracking_rewards_bvh[3] << " " << r_time << std::endl;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -902,6 +925,7 @@ Reset(bool RSI)
 	this->nTotalSteps = 0;
 	this->mTimeElapsed = 0;
 	this->mControlFlag.setZero();
+	this->nPhase = 0;
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	this->mTargetPositions = p_v_target->GetPosition();
