@@ -169,7 +169,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mRecordTargetPosition.clear();
 	this->mRecordBVHPosition.clear();
 	this->mRecordRewardPosition.clear();
-
+	this->mode = false;
 
 	mControlFlag.resize(2);
 	mRewardLabels.clear();
@@ -240,29 +240,9 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		mControlFlag.setZero();
-		if(nPhase == 3) {
-			std::vector<double> knots;
-			knots.push_back(0);
-			knots.push_back(31);
-			knots.push_back(36);
-			knots.push_back(44);
-			knots.push_back(58);
-			knots.push_back(76);
-
-			Spline* s = new Spline(knots, this->mReferenceManager->GetPhaseLength());
-		//	Spline* s = new Spline(4, this->mReferenceManager->GetPhaseLength());
-
-			s->Approximate(data_spline);
-
-			for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-				std::cout << i << std::endl;
-				std::cout << s->GetPosition(i).segment<6>(0).transpose() << std::endl;
-				std::cout << data_spline[i].second << std::endl;
-				std::cout << data_spline[i].first.segment<6>(0).transpose() << std::endl;
-			}
-			std::string path = std::string(CAR_DIR)+std::string("/result/spline1");
-			s->Save(path);
-			delete s;
+		if(mode && nPhase == 2) {
+			mReferenceManager->SaveTrajectories(data_spline, target_reward);
+			data_spline.clear();
 		}
 
 		nPhase += 1;
@@ -335,14 +315,19 @@ Step()
 	nTotalSteps += 1;
 	mRecordWork.push_back(torque_sum);
 	
-	this->UpdateReward();
+	if(isAdaptive)
+		this->UpdateAdaptiveReward();
+	else
+		this->UpdateReward();
 	this->UpdateTerminalInfo();
 
 	if(mRecord) {
 		SaveStepInfo();
 	}
-	if(nPhase == 3) {
-		data_spline.push_back(std::pair<Eigen::VectorXd, double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrameOnPhase));
+	if(mode && nPhase == 2) {
+		Eigen::VectorXd p(mCharacter->GetSkeleton()->getPositions().rows() + 1);
+		p << mCharacter->GetSkeleton()->getPositions(), mAdaptiveStep;
+		data_spline.push_back(std::pair<Eigen::VectorXd,double>(p, mCurrentFrameOnPhase));
 	}
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
@@ -507,14 +492,14 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//jump	
-	// if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-	// 	double target_diff = skel->getCOM()[1] - 1.05;
-	// 	r_target = 2 * exp(-pow(target_diff, 2) * 60);
-	// 	mControlFlag[0] = 1;
-	// 	target_reward = r_target;
-	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
-	// 	mCount += 1;
-	// }
+	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+		double target_diff = skel->getCOM()[1] - 1.3;
+		r_target = 2 * exp(-pow(target_diff, 2) * 60);
+		mControlFlag[0] = 1;
+		target_reward = skel->getCOM()[1];
+		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+		mCount += 1;
+	}
 
 	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
 	// 	mTarget = mRecordWork.back();
@@ -553,37 +538,37 @@ GetTargetReward()
 	
 
 	// punch - force avg 0.55
-	if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 0) {
-		mControlFlag[0] = 1;
-		mTarget = 0;
-		mTarget2 = 0;
-	} else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] > 0) {
-		mTarget /= mTarget2;
-	//  base
-	//	double target_diff = mTarget - 0.6;
-		double target_diff = mTarget - 1.0;
-		r_target = 2*exp(-pow(target_diff, 2)*5);
-		mControlFlag[0] = -1;
+	// if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] == 0) {
+	// 	mControlFlag[0] = 1;
+	// 	mTarget = 0;
+	// 	mTarget2 = 0;
+	// } else if(mCurrentFrameOnPhase >= 36.0 && mControlFlag[0] > 0) {
+	// 	mTarget /= mTarget2;
+	// //  base
+	// //	double target_diff = mTarget - 0.6;
+	// 	double target_diff = mTarget - 1.0;
+	// 	r_target = 2*exp(-pow(target_diff, 2)*5);
+	// 	mControlFlag[0] = -1;
 
-	} else if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] > 0) {
-		mTarget += mRecordWork.back();
-		mTarget2 += 1;
+	// } else if(mCurrentFrameOnPhase >= 19.0 && mControlFlag[0] > 0) {
+	// 	mTarget += mRecordWork.back();
+	// 	mTarget2 += 1;
 
-		if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 1) {
-			Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-			Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-			hand = hand - mHeadRoot.segment<3>(3);
-			hand = root_aa.inverse() * hand;
-			Eigen::Vector3d target_hand = Eigen::Vector3d(0.3, 0.35, 0.7);
-			Eigen::Vector3d target_diff = target_hand - hand;
+	// 	if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 1) {
+	// 		Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
+	// 		Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+	// 		hand = hand - mHeadRoot.segment<3>(3);
+	// 		hand = root_aa.inverse() * hand;
+	// 		Eigen::Vector3d target_hand = Eigen::Vector3d(0.3, 0.35, 0.7);
+	// 		Eigen::Vector3d target_diff = target_hand - hand;
 
-			r_target = 2*exp_of_squared(target_diff,0.3);
-			mControlFlag[0] = 1;
-			mReferenceManager->SetTargetReward(r_target, id);
-			mControlFlag[0] += 1;
+	// 		r_target = 2*exp_of_squared(target_diff,0.3);
+	// 		mControlFlag[0] = 1;
+	// 		mReferenceManager->SetTargetReward(r_target, id);
+	// 		mControlFlag[0] += 1;
 
-		}
-	}
+	// 	}
+	// }
 
 	if(mControlFlag[1] == 0 && mCurrentFrame >= mReferenceManager->GetPhaseLength()) {
 		Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame, false);
@@ -647,47 +632,49 @@ void
 Controller::
 UpdateAdaptiveReward()
 {
+	double r_tot_dense = this->GetTargetReward();
 
-	auto& skel = this->mCharacter->GetSkeleton();
-	Eigen::VectorXd dummy = skel->getVelocities();
+	// auto& skel = this->mCharacter->GetSkeleton();
+	// Eigen::VectorXd dummy = skel->getVelocities();
 
-	std::vector<double> tracking_rewards_ref = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
-								 dummy, dummy, mRewardBodies, false);
-	double accum_ref = std::accumulate(tracking_rewards_ref.begin(), tracking_rewards_ref.end(), 0.0) / tracking_rewards_ref.size();
-	double r_target = this->GetTargetReward();
-	Eigen::VectorXd a = mActions.tail(mAdaptiveBodies.size() * 3 + 3);
-	double r_action = exp_of_squared(a, 0.1);
+	// std::vector<double> tracking_rewards_ref = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
+	// 							 dummy, dummy, mRewardBodies, false);
+	// double accum_ref = std::accumulate(tracking_rewards_ref.begin(), tracking_rewards_ref.end(), 0.0) / tracking_rewards_ref.size();
+	// double r_target = this->GetTargetReward();
+	// Eigen::VectorXd a = mActions.tail(mAdaptiveBodies.size() * 3 + 3);
+	// double r_action = exp_of_squared(a, 0.1);
 
-	std::vector<bool> con_cur = this->GetContactInfo(mTargetPositions);
-	std::vector<bool> con_bvh = this->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrame, false));
-	double r_con = 0;
-	for(int i = 0; i < con_cur.size(); i++) {
-		if(con_cur[i] == con_bvh[i]) {
-			r_con += 1;
-		}
-	}
-	r_con /= con_cur.size();
+	// std::vector<bool> con_cur = this->GetContactInfo(mTargetPositions);
+	// std::vector<bool> con_bvh = this->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrame, false));
+	// double r_con = 0;
+	// for(int i = 0; i < con_cur.size(); i++) {
+	// 	if(con_cur[i] == con_bvh[i]) {
+	// 		r_con += 1;
+	// 	}
+	// }
+	// r_con /= con_cur.size();
 
-	std::vector<double> ref_adaptive_diff = this->GetAdaptiveRefReward();
-	double r_ad_root = (exp(-ref_adaptive_diff[0]*15) + exp(-ref_adaptive_diff[1]*10)) * 0.5;
-	double r_ad_joint = 0;
-	for(int i = 2; i < ref_adaptive_diff.size(); i++) {
-		r_ad_joint += 1.0 / (ref_adaptive_diff.size() - 2) * exp(-ref_adaptive_diff[i]*10);
-	}
-	double r_tot_dense = 0.3 * accum_ref + 0.3 * r_ad_joint + 0.3 * r_ad_root + 0.1 * r_con;
+	// std::vector<double> ref_adaptive_diff = this->GetAdaptiveRefReward();
+	// double r_ad_root = (exp(-ref_adaptive_diff[0]*15) + exp(-ref_adaptive_diff[1]*10)) * 0.5;
+	// double r_ad_joint = 0;
+	// for(int i = 2; i < ref_adaptive_diff.size(); i++) {
+	// 	r_ad_joint += 1.0 / (ref_adaptive_diff.size() - 2) * exp(-ref_adaptive_diff[i]*10);
+	// }
+	// double r_tot_dense = 0.3 * accum_ref + 0.3 * r_ad_joint + 0.3 * r_ad_root + 0.1 * r_con;
  
- 	mRewardParts.clear();
+ // 	mRewardParts.clear();
+
 	if(dart::math::isNan(r_tot_dense)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot_dense);
-		mRewardParts.push_back(r_target * 2);
-		mRewardParts.push_back(accum_ref);
-		mRewardParts.push_back(r_ad_joint);
-		mRewardParts.push_back(r_ad_root);
-		mRewardParts.push_back(r_con);
-		mRewardParts.push_back(r_target);
+		// mRewardParts.push_back(r_target * 2);
+		// mRewardParts.push_back(accum_ref);
+		// mRewardParts.push_back(r_ad_joint);
+		// mRewardParts.push_back(r_ad_root);
+		// mRewardParts.push_back(r_con);
+		// mRewardParts.push_back(r_target);
 	}
 }
 void

@@ -108,6 +108,38 @@ class Monitor(object):
 		self.prevframes = curframes
 		return rewards, dones, curframes
 
+	def stepOptimize(self, action_noise, action_wo_noise):
+		actions = []
+		for i in range(self.num_slaves):
+			if self.optimization_cur_iter[i] == self.optimization_use_nth:
+				actions.append(action_noise[i])
+			else:
+				actions.append(action_wo_noise[i])
+		
+		actions = np.array(actions)
+		self.states, rewards, dones, times, frames, nan_count =  self.env.step(actions)
+		cur_phase = np.array(self.states)[:,-1]
+		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
+		self.states[~np.array(self.terminated)] = states_updated
+
+		for i in range(self.num_slaves):
+			if cur_phase[i] < self.optimization_prev_phase[i]:
+				self.optimization_cur_iter[i] += 1
+			if self.optimization_cur_iter[i] > self.optimization_use_nth:
+				self.terminated[i] = True;
+
+		self.optimization_prev_phase = cur_phase
+
+	def initOptimize(self, use_nth):
+		self.sim_env.SetOptimizeMode(True)
+		self.optimization_cur_iter = [0]*self.num_slaves
+		self.optimization_use_nth = use_nth
+		self.optimization_prev_phase = [0]*self.num_slaves
+
+	def Optimize(self):
+		self.sim_env.SetOptimizeMode(False)
+		self.sim_env.Optimize()
+
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:
 			plt.figure(num_fig, clear=True, figsize=(5.5, 4))
@@ -210,8 +242,6 @@ class Monitor(object):
 		self.total_time_elapsed = 0
 		self.rewards_target_per_iteration = 0
 		self.num_phase = 0
-
-		self.sim_env.UpdateMotion()
 
 		summary = dict()
 		summary['r_per_e'] = r_per_e

@@ -85,6 +85,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
 	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
 	std::vector<double> GetAdaptiveIdxs();
+	void SetOptimizeMode(bool on) { this->mode = on; };
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -191,6 +192,7 @@ protected:
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
+	bool mode;
 };
 }
 #endif

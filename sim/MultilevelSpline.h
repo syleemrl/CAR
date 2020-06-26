@@ -16,6 +16,7 @@ public:
 	Spline(double knot_interval, double end);
 	void Approximate(std::vector<std::pair<Eigen::VectorXd,double>> motion);
 	Eigen::VectorXd GetPosition(double t);
+	std::vector<Eigen::VectorXd> GetControlPoints() { return mControlPoints; };
 	void Save(std::string path);
 protected:
 	double B(int idx, double t);

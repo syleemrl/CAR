@@ -5,7 +5,7 @@
 #include "Character.h"
 #include "CharacterConfigurations.h"
 #include "BVH.h"
-
+#include "MultilevelSpline.h"
 #include <tuple>
 #include <mutex>
 
@@ -65,14 +65,15 @@ public:
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
 	std::pair<bool, bool> CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v);
-	void SaveEliteTrajectories(int slave);
-	void SaveTuples(std::vector<Eigen::VectorXd> vecs, std::string postfix, int n);
 	void GetNewMotionFromAxis();
 	void GetNewAxisFromMotion(bool adaptive=true);
 	void ComputeDeviation();
 	void CleanupMotion();
 	Eigen::VectorXd GetAxis(double t);
 	Eigen::VectorXd GetDev(double t);
+
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards);
+	void Optimize();
 
 protected:
 	Character* mCharacter;
@@ -100,6 +101,9 @@ protected:
 	std::vector<Eigen::VectorXd> mDev_BVH;
 	std::vector<std::vector<double>> mContact_BVH;
 	std::vector<std::string> mContact_name;
+
+	std::vector<Spline*> mSplines;
+	std::vector<double> mRewards;
 
 	double mSlaves;
 	std::mutex mLock;

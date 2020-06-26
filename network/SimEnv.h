@@ -42,11 +42,10 @@ public:
 	p::list GetRewardLabels();
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
+	
+	void SetOptimizeMode(bool on);
+	void Optimize();
 
-	void UpdateSigTorque();
-	
-	void UpdateMotion();
-	
 	void SaveAdaptiveMotion();
 	void LoadAdaptiveMotion();
 	

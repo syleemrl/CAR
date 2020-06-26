@@ -193,15 +193,15 @@ DeformCharacter(double w)
 }
 void
 SimEnv::
-UpdateSigTorque()
+SetOptimizeMode(bool on) 
 {
-	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->UpdateSigTorque();
+	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->SetOptimizeMode(on);
 }
 void
 SimEnv::
-UpdateMotion()
+Optimize()
 {
-	mReferenceManager->UpdateMotion();
+	mReferenceManager->Optimize();
 }
 void
 SimEnv::
@@ -240,8 +240,8 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
-		.def("UpdateSigTorque",&SimEnv::UpdateSigTorque)
-		.def("UpdateMotion",&SimEnv::UpdateMotion)
+		.def("SetOptimizeMode",&SimEnv::SetOptimizeMode)
+		.def("Optimize",&SimEnv::Optimize)
 		.def("SaveAdaptiveMotion",&SimEnv::SaveAdaptiveMotion)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);

@@ -352,7 +352,7 @@ UpdateMotion() {
 			double rate = 1;
 			(mAxis[i])(j) = (mAxis[i])(j) + rate * -pearson_coef(j) * (mAxis[i])(j);
 		}
-		this->SaveTuples(mTuples[i], std::to_string(i), 50);	
+	//	this->SaveTuples(mTuples[i], std::to_string(i), 50);	
 		mTuples[i].clear();
 	}
 	this->GetNewMotionFromAxis();
@@ -391,28 +391,10 @@ EndEpisode(int slave) {
 			mLock.unlock();
 		}
 	}
-	if(mSaveTrajectory)
-		this->SaveEliteTrajectories(slave);
+	// if(mSaveTrajectory)
+	// 	this->SaveEliteTrajectories(slave);
 	mTuples_position[slave].clear();
 	mTuples_temp[slave].clear();
-}
-void 
-ReferenceManager::
-SaveTuples(std::vector<Eigen::VectorXd> vecs, std::string postfix, int n) {
-	std::string path = mPath + postfix;
-	std::cout << "save motion to:" << path << std::endl;
-
-	std::ofstream ofs(path, std::ios_base::app);
-
-	int count = 0;
-	for(auto t: vecs) {
-		ofs << t.transpose() << std::endl;
-		count++;
-		if(count == n) 
-			break;
-	}
-	ofs.close();
-
 }
 void 
 ReferenceManager::
@@ -795,25 +777,6 @@ Motion* ReferenceManager::GetMotion(double t, bool adaptive)
 		return new Motion(DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0)), 
 				DPhy::BlendPosition((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
 }
-void 
-ReferenceManager::
-SaveEliteTrajectories(int slave) {
-	std::string path = mPath + std::string("trajectories");
-	// std::cout << "save elite tuples to:" << path << std::endl;
-	std::ofstream ofs(path, std::ios_base::app);
-	double prev_reward = 0;
-
-	for(int i = 0; i < mTuples_temp[slave].size(); i++) {
-		if(std::get<1>(mTuples_temp[slave][i]) != prev_reward) {
-			prev_reward = std::get<1>(mTuples_temp[slave][i]); 
-		//	std::cout << prev_reward << std::endl;
-		}
-		if(std::get<1>(mTuples_temp[slave][i]) <= 0.5) {
-			ofs << std::get<2>(mTuples_temp[slave][i]).transpose() << std::endl;
-		}
-	}
-	ofs.close();
-}
 Eigen::VectorXd 
 ReferenceManager::
 GetAxis(double t) {
@@ -829,5 +792,71 @@ GetDev(double t) {
 	if(k0 == mPhaseLength)
 		k0 -= 1;
 	return mDev_BVH[k0];
+}
+void 
+ReferenceManager::
+SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards) {
+	std::vector<double> knots;
+	knots.push_back(0);
+	knots.push_back(12);
+	knots.push_back(29);
+	knots.push_back(37);
+	knots.push_back(44);
+	knots.push_back(56);
+	knots.push_back(64);
+	knots.push_back(76);
+
+	Spline* s = new Spline(knots, this->GetPhaseLength());
+	s->Approximate(data_spline);
+
+	mLock.lock();
+	mSplines.push_back(s);
+	mRewards.push_back(rewards);
+	mLock.unlock();
+	
+	std::string path = std::string(CAR_DIR)+std::string("/result/trajectory")+std::to_string(mSplines.size());
+	s->Save(path);
+	
+	std::ofstream ofs(path, std::fstream::out | std::fstream::app);
+	ofs << data_spline.size() << std::endl;
+	for(auto t: data_spline) {
+		ofs << t.second << std::endl;
+		ofs << t.first.transpose() << std::endl;
+	}
+	std::cout << "saved trajectory to " << path << std::endl;
+	ofs.close();
+}
+void 
+ReferenceManager::
+Optimize() {
+	std::vector<std::vector<double>> cp_y;
+	int cps_size = mSplines[0]->GetControlPoints().size();
+	for(int i = 0; i < cps_size; i++) {
+		std::vector<double> temp;
+		temp.clear();
+		cp_y.push_back(temp);
+	}
+	for(int i = 0; i < mSplines.size(); i++) {
+		std::vector<Eigen::VectorXd> cps = mSplines[i]->GetControlPoints();
+		for(int j = 0; j < cps.size(); j++) {
+			cp_y[j].push_back(cps[j](4));
+		}
+
+		std::cout << i << " " << mRewards[i] << std::endl;
+		for(int j = 0; j < cps.size(); j++) {
+			std::cout << cps[j].segment<6>(0).transpose() << std::endl;
+		}
+		// std::cout << std::endl;
+		// for(int j = 0; j < this->GetPhaseLength(); j++) {
+		// 	std::cout << mSplines[i]->GetPosition(j).segment<6>(0).transpose() << std::endl;
+		// }
+	}
+	while(!mSplines.empty()){
+		Spline* s = mSplines.back();
+		mSplines.pop_back();
+
+		delete s;
+
+	}
 }
 };
