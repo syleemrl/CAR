@@ -8,6 +8,7 @@
 #include "MultilevelSpline.h"
 #include <tuple>
 #include <mutex>
+#include "src/cmaes.h"
 
 
 namespace DPhy
@@ -74,7 +75,6 @@ public:
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards);
 	void Optimize();
-
 protected:
 	Character* mCharacter;
 	double mTimeStep;

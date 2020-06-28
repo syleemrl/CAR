@@ -3,6 +3,7 @@
 #include <fstream>
 #include <stdlib.h>
 #include <cmath>
+
 #define TARGET_FRAME 44
 using namespace dart::dynamics;
 namespace DPhy
@@ -826,6 +827,14 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, dou
 	std::cout << "saved trajectory to " << path << std::endl;
 	ofs.close();
 }
+libcmaes::FitFunc 
+fsphere = [](const double *x, const int N)
+{
+  double val = 0.0;
+  for (int i=0;i<N;i++)
+    val += x[i]*x[i];
+  return val;
+};
 void 
 ReferenceManager::
 Optimize() {
@@ -851,6 +860,15 @@ Optimize() {
 		// 	std::cout << mSplines[i]->GetPosition(j).segment<6>(0).transpose() << std::endl;
 		// }
 	}
+	int dim = 10; // problem dimensions.
+  	std::vector<double> x0(dim,10.0);
+ 	double sigma = 0.1;
+  //int lambda = 100; // offsprings at each generation.
+  	libcmaes::CMAParameters<> cmaparams(x0,sigma);
+  //cmaparams.set_algo(BIPOP_CMAES);
+  	libcmaes::CMASolutions cmasols = libcmaes::cmaes<>(fsphere,cmaparams);
+ 	std::cout << "best solution: " << cmasols << std::endl;
+
 	while(!mSplines.empty()){
 		Spline* s = mSplines.back();
 		mSplines.pop_back();
