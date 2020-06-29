@@ -15,8 +15,6 @@ find_package(PythonLibs 3.5 REQUIRED)
 find_package(PythonInterp 3.5 REQUIRED)
 find_package(TinyXML REQUIRED)
 
-find_library(CMAES NAMES libcmaes.a HINTS ${CMAKE_SOURCE_DIR}/lib/libcmaes/build/src REQUIRED)
-
 add_subdirectory( sim )
 add_subdirectory( network )
 add_subdirectory( render )

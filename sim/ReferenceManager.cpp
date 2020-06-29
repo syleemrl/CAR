@@ -511,6 +511,8 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	std::cout << "load trained data from: " << path << std::endl;
 
 	auto& skel = mCharacter->GetSkeleton();
+	int dof = skel->getPositions().rows();
+	mDOF = dof;
 	std::map<std::string,std::string> bvhMap = mCharacter->GetBVHMap(); 
 	for(const auto ss :bvhMap){
 		bvh->AddMapping(ss.first,ss.second);
@@ -518,7 +520,6 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	double t = 0;
 	for(int i = 0; i < bvh->GetMaxFrame(); i++)
 	{
-		int dof = skel->getPositions().rows();
 		Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
 		Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
 		//Set p
@@ -794,84 +795,115 @@ GetDev(double t) {
 		k0 -= 1;
 	return mDev_BVH[k0];
 }
+void
+ReferenceManager::
+InitOptimization() {
+	mKnots.push_back(0);
+	mKnots.push_back(12);
+	mKnots.push_back(29);
+	mKnots.push_back(37);
+	mKnots.push_back(44);
+	mKnots.push_back(56);
+	mKnots.push_back(64);
+	mKnots.push_back(76);
+
+	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
+	// for(int i = 0; i < mPhaseLength; i++) {
+	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
+	// }
+	// MultilevelSpline* s = new MultilevelSpline(2, mPhaseLength);
+	// s->SetKnots(0, mKnots);
+	// s->SetKnots(1, 6);
+
+	// s->ConvertMotionToSpline(pos);
+	// std::string path = std::string(CAR_DIR) + std::string("/result/op_base");
+
+	// std::ofstream ofs(path);
+ //    std::vector<Eigen::VectorXd> newpos = s->ConvertSplineToMotion();
+	// for(auto t: newpos) {	
+	// 	ofs << t.transpose() << std::endl;
+	// }
+	// ofs.close();
+
+}
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards) {
-	std::vector<double> knots;
-	knots.push_back(0);
-	knots.push_back(12);
-	knots.push_back(29);
-	knots.push_back(37);
-	knots.push_back(44);
-	knots.push_back(56);
-	knots.push_back(64);
-	knots.push_back(76);
+	MultilevelSpline* s = new MultilevelSpline(2, this->GetPhaseLength());
+	s->SetKnots(0, mKnots);
+	s->SetKnots(1, 6);
 
-	Spline* s = new Spline(knots, this->GetPhaseLength());
-	s->Approximate(data_spline);
+	s->ConvertMotionToSpline(data_spline);
 
 	mLock.lock();
-	mSplines.push_back(s);
-	mRewards.push_back(rewards);
+	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, rewards));
 	mLock.unlock();
+
+	// std::string path = std::string(CAR_DIR)+std::string("/result/trajectory")+std::to_string(mSamples.size());
+	// s->Save(path);
 	
-	std::string path = std::string(CAR_DIR)+std::string("/result/trajectory")+std::to_string(mSplines.size());
-	s->Save(path);
-	
-	std::ofstream ofs(path, std::fstream::out | std::fstream::app);
-	ofs << data_spline.size() << std::endl;
-	for(auto t: data_spline) {
-		ofs << t.second << std::endl;
-		ofs << t.first.transpose() << std::endl;
-	}
-	std::cout << "saved trajectory to " << path << std::endl;
-	ofs.close();
+	// std::ofstream ofs(path, std::fstream::out | std::fstream::app);
+	// ofs << data_spline.size() << std::endl;
+	// for(auto t: data_spline) {
+	// 	ofs << t.second << std::endl;
+	// 	ofs << t.first.transpose() << std::endl;
+	// }
+	// std::cout << "saved trajectory to " << path << std::endl;
+	// ofs.close();
 }
-libcmaes::FitFunc 
-fsphere = [](const double *x, const int N)
-{
-  double val = 0.0;
-  for (int i=0;i<N;i++)
-    val += x[i]*x[i];
-  return val;
-};
+bool cmp(const std::pair<DPhy::MultilevelSpline*, double> &p1, const std::pair<DPhy::MultilevelSpline*, double> &p2){
+    if(p1.second > p2.second){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
 void 
 ReferenceManager::
 Optimize() {
-	std::vector<std::vector<double>> cp_y;
-	int cps_size = mSplines[0]->GetControlPoints().size();
-	for(int i = 0; i < cps_size; i++) {
-		std::vector<double> temp;
-		temp.clear();
-		cp_y.push_back(temp);
-	}
-	for(int i = 0; i < mSplines.size(); i++) {
-		std::vector<Eigen::VectorXd> cps = mSplines[i]->GetControlPoints();
-		for(int j = 0; j < cps.size(); j++) {
-			cp_y[j].push_back(cps[j](4));
-		}
+    std::stable_sort(mSamples.begin(), mSamples.end(), cmp);
+    int mu = std::floor(mSamples.size() / 2.0);
+	MultilevelSpline* mean_spline = new MultilevelSpline(2, this->GetPhaseLength()); 
+	mean_spline->SetKnots(0, mKnots);
+	mean_spline->SetKnots(1, 6);
 
-		std::cout << i << " " << mRewards[i] << std::endl;
-		for(int j = 0; j < cps.size(); j++) {
-			std::cout << cps[j].segment<6>(0).transpose() << std::endl;
+	std::vector<Eigen::VectorXd> mean_cps;   
+   	for(int k = 0; k < 2; k++) {
+   		mean_cps.clear();
+   		int num_knot = mean_spline->GetKnots(k).size();
+   		for(int i = 0; i < num_knot; i++) {
+			mean_cps.push_back(Eigen::VectorXd::Zero(mDOF));
 		}
-		// std::cout << std::endl;
-		// for(int j = 0; j < this->GetPhaseLength(); j++) {
-		// 	std::cout << mSplines[i]->GetPosition(j).segment<6>(0).transpose() << std::endl;
-		// }
-	}
-	int dim = 10; // problem dimensions.
-  	std::vector<double> x0(dim,10.0);
- 	double sigma = 0.1;
-  //int lambda = 100; // offsprings at each generation.
-  	libcmaes::CMAParameters<> cmaparams(x0,sigma);
-  //cmaparams.set_algo(BIPOP_CMAES);
-  	libcmaes::CMASolutions cmasols = libcmaes::cmaes<>(fsphere,cmaparams);
- 	std::cout << "best solution: " << cmasols << std::endl;
+	    double weight_sum = 0;
 
-	while(!mSplines.empty()){
-		Spline* s = mSplines.back();
-		mSplines.pop_back();
+		for(int i = 0; i < mu; i++) {
+			double w = log(mu + 1) - log(i + 1);
+	    	weight_sum += w;
+	    	std::vector<Eigen::VectorXd> cps = mSamples[i].first->GetControlPoints(k);
+	    	for(int j = 0; j < num_knot; j++) {
+				mean_cps[j] += w * cps[j].head(cps[j].rows() - 1);
+	    	}
+	    }
+	    for(int i = 0; i < num_knot; i++) {
+	    	mean_cps[i] /= weight_sum;
+		}
+	    mean_spline->SetControlPoints(k, mean_cps);
+   	}
+    std::vector<Eigen::VectorXd> newpos = mean_spline->ConvertSplineToMotion();
+
+	std::string path = std::string(CAR_DIR) + std::string("/result/op_temp");
+
+	std::ofstream ofs(path);
+
+	for(auto t: newpos) {	
+		ofs << t.transpose() << std::endl;
+	}
+	ofs.close();
+
+	while(!mSamples.empty()){
+		MultilevelSpline* s = mSamples.back().first;
+		mSamples.pop_back();
 
 		delete s;
 

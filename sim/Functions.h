@@ -51,6 +51,7 @@ Eigen::Vector3d NearestOnGeodesicCurve3d(Eigen::Vector3d targetAxis, Eigen::Vect
 Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position);
 Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot);
 Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1);
+Eigen::Vector3d LinearPositionDifferences(Eigen::VectorXd v2, Eigen::Vector3d v1, Eigen::Vector3d q1);
 
 void SetBodyNodeColors(dart::dynamics::BodyNode* bn, const Eigen::Vector3d& color);
 void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Vector3d& color);

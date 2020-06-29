@@ -15,6 +15,20 @@ Spline(double knot_interval, double end) {
 		mKnots.push_back(i);
 	}
 }
+void
+Spline:: 
+SetKnots(std::vector<double> knots) {
+	mKnots = knots;
+}
+void
+Spline:: 
+SetKnots(double knot_interval) {
+	mKnots.clear();
+	for(int i = 0; i < mEnd; i+= knot_interval) {
+		mKnots.push_back(i);
+	}
+
+}
 double 
 Spline::
 B(int idx, double t) {
@@ -45,6 +59,7 @@ Approximate(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
 
 	int length = mKnots.size();
 	int dof = motion[0].first.rows();
+
 	Eigen::MatrixXd M(length, motion.size());
 	Eigen::MatrixXd P(motion.size(), dof);
 	Eigen::MatrixXd C(length, dof);
@@ -76,129 +91,28 @@ Approximate(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
 	for(int i = 0; i < C.rows(); i++) {
 		mControlPoints.push_back(C.row(i));
 	}
-	// int length = mKnots.size();
-	// std::vector<double> weight;
-	// std::vector<Eigen::VectorXd> cp;
-	// for(int i = 0; i < length; i++) {
-	// 	cp.push_back(Eigen::VectorXd::Zero(motion[0].first.rows()));
-	// 	weight.push_back(0);
-	// }
-	// count = 0;
-	// for(int i = 0; i < motion.size(); i++) {
-	// 	if(count+1 < mKnots.size() && motion[i].second >= mKnotMap[count + 1]) {
-	// 		count += 1;
-	// 	}
-	// 	double t = motion[i].second - mKnotMap[count];
-	// 	double interval;
-	// 	if(count + 1 < mKnots.size()) {
-	// 		interval = mKnotMap[count+1] - mKnotMap[count];
-	// 	} else {
-	// 		interval = mEnd - mKnotMap[count];
-	// 	}
-	// 	double f = t / interval;
-	// 	std::cout << i << " " << f << " " << count << std::endl;
-	// 	double r0 = B(0, f);
-	// 	double r1 = B(1, f);
-	// 	double r2 = B(2, f);
-	// 	double r3 = B(3, f);
-
-	// 	double sum = r0 * r0 + r1 * r1 + r2 * r2 + r3 * r3;
-	// 	cp[(count - 1 + length) % length] += r0 * r0 * motion[i].first * r0 / sum;
-	// 	cp[count % length] += r1 * r1 * motion[i].first * r1 / sum;
-	// 	cp[(count + 1) % length] += r2 * r2 * motion[i].first * r2 / sum;
-	// 	cp[(count + 2) % length] += r3 * r3 * motion[i].first * r3 / sum;
-
-	// 	weight[(count - 1 + length) % length] += r0 * r0;
-	// 	weight[count % length] += r1 * r1;
-	// 	weight[(count + 1) % length] += r2 * r2;
-	// 	weight[(count + 2) % length] += r3 * r3;
-
-	// }
-	// for(int i = 0; i < length; i++) {
-	// 	cp[i] /= weight[i];
-	// 	mControlPoints.push_back(cp[i]);
-	// 	std::cout << cp[i].segment<6>(0).transpose() << std::endl;
-	// }
-
-
-	// for(int i = 0; i < length; i++) {
-	// 	std::cout << mKnots[i] << std::endl;
-	// 	Eigen::VectorXd cp(motion[0].first.rows());
-	// 	cp.setZero();
-	// 	double w_square_sum = 0;
-
-	// 	int b_idx = 3;
-	// 	int neighbor_idx_knot = (i - 2 + length) % length;
-	// 	int neighbor_idx_knot_next = (i - 1 + length) % length;
-	// 	double knot_interval;
-	// 	if(neighbor_idx_knot > neighbor_idx_knot_next) {
-	// 		knot_interval = mKnots[neighbor_idx_knot_next] + mEnd - mKnots[neighbor_idx_knot];
-	// 	} else {
-	// 		knot_interval = mKnots[neighbor_idx_knot_next] - mKnots[neighbor_idx_knot];
-	// 	}
-
-	// 	int neighbor_idx_motion = mKnotMap[neighbor_idx_knot];
-	// 	double weight_sum = 0;
-	// 	while(1) {
-	// 		std::cout << "neighbor: " << mKnots[neighbor_idx_knot] << " " << neighbor_idx_motion << std::endl;
-	// 		double t = (motion[neighbor_idx_motion].second - mKnots[neighbor_idx_knot]) / knot_interval;
-	// 		if(t < 0) {
-	// 			t += mEnd / knot_interval; 
-	// 		}
-	// 		double w = this->B(b_idx, t);
-	// 		double b_sum = pow(this->B(0, t), 2) + pow(this->B(1, t), 2) + pow(this->B(2, t), 2) + pow(this->B(3, t), 2);
-	// 		Eigen::VectorXd beta = w * motion[neighbor_idx_motion].first / b_sum;
-	// 		cp += w * w * beta;
-	// 		weight_sum += w / b_sum;
-	// 		w_square_sum += w * w;
-			
-	// 		neighbor_idx_motion += 1;
-	// 		if(neighbor_idx_motion >= mEnd)
-	// 			neighbor_idx_motion = 0;
-
-	// 		if(mKnotMap[neighbor_idx_knot_next] == neighbor_idx_motion) {
-	// 			neighbor_idx_knot = (neighbor_idx_knot + 1) % length;
-	// 			neighbor_idx_knot_next = (neighbor_idx_knot + 1) % length;
-	// 			b_idx -= 1;
-				
-	// 			if(neighbor_idx_knot > neighbor_idx_knot_next) {
-	// 				knot_interval = mKnotMap[neighbor_idx_knot_next] + mEnd - mKnotMap[neighbor_idx_knot];
-	// 			} else {
-	// 				knot_interval = mKnotMap[neighbor_idx_knot_next] - mKnotMap[neighbor_idx_knot];
-	// 			}
-	// 		}
-			
-	// 		if(((neighbor_idx_knot - i + length) % length) == 2)
-	// 			break;
-	// 	}
-
-	// 	cp /= w_square_sum;
-	// 	mControlPoints.push_back(cp);
-	// }
-
 }
 Eigen::VectorXd 
 Spline::
 GetPosition(double t) {
 	int length = mKnots.size();
-
 	Eigen::VectorXd p(mControlPoints[0].rows());
 	p.setZero();
 	int knot = 0;
 
 	for(int i = length - 1; i >= 0; i--) {
-		if(t > mKnotMap[i]) {
+		if(t > mKnots[i]) {
 			knot = i;
 			break;
 		}
 	}
 	double knot_interval;
 	if(knot + 1 >= mKnots.size()) {
-		knot_interval = mKnotMap[0] + mEnd - mKnotMap[knot];
+		knot_interval = mKnots[0] + mEnd - mKnots[knot];
 	} else {
-		knot_interval = mKnotMap[knot + 1] - mKnotMap[knot];
+		knot_interval = mKnots[knot + 1] - mKnots[knot];
 	}
-	t = (t - mKnotMap[knot]) / knot_interval;
+	t = (t - mKnots[knot]) / knot_interval;
 	if(t < 0) {
 		t += mEnd / knot_interval; 
 	}
@@ -224,13 +138,72 @@ Save(std::string path) {
 	std::cout << "saved spline to " << path << std::endl;
 	ofs.close();
 }
-// void
-// MultilevelSpline::
-// ConvertMotionToSpline(std::vector<Motion*> motions, int numLevels) {
-// }
-// std::vector<Motion*> 
-// MultilevelSpline::
-// ConvertSplineToMotion() {
+MultilevelSpline::
+MultilevelSpline(int level, double end) {
+	mNumLevels = level;
+	mEnd = end;
+	for(int i = 0; i < mNumLevels; i++) {
+		Spline* s = new Spline(1, mEnd);
+		mSplines.push_back(s);
+	}
+}
+void
+MultilevelSpline::
+SetKnots(int i, std::vector<double> knots) {
+	mSplines[i]->SetKnots(knots);
+}
+void
+MultilevelSpline::
+SetKnots(int i, double knot_interval) {
+	mSplines[i]->SetKnots(knot_interval);
+}
+void 
+MultilevelSpline::
+SetControlPoints(int i, std::vector<Eigen::VectorXd> cps) {
+	mSplines[i]->SetControlPoints(cps);
+}
+std::vector<Eigen::VectorXd> 
+MultilevelSpline::
+GetControlPoints(int i) {
+	return mSplines[i]->GetControlPoints();
+}
+
+void
+MultilevelSpline::
+ConvertMotionToSpline(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
+
+	for(int i = 0; i < mNumLevels; i++) {
+		if(i == 0)
+			mSplines[i]->Approximate(motion);
+		else {
+			std::vector<std::pair<Eigen::VectorXd,double>> displacement;	
+			for(int j = 0; j < motion.size(); j++) {
+				Eigen::VectorXd p = mSplines[i-1]->GetPosition(motion[j].second);
+				displacement.push_back(std::pair<Eigen::VectorXd,double>(motion[j].first - p, motion[j].second));
+			}
+			mSplines[i]->Approximate(displacement);
+		}
+	}
+
+}
+std::vector<Eigen::VectorXd> 
+MultilevelSpline::
+ConvertSplineToMotion() {
+	std::vector<Eigen::VectorXd> motion;
 	
-// }
+	int dof = mSplines[0]->GetPosition(0).rows();
+
+	for(int i = 0; i < mEnd; i++) {
+		motion.push_back(Eigen::VectorXd::Zero(dof));
+	}
+
+	for(int i = 0; i < mNumLevels; i++) {
+		std::vector<Eigen::VectorXd> cp = mSplines[i]->GetControlPoints();
+		for(int j = 0; j < mEnd; j++) {
+			motion[j] += mSplines[i]->GetPosition(j);
+		}
+	}
+
+	return motion;
+}
 }

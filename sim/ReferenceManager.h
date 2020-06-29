@@ -8,8 +8,6 @@
 #include "MultilevelSpline.h"
 #include <tuple>
 #include <mutex>
-#include "src/cmaes.h"
-
 
 namespace DPhy
 {
@@ -74,6 +72,7 @@ public:
 	Eigen::VectorXd GetDev(double t);
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards);
+	void InitOptimization();
 	void Optimize();
 protected:
 	Character* mCharacter;
@@ -102,13 +101,15 @@ protected:
 	std::vector<std::vector<double>> mContact_BVH;
 	std::vector<std::string> mContact_name;
 
-	std::vector<Spline*> mSplines;
-	std::vector<double> mRewards;
+	std::vector<std::pair<MultilevelSpline*, double>> mSamples;
+	std::vector<Eigen::VectorXd> mDisplacement;
+	std::vector<double> mKnots;
 
 	double mSlaves;
 	std::mutex mLock;
 	bool mSaveTrajectory;
 	std::string mPath;
+	double mDOF;
 };
 }
 

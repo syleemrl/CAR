@@ -465,6 +465,13 @@ Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1)
   	aa = aa1.inverse() * aa2;
   	return aa.axis() * aa.angle();
 }
+Eigen::Vector3d LinearPositionDifferences(Eigen::VectorXd v2, Eigen::Vector3d v1, Eigen::Vector3d q1)
+{
+	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(q1.norm(), q1.normalized());
+	Eigen::Vector3d diff = v2 - v1;
+
+	return aa1.inverse() * diff;
+}
 Eigen::Vector3d NearestOnGeodesicCurve3d(Eigen::Vector3d targetAxis, Eigen::Vector3d targetPosition, Eigen::Vector3d position) {
 	Eigen::Quaterniond v1_q = DARTPositionToQuaternion(position);
 	Eigen::Quaterniond q = DARTPositionToQuaternion(targetPosition);

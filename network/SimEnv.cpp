@@ -27,6 +27,10 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
+
+	if(adaptive) {
+		mReferenceManager->InitOptimization();
+	}
 }
 //For general properties
 int

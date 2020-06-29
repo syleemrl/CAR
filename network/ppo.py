@@ -412,7 +412,7 @@ class PPO(object):
 		print('optimization done')
 
 	def train(self, num_iteration):
-		self.optimize(1, 2)
+		self.optimize(20, 2)
 		epi_info_iter = []
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):

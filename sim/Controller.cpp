@@ -189,6 +189,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		mRewardLabels.push_back("v");
 		mRewardLabels.push_back("time");
 	}
+
 }
 void
 Controller::
