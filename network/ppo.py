@@ -329,7 +329,6 @@ class PPO(object):
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms-0')
-		self.env.sim_env.SaveAdaptiveMotion()
 
 	def load(self, path):
 		print("Loading parameters from {}".format(path))
@@ -444,8 +443,8 @@ class PPO(object):
 		#	if 1:
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
-					self.env.Optimize()
-
+					if it % 20 == 19:
+						self.env.Optimize()
 				else:			
 					self.update(epi_info_iter) 
 

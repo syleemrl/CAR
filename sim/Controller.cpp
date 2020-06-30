@@ -740,11 +740,7 @@ void
 Controller::
 UpdateTerminalInfo()
 {	
-	Eigen::VectorXd p_ideal;
-	if(isAdaptive) 
-		p_ideal = mTargetPositions;
-	else 
-		p_ideal = mReferenceManager->GetPosition(mCurrentFrame);
+	Eigen::VectorXd p_ideal = mTargetPositions;
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	Eigen::VectorXd p = skel->getPositions();
@@ -752,21 +748,6 @@ UpdateTerminalInfo()
 	Eigen::Vector3d root_pos = skel->getPositions().segment<3>(3);
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
-
-	Eigen::VectorXd p_old = mReferenceManager->GetPosition(mCurrentFrame);
-
-	Eigen::AngleAxisd root_old_aa = Eigen::AngleAxisd(p_old.segment<3>(0).norm(), p_old.segment<3>(0).normalized());
-	Eigen::AngleAxisd root_new_aa = Eigen::AngleAxisd(p_ideal.segment<3>(0).norm(), p_ideal.segment<3>(0).normalized());
-
-	Eigen::Vector3d up_vec1 = root_old_aa*Eigen::Vector3d::UnitY();
-	Eigen::Vector3d up_vec2 = root_new_aa*Eigen::Vector3d::UnitY();
-
-	Eigen::VectorXd pos_diff = skel->getPositionDifferences(p_ideal, p_old);
-	pos_diff.segment<6>(0).setZero();
-
-	double up_vec_angle_diff = atan2(std::sqrt(up_vec1[0]*up_vec1[0]+up_vec1[2]*up_vec1[2]),up_vec1[1])
-							 - atan2(std::sqrt(up_vec2[0]*up_vec2[0]+up_vec2[2]*up_vec2[2]),up_vec2[1]);
-	double root_y_diff = p_old[4] - p_ideal[4];
 
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
@@ -810,14 +791,6 @@ UpdateTerminalInfo()
 		terminationReason =  8;
 	}
 	
-	if(isAdaptive && !mRecord) {
-		if(mCurrentFrameOnPhase < 3.0) {
-			if(std::abs(root_y_diff) > 0.3 || std::abs(up_vec_angle_diff) > 0.3 || pos_diff.norm() > 1.5) {
-				mIsTerminal = true;
-				terminationReason = 6;
-			}
-		} 
-	}
 
 	if(mRecord) {
 		if(mIsTerminal) std::cout << terminationReason << std::endl;

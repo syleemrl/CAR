@@ -556,7 +556,7 @@ Optimize() {
 		mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
 	}
 	this->GenerateMotionsFromSinglePhase(1000, false, true);
-
+	this->SaveAdaptiveMotion();
 
 	std::string path = std::string(CAR_DIR) + std::string("/result/op_temp");
 

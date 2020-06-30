@@ -202,12 +202,6 @@ Optimize()
 }
 void
 SimEnv::
-SaveAdaptiveMotion()
-{
-	mReferenceManager->SaveAdaptiveMotion();
-}
-void
-SimEnv::
 LoadAdaptiveMotion()
 {
 	mReferenceManager->LoadAdaptiveMotion();
@@ -238,7 +232,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("Optimize",&SimEnv::Optimize)
-		.def("SaveAdaptiveMotion",&SimEnv::SaveAdaptiveMotion)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }
