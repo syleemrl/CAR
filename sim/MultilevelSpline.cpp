@@ -56,7 +56,7 @@ Approximate(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
 			count += 1;
 		}
 	}
-
+	
 	int length = mKnots.size();
 	int dof = motion[0].first.rows();
 
@@ -66,7 +66,7 @@ Approximate(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
 	M.setZero();
 	P.setZero();
 	count = 0;
-	for(int i = 0; i <motion.size(); i++) {
+	for(int i = 0; i < motion.size(); i++) {
 		P.block(i, 0, 1, dof) = motion[i].first.transpose();
 		if(count + 1 < mKnots.size() && motion[i].second >= mKnots[count + 1]) {
 			count += 1;
@@ -80,17 +80,20 @@ Approximate(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
 		M((count + 1) % length, i) = B(2, f);
 		M((count + 2) % length, i) = B(3, f);
 	}	
+	
 	Eigen::MatrixXd Mt = M.transpose();
-
 	auto solver = Mt.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
 
 	for(int i = 0; i < P.cols(); i++) {
 		Eigen::VectorXd cp = solver.solve(P.col(i));
 		C.block(0, i, length, 1) = cp;
 	}
+
+	mControlPoints.clear();
 	for(int i = 0; i < C.rows(); i++) {
 		mControlPoints.push_back(C.row(i));
 	}
+
 }
 Eigen::VectorXd 
 Spline::
@@ -171,10 +174,11 @@ GetControlPoints(int i) {
 void
 MultilevelSpline::
 ConvertMotionToSpline(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
-
 	for(int i = 0; i < mNumLevels; i++) {
 		if(i == 0)
+		{
 			mSplines[i]->Approximate(motion);
+		}
 		else {
 			std::vector<std::pair<Eigen::VectorXd,double>> displacement;	
 			for(int j = 0; j < motion.size(); j++) {
@@ -184,7 +188,6 @@ ConvertMotionToSpline(std::vector<std::pair<Eigen::VectorXd,double>> motion) {
 			mSplines[i]->Approximate(displacement);
 		}
 	}
-
 }
 std::vector<Eigen::VectorXd> 
 MultilevelSpline::

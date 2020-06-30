@@ -24,6 +24,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void Step();
 	void UpdateReward();
 	void UpdateAdaptiveReward();
+	void UpdateRewardTrajectory();
+
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
 	bool FollowBvh();
@@ -77,15 +79,14 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	double ComputeLinearDifferenceFromEllipse();
 	double ComputeAngularDifferenceFromEllipse(int idx);
 	double ComputeAngularDifferenceFromCovarianceEllipse(int idx);
-	std::vector<double> GetAdaptiveRefReward();
-
+	double GetSimilarityReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	double GetTargetReward();
 	std::vector<bool> GetContactInfo(Eigen::VectorXd pos);
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
 	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
 	std::vector<double> GetAdaptiveIdxs();
-	void SetOptimizeMode(bool on) { this->mode = on; };
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -101,6 +102,7 @@ protected:
 	bool isAdaptive;
 	int id;
 	double mPrevFrameOnPhase;
+	double mRewardTrajectory;
 	
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
@@ -192,7 +194,6 @@ protected:
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
-	bool mode;
 };
 }
 #endif

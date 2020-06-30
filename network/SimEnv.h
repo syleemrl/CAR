@@ -43,7 +43,6 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 	
-	void SetOptimizeMode(bool on);
 	void Optimize();
 
 	void SaveAdaptiveMotion();

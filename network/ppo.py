@@ -390,29 +390,8 @@ class PPO(object):
 		for s in print_list:
 			print(s)
 
-	def optimize(self, num_trajectories, use_nth):
-		for it in range(num_trajectories):
-			self.env.initOptimize(use_nth)
-			for i in range(self.num_slaves):
-				self.env.reset(i)
-			states = self.env.getStates()
-			while True:
-				# set action
-				actions, _ = self.actor.getAction(states)
-				mean_actions = self.actor.getMeanAction(states)
-				self.env.stepOptimize(actions, mean_actions)
-
-				if self.env.getAllTerminated():
-					break
-
-				states = self.env.getStates()
-			print('collecting trajectories : {}/{}'.format(it+1, num_trajectories),end='\r')
-
-		self.env.Optimize()
-		print('optimization done')
 
 	def train(self, num_iteration):
-		self.optimize(20, 2)
 		epi_info_iter = []
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
@@ -465,6 +444,8 @@ class PPO(object):
 		#	if 1:
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
+					self.env.Optimize()
+
 				else:			
 					self.update(epi_info_iter) 
 

@@ -453,15 +453,19 @@ Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)
 	}
 	return vec;
 }
+Eigen::Vector3d Rotate3dVector(Eigen::Vector3d v, Eigen::Vector3d r) {
+	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(v.norm(), v.normalized());
+	Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(r.norm(), r.normalized());
+  	Eigen::AngleAxisd aa;
+  	aa = aa1 * aa2;
+  	return aa.axis() * aa.angle();
+}
+
 Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1)
 {
 	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(q1.norm(), q1.normalized());
 	Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(q2.norm(), q2.normalized());
-  	Eigen::Matrix3d R1(aa1);
-  	Eigen::Matrix3d R2(aa2);
-  	Eigen::Matrix3d m;
-  	m = R1.transpose() * R2;
-  	Eigen::AngleAxisd aa(m);
+  	Eigen::AngleAxisd aa;
   	aa = aa1.inverse() * aa2;
   	return aa.axis() * aa.angle();
 }

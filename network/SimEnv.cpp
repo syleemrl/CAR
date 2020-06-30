@@ -18,19 +18,18 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	mReferenceManager->LoadMotionFromBVH(ref);
 	mReferenceManager->GenerateMotionsFromSinglePhase(1010, false);
 
+	if(adaptive) {
+		mReferenceManager->InitOptimization(training_path);
+	}
+	
 	for(int i =0;i<num_slaves;i++)
 	{
 		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, false, i));
 	}
 	
-	mReferenceManager->InitializeAdaptiveSettings(mSlaves[0]->GetAdaptiveIdxs(), num_slaves, training_path, false);
 
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
-
-	if(adaptive) {
-		mReferenceManager->InitOptimization();
-	}
 }
 //For general properties
 int
@@ -197,12 +196,6 @@ DeformCharacter(double w)
 }
 void
 SimEnv::
-SetOptimizeMode(bool on) 
-{
-	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->SetOptimizeMode(on);
-}
-void
-SimEnv::
 Optimize()
 {
 	mReferenceManager->Optimize();
@@ -244,7 +237,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
-		.def("SetOptimizeMode",&SimEnv::SetOptimizeMode)
 		.def("Optimize",&SimEnv::Optimize)
 		.def("SaveAdaptiveMotion",&SimEnv::SaveAdaptiveMotion)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)

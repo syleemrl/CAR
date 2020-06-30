@@ -52,27 +52,17 @@ public:
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, bool adaptive=false);
 	void RescaleMotion(double w);
-	void InitializeAdaptiveSettings(std::vector<double> idxs, double nslaves, std::string path = "", bool saveTrajectory=false);
-	void SaveTuple(double time, Eigen::VectorXd position, int slave);
-	void EndEpisode(int slave);
-	void EndPhase(int slave);
-	void SetTargetReward(double reward, int slave);
-	void glueFootAndSmooth(int contact_idx);
-	void UpdateMotion();
 	Motion* GetMotion(double t, bool adaptive=false);
+	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
-	std::pair<bool, bool> CalculateContactInfo(Eigen::VectorXd p, Eigen::VectorXd v);
-	void GetNewMotionFromAxis();
-	void GetNewAxisFromMotion(bool adaptive=true);
 	void ComputeDeviation();
-	void CleanupMotion();
 	Eigen::VectorXd GetAxis(double t);
 	Eigen::VectorXd GetDev(double t);
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards);
-	void InitOptimization();
+	void InitOptimization(std::string save_path);
 	void Optimize();
 protected:
 	Character* mCharacter;
@@ -87,23 +77,13 @@ protected:
 	std::vector<Motion*> mMotions_gen_adaptive;
 	std::vector<double> mIdxs;
 	
-	//position, target
-	std::vector<std::vector<Eigen::VectorXd>> mTuples;
-	//time, target, position
-	std::vector<std::vector<std::tuple<double, double, Eigen::VectorXd>>> mTuples_temp;
-	std::vector<std::vector<Eigen::VectorXd>> mTuples_position;
-
-	std::vector<Eigen::VectorXd> mPrevPosition;
-	std::vector<double> mTargetReward;
-	std::vector<Eigen::VectorXd> mAxis;
 	std::vector<Eigen::VectorXd> mAxis_BVH;
 	std::vector<Eigen::VectorXd> mDev_BVH;
-	std::vector<std::vector<double>> mContact_BVH;
-	std::vector<std::string> mContact_name;
 
 	std::vector<std::pair<MultilevelSpline*, double>> mSamples;
 	std::vector<Eigen::VectorXd> mDisplacement;
 	std::vector<double> mKnots;
+	std::vector<std::string> mInterestedBodies;
 
 	double mSlaves;
 	std::mutex mLock;
