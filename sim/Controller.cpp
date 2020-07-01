@@ -326,7 +326,7 @@ Step()
 	if(isAdaptive) {
 		Eigen::VectorXd p(mCharacter->GetSkeleton()->getPositions().rows() + 1);
 		p << mCharacter->GetSkeleton()->getPositions(), mAdaptiveStep;
-		data_spline.push_back(std::pair<Eigen::VectorXd,double>(p, mCurrentFrameOnPhase));
+		data_spline.push_back(std::pair<Eigen::VectorXd,double>(p, mCurrentFrame));
 	}
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
@@ -502,6 +502,8 @@ GetTargetReward()
 		target_reward = skel->getCOM()[1];
 		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
 		mCount += 1;
+		if(mRecord)
+			std::cout << skel->getCOM()[1] << std::endl;
 	}
 
 	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
@@ -786,7 +788,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(this->nTotalSteps > 500 ) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(this->nTotalSteps > 700 ) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}

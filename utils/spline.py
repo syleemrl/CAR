@@ -52,22 +52,22 @@ def plot(filename):
 		l = [float(t) for t in l.split()]		
 		cps.append(l)
 
-	motion_size = int(data.readline())
-	motion = []
-	time = []
-	for i in range(motion_size):
-		l = data.readline()
-		l = float(l.split()[0])
-		time.append(l)
-		l = data.readline()
-		l = [float(t) for t in l.split()]		
-		motion.append(l)
-	data.close()
-	motion = np.array(motion)
-	motion_j = motion[:, 4]
+	# motion_size = int(data.readline())
+	# motion = []
+	# time = []
+	# for i in range(motion_size):
+	# 	l = data.readline()
+	# 	l = float(l.split()[0])
+	# 	time.append(l)
+	# 	l = data.readline()
+	# 	l = [float(t) for t in l.split()]		
+	# 	motion.append(l)
+	# data.close()
+	# motion = np.array(motion)
+	# motion_j = motion[:, 4]
 
-	time_s, motion_j_s = spline_to_motion(cps, knots, 4)
-	plt.plot(time, motion_j)
+	time_s, motion_j_s = spline_to_motion(cps, knots, 1)
+#	plt.plot(time, motion_j)
 	plt.plot(time_s, motion_j_s, 'r')
 	plt.show()
 	plt.savefig(filename+'.png')

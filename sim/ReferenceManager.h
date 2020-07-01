@@ -47,8 +47,8 @@ class ReferenceManager
 {
 public:
 	ReferenceManager(Character* character=nullptr);
-	void SaveAdaptiveMotion();
-	void LoadAdaptiveMotion();
+	void SaveAdaptiveMotion(std::string postfix="");
+	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, bool adaptive=false);
 	void RescaleMotion(double w);
@@ -89,7 +89,10 @@ protected:
 	std::mutex mLock;
 	bool mSaveTrajectory;
 	std::string mPath;
+	double mPrevRewardTrajectory;
 	double mDOF;
+
+	int nOp;
 };
 }
 

@@ -72,8 +72,8 @@ ComputeDeviation() {
 }
 void 
 ReferenceManager::
-SaveAdaptiveMotion() {
-	std::string path = mPath + std::string("adaptive");
+SaveAdaptiveMotion(std::string postfix) {
+	std::string path = mPath + std::string("adaptive") + postfix;
 	std::cout << "save motion to:" << path << std::endl;
 
 	std::ofstream ofs(path);
@@ -87,8 +87,8 @@ SaveAdaptiveMotion() {
 }
 void 
 ReferenceManager::
-LoadAdaptiveMotion() {
-	std::string path = mPath + std::string("adaptive");
+LoadAdaptiveMotion(std::string postfix) {
+	std::string path = mPath + std::string("adaptive") + postfix;
 	std::ifstream is(path);
 	if(is.fail())
 		return;
@@ -438,8 +438,10 @@ InitOptimization(std::string save_path) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
 	this->GenerateMotionsFromSinglePhase(1000, false, true);
-
+	
+	nOp = 0;
 	mPath = save_path;
+	mPrevRewardTrajectory = 0;
 }
 void 
 ReferenceManager::
@@ -469,7 +471,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, dou
 			count += dof;
 		}
 		d.tail<1>() = p.tail<1>();
-		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, data_spline[i].second));
+		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, std::fmod(data_spline[i].second, mPhaseLength)));
 	}
 	s->ConvertMotionToSpline(displacement);
 
@@ -500,6 +502,9 @@ bool cmp(const std::pair<DPhy::MultilevelSpline*, double> &p1, const std::pair<D
 void 
 ReferenceManager::
 Optimize() {
+
+	double rewardTrajectory = 0;
+
     std::stable_sort(mSamples.begin(), mSamples.end(), cmp);
     int mu = std::floor(mSamples.size() / 2.0);
 	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength()); 
@@ -520,59 +525,83 @@ Optimize() {
 	    for(int j = 0; j < num_knot; j++) {
 			mean_cps[j] += w * cps[j].head(cps[j].rows() - 1);
 	    }
+	    rewardTrajectory += w * mSamples[i].second;
 	}
 	for(int i = 0; i < num_knot; i++) {
 	    mean_cps[i] /= weight_sum;
 	}
-	mean_spline->SetControlPoints(0, mean_cps);
-   	std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
-	std::vector<Eigen::VectorXd> newpos;
+	rewardTrajectory /= weight_sum;
 	
-	for(int i = 0; i < new_displacement.size(); i++) {
+	std::cout << "prev avg elite reward: " << mPrevRewardTrajectory << " current avg elite reward: " << rewardTrajectory << std::endl;
 
-		Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
-		Eigen::VectorXd d = new_displacement[i];
-		Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
+	if(rewardTrajectory > mPrevRewardTrajectory) {
+		mean_spline->SetControlPoints(0, mean_cps);
+	   	std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
+		std::vector<Eigen::VectorXd> newpos;
+		
+		for(int i = 0; i < new_displacement.size(); i++) {
 
-		int count = 0;
-		for(int j = 0; j < mInterestedBodies.size(); j++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getIndexInSkeleton(0);
-			int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getNumDofs();
-			if(dof == 6) {
-				p.segment<3>(count) = Rotate3dVector(p_bvh.segment<3>(count), d.segment<3>(count));
-				p.segment<3>(count + 3) = d.segment<3>(count + 3) + p_bvh.segment<3>(count + 3);
-			} else if (dof == 3) {
-				p.segment<3>(count) = Rotate3dVector(p_bvh.segment<3>(count), d.segment<3>(count));
-			} else {
-				p(count) = d(count) + p_bvh(count);
+			Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
+			Eigen::VectorXd d = new_displacement[i];
+			Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
+
+			int count = 0;
+			for(int j = 0; j < mInterestedBodies.size(); j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getNumDofs();
+				if(dof == 6) {
+					p.segment<3>(count) = Rotate3dVector(p_bvh.segment<3>(count), d.segment<3>(count));
+					p.segment<3>(count + 3) = d.segment<3>(count + 3) + p_bvh.segment<3>(count + 3);
+				} else if (dof == 3) {
+					p.segment<3>(count) = Rotate3dVector(p_bvh.segment<3>(count), d.segment<3>(count));
+				} else {
+					p(count) = d(count) + p_bvh(count);
+				}
+				count += dof;
 			}
-			count += dof;
+			newpos.push_back(p);
 		}
-		newpos.push_back(p);
-	}
-	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
-	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
-		mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
-		mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
-	}
-	this->GenerateMotionsFromSinglePhase(1000, false, true);
-	this->SaveAdaptiveMotion();
+		std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+		for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
+			mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
+			mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
+		}
+		this->GenerateMotionsFromSinglePhase(1000, false, true);
+		this->SaveAdaptiveMotion();
+		this->SaveAdaptiveMotion(std::to_string(nOp));
 
-	std::string path = std::string(CAR_DIR) + std::string("/result/op_temp");
+		//save control points
+		std::string path = std::string(CAR_DIR) + std::string("/result/op_cp") + std::to_string(nOp);
+		std::ofstream ofs(path);
+		ofs << mKnots.size() << std::endl;
+		for(auto t: mKnots) {	
+			ofs << t << std::endl;
+		}
+		for(auto t: mean_cps) {	
+			ofs << t.transpose() << std::endl;
+		}
+		ofs.close();
 
-	std::ofstream ofs(path);
+		//save motion
+		path = std::string(CAR_DIR) + std::string("/result/op_motion") + std::to_string(nOp);
+		ofs.open(path);
 
-	for(auto t: newpos) {	
-		ofs << t.transpose() << std::endl;
+		for(auto t: newpos) {	
+			ofs << t.transpose() << std::endl;
+		}
+		ofs.close();
+
+
+		nOp += 1;
+		mPrevRewardTrajectory = rewardTrajectory;
+
 	}
-	ofs.close();
 
 	while(!mSamples.empty()){
 		MultilevelSpline* s = mSamples.back().first;
 		mSamples.pop_back();
 
 		delete s;
-
 	}
 }
 };

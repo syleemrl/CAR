@@ -51,6 +51,8 @@ RecordWindow(std::vector<std::string> motion)
 			record_pos.push_back(p);
 			length++;
 		}
+		record_pos.pop_back();
+		length -= 1;
 	//	}
 
 		is.close();

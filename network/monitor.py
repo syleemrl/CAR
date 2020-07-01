@@ -47,6 +47,10 @@ class Monitor(object):
 		self.states = [0]*self.num_slaves
 		self.prevframes = [0]*self.num_slaves
 
+		self.rewards_by_part_per_opt = []
+		self.num_transitions_opt = 0
+		self.num_episodes_opt = 0
+
 		if self.plot:
 			plt.ion()
 
@@ -91,25 +95,46 @@ class Monitor(object):
 				self.rewards_by_part_per_iteration.append(rewards[i])
 				
 				self.num_transitions_per_iteration += 1
+				if self.adaptive:
+					self.num_transitions_opt += 1
+					self.rewards_by_part_per_opt.append(rewards[i][1:])
 
 				if dones[i]:
 					self.num_episodes_per_iteration += 1
+					if self.adaptive:
+						self.num_episodes_opt += 1
+
 					self.total_time_elapsed += times[i]
 
 					if frames[i] > self.max_episode_length:
 						self.max_episode_length = frames[i]
-		if self.adaptive:
-			rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
-			if curframes[i] < self.prevframes[i]:
-				self.num_phase += 1
-		else:	
-			rewards = [rewards[i][0] for i in range(len(rewards))]
+
+		rewards = [rewards[i][0] for i in range(len(rewards))]
 
 		self.prevframes = curframes
 		return rewards, dones, curframes
 
 	def Optimize(self):
-		self.sim_env.Optimize()
+		r_threshold = [0.85, 0.90, 0.85, 0.5]
+		s_threshold = 550
+
+		flag = True
+		rewards_per_step = np.array(self.rewards_by_part_per_opt).sum(axis=0) / self.num_transitions_opt
+		for i in range(4):
+			if r_threshold[i] > rewards_per_step[i]:
+				flag = False
+
+		steps = np.array(self.num_transitions_opt) / self.num_episodes_opt
+		if s_threshold > steps:
+			flag = False
+		if flag:
+			self.sim_env.Optimize()
+
+		print(rewards_per_step, steps)
+
+		self.rewards_by_part_per_opt = []
+		self.num_transitions_opt = 0
+		self.num_episodes_opt = 0
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:
