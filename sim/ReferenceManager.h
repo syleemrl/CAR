@@ -57,9 +57,10 @@ public:
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
-	void ComputeDeviation();
-	Eigen::VectorXd GetAxis(double t);
-	Eigen::VectorXd GetDev(double t);
+	void ComputeAxisDev();
+	void ComputeAxisMean();
+	Eigen::VectorXd GetAxisMean(double t);
+	Eigen::VectorXd GetAxisDev(double t);
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards);
 	void InitOptimization(std::string save_path);
@@ -81,6 +82,7 @@ protected:
 	std::vector<Eigen::VectorXd> mDev_BVH;
 
 	std::vector<std::pair<MultilevelSpline*, double>> mSamples;
+	std::vector<Eigen::VectorXd> mPrevCps;
 	std::vector<Eigen::VectorXd> mDisplacement;
 	std::vector<double> mKnots;
 	std::vector<std::string> mInterestedBodies;
@@ -90,7 +92,7 @@ protected:
 	bool mSaveTrajectory;
 	std::string mPath;
 	double mPrevRewardTrajectory;
-	double mDOF;
+	int mDOF;
 
 	int nOp;
 };

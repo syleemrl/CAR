@@ -238,9 +238,10 @@ Step()
 		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		mControlFlag.setZero();
 		if(isAdaptive) {
-			mRewardTrajectory = 0;
-			mReferenceManager->SaveTrajectories(data_spline, target_reward);
+			mReferenceManager->SaveTrajectories(data_spline, mRewardTrajectory);
 			data_spline.clear();
+			mRewardTrajectory = 0;
+
 		}
 	}
 
@@ -446,47 +447,90 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	return rewards;
 
 }
-double
-Controller::
-GetSimilarityReward()
-{
-	int dof = mCharacter->GetSkeleton()->getNumDofs();
-	Eigen::AngleAxisd prev_root_ori = Eigen::AngleAxisd(mPrevPositions.segment<3>(0).norm(), mPrevPositions.segment<3>(0).normalized());
- 	Eigen::VectorXd diff_local(dof);
- 	diff_local.segment<3>(0) = mTargetPositions.segment<3>(3) - mPrevTargetPositions.segment<3>(3);
- 	diff_local.segment<3>(0) = prev_root_ori.inverse() * diff_local.segment<3>(0);
- 	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
- 		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
- 		diff_local.segment<3>((i+1) * 3) = JointPositionDifferences(mTargetPositions.segment<3>(idx), mPrevTargetPositions.segment<3>(idx));
- 	}
+// double
+// Controller::
+// GetSimilarityReward()
+// {
+// 	int dof = mCharacter->GetSkeleton()->getNumDofs();
+// 	Eigen::VectorXd curPos = mCharacter->GetSkeleton()->getPositions();
+// 	Eigen::AngleAxisd prev_root_ori = Eigen::AngleAxisd(mPrevPositions.segment<3>(0).norm(), mPrevPositions.segment<3>(0).normalized());
+//  	Eigen::VectorXd diff_local(dof);
+//  	int count = 0;
+//  	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
+//  		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+//  		int dof = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getNumDofs();
 
- 	Eigen::VectorXd x(mAdaptiveBodies.size() + 1);
- 	Eigen::VectorXd y(mAdaptiveBodies.size() + 1);
+//  		if(dof == 6) {
+//  			diff_local.segment<3>(count) = JointPositionDifferences(curPos.segment<3>(idx), mPrevPositions.segment<3>(idx));
+//  			diff_local.segment<3>(count + 3) = curPos.segment<3>(idx + 3) - mPrevPositions.segment<3>(idx + 3);
+//  			diff_local.segment<3>(count + 3) = prev_root_ori.inverse() * diff_local.segment<3>(count + 3);
+//  		} else if(dof == 3) {
+//  			diff_local.segment<3>(count) = JointPositionDifferences(curPos.segment<3>(idx), mPrevPositions.segment<3>(idx));
+//  		} else {
+//  			diff_local(count) = curPos(count) - mPrevPositions(count);
+//  		}
+//  		count += dof;
+//  	}
 
- 	Eigen::VectorXd mean = mReferenceManager->GetAxis(mPrevFrameOnPhase);
- 	Eigen::VectorXd dev = mReferenceManager->GetDev(mPrevFrameOnPhase);
+//  	double x, y, a, b;
 
- 	for(int i = 0; i < x.rows(); i++) {
- 		Eigen::Vector3d v = diff_local.segment<3>(i*3) - mean.segment<3>(i*3);
-	 	x(i) = v.dot(mean.segment<3>(i * 3).normalized());
- 		y(i) = (v - x(i) * mean.segment<3>(i * 3).normalized()).norm() / std::max(mean.segment<3>(i * 3).norm(), 0.0075);
- 		x(i) /= std::max(mean.segment<3>(i * 3).norm(), 0.0075);
- 	}
+//  	Eigen::VectorXd mean = mReferenceManager->GetAxisMean(mPrevFrameOnPhase);
+//  	Eigen::VectorXd dev = mReferenceManager->GetAxisDev(mPrevFrameOnPhase);
+	
+// 	double max = 10;
+// 	double min = 0.5;
 
-	std::vector<double> diff;
-	diff.clear();
+//  	count = 0;
+//  	double diff = 0;
 
-	for(int i = 0; i < x.rows(); i++) {
- 		double max = 10;
-		double min = 0.5;
+//  	for(int i = 0; i < mAdaptiveBodies.size(); i++) {
+//  		int dof = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getNumDofs();
+//  		int idx = mCharacter->GetSkeleton()->getBodyNode(mAdaptiveBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+ 		
+//  		if(dof == 6) {
+// 			Eigen::VectorXd v = diff_local.block(count, 0, 3, 1) - mean.segment<3>(idx);
+// 	 		x = v.dot(mean.segment<3>(idx).normalized());
+//  			y = (v - x * mean.segment<3>(idx).normalized()).norm() / std::max(mean.segment<3>(idx).norm(), 0.02);
+//  			x /= std::max(mean.segment<3>(idx).norm(), 0.02);
 
-		double a = std::max(max - 0.07 * dev(i) * (max-min), 1.0) + 1e-8;
-		double b = std::min(min + 0.02 * dev(i) * (max-min), 1.5) + 1e-8;
-		diff.push_back((x(i) * x(i)) / (a * a) + (y(i) * y(i)) / (b * b));
-	}
+// 			a = std::max(max - 0.07 * dev(idx) * (max-min), 1.0) + 1e-8;
+// 			b = std::min(min + 0.02 * dev(idx) * (max-min), 1.5) + 1e-8;
+// 			double d = (x * x) / (a * a) + (y * y) / (b * b);
+// 			diff += exp(-d * 5);
+// 			std::cout << mCurrentFrameOnPhase << " " <<mAdaptiveBodies[i] << " " << d << " " << exp(-d * 5) << std::endl;
 
-	return 0;
-}
+// 			v = diff_local.block(count+3, 0, 3, 1) - mean.segment<3>(idx + 3);
+// 	 		x = v.dot(mean.segment<3>(idx + 3).normalized());
+//  			y = (v - x * mean.segment<3>(idx + 3).normalized()).norm() / std::max(mean.segment<3>(idx + 3).norm(), 0.02);
+//  			x /= std::max(mean.segment<3>(idx + 3).norm(), 0.02);
+
+//  			a = std::max(max - 0.07 * dev(idx + 3) * (max-min), 1.0) + 1e-8;
+// 			b = std::min(min + 0.02 * dev(idx + 3) * (max-min), 1.5) + 1e-8;
+			
+// 			d = (x * x) / (a * a) + (y * y) / (b * b);
+// 			diff += exp(-d * 5);
+// 			std::cout << mCurrentFrameOnPhase << " " <<mAdaptiveBodies[i] << " " << d << " " << exp(-d * 5) << std::endl;
+		
+//  		} else {
+// 			Eigen::VectorXd v = diff_local.block(count, 0, dof, 1) - mean.block(idx, 0, dof, 1);
+// 	 		x = v.dot(mean.block(idx, 0, dof, 1).normalized());
+//  			y = (v - x * mean.block(idx, 0, dof, 1).normalized()).norm() / std::max(mean.block(idx, 0, dof, 1).norm(), 0.02);
+//  			x /= std::max(mean.block(idx, 0, dof, 1).norm(), 0.02);
+
+// 			a = std::max(max - 0.07 * dev(idx) * (max-min), 1.0) + 1e-8;
+// 			b = std::min(min + 0.02 * dev(idx) * (max-min), 1.5) + 1e-8;
+		
+// 			double d = (x * x) / (a * a) + (y * y) / (b * b);
+// 			diff += exp(-d * 5);
+			
+// 			std::cout << mCurrentFrameOnPhase << " " <<mAdaptiveBodies[i] << " " << x << " " << y << " "<< a << " " << b << " " << d << " " << exp(-d * 5) << std::endl;
+//  		}
+//  		count += dof;
+//  	}
+//  	diff /= (mAdaptiveBodies.size() + 1);
+//  	std::cout << diff << std::endl;
+// 	return diff;
+// }
 double 
 Controller::
 GetTargetReward()
@@ -575,26 +619,26 @@ GetTargetReward()
 	// 	}
 	// }
 
-	if(mControlFlag[1] == 0 && mCurrentFrame >= mReferenceManager->GetPhaseLength()) {
-		Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame, false);
-		Eigen::VectorXd target_diff = skel->getPositionDifferences(this->mTargetPositions, target_old);
-		double root_height_diff = this->mTargetPositions[4] - target_old[4];
-		Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mTargetPositions.segment<3>(0).norm(), mTargetPositions.segment<3>(0).normalized());
-		Eigen::AngleAxisd root_aa_ = Eigen::AngleAxisd(target_old.segment<3>(0).norm(), target_old.segment<3>(0).normalized());
+	// if(mControlFlag[1] == 0 && mCurrentFrame >= mReferenceManager->GetPhaseLength()) {
+	// 	Eigen::VectorXd target_old = mReferenceManager->GetPosition(mCurrentFrame, false);
+	// 	Eigen::VectorXd target_diff = skel->getPositionDifferences(this->mTargetPositions, target_old);
+	// 	double root_height_diff = this->mTargetPositions[4] - target_old[4];
+	// 	Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(mTargetPositions.segment<3>(0).norm(), mTargetPositions.segment<3>(0).normalized());
+	// 	Eigen::AngleAxisd root_aa_ = Eigen::AngleAxisd(target_old.segment<3>(0).norm(), target_old.segment<3>(0).normalized());
 
-		Eigen::Vector3d up_vec = root_aa*Eigen::Vector3d::UnitY();
-		Eigen::Vector3d up_vec_ = root_aa_*Eigen::Vector3d::UnitY();
+	// 	Eigen::Vector3d up_vec = root_aa*Eigen::Vector3d::UnitY();
+	// 	Eigen::Vector3d up_vec_ = root_aa_*Eigen::Vector3d::UnitY();
 
-		double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
-		double up_vec_angle_ = atan2(std::sqrt(up_vec_[0]*up_vec_[0]+up_vec_[2]*up_vec_[2]),up_vec_[1]);
+	// 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
+	// 	double up_vec_angle_ = atan2(std::sqrt(up_vec_[0]*up_vec_[0]+up_vec_[2]*up_vec_[2]),up_vec_[1]);
 
-		double up_vec_angle_diff = up_vec_angle - up_vec_angle_;
+	// 	double up_vec_angle_diff = up_vec_angle - up_vec_angle_;
 
-		target_diff.head<6>().setZero();
-		r_target = 0.5 * (exp_of_squared(target_diff, 0.05) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
+	// 	target_diff.head<6>().setZero();
+	// 	r_target = 0.5 * (exp_of_squared(target_diff, 0.05) + exp(-pow(root_height_diff, 2)*400) + exp(-pow(up_vec_angle_diff, 2)*100) );
 		
-		mControlFlag[1] = 1;		
-	}
+	// 	mControlFlag[1] = 1;		
+	// }
 
 	return r_target;
 }
@@ -734,9 +778,9 @@ UpdateRewardTrajectory() {
 
 	double r_target = this->GetTargetReward();
 	double r_energy = exp(-pow(mRecordWork.back(), 2));
-	double r_similar = 0;
+	double r_similar = 0; //this->GetSimilarityReward();
 
-	mRewardTrajectory += (0.5 * r_similar + r_target + 0.1 * r_energy);
+	mRewardTrajectory += (0.5 * r_similar + r_target + 0 * r_energy);
 }
 void
 Controller::

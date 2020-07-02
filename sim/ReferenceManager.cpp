@@ -17,50 +17,84 @@ ReferenceManager::ReferenceManager(Character* character)
 	mMotions_raw.clear();
 	mMotions_phase.clear();
 
-	mInterestedBodies.clear();
-	mInterestedBodies.push_back("Torso");
-	mInterestedBodies.push_back("Spine");
-	mInterestedBodies.push_back("Neck");
-	mInterestedBodies.push_back("Head");
 
-	mInterestedBodies.push_back("ArmL");
-	mInterestedBodies.push_back("ForeArmL");
-	mInterestedBodies.push_back("HandL");
-
-	mInterestedBodies.push_back("ArmR");
-	mInterestedBodies.push_back("ForeArmR");
-	mInterestedBodies.push_back("HandR");
-
-	mInterestedBodies.push_back("FemurL");
-	mInterestedBodies.push_back("TibiaL");
-	mInterestedBodies.push_back("FootL");
-	mInterestedBodies.push_back("FootEndL");
-
-	mInterestedBodies.push_back("FemurR");
-	mInterestedBodies.push_back("TibiaR");
-	mInterestedBodies.push_back("FootR");
-	mInterestedBodies.push_back("FootEndR");
+	auto& skel = mCharacter->GetSkeleton();
+	mDOF = skel->getPositions().rows();
 }
 void
 ReferenceManager::
-ComputeDeviation() {
+ComputeAxisMean(){
+	mAxis_BVH.clear();
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+
+	for(int i = 0; i < mPhaseLength - 1; i++) {
+		Eigen::VectorXd m_cur = mMotions_phase[i]->GetPosition();
+		Eigen::VectorXd m_next = mMotions_phase[i+1]->GetPosition();
+
+		Eigen::VectorXd axis(mDOF);
+		for(int j = 0; j < n_bnodes; j++) {
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+
+			if(dof == 6) {
+				axis.segment<3>(idx) = JointPositionDifferences(m_next.segment<3>(idx), m_cur.segment<3>(idx));
+
+				Eigen::AngleAxisd root_ori = Eigen::AngleAxisd(m_cur.segment<3>(idx).norm(), m_cur.segment<3>(idx).normalized());
+				Eigen::Vector3d v = m_next.segment<3>(idx + 3) - m_cur.segment<3>(idx + 3);
+				axis.segment<3>(idx + 3) = root_ori.inverse() * v;
+			} else if(dof == 3) {
+				axis.segment<3>(idx) = JointPositionDifferences(m_next.segment<3>(idx), m_cur.segment<3>(idx));
+			} else {
+				axis(idx) = m_next(idx) - m_cur(idx);
+			}
+		}
+		mAxis_BVH.push_back(axis);
+	}
+	mAxis_BVH.push_back(mAxis_BVH[0]);
+}
+void
+ReferenceManager::
+ComputeAxisDev() {
 	mDev_BVH.clear();
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+
 	for(int i = 0; i < mPhaseLength; i++) {
 		int t = i + mPhaseLength;
 		std::vector<std::pair<Eigen::VectorXd, double>> data;
 		data.clear();
 		for(int j = t - 3; j <= t + 3; j++) {
 			int t_ = j % mPhaseLength;
-			Eigen::VectorXd diff(mIdxs.size() * 3);
-			Eigen::VectorXd y(mIdxs.size());
-			for(int k = 0; k < mIdxs.size(); k++) {
-				diff.segment<3>(k * 3) = mAxis_BVH[i].segment<3>(k * 3) - mAxis_BVH[t_].segment<3>(k * 3);
-				double x = diff.segment<3>(k * 3).dot(mAxis_BVH[i].segment<3>(k * 3).normalized());
- 				y(k) = (diff.segment<3>(k * 3) - x * mAxis_BVH[i].segment<3>(k * 3).normalized()).norm() / std::max(mAxis_BVH[i].segment<3>(k * 3).norm(), 0.0075);
+			Eigen::VectorXd y(mDOF);
+			y.setZero();
+
+			for(int k = 0; k < n_bnodes; k++) {
+				int dof = mCharacter->GetSkeleton()->getBodyNode(k)->getParentJoint()->getNumDofs();
+				int idx = mCharacter->GetSkeleton()->getBodyNode(k)->getParentJoint()->getIndexInSkeleton(0);
+
+				if(dof == 6) {
+					Eigen::Vector3d diff = mAxis_BVH[i].segment<3>(idx) - mAxis_BVH[t_].segment<3>(idx);
+					double x = diff.dot(mAxis_BVH[i].segment<3>(idx).normalized());
+ 					y(idx) = (diff - x * mAxis_BVH[i].segment<3>(idx).normalized()).norm() 
+ 							/ std::max(mAxis_BVH[i].segment<3>(idx).norm(), 0.02);	
+				
+					diff = mAxis_BVH[i].segment<3>(idx + 3) - mAxis_BVH[t_].segment<3>(idx + 3);
+					x = diff.dot(mAxis_BVH[i].segment<3>(idx + 3).normalized());
+ 					y(idx + 3) = (diff - x * mAxis_BVH[i].segment<3>(idx + 3).normalized()).norm() 
+ 							/ std::max(mAxis_BVH[i].segment<3>(idx + 3).norm(), 0.02);
+
+				} else if(dof == 3) {
+					Eigen::Vector3d diff  = mAxis_BVH[i].segment<3>(idx) - mAxis_BVH[t_].segment<3>(idx);
+					double x = diff.dot(mAxis_BVH[i].segment<3>(idx).normalized());
+ 					y(idx) = (diff - x * mAxis_BVH[i].segment<3>(idx).normalized()).norm() 
+ 							/ std::max(mAxis_BVH[i].segment<3>(idx).norm(), 0.02);				
+ 				} else {
+					y(idx) = 0;
+				}
+				
 			}
  			data.push_back(std::pair<Eigen::VectorXd, double>(y, (1 - abs(t - j) * 0.3)));
 		}
-	 	Eigen::VectorXd dev(mIdxs.size());
+	 	Eigen::VectorXd dev(mDOF);
 		dev.setZero();
 		for(int i = 0; i < data.size(); i++) {
 			int n = (int)(data[i].second * 100.0);
@@ -129,7 +163,6 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	auto& skel = mCharacter->GetSkeleton();
 	int dof = skel->getPositions().rows();
-	mDOF = dof;
 	std::map<std::string,std::string> bvhMap = mCharacter->GetBVHMap(); 
 	for(const auto ss :bvhMap){
 		bvh->AddMapping(ss.first,ss.second);
@@ -197,8 +230,9 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	for(int i = 0; i < mPhaseLength; i++) {
 		mMotions_phase.push_back(new Motion(mMotions_raw[i]));
 	}
-
 	delete bvh;
+	this->ComputeAxisMean();
+	this->ComputeAxisDev();
 
 }
 std::vector<Eigen::VectorXd> 
@@ -408,18 +442,18 @@ Motion* ReferenceManager::GetMotion(double t, bool adaptive)
 }
 Eigen::VectorXd 
 ReferenceManager::
-GetAxis(double t) {
+GetAxisMean(double t) {
 	int k0 = (int) std::floor(t);
 	if(k0 == mPhaseLength)
-		k0 -= 1;
+		k0 = 0;
 	return mAxis_BVH[k0];
 }
 Eigen::VectorXd 
 ReferenceManager::
-GetDev(double t) {
+GetAxisDev(double t) {
 	int k0 = (int) std::floor(t);
 	if(k0 == mPhaseLength)
-		k0 -= 1;
+		k0 = 0;
 	return mDev_BVH[k0];
 }
 void
@@ -434,6 +468,9 @@ InitOptimization(std::string save_path) {
 	mKnots.push_back(64);
 	mKnots.push_back(76);
 
+	for(int i = 0; i < this->mKnots.size(); i++) {
+		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
+	}
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
@@ -451,30 +488,39 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, dou
 	s->SetKnots(0, mKnots);
 
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+
 	for(int i = 0; i < data_spline.size(); i++) {
 
 		Eigen::VectorXd p = data_spline[i].first;
 		Eigen::VectorXd p_bvh = this->GetPosition(data_spline[i].second);
 		Eigen::VectorXd d(mCharacter->GetSkeleton()->getNumDofs() + 1);
-		int count = 0;
-		for(int j = 0; j < mInterestedBodies.size(); j++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getIndexInSkeleton(0);
-			int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getNumDofs();
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			
 			if(dof == 6) {
-				d.segment<3>(count) = JointPositionDifferences(p.segment<3>(count), p_bvh.segment<3>(count));
-				d.segment<3>(count + 3) = p.segment<3>(count + 3) -  p_bvh.segment<3>(count + 3);
+				d.segment<3>(idx) = JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
+				d.segment<3>(idx + 3) = p.segment<3>(idx + 3) -  p_bvh.segment<3>(idx + 3);
 			} else if (dof == 3) {
-				d.segment<3>(count) = JointPositionDifferences(p.segment<3>(count), p_bvh.segment<3>(count));
+				d.segment<3>(idx) = JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
 			} else {
-				d(count) = p(count) - p_bvh(count);
+				d(idx) = p(idx) - p_bvh(idx);
 			}
-			count += dof;
 		}
 		d.tail<1>() = p.tail<1>();
 		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, std::fmod(data_spline[i].second, mPhaseLength)));
 	}
 	s->ConvertMotionToSpline(displacement);
 
+	auto cps = s->GetControlPoints(0);
+	double r = 0;
+	for(int i = 0; i < cps.size(); i++) {
+		r += cps[i].norm();	
+	}
+//	std::cout << rewards << " " << exp(-pow(r, 2)*0.01) << " "<< 0.05*exp(-pow(r, 2)*0.01) + rewards<< std::endl;
+
+	rewards += 0.05 * exp(-pow(r, 2)*0.01);
 	mLock.lock();
 	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, rewards));
 	mLock.unlock();
@@ -529,35 +575,35 @@ Optimize() {
 	}
 	for(int i = 0; i < num_knot; i++) {
 	    mean_cps[i] /= weight_sum;
+	    mPrevCps[i] = mPrevCps[i] * 0.95 + mean_cps[i] * 0.05;
 	}
 	rewardTrajectory /= weight_sum;
 	
 	std::cout << "prev avg elite reward: " << mPrevRewardTrajectory << " current avg elite reward: " << rewardTrajectory << std::endl;
 
 	if(rewardTrajectory > mPrevRewardTrajectory) {
-		mean_spline->SetControlPoints(0, mean_cps);
+		mean_spline->SetControlPoints(0, mPrevCps);
 	   	std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
 		std::vector<Eigen::VectorXd> newpos;
-		
+		int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+
 		for(int i = 0; i < new_displacement.size(); i++) {
 
 			Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
 			Eigen::VectorXd d = new_displacement[i];
 			Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
 
-			int count = 0;
-			for(int j = 0; j < mInterestedBodies.size(); j++) {
-				int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getIndexInSkeleton(0);
-				int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getNumDofs();
+			for(int j = 0; j < n_bnodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
 				if(dof == 6) {
-					p.segment<3>(count) = Rotate3dVector(p_bvh.segment<3>(count), d.segment<3>(count));
-					p.segment<3>(count + 3) = d.segment<3>(count + 3) + p_bvh.segment<3>(count + 3);
+					p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
+					p.segment<3>(idx + 3) = d.segment<3>(idx + 3) + p_bvh.segment<3>(idx + 3);
 				} else if (dof == 3) {
-					p.segment<3>(count) = Rotate3dVector(p_bvh.segment<3>(count), d.segment<3>(count));
+					p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
 				} else {
-					p(count) = d(count) + p_bvh(count);
+					p(idx) = d(idx) + p_bvh(idx);
 				}
-				count += dof;
 			}
 			newpos.push_back(p);
 		}
