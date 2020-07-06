@@ -102,8 +102,9 @@ protected:
 	bool isAdaptive;
 	int id;
 	double mPrevFrameOnPhase;
-	double mRewardTrajectory;
-	
+	double mTargetRewardTrajectory;
+	double mTrackingRewardTrajectory;
+
 	Character* mCharacter;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;

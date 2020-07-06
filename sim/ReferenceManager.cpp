@@ -482,7 +482,10 @@ InitOptimization(std::string save_path) {
 }
 void 
 ReferenceManager::
-SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards) {
+SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
+
+	if((rewards.first / mPhaseLength)  < 0.8)
+		return;
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
@@ -519,10 +522,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, dou
 		r += cps[i].norm();	
 	}
 //	std::cout << rewards << " " << exp(-pow(r, 2)*0.01) << " "<< 0.05*exp(-pow(r, 2)*0.01) + rewards<< std::endl;
+//	std::cout << rewards << std::endl;
+//	std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
 
-	rewards += 0.05 * exp(-pow(r, 2)*0.01);
+	double reward_trajectory = rewards.second; // + 0.2 * exp(-pow(r, 2)*0.005);
 	mLock.lock();
-	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, rewards));
+	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, reward_trajectory));
 	mLock.unlock();
 
 	// std::string path = std::string(CAR_DIR)+std::string("/result/trajectory")+std::to_string(mSamples.size());
@@ -550,9 +555,12 @@ ReferenceManager::
 Optimize() {
 
 	double rewardTrajectory = 0;
+    int mu = 100;
+    std::cout << "num sample: " << mSamples.size() << std::endl;
+    if(mSamples.size() < 200)
+    	return;
 
     std::stable_sort(mSamples.begin(), mSamples.end(), cmp);
-    int mu = std::floor(mSamples.size() / 2.0);
 	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength()); 
 	mean_spline->SetKnots(0, mKnots);
 
@@ -564,6 +572,10 @@ Optimize() {
 	}
 	double weight_sum = 0;
 
+	std::string path = mPath + std::string("rewards");
+	std::ofstream ofs;
+	ofs.open(path, std::fstream::out | std::fstream::app);
+
 	for(int i = 0; i < mu; i++) {
 		double w = log(mu + 1) - log(i + 1);
 	    weight_sum += w;
@@ -572,7 +584,10 @@ Optimize() {
 			mean_cps[j] += w * cps[j].head(cps[j].rows() - 1);
 	    }
 	    rewardTrajectory += w * mSamples[i].second;
+	    ofs << mSamples[i].second << " ";
 	}
+	ofs << std::endl;
+	ofs.close();
 	for(int i = 0; i < num_knot; i++) {
 	    mean_cps[i] /= weight_sum;
 	    mPrevCps[i] = mPrevCps[i] * 0.95 + mean_cps[i] * 0.05;
@@ -617,8 +632,8 @@ Optimize() {
 		this->SaveAdaptiveMotion(std::to_string(nOp));
 
 		//save control points
-		std::string path = std::string(CAR_DIR) + std::string("/result/op_cp") + std::to_string(nOp);
-		std::ofstream ofs(path);
+		path = mPath + std::string("cp") + std::to_string(nOp);
+		ofs.open(path);
 		ofs << mKnots.size() << std::endl;
 		for(auto t: mKnots) {	
 			ofs << t << std::endl;
@@ -629,7 +644,7 @@ Optimize() {
 		ofs.close();
 
 		//save motion
-		path = std::string(CAR_DIR) + std::string("/result/op_motion") + std::to_string(nOp);
+		path =  mPath + std::string("motion") + std::to_string(nOp);
 		ofs.open(path);
 
 		for(auto t: newpos) {	
@@ -640,14 +655,13 @@ Optimize() {
 
 		nOp += 1;
 		mPrevRewardTrajectory = rewardTrajectory;
+		
+		while(!mSamples.empty()){
+			MultilevelSpline* s = mSamples.back().first;
+			mSamples.pop_back();
 
-	}
-
-	while(!mSamples.empty()){
-		MultilevelSpline* s = mSamples.back().first;
-		mSamples.pop_back();
-
-		delete s;
+			delete s;
+		}	
 	}
 }
 };

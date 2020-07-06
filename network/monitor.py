@@ -115,26 +115,27 @@ class Monitor(object):
 		return rewards, dones, curframes
 
 	def Optimize(self):
-		r_threshold = [0.85, 0.90, 0.85, 0.5]
-		s_threshold = 550
+	#	r_threshold = [0.85, 0.90, 0.85, 0.5]
+	#	s_threshold = 550
+		# r_threshold = [0.9, 0.95, 0.8]
+		# s_threshold = 500
+		# flag = True
+		# rewards_per_step = np.array(self.rewards_by_part_per_opt).sum(axis=0) / self.num_transitions_opt
+		# for i in range(3):
+		# 	if r_threshold[i] > rewards_per_step[i]:
+		# 		flag = False
 
-		flag = True
-		rewards_per_step = np.array(self.rewards_by_part_per_opt).sum(axis=0) / self.num_transitions_opt
-		for i in range(4):
-			if r_threshold[i] > rewards_per_step[i]:
-				flag = False
+		# steps = np.array(self.num_transitions_opt) / self.num_episodes_opt
+		# if s_threshold > steps:
+		# 	flag = False
+		# if flag:
+		self.sim_env.Optimize()
 
-		steps = np.array(self.num_transitions_opt) / self.num_episodes_opt
-		if s_threshold > steps:
-			flag = False
-		if flag:
-			self.sim_env.Optimize()
+		# print(rewards_per_step, steps)
 
-		print(rewards_per_step, steps)
-
-		self.rewards_by_part_per_opt = []
-		self.num_transitions_opt = 0
-		self.num_episodes_opt = 0
+		# self.rewards_by_part_per_opt = []
+		# self.num_transitions_opt = 0
+		# self.num_episodes_opt = 0
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:

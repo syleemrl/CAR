@@ -62,7 +62,7 @@ public:
 	Eigen::VectorXd GetAxisMean(double t);
 	Eigen::VectorXd GetAxisDev(double t);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, double rewards);
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards);
 	void InitOptimization(std::string save_path);
 	void Optimize();
 protected:
