@@ -606,12 +606,11 @@ GetTargetReward()
 
 		// if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
 		// 	Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-		// 	Eigen::Vector3d target_hand = Eigen::Vector3d(0.4, 1.2, 0.7);
+		// 	Eigen::Vector3d target_hand = Eigen::Vector3d(0.0, 1.3, 0.7);
 		// 	Eigen::Vector3d target_diff = target_hand - hand;
-
+		// 	std::cout << hand.transpose() << std::endl;
 		// 	r_target = 2 * exp_of_squared(target_diff,0.3);
 		// 	mControlFlag[0] = 1;
-
 		// }
 	// }
 
@@ -681,11 +680,10 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
-
-	double r_time = exp(-pow(mAdaptiveStep*10,2)*50);
+	double r_target = this->GetTargetReward();
 
 	mRewardParts.clear();
-	double r_tot = accum_bvh;
+	double r_tot = accum_bvh;// + 10 * r_target;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -696,53 +694,6 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
 	mTrackingRewardTrajectory += (0.4 * tracking_rewards_bvh[0] + 0.6 * tracking_rewards_bvh[2]);
-	// std::cout << mCurrentFrameOnPhase << " : " << tracking_rewards_bvh[0] << " " << tracking_rewards_bvh[1] <<
-	// " " << tracking_rewards_bvh[2] << " " << tracking_rewards_bvh[3] << std::endl;
-
-	// double r_tot_dense = this->GetTargetReward();
-
-	// // auto& skel = this->mCharacter->GetSkeleton();
-	// // Eigen::VectorXd dummy = skel->getVelocities();
-
-	// // std::vector<double> tracking_rewards_ref = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
-	// // 							 dummy, dummy, mRewardBodies, false);
-	// // double accum_ref = std::accumulate(tracking_rewards_ref.begin(), tracking_rewards_ref.end(), 0.0) / tracking_rewards_ref.size();
-	// // double r_target = this->GetTargetReward();
-	// // Eigen::VectorXd a = mActions.tail(mAdaptiveBodies.size() * 3 + 3);
-	// // double r_action = exp_of_squared(a, 0.1);
-
-	// // std::vector<bool> con_cur = this->GetContactInfo(mTargetPositions);
-	// // std::vector<bool> con_bvh = this->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrame, false));
-	// // double r_con = 0;
-	// // for(int i = 0; i < con_cur.size(); i++) {
-	// // 	if(con_cur[i] == con_bvh[i]) {
-	// // 		r_con += 1;
-	// // 	}
-	// // }
-	// // r_con /= con_cur.size();
-
-	// // std::vector<double> ref_adaptive_diff = this->GetAdaptiveRefReward();
-	// // double r_ad_root = (exp(-ref_adaptive_diff[0]*15) + exp(-ref_adaptive_diff[1]*10)) * 0.5;
-	// // double r_ad_joint = 0;
-	// // for(int i = 2; i < ref_adaptive_diff.size(); i++) {
-	// // 	r_ad_joint += 1.0 / (ref_adaptive_diff.size() - 2) * exp(-ref_adaptive_diff[i]*10);
-	// // }
-	// // double r_tot_dense = 0.3 * accum_ref + 0.3 * r_ad_joint + 0.3 * r_ad_root + 0.1 * r_con;
- 
- // // 	mRewardParts.clear();
-
-	// if(dart::math::isNan(r_tot_dense)){
-	// 	mRewardParts.resize(mRewardLabels.size(), 0.0);
-	// }
-	// else {
-	// 	mRewardParts.push_back(r_tot_dense);
-	// 	// mRewardParts.push_back(r_target * 2);
-	// 	// mRewardParts.push_back(accum_ref);
-	// 	// mRewardParts.push_back(r_ad_joint);
-	// 	// mRewardParts.push_back(r_ad_root);
-	// 	// mRewardParts.push_back(r_con);
-	// 	// mRewardParts.push_back(r_target);
-	// }
 }
 void
 Controller::
