@@ -541,14 +541,14 @@ GetTargetReward()
 
 	//jump	
 	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-		double target_diff = skel->getCOM()[1] - 1.35;
-		r_target = 2 * exp(-pow(target_diff, 2) * 60);
+		double target_diff = skel->getCOM()[1] - 1.45;
+		r_target = 2 * exp(-pow(target_diff, 2) * 30);
 		mControlFlag[0] = 1;
 		target_reward = skel->getCOM()[1];
 		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
 		mCount += 1;
 		if(mRecord)
-			std::cout << skel->getCOM()[1] << std::endl;
+			std::cout << skel->getCOM()[1] << " " << r_target << std::endl;
 	}
 
 	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
@@ -606,9 +606,8 @@ GetTargetReward()
 
 		// if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
 		// 	Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-		// 	Eigen::Vector3d target_hand = Eigen::Vector3d(0.0, 1.3, 0.7);
+		// 	Eigen::Vector3d target_hand = Eigen::Vector3d(-0.5, 0.4, 0.7) + mHeadRoot.segment<3>(3);
 		// 	Eigen::Vector3d target_diff = target_hand - hand;
-		// 	std::cout << hand.transpose() << std::endl;
 		// 	r_target = 2 * exp_of_squared(target_diff,0.3);
 		// 	mControlFlag[0] = 1;
 		// }
@@ -683,7 +682,7 @@ UpdateAdaptiveReward()
 	double r_target = this->GetTargetReward();
 
 	mRewardParts.clear();
-	double r_tot = accum_bvh;// + 10 * r_target;
+	double r_tot = accum_bvh;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}

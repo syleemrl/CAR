@@ -16,6 +16,7 @@ include_directories(../network/)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(GLEW REQUIRED)
+link_libraries(stdc++fs)
 
 add_compile_options(-DHAVE_CSTDDEF)
 include_directories(${DART_INCLUDE_DIRS})

@@ -24,12 +24,12 @@ RecordWindow(std::vector<std::string> motion)
 	for(int i = 0; i < motion.size(); i++) {
 		this->mRef.push_back(new DPhy::Character(skel_path));
 
+
 		std::vector<Eigen::VectorXd> record_pos;
 		record_pos.clear();
 
 		int dof = this->mRef[i]->GetSkeleton()->getPositions().rows();
-		std::string record_path = std::string(CAR_DIR) + std::string("/") + motion[i];
-
+		std::string record_path = motion[i];
 		std::ifstream is(record_path);
 		
 		char buffer[256];
@@ -48,7 +48,9 @@ RecordWindow(std::vector<std::string> motion)
 				is >> buffer;
 				p[j] = atof(buffer);
 			}
+
 			record_pos.push_back(p);
+
 			length++;
 		}
 		record_pos.pop_back();
@@ -130,6 +132,8 @@ void
 RecordWindow::
 DrawGround()
 {
+	GUI::DrawPoint(Eigen::Vector3d(0.0, 1.3, 0.7), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
+
 	Eigen::Vector3d com_root;
 	com_root = this->mRef[num / 2]->GetSkeleton()->getRootBodyNode()->getCOM();
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
@@ -138,6 +142,7 @@ void
 RecordWindow::
 Display() 
 {
+
 	glClearColor(1.0, 1.0, 1.0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);

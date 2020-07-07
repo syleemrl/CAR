@@ -13,7 +13,7 @@ using namespace dart::dynamics;
 //namespace plt=matplotlibcpp;
 
 SimWindow::
-SimWindow(std::string motion, std::string network, std::string mode, std::string filename)
+SimWindow(std::string motion, std::string network, std::string filename)
 	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), 
 	mDrawOutput(true), mDrawRef(true), mDrawRef2(true),
 	mRunPPO(true), mTimeStep(1 / 30.0), mWrap(false)
@@ -24,7 +24,6 @@ SimWindow(std::string motion, std::string network, std::string mode, std::string
 		this->mDrawRef2 = false;
 	}
 	this->filename = filename;
-	this->mode = mode;
 
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 	this->mRef = new DPhy::Character(path);
@@ -230,7 +229,6 @@ void
 SimWindow::
 DrawSkeletons()
 {
-
 	if(this->mDrawOutput) {
 		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOM, this->mCurFrame, Eigen::Vector3d(0.9, 0.9, 0.9));

@@ -493,7 +493,7 @@ InitOptimization(std::string save_path) {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
-	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTrajectory)
+	if((rewards.first / mPhaseLength)  < 0.9)
 		return;
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
@@ -535,9 +535,24 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 //	std::cout << rewards << std::endl;
 //	std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
 
-	double reward_trajectory = rewards.second; // + 0.2 * exp(-pow(r, 2)*0.01);
+	double reward_trajectory = 0.8 * rewards.second + 0.2 * exp(-pow(r, 2)*0.01);
+	if(reward_trajectory < mPrevRewardTrajectory)
+		return;
+
 	mLock.lock();
 	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, reward_trajectory));
+	if(nOp != 0) {
+		std::string path =  mPath + std::string("samples") + std::to_string(nOp);
+		
+		std::ofstream ofs;
+
+		ofs.open(path, std::fstream::out | std::fstream::app);
+		for(auto t: data_spline) {	
+			ofs << t.first.transpose() << " " << rewards.second << std::endl;
+		}
+		ofs.close();
+	}
+
 	mLock.unlock();
 
 	// std::string path = std::string(CAR_DIR)+std::string("/result/trajectory")+std::to_string(mSamples.size());
@@ -601,7 +616,7 @@ Optimize() {
 
 	for(int i = 0; i < num_knot; i++) {
 	    mean_cps[i] /= weight_sum;
-	    mPrevCps[i] = mPrevCps[i] * 0.8 + mean_cps[i] * 0.2;
+	    mPrevCps[i] = mPrevCps[i] * 0.9 + mean_cps[i] * 0.1;
 	}
 	rewardTrajectory /= weight_sum;
 	if(nOp == 0)

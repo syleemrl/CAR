@@ -24,7 +24,7 @@ class SimWindow : public GUI::GLUTWindow
 {
 public:
 	/// Constructor.
-	SimWindow(std::string motion, std::string network="", std::string mode="", std::string filename="");
+	SimWindow(std::string motion, std::string network="", std::string filename="");
 
 	/// World object pointer
 	dart::simulation::WorldPtr mWorld;

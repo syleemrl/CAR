@@ -589,8 +589,9 @@ DrawLine(const Eigen::Vector3d& p0,const Eigen::Vector3d& p1,const Eigen::Vector
 }
 void
 GUI::
-DrawPoint(const Eigen::Vector3d& p0,const Eigen::Vector3d& color)
+DrawPoint(const Eigen::Vector3d& p0,const Eigen::Vector3d& color, const double scale)
 {
+    glPointSize(scale);
 	glColor3f(color[0],color[1],color[2]);
 	glBegin(GL_POINTS);
     glNormal3f(0.0, 1.0, 0.0);
