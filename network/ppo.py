@@ -165,6 +165,21 @@ class PPO(object):
 		grads_and_vars = list(zip(grads, params))
 		self.critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
 
+		if self.adaptive:
+			self.critic_sparse = Critic(self.sess, name, self.state, postfix='_sparse')
+			
+			with tf.variable_scope(name+'_Optimize'):
+				self.TD_sparse = tf.placeholder(tf.float32, shape=[None], name='TD')
+				value_sparse_loss = tf.reduce_mean(tf.square(self.critic_sparse.value - self.TD_sparse))
+				self.loss_critic_sparse = value_sparse_loss
+
+			critic_trainer_sparse = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
+			grads, params = zip(*critic_trainer_sparse.compute_gradients(self.loss_critic_sparse));
+			grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
+		
+			grads_and_vars = list(zip(grads, params))
+			self.critic_sparse_train_op = critic_trainer_sparse.apply_gradients(grads_and_vars)
+
 		save_list = tf.trainable_variables()
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
@@ -227,6 +242,89 @@ class PPO(object):
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages[i])
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
+	
+	def updateAdaptive(self, tuples):
+		state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
+		if len(state_batch) < self.batch_size:
+			return
+		GAE_batch = (GAE_batch - GAE_batch.mean())/(GAE_batch.std() + 1e-5)
+
+		ind = np.arange(len(state_batch))
+		np.random.shuffle(ind)
+
+		lossval_ac = 0
+		lossval_c = 0
+		lossval_cs = 0
+		for s in range(int(len(ind)//self.batch_size)):
+			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
+			val = self.sess.run([self.actor_train_op, self.critic_train_op, self.critic_sparse_train_op,
+							self.loss_actor, self.loss_critic, self.loss_critic_sparse], 
+				feed_dict={
+					self.state: state_batch[selectedIndex], 
+					self.TD: TD_batch[selectedIndex], 
+					self.TD_sparse: TD_sparse_batch[selectedIndex], 
+					self.action: action_batch[selectedIndex], 
+					self.old_neglogp: neglogp_batch[selectedIndex], 
+					self.GAE: GAE_batch[selectedIndex],
+					self.learning_rate_ph:self.learning_rate_actor
+				}
+			)
+			lossval_ac += val[3]
+			lossval_c += val[4]
+			lossval_cs += val[5]
+		self.lossvals = []
+		self.lossvals.append(['loss actor', lossval_ac])
+		self.lossvals.append(['loss critic', lossval_c])
+		self.lossvals.append(['loss critic sparse', lossval_cs])
+
+	def computeTDandGAEAdaptive(self, tuples):
+		state_batch = []
+		action_batch = []
+		TD_batch = []
+		TD_sparse_batch = []
+		neglogp_batch = []
+		GAE_batch = []
+		self.values_sparse = 0
+		self.values_dense = 0
+		for data in tuples:
+			size = len(data)		
+			# get values
+			states, actions, rewards, values, neglogprobs, times = zip(*data)
+
+			values_dense =  np.concatenate((np.array(values)[:,0], [0]), axis=0)
+			values_sparse =  np.concatenate((np.array(values)[:,1], [0]), axis=0)
+			advantages_dense = np.zeros(size)
+			advantages_sparse = np.zeros(size)
+			ad_t_sparse = 0
+			ad_t_dense = 0
+			for i in reversed(range(len(data))):
+				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
+				ad_t_dense = delta_dense + self.gamma * self.lambd * ad_t_dense
+				advantages_dense[i] = ad_t_dense
+
+				# if i != len(data)-1 and times[i] > times[i+1]:
+				# 	delta_sparse = rewards[i][1] - values_sparse[i]
+				# 	ad_t_sparse = delta_sparse
+				# else:
+				delta_sparse = rewards[i][1] + values_sparse[i+1] * self.gamma_sparse - values_sparse[i]
+				ad_t_sparse = delta_sparse + self.gamma_sparse * self.lambd * ad_t_sparse
+
+				advantages_sparse[i] = ad_t_sparse
+
+			TD = values_dense[:size] + advantages_dense
+			TD_sparse = values_sparse[:size] + advantages_sparse
+			self.values_sparse += np.mean(values_sparse)
+			self.values_dense += np.mean(values_dense)
+			for i in range(size):
+				state_batch.append(states[i])
+				action_batch.append(actions[i])
+				TD_batch.append(TD[i])
+				TD_sparse_batch.append(TD_sparse[i])
+				neglogp_batch.append(neglogprobs[i])
+				GAE_batch.append(advantages_dense[i]+advantages_sparse[i])
+		self.values_sparse /= len(tuples)
+		self.values_dense /= len(tuples)
+		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(TD_sparse_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
@@ -284,6 +382,9 @@ class PPO(object):
 		print_list.append('noise : {:.3f}'.format(self.sess.run(self.actor.std).mean()))
 		for v in self.lossvals:
 			print_list.append('{}: {:.3f}'.format(v[0], v[1]))
+		if self.adaptive:
+			print_list.append('avg sparse value : {:.3f}'.format(self.values_sparse))
+			print_list.append('avg dense value : {:.3f}'.format(self.values_dense))
 		print_list.append('===============================================================')
 		for s in print_list:
 			print(s)
@@ -303,12 +404,19 @@ class PPO(object):
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
-				values = self.critic.getValue(states)
+				if not self.adaptive:
+					values = self.critic.getValue(states)
+				else:
+					values = [self.critic.getValue(states), self.critic_sparse.getValue(states)]
+					values = np.array(values).transpose()				
 				rewards, dones, times = self.env.step(actions)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
-						if rewards[j] is not None:
+						if not self.adaptive and rewards[j] is not None:
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j]])
+							local_step += 1
+						if self.adaptive and rewards[j][0] is not None:
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
@@ -333,7 +441,10 @@ class PPO(object):
 
 			if it % 5 == 4:	
 		#	if 1:		
-				self.update(epi_info_iter) 
+				if self.adaptive:
+					self.updateAdaptive(epi_info_iter)
+				else:			
+					self.update(epi_info_iter) 
 
 				if self.learning_rate_actor > 1e-5:
 					self.learning_rate_actor = self.learning_rate_actor * self.learning_rate_decay

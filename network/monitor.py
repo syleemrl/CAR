@@ -109,8 +109,13 @@ class Monitor(object):
 					if frames[i] > self.max_episode_length:
 						self.max_episode_length = frames[i]
 
-		rewards = [rewards[i][0] for i in range(len(rewards))]
-
+		if self.adaptive:
+			rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
+			if curframes[i] < self.prevframes[i]:
+				self.num_phase += 1
+		else:	
+			rewards = [rewards[i][0] for i in range(len(rewards))]
+			
 		self.prevframes = curframes
 		return rewards, dones, curframes
 

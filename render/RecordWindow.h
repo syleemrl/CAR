@@ -76,6 +76,9 @@ protected:
 	std::vector<DPhy::Character*> mRef;
 
 	p::object mPPO;
+
+	std::vector<Eigen::Vector3d> mMemoryObj;
+	Eigen::Vector3d mObj;
 };
 
 #endif

@@ -250,7 +250,9 @@ DrawSkeletons()
 void
 SimWindow::
 DrawGround()
-{
+{	
+	GUI::DrawPoint(Eigen::Vector3d(0.3, 1.3, 0.7), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
+
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)
 		com_root = this->mCharacter->GetSkeleton()->getRootBodyNode()->getCOM();

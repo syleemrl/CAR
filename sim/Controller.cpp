@@ -173,7 +173,8 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	mControlFlag.resize(2);
 	mRewardLabels.clear();
 	if(isAdaptive) {
-		mRewardLabels.push_back("total");
+		mRewardLabels.push_back("total_d");
+		mRewardLabels.push_back("total_s");
 		mRewardLabels.push_back("p");
 		mRewardLabels.push_back("com");
 		mRewardLabels.push_back("ee");
@@ -540,16 +541,16 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//jump	
-	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-		double target_diff = skel->getCOM()[1] - 1.45;
-		r_target = 2 * exp(-pow(target_diff, 2) * 30);
-		mControlFlag[0] = 1;
-		target_reward = skel->getCOM()[1];
-		meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
-		mCount += 1;
-		if(mRecord)
-			std::cout << skel->getCOM()[1] << " " << r_target << std::endl;
-	}
+	// if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+	// 	double target_diff = skel->getCOM()[1] - 1.45;
+	// 	r_target = 2 * exp(-pow(target_diff, 2) * 30);
+	// 	mControlFlag[0] = 1;
+	// 	target_reward = skel->getCOM()[1];
+	// 	meanTargetReward = meanTargetReward * (mCount / (mCount + 1.0)) + r_target * (1.0 / (mCount + 1.0));
+	// 	mCount += 1;
+	// 	if(mRecord)
+	// 		std::cout << skel->getCOM()[1] << " " << r_target << std::endl;
+	// }
 
 	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
 	// 	mTarget = mRecordWork.back();
@@ -604,13 +605,13 @@ GetTargetReward()
 	// 	mTarget += mRecordWork.back();
 	// 	mTarget2 += 1;
 
-		// if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
-		// 	Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-		// 	Eigen::Vector3d target_hand = Eigen::Vector3d(-0.5, 0.4, 0.7) + mHeadRoot.segment<3>(3);
-		// 	Eigen::Vector3d target_diff = target_hand - hand;
-		// 	r_target = 2 * exp_of_squared(target_diff,0.3);
-		// 	mControlFlag[0] = 1;
-		// }
+		if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
+			Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
+			Eigen::Vector3d target_hand = Eigen::Vector3d(-0.25, 0.4, 0.7) + mHeadRoot.segment<3>(3);
+			Eigen::Vector3d target_diff = target_hand - hand;
+			r_target = 2 * exp_of_squared(target_diff,0.3);
+			mControlFlag[0] = 1;
+		}
 	// }
 
 	// if(mControlFlag[1] == 0 && mCurrentFrame >= mReferenceManager->GetPhaseLength()) {
@@ -682,12 +683,13 @@ UpdateAdaptiveReward()
 	double r_target = this->GetTargetReward();
 
 	mRewardParts.clear();
-	double r_tot = accum_bvh;
+	double r_tot = accum_bvh + 10 * r_target;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
+		mRewardParts.push_back(0);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);

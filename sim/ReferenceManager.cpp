@@ -459,23 +459,24 @@ GetAxisDev(double t) {
 void
 ReferenceManager::
 InitOptimization(std::string save_path) {
-	// mKnots.push_back(0);
-	// mKnots.push_back(9);
-	// mKnots.push_back(18);
-	// mKnots.push_back(27);
-	// mKnots.push_back(40);
+	mKnots.push_back(0);
+	mKnots.push_back(9);
+	mKnots.push_back(20);
+	mKnots.push_back(27);
+	mKnots.push_back(35);
+
 	// // mKnots.push_back(44);
 	// // mKnots.push_back(56);
 	// // mKnots.push_back(64);
 	// // mKnots.push_back(76);
-	mKnots.push_back(0);
-	mKnots.push_back(12);
-	mKnots.push_back(29);
-	mKnots.push_back(37);
-	mKnots.push_back(44);
-	mKnots.push_back(56);
-	mKnots.push_back(64);
-	mKnots.push_back(76);
+	// mKnots.push_back(0);
+	// mKnots.push_back(12);
+	// mKnots.push_back(29);
+	// mKnots.push_back(37);
+	// mKnots.push_back(44);
+	// mKnots.push_back(56);
+	// mKnots.push_back(64);
+	// mKnots.push_back(76);
 
 
 	for(int i = 0; i < this->mKnots.size(); i++) {
@@ -485,10 +486,40 @@ InitOptimization(std::string save_path) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
 	this->GenerateMotionsFromSinglePhase(1000, false, true);
-	
 	nOp = 0;
 	mPath = save_path;
-	mPrevRewardTrajectory = 0;
+	mPrevRewardTrajectory = 0.5;	
+
+
+	std::vector<std::pair<Eigen::VectorXd,double>> pos;
+	for(int i = 0; i < mPhaseLength; i++) {
+		pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
+	}
+	MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
+	s->SetKnots(0, mKnots);
+
+	s->ConvertMotionToSpline(pos);
+	std::string path = std::string(CAR_DIR) + std::string("/result/op_base");
+	
+	std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
+
+	std::ofstream ofs(path);
+
+	ofs << mKnots.size() << std::endl;
+	for(auto t: mKnots) {	
+		ofs << t << std::endl;
+	}
+	for(auto t: cps) {	
+		ofs << t.transpose() << std::endl;
+	}
+
+	ofs << pos.size() << std::endl;
+	for(auto t: pos) {	
+		ofs << t.second << std::endl;
+		ofs << t.first.transpose() << std::endl;
+	}
+	ofs.close();
+
 }
 void 
 ReferenceManager::

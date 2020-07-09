@@ -48,12 +48,23 @@ RecordWindow(std::vector<std::string> motion)
 				is >> buffer;
 				p[j] = atof(buffer);
 			}
+				is >> buffer;
+				is >> buffer;
 
+			Eigen::Vector3d o;
+			o.setZero();
+			// for(int j = 0; j < 3; j++) 
+			// {
+			// 	is >> buffer;
+			// 	o(j) = atof(buffer);
+			// }
 			record_pos.push_back(p);
-
+			mMemoryObj.push_back(o);
 			length++;
 		}
 		record_pos.pop_back();
+		mMemoryObj.pop_back();
+
 		length -= 1;
 	//	}
 
@@ -68,9 +79,7 @@ RecordWindow(std::vector<std::string> motion)
 			DPhy::SetSkeletonColor(this->mRef.back()->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 
 	}
-	double dir = mMemoryRef[0][0][1];
-	dir = dir;
-	// Eigen::Vector3d ori_otho(cos(dir), 0, sin(dir));
+
 	Eigen::Vector3d ori_otho(-1.0, 0, 0);
 	for(int i = 1; i < motion.size(); i++) {
 		for(int j = 0; j < mMemoryRef[i].size(); j++) {
@@ -96,6 +105,8 @@ SetFrame(int n)
 	for(int i = 0; i < mRef.size(); i++) {
     	mRef[i]->GetSkeleton()->setPositions(mMemoryRef[i][n]);
     }
+    mObj = mMemoryObj[0];
+
 }
 
 void
@@ -132,7 +143,7 @@ void
 RecordWindow::
 DrawGround()
 {
-	GUI::DrawPoint(Eigen::Vector3d(0.0, 1.3, 0.7), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
+	GUI::DrawPoint(mObj, Eigen::Vector3d(1.0, 1.0, 1.0), 10);
 
 	Eigen::Vector3d com_root;
 	com_root = this->mRef[num / 2]->GetSkeleton()->getRootBodyNode()->getCOM();
