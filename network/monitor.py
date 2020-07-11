@@ -81,66 +81,45 @@ class Monitor(object):
 		states_updated = self.RMS.apply(s.reshape(1, -1))
 		return states_updated, r, t
 
-	def step(self, actions):
+	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, nan_count =  self.env.step(actions)
 		curframes = np.array(self.states)[:,-1]
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
-		self.num_nan_per_iteration += nan_count
-		for i in range(self.num_slaves):
-			if not self.terminated[i] and rewards[i][0] is not None:
-				self.rewards_per_iteration += rewards[i][0]
-				if self.adaptive:
-					self.rewards_target_per_iteration += rewards[i][1]
-				self.rewards_by_part_per_iteration.append(rewards[i])
-				
-				self.num_transitions_per_iteration += 1
-				if self.adaptive:
-					self.num_transitions_opt += 1
-					self.rewards_by_part_per_opt.append(rewards[i][1:])
-
-				if dones[i]:
-					self.num_episodes_per_iteration += 1
+		if record:
+			self.num_nan_per_iteration += nan_count
+			for i in range(self.num_slaves):
+				if not self.terminated[i] and rewards[i][0] is not None:
+					self.rewards_per_iteration += rewards[i][0]
 					if self.adaptive:
-						self.num_episodes_opt += 1
+						self.rewards_target_per_iteration += rewards[i][1]
+					self.rewards_by_part_per_iteration.append(rewards[i])
+					
+					self.num_transitions_per_iteration += 1
+					if self.adaptive:
+						self.num_transitions_opt += 1
+						self.rewards_by_part_per_opt.append(rewards[i][1:])
 
-					self.total_time_elapsed += times[i]
+					if dones[i]:
+						self.num_episodes_per_iteration += 1
+						if self.adaptive:
+							self.num_episodes_opt += 1
 
-					if frames[i] > self.max_episode_length:
-						self.max_episode_length = frames[i]
+						self.total_time_elapsed += times[i]
 
-		if self.adaptive:
-			rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
-			if curframes[i] < self.prevframes[i]:
-				self.num_phase += 1
-		else:	
-			rewards = [rewards[i][0] for i in range(len(rewards))]
-			
-		self.prevframes = curframes
+						if frames[i] > self.max_episode_length:
+							self.max_episode_length = frames[i]
+
+			if self.adaptive:
+				rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
+				if curframes[i] < self.prevframes[i]:
+					self.num_phase += 1
+			else:	
+				rewards = [rewards[i][0] for i in range(len(rewards))]
+				
+			self.prevframes = curframes
+
 		return rewards, dones, curframes
-
-	def Optimize(self):
-	#	r_threshold = [0.85, 0.90, 0.85, 0.5]
-	#	s_threshold = 550
-		# r_threshold = [0.9, 0.95, 0.8]
-		# s_threshold = 500
-		# flag = True
-		# rewards_per_step = np.array(self.rewards_by_part_per_opt).sum(axis=0) / self.num_transitions_opt
-		# for i in range(3):
-		# 	if r_threshold[i] > rewards_per_step[i]:
-		# 		flag = False
-
-		# steps = np.array(self.num_transitions_opt) / self.num_episodes_opt
-		# if s_threshold > steps:
-		# 	flag = False
-		# if flag:
-		self.sim_env.Optimize()
-
-		# print(rewards_per_step, steps)
-
-		# self.rewards_by_part_per_opt = []
-		# self.num_transitions_opt = 0
-		# self.num_episodes_opt = 0
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:

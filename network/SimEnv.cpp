@@ -16,10 +16,9 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	DPhy::Character* character = new DPhy::Character(path);
 	mReferenceManager = new DPhy::ReferenceManager(character);
 	mReferenceManager->LoadMotionFromBVH(ref);
-	mReferenceManager->GenerateMotionsFromSinglePhase(1010, false);
 
 	if(adaptive) {
-		mReferenceManager->InitOptimization(training_path);
+		mReferenceManager->InitOptimization(num_slaves, training_path);
 	}
 	
 	for(int i =0;i<num_slaves;i++)
@@ -196,9 +195,32 @@ DeformCharacter(double w)
 }
 void
 SimEnv::
+OptimizationStart()
+{
+	for(int id = 0; id < mNumSlaves; id++) {
+		mSlaves[id]->SetOptimizationMode(true);
+	}
+}
+void
+SimEnv::
+GenerateRandomTrajectory()
+{
+#pragma omp parallel for	
+	for(int id = 0; id < mNumSlaves; id++) {
+		mReferenceManager->GenerateRandomTrajectory(id);
+	}
+}
+bool
+SimEnv::
 Optimize()
 {
-	mReferenceManager->Optimize();
+	bool t = mReferenceManager->Optimize();
+	if(t) {
+		for(int id = 0; id < mNumSlaves; id++) {
+			mSlaves[id]->SetOptimizationMode(false);
+		}
+	}
+	return t;
 }
 void
 SimEnv::
@@ -231,7 +253,9 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
+		.def("GenerateRandomTrajectory",&SimEnv::GenerateRandomTrajectory)
 		.def("Optimize",&SimEnv::Optimize)
+		.def("OptimizationStart",&SimEnv::OptimizationStart)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

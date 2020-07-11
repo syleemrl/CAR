@@ -33,15 +33,16 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-	mReferenceManager->GenerateMotionsFromSinglePhase(1000, false);
+
 	if(this->mRunPPO) {
 		path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
-		mReferenceManager->InitOptimization(path);
+		mReferenceManager->InitOptimization(1, path);
 		mReferenceManager->LoadAdaptiveMotion("");
+		mReferenceManager->GenerateRandomTrajectory(0);
 	}
 
 	this->mController = new DPhy::Controller(mReferenceManager, this->mRunPPO, true);
-
+	this->mController->SetOptimizationMode(true);
 	//	mReferenceManager->EditMotion(1.5, "b");
 	this->mWorld = this->mController->GetWorld();
 
@@ -251,7 +252,7 @@ void
 SimWindow::
 DrawGround()
 {	
-	GUI::DrawPoint(Eigen::Vector3d(2.3, 1.3, -0.56), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(0.3, 1.3, 0.8), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
 
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)
@@ -313,7 +314,10 @@ void
 SimWindow::
 Reset()
 {
-	
+	if(mRunPPO) {
+		mReferenceManager->GenerateRandomTrajectory(0);
+	}
+
 	this->mController->Reset(false);
 
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);

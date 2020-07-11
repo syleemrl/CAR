@@ -186,6 +186,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		mRewardLabels.push_back("v");
 		mRewardLabels.push_back("time");
 	}
+	mOpMode = false;
 }
 void
 Controller::
@@ -237,7 +238,7 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		mControlFlag.setZero();
-		if(isAdaptive) {
+		if(mOpMode) {
 			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory));
 			data_spline.clear();
 			mTrackingRewardTrajectory = 0;
@@ -245,16 +246,20 @@ Step()
 		}
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	Motion* p_v_target;
+
+	if(mOpMode)
+		p_v_target = mReferenceManager->GetMotionForOptimization(mCurrentFrame, id);
+	else
+		p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
 	delete p_v_target;
 
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
-	this->mPDTargetPositions = p_v_target->GetPosition();
-	this->mPDTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
-	delete p_v_target;
+	this->mPDTargetPositions = this->mTargetPositions;
+	this->mPDTargetVelocities = this->mTargetVelocities;
+
 	
 	int count_dof = 0;
 	for(int i = 0; i < num_body_nodes; i++){
@@ -326,7 +331,7 @@ Step()
 	if(mRecord) {
 		SaveStepInfo();
 	}
-	if(isAdaptive) {
+	if(mOpMode) {
 		Eigen::VectorXd p(mCharacter->GetSkeleton()->getPositions().rows() + 1);
 		p << mCharacter->GetSkeleton()->getPositions(), mAdaptiveStep;
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(p, mCurrentFrame));
@@ -334,7 +339,7 @@ Step()
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 	
-	if(isAdaptive && mIsTerminal)
+	if(mOpMode && mIsTerminal)
 		data_spline.clear();
 
 }
@@ -607,8 +612,10 @@ GetTargetReward()
 
 		if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
 			Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-			Eigen::Vector3d target_hand = Eigen::Vector3d(-0.25, 0.4, 0.7) + mHeadRoot.segment<3>(3);
+			Eigen::AngleAxisd aa(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+			Eigen::Vector3d target_hand = aa * Eigen::Vector3d(0.017, 0.4, 0.8) + mHeadRoot.segment<3>(3);
 			Eigen::Vector3d target_diff = target_hand - hand;
+		
 		//	std::cout << target_hand.transpose() << std::endl;
 			r_target = 2 * exp_of_squared(target_diff,0.3);
 			mControlFlag[0] = 1;
@@ -783,7 +790,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(this->nTotalSteps > 700 ) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(this->nTotalSteps > 500 ) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -917,7 +924,11 @@ Reset(bool RSI)
 	this->mControlFlag.setZero();
 	this->nPhase = 0;
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	Motion* p_v_target;
+	if(mOpMode)
+		p_v_target = mReferenceManager->GetMotionForOptimization(mCurrentFrame, id);
+	else
+		p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;

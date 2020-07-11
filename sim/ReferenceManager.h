@@ -50,9 +50,10 @@ public:
 	void SaveAdaptiveMotion(std::string postfix="");
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
-	void GenerateMotionsFromSinglePhase(int frames, bool blend, bool adaptive=false);
+	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
 	void RescaleMotion(double w);
 	Motion* GetMotion(double t, bool adaptive=false);
+	Motion* GetMotionForOptimization(double t, int id);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
 	double GetTimeStep() {return mTimeStep; }
@@ -63,8 +64,9 @@ public:
 	Eigen::VectorXd GetAxisDev(double t);
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards);
-	void InitOptimization(std::string save_path);
-	void Optimize();
+	void InitOptimization(int nslaves, std::string save_path);
+	bool Optimize();
+	void GenerateRandomTrajectory(int i);
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -76,6 +78,8 @@ protected:
 	std::vector<Motion*> mMotions_phase_adaptive;
 	std::vector<Motion*> mMotions_gen;
 	std::vector<Motion*> mMotions_gen_adaptive;
+	std::vector<std::vector<Motion*>> mMotions_gen_temp;
+
 	std::vector<double> mIdxs;
 	
 	std::vector<Eigen::VectorXd> mAxis_BVH;
@@ -95,6 +99,8 @@ protected:
 	int mDOF;
 
 	int nOp;
+
+
 };
 }
 

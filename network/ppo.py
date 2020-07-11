@@ -393,6 +393,9 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		for it in range(num_iteration):
+			if self.adaptive and it % 5 == 0:	
+				self.optimizeReference(100)
+
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 			states = self.env.getStates()
@@ -451,8 +454,6 @@ class PPO(object):
 
 				summary = self.env.printSummary()
 				self.printNetworkSummary()
-				if self.adaptive:
-					self.env.Optimize()
 
 				if self.directory is not None:
 					self.save()
@@ -466,6 +467,40 @@ class PPO(object):
 					os.system("cp {}/network-{}.meta {}/network-rmax.meta".format(self.directory, 0, self.directory))
 
 				epi_info_iter = []
+
+	def optimizeReference(self, num_max_iteration):
+
+		self.env.sim_env.OptimizationStart()
+		print('Optimization start')
+
+		for it in range(num_max_iteration):
+			self.env.sim_env.GenerateRandomTrajectory()
+
+			for i in range(self.num_slaves):
+				self.env.reset(i)
+			states = self.env.getStates()
+			
+			while True:
+				# set action
+				actions = self.actor.getMeanAction(states)
+				rewards, dones, times  = self.env.step(actions, False)
+				for j in range(self.num_slaves):
+					if not self.env.getTerminated(j):
+						if dones[j]:
+							self.env.setTerminated(j)
+
+				if self.env.getAllTerminated():
+					break
+
+				states = self.env.getStates()
+
+			print('Optimization: iter {}'.format(it+1),end='\r')
+			t = self.env.sim_env.Optimize()
+			if t:
+				break
+
+		print('')
+		print('Optimization done')
 
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
