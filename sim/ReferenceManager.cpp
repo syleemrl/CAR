@@ -499,7 +499,7 @@ InitOptimization(std::string save_path) {
 	s->SetKnots(0, mKnots);
 
 	s->ConvertMotionToSpline(pos);
-	std::string path = std::string(CAR_DIR) + std::string("/result/op_base");
+	std::string path = std::string(CAR_DIR) + std::string("/result/op_base_cmp");
 	
 	std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
 
@@ -567,6 +567,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 //	std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
 
 	double reward_trajectory = 0.8 * rewards.second + 0.2 * exp(-pow(r, 2)*0.01);
+	std::cout << exp(-pow(r, 2)*0.01) << std::endl;
 	if(reward_trajectory < mPrevRewardTrajectory)
 		return;
 

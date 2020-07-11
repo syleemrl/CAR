@@ -609,6 +609,7 @@ GetTargetReward()
 			Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
 			Eigen::Vector3d target_hand = Eigen::Vector3d(-0.25, 0.4, 0.7) + mHeadRoot.segment<3>(3);
 			Eigen::Vector3d target_diff = target_hand - hand;
+		//	std::cout << target_hand.transpose() << std::endl;
 			r_target = 2 * exp_of_squared(target_diff,0.3);
 			mControlFlag[0] = 1;
 		}

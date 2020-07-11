@@ -35,8 +35,7 @@ def spline_to_motion(motion_size, cps, knots, idx):
 
 		motion.append(p)
 	return time, motion
-
-def plot(filename):
+def read_data(filename):
 	data = open(filename)
 	
 	knots = []
@@ -64,13 +63,39 @@ def plot(filename):
 		motion.append(l)
 	data.close()
 	motion = np.array(motion)
-	motion_j = motion[:, 25]
+	return cps_size, knots, cps, motion_size, motion, time
+def plot(filename, filename2=""):
+	cps_size, knots, cps, motion_size, motion, time = read_data(filename)
+	if filename2 != "":
+		_, _, cps2, _, motion2, _ = read_data(filename2)
 
-	time_s, motion_j_s = spline_to_motion(motion_size, cps, knots, 25)
+		
+	motion_j = motion[:, 40]
+	motion_j2 = motion2[:, 40]
+
+	time_s, motion_j_s = spline_to_motion(motion_size, cps, knots, 40)
+	time_s2, motion_j_s2 = spline_to_motion(motion_size, cps2, knots, 40)
+
+	plt.figure(figsize=(12,5))
+	plt.suptitle("joint 40")
+
+	plt.subplot(1, 2, 1)
+	plt.gca().set_title("original")
 	plt.plot(time, motion_j)
 	plt.plot(time_s, motion_j_s, 'r')
+
+
+	plt.subplot(1, 2, 2)
+	plt.gca().set_title("cmp")
+	plt.plot(time, motion_j2)
+	plt.plot(time_s2, motion_j_s2, 'r')
+
 	plt.show()
-	plt.savefig(filename+'.png')
+	plt.cla()
+
 
 if __name__=="__main__":
-	plot(sys.argv[1])
+	if len(sys.argv) == 2:
+		plot(sys.argv[1])
+	else:
+		plot(sys.argv[1], sys.argv[2])
