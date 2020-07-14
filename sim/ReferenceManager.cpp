@@ -540,7 +540,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	nOp = 0;
 	mPath = save_path;
 	mPrevRewardTrajectory = 0.5;	
-
+	mOpMode = false;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
@@ -614,7 +614,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 	}
 
 	double reward_trajectory = rewards.second  * exp(-pow(r, 2)*0.01);
-	std::cout << "reward trajectory: " <<rewards.second << " " << exp(-pow(r, 2)*0.01) << " " << reward_trajectory << std::endl;
+	
+	 std::cout << "reward trajectory: " <<rewards.second << " " << exp(-pow(r, 2)*0.01) << " " << reward_trajectory << std::endl;
 
 	// if(reward_trajectory < mPrevRewardTrajectory)
 	// 	return;
@@ -751,15 +752,16 @@ Optimize() {
 	ofs << std::endl;
 	ofs.close();
 
-	for(int i = 0; i < num_knot; i++) {
-	    mean_cps[i] /= weight_sum;
-	    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
-	}
 	rewardTrajectory /= weight_sum;
 
 	std::cout << "current avg elite reward: " << rewardTrajectory << ", cutline: " << mPrevRewardTrajectory << std::endl;
 	
 	if(mPrevRewardTrajectory < rewardTrajectory) {
+		for(int i = 0; i < num_knot; i++) {
+		    mean_cps[i] /= weight_sum;
+		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
+		}
+
 		mPrevRewardTrajectory = rewardTrajectory;
 
 		mean_spline->SetControlPoints(0, mPrevCps);

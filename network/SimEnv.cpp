@@ -200,6 +200,7 @@ OptimizationStart()
 	for(int id = 0; id < mNumSlaves; id++) {
 		mSlaves[id]->SetOptimizationMode(true);
 	}
+	mReferenceManager->SetOptimizationMode(true);
 }
 void
 SimEnv::
@@ -208,6 +209,8 @@ OptimizationEnd()
 	for(int id = 0; id < mNumSlaves; id++) {
 		mSlaves[id]->SetOptimizationMode(false);
 	}
+	mReferenceManager->SetOptimizationMode(false);
+
 }
 void
 SimEnv::

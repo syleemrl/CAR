@@ -395,6 +395,8 @@ class PPO(object):
 		for it in range(num_iteration):
 			if self.adaptive and it % 5 == 0 and self.eval(2):	
 				self.optimizeReference(100)
+			elif self.adaptive and it % 5 == 0:
+				self.env.sim_env.Optimize()
 
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -446,7 +448,6 @@ class PPO(object):
 		#	if 1:		
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
-					self.env.sim_env.Optimize()
 				else:			
 					self.update(epi_info_iter) 
 
@@ -482,10 +483,9 @@ class PPO(object):
 				
 				while True:
 					# set action
-					if it % 2 == 0:
-						actions = self.actor.getMeanAction(states)
-					else:
-						actions, _ = self.actor.getAction(states)
+
+					actions = self.actor.getMeanAction(states)
+		
 					rewards, dones, times  = self.env.step(actions, False)
 					for j in range(self.num_slaves):
 						if not self.env.getTerminated(j):

@@ -42,6 +42,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	}
 
 	this->mController = new DPhy::Controller(mReferenceManager, this->mRunPPO, true);
+	this->mReferenceManager->SetOptimizationMode(true);
 	this->mController->SetOptimizationMode(true);
 	//	mReferenceManager->EditMotion(1.5, "b");
 	this->mWorld = this->mController->GetWorld();

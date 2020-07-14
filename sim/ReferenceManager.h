@@ -60,6 +60,7 @@ public:
 	int GetPhaseLength() {return mPhaseLength; }
 	void ComputeAxisDev();
 	void ComputeAxisMean();
+	void SetOptimizationMode(bool b) { mOpMode = b;}
 	Eigen::VectorXd GetAxisMean(double t);
 	Eigen::VectorXd GetAxisDev(double t);
 
@@ -99,7 +100,8 @@ protected:
 	int mDOF;
 
 	int nOp;
-
+	//for debug
+	bool mOpMode;
 
 };
 }
