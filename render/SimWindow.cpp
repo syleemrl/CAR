@@ -38,7 +38,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 		path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
 		mReferenceManager->InitOptimization(1, path);
 		mReferenceManager->LoadAdaptiveMotion("");
-		mReferenceManager->GenerateRandomTrajectory(0);
+	//	mReferenceManager->GenerateRandomTrajectory(0);
 	}
 
 	this->mController = new DPhy::Controller(mReferenceManager, this->mRunPPO, true);

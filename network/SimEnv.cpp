@@ -203,6 +203,14 @@ OptimizationStart()
 }
 void
 SimEnv::
+OptimizationEnd()
+{
+	for(int id = 0; id < mNumSlaves; id++) {
+		mSlaves[id]->SetOptimizationMode(false);
+	}
+}
+void
+SimEnv::
 GenerateRandomTrajectory()
 {
 #pragma omp parallel for	
@@ -215,11 +223,6 @@ SimEnv::
 Optimize()
 {
 	bool t = mReferenceManager->Optimize();
-	if(t) {
-		for(int id = 0; id < mNumSlaves; id++) {
-			mSlaves[id]->SetOptimizationMode(false);
-		}
-	}
 	return t;
 }
 void
@@ -256,6 +259,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GenerateRandomTrajectory",&SimEnv::GenerateRandomTrajectory)
 		.def("Optimize",&SimEnv::Optimize)
 		.def("OptimizationStart",&SimEnv::OptimizationStart)
+		.def("OptimizationEnd",&SimEnv::OptimizationEnd)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

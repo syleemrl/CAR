@@ -98,7 +98,7 @@ class Monitor(object):
 					self.num_transitions_per_iteration += 1
 					if self.adaptive:
 						self.num_transitions_opt += 1
-						self.rewards_by_part_per_opt.append(rewards[i][1:])
+						self.rewards_by_part_per_opt.append(rewards[i][2:])
 
 					if dones[i]:
 						self.num_episodes_per_iteration += 1
@@ -141,79 +141,85 @@ class Monitor(object):
 		if path is not None:
 			plt.savefig(path, format="png")
 
-	def printSummary(self):
-		self.num_transitions += self.num_transitions_per_iteration
-		self.num_episodes += self.num_episodes_per_iteration
-		self.num_evaluation += 1
+	def printSummary(self, save=True):
+		t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
 		r_per_e = self.rewards_per_iteration/self.num_episodes_per_iteration
-		self.total_rewards.append(r_per_e)
-		if self.adaptive:
-			if self.num_phase == 0:
-				rt_per_e = 0
-			else:
-				rt_per_e = self.rewards_target_per_iteration/self.num_phase
-			self.total_rewards_target.append(rt_per_e)
+		rp_per_i = np.array(self.rewards_by_part_per_iteration).sum(axis=0) / self.num_transitions_per_iteration
 
-		self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
-			np.asarray(self.rewards_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
-		print_list = []
-		print_list.append('===============================================================')
-		print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-		print_list.append("Elapsed time : {:.2f}s".format(time.time() - self.start_time))
-		print_list.append("Target update : {}".format(self.target_update_count))
-		print_list.append('Num eval : {}'.format(self.num_evaluation))
-		print_list.append('total episode count : {}'.format(self.num_episodes))
-		print_list.append('total transition count : {}'.format(self.num_transitions))
-		t_per_e = 0
-		if self.num_episodes is not 0:
-			t_per_e = self.num_transitions / self.num_episodes
+		if save:
 
-		print_list.append('total transition per episodes : {:.2f}'.format(t_per_e))
-
-		print_list.append('episode count : {}'.format(self.num_episodes_per_iteration))
-		print_list.append('transition count : {}'.format(self.num_transitions_per_iteration))
+			self.total_rewards.append(r_per_e)
 		
-		t_per_e = 0
-		if self.num_episodes_per_iteration is not 0:
-			t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
-		self.transition_per_episodes.append(t_per_e)
+			self.num_transitions += self.num_transitions_per_iteration
+			self.num_episodes += self.num_episodes_per_iteration
+			self.num_evaluation += 1
+			if self.adaptive:
+				if self.num_phase == 0:
+					rt_per_e = 0
+				else:
+					rt_per_e = self.rewards_target_per_iteration/self.num_phase
+				self.total_rewards_target.append(rt_per_e)
 
-		print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
-		print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
-		print_list.append('max episode length : {}'.format(self.max_episode_length))
+			self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
+				np.asarray(self.rewards_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
+			print_list = []
+			print_list.append('===============================================================')
+			print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+			print_list.append("Elapsed time : {:.2f}s".format(time.time() - self.start_time))
+			print_list.append("Target update : {}".format(self.target_update_count))
+			print_list.append('Num eval : {}'.format(self.num_evaluation))
+			print_list.append('total episode count : {}'.format(self.num_episodes))
+			print_list.append('total transition count : {}'.format(self.num_transitions))
+			t_per_e = 0
+			if self.num_episodes is not 0:
+				t_per_e = self.num_transitions / self.num_episodes
 
-		te_per_t  = 0
-		if self.num_transitions_per_iteration is not 0:
-			te_per_t = self.total_time_elapsed / self.num_transitions_per_iteration;
-		print_list.append('time elapsed per transition : {:.2f}'.format(te_per_t))
+			print_list.append('total transition per episodes : {:.2f}'.format(t_per_e))
 
-		if self.num_nan_per_iteration != 0:
-			print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
-		print_list.append('===============================================================')
+			print_list.append('episode count : {}'.format(self.num_episodes_per_iteration))
+			print_list.append('transition count : {}'.format(self.num_transitions_per_iteration))
+			
+			t_per_e = 0
+			if self.num_episodes_per_iteration is not 0:
+				t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
+			self.transition_per_episodes.append(t_per_e)
 
-		for s in print_list:
-			print(s)
-		
-		if self.directory is not None:
-			out = open(self.directory+"results", "a")
+			print_list.append('transition per episodes : {:.2f}'.format(t_per_e))
+			print_list.append('rewards per episodes : {:.2f}'.format(self.total_rewards[-1]))
+			print_list.append('max episode length : {}'.format(self.max_episode_length))
+
+			te_per_t  = 0
+			if self.num_transitions_per_iteration is not 0:
+				te_per_t = self.total_time_elapsed / self.num_transitions_per_iteration;
+			print_list.append('time elapsed per transition : {:.2f}'.format(te_per_t))
+
+			if self.num_nan_per_iteration != 0:
+				print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
+			print_list.append('===============================================================')
+
 			for s in print_list:
-				out.write(s+'\n')
-			out.close()
-# y_list에 타겟 추가하는거 고치기 transition_per_episodes로 또 나눠져서 겁나 작아짐
-		if self.plot:
-			y_list = [[np.asarray(self.transition_per_episodes), 'steps']]
-			for i in range(len(self.total_rewards_by_parts)):
-				y_list.append([np.asarray(self.total_rewards_by_parts[i]), self.reward_label[i]])
-			# if self.adaptive:
-			# 	y_list.append([np.asarray(self.total_rewards_target), "target"])
+				print(s)
+			
+			if self.directory is not None:
+				out = open(self.directory+"results", "a")
+				for s in print_list:
+					out.write(s+'\n')
+				out.close()
+	# y_list에 타겟 추가하는거 고치기 transition_per_episodes로 또 나눠져서 겁나 작아짐
+			if self.plot:
+				y_list = [[np.asarray(self.transition_per_episodes), 'steps']]
+				for i in range(len(self.total_rewards_by_parts)):
+					y_list.append([np.asarray(self.total_rewards_by_parts[i]), self.reward_label[i]])
+				# if self.adaptive:
+				# 	y_list.append([np.asarray(self.total_rewards_target), "target"])
 
-			self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
+				self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
-			y_list = y_list[1:]
-			for i in range(len(y_list)):
-				y_list[i][0] = np.array(y_list[i][0])/np.array(self.transition_per_episodes)
+				y_list = y_list[1:]
+				for i in range(len(y_list)):
+					y_list[i][0] = np.array(y_list[i][0])/np.array(self.transition_per_episodes)
 
-			self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
+				self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
@@ -226,5 +232,6 @@ class Monitor(object):
 
 		summary = dict()
 		summary['r_per_e'] = r_per_e
-		summary['s_per_e'] = t_per_e
+		summary['rp_per_i'] = rp_per_i
+		summary['t_per_e'] = t_per_e
 		return summary

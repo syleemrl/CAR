@@ -73,7 +73,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
-	void SetOptimizationMode(bool mode) { mOpMode = mode; };
+	void SetOptimizationMode(bool mode) { mOpMode = mode;};
 
 	double ComputeLinearDifferenceFromEllipse();
 	double ComputeAngularDifferenceFromEllipse(int idx);

@@ -45,6 +45,7 @@ public:
 	
 	void GenerateRandomTrajectory();
 	void OptimizationStart();
+	void OptimizationEnd();
 	bool Optimize();
 
 	void SaveAdaptiveMotion();

@@ -238,7 +238,7 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		mControlFlag.setZero();
-		if(mOpMode) {
+		if(isAdaptive) {
 			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory));
 			data_spline.clear();
 			mTrackingRewardTrajectory = 0;
@@ -250,8 +250,9 @@ Step()
 
 	if(mOpMode)
 		p_v_target = mReferenceManager->GetMotionForOptimization(mCurrentFrame, id);
-	else
+	else {
 		p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	}
 
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
@@ -331,7 +332,7 @@ Step()
 	if(mRecord) {
 		SaveStepInfo();
 	}
-	if(mOpMode) {
+	if(isAdaptive) {
 		Eigen::VectorXd p(mCharacter->GetSkeleton()->getPositions().rows() + 1);
 		p << mCharacter->GetSkeleton()->getPositions(), mAdaptiveStep;
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(p, mCurrentFrame));
@@ -339,7 +340,7 @@ Step()
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 	
-	if(mOpMode && mIsTerminal)
+	if(isAdaptive && mIsTerminal)
 		data_spline.clear();
 
 }
@@ -616,8 +617,9 @@ GetTargetReward()
 			Eigen::Vector3d target_hand = aa * Eigen::Vector3d(0.017, 0.4, 0.8) + mHeadRoot.segment<3>(3);
 			Eigen::Vector3d target_diff = target_hand - hand;
 		
-		//	std::cout << target_hand.transpose() << std::endl;
+			// std::cout << target_diff.transpose() << std::endl;
 			r_target = 2 * exp_of_squared(target_diff,0.3);
+			//std::cout << r_target << std::endl;
 			mControlFlag[0] = 1;
 		}
 	// }
@@ -728,7 +730,6 @@ UpdateReward()
 		mRewardParts.push_back(tracking_rewards_bvh[3]);
 		mRewardParts.push_back(r_time);
 	}
-
 }
 void 
 Controller::
@@ -794,12 +795,14 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
-	
+	else if(mOpMode && this->nTotalSteps > mReferenceManager->GetPhaseLength() * 2) {
+		mIsTerminal = true;
+		terminationReason =  8;
+	}
 
 	if(mRecord) {
 		if(mIsTerminal) std::cout << terminationReason << std::endl;
 	}
-
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
@@ -925,10 +928,12 @@ Reset(bool RSI)
 	this->nPhase = 0;
 
 	Motion* p_v_target;
-	if(mOpMode)
+	if(mOpMode) {
+		mReferenceManager->GenerateRandomTrajectory(id);
 		p_v_target = mReferenceManager->GetMotionForOptimization(mCurrentFrame, id);
-	else
+	} else {
 		p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	}
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;

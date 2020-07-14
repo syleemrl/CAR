@@ -6,6 +6,13 @@
 
 #define TARGET_FRAME 44
 using namespace dart::dynamics;
+double cps_d[5][45] = {
+{-0.00822713, 0.071199, -0.0175336, 0.00161151, 9.19429e-05, -8.3496e-05, -0.00156934, 0.0154037, -0.0115516, -1.41728e-05, 9.91624e-08, -1.20464e-05, -1.28838e-09, 1.67377e-08, 5.38684e-09, -7.40066e-08, 7.48063e-08, -6.26254e-09, -1.84317e-07, -5.54496e-07, 4.28175e-07, 2.54515e-07, -0.0140755, 0.0335634, -0.0440647, 0.270618, 0.376215, 0.0303925, -0.0293694, -0.0144004, -0.00509865, 0.0122003, 0.0107491, -0.00108846, -0.0298101, 0.0173578, 2.33874e-07, 0.0379116, -0.00961917, 0.0299699, -0.0338688, 0.00634255, -0.0319149, 0.0110293, 0}, 
+{0.0150812, -0.130517, 0.0321413, -0.00325265, -0.000251988, -0.0013004, 0.00151223, -0.0158857, 0.0119334, -7.21215e-06, -5.77891e-07, -1.20837e-06, -2.46043e-10, -6.32853e-08, 1.02872e-09, 1.15941e-07, -1.32701e-07, 6.21337e-09, -3.9502e-09, 4.68344e-07, -5.6311e-07, -3.57286e-07, 0.0154261, -0.0350462, 0.0451702, -0.279204, -0.388759, -0.0239681, 0.0359792, 0.0379281, 0.0156548, -0.0443003, -0.044451, 0.019868, 0.0323933, -0.0326844, 2.33874e-07, -0.0695121, 0.0264649, -0.0658805, 0.0393043, -0.00218523, 0.0365085, -0.0348172, 0}, 
+{0.0290964, -0.25181, 0.0620114, -0.0070344, -0.000102275, 0.000677583, 0.00472934, -0.0441604, 0.0330695, -3.05328e-05, -1.0096e-06, -2.75945e-05, 3.91307e-10, 1.89034e-07, -1.63609e-09, -2.02665e-07, -6.8548e-07, -8.22426e-09, 3.87191e-08, 7.85112e-07, 8.94751e-07, -9.17767e-07, 0.0383064, -0.0952139, 0.126877, -0.775493, -1.07632, -0.101274, 0.0679969, 0.0337402, 0.0125258, -0.0434652, -0.0523723, -0.000219449, 0.0842867, -0.0557558, 2.33874e-07, -0.157492, 0.0194953, -0.0934755, 0.118624, -0.0219227, 0.091152, -0.0465642, 0}, 
+{0.0333077, -0.288251, 0.0709855, -0.0064434, 8.05948e-05, 0.00510804, 0.00764875, -0.0650598, 0.048581, -2.10825e-05, -1.27261e-06, -1.6798e-05, -5.49485e-10, -6.61424e-08, 2.29744e-09, 4.60018e-07, -1.0092e-06, 1.24779e-08, -2.74961e-06, 1.47102e-06, 2.35938e-06, -1.3499e-06, 0.050449, -0.1373, 0.188507, -1.14131, -1.5788, -0.188371, 0.0495336, 0.0212192, -0.0190262, 0.06499, 0.0790508, -0.0816419, 0.122395, -0.0712024, 2.33874e-07, -0.113176, 0.00225962, -0.0532849, 0.197003, -0.053198, 0.128492, -0.00850061, 0}, 
+{0.0256123, -0.221654, 0.0545851, -0.00537735, 4.88567e-05, 0.00201118, 0.00379533, -0.0377025, 0.0282813, -2.76492e-05, -7.64256e-07, -2.42138e-05, 8.45377e-10, 1.64965e-08, -3.53459e-09, 2.78125e-08, -4.84145e-07, 6.85498e-09, 5.85376e-07, 6.95206e-07, -6.8474e-07, -7.23473e-07, 0.0348076, -0.0823168, 0.107739, -0.66241, -0.92109, -0.071467, 0.0740972, 0.0318809, 0.00512396, -0.0133654, -0.012633, -0.0168577, 0.0723956, -0.053572, 2.33874e-07, -0.121535, 0.0167493, -0.0783748, 0.136667, -0.038083, 0.0781359, -0.0238701, 0}
+};
 namespace DPhy
 {
 ReferenceManager::ReferenceManager(Character* character)
@@ -117,12 +124,24 @@ SaveAdaptiveMotion(std::string postfix) {
 		ofs << mMotions_phase_adaptive[i]->GetVelocity().transpose() << std::endl;
 	}
 	ofs.close();
-
+	
+	path = mPath + std::string("cp") + postfix;
+	ofs.open(path);
+	ofs << mKnots.size() << std::endl;
+	for(auto t: mKnots) {	
+		ofs << t << std::endl;
+	}
+		
+	for(auto t: mPrevCps) {	
+		ofs << t.transpose() << std::endl;
+	}
+	ofs.close();
 }
 void 
 ReferenceManager::
 LoadAdaptiveMotion(std::string postfix) {
 	std::string path = mPath + std::string("adaptive") + postfix;
+
 	std::ifstream is(path);
 	if(is.fail())
 		return;
@@ -130,20 +149,39 @@ LoadAdaptiveMotion(std::string postfix) {
 
 	char buffer[256];
 	for(int i = 0; i < mPhaseLength; i++) {
-		Eigen::VectorXd pos(mMotions_phase[0]->GetPosition().rows());
-		Eigen::VectorXd vel(mMotions_phase[0]->GetPosition().rows());
-		for(int j = 0; j < mMotions_phase[0]->GetPosition().rows(); j++) 
+		Eigen::VectorXd pos(mDOF);
+		Eigen::VectorXd vel(mDOF);
+		for(int j = 0; j < mDOF; j++) 
 		{
 			is >> buffer;
 			pos[j] = atof(buffer);
 		}
-		for(int j = 0; j < mMotions_phase[0]->GetVelocity().rows(); j++) 
+		for(int j = 0; j < mDOF; j++) 
 		{
 			is >> buffer;
 			vel[j] = atof(buffer);
 		}
 		mMotions_phase_adaptive[i]->SetPosition(pos);
 		mMotions_phase_adaptive[i]->SetVelocity(vel);
+	}
+	is.close();
+	
+	path = mPath + std::string("cp") + postfix;
+	is.open(path);
+	mKnots.clear();
+	is >> buffer;
+	int knot_size = atoi(buffer);
+	for(int i = 0; i < knot_size; i++) {	
+		is >> buffer;
+		mKnots.push_back(atoi(buffer));
+	}
+	for(int i = 0; i < knot_size; i++) {	
+		Eigen::VectorXd cps(mDOF);	
+		for(int j = 0; j < mDOF; j++) {
+			is >> buffer;
+			cps[j] = atof(buffer);
+		}
+		mPrevCps[i] = cps;
 	}
 	is.close();
 
@@ -472,7 +510,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots.push_back(20);
 	mKnots.push_back(27);
 	mKnots.push_back(35);
-
+	
 	// // mKnots.push_back(44);
 	// // mKnots.push_back(56);
 	// // mKnots.push_back(64);
@@ -537,7 +575,7 @@ InitOptimization(int nslaves, std::string save_path) {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
-	std::cout << rewards.first / mPhaseLength << std::endl;
+	// std::cout << "reward tracking: " << rewards.first / mPhaseLength << std::endl;
 	if((rewards.first / mPhaseLength)  < 0.9)
 		return;
 
@@ -546,7 +584,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-
 	for(int i = 0; i < data_spline.size(); i++) {
 
 		Eigen::VectorXd p = data_spline[i].first;
@@ -568,6 +605,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 		d.tail<1>() = p.tail<1>();
 		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, std::fmod(data_spline[i].second, mPhaseLength)));
 	}
+
 	s->ConvertMotionToSpline(displacement);
 	auto cps = s->GetControlPoints(0);
 	double r = 0;
@@ -575,41 +613,28 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 		r += cps[i].norm();	
 	}
 
-//	std::cout << rewards << " " << exp(-pow(r, 2)*0.01) << " "<< 0.05*exp(-pow(r, 2)*0.01) + rewards<< std::endl;
-//	std::cout << rewards << std::endl;
-//	std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
+	double reward_trajectory = rewards.second  * exp(-pow(r, 2)*0.01);
+	std::cout << "reward trajectory: " <<rewards.second << " " << exp(-pow(r, 2)*0.01) << " " << reward_trajectory << std::endl;
 
-	double reward_trajectory = 0.8 * rewards.second + 0.2 * exp(-pow(r, 2)*0.01);
-	if(reward_trajectory < mPrevRewardTrajectory)
-		return;
+	// if(reward_trajectory < mPrevRewardTrajectory)
+	// 	return;
 
 	mLock.lock();
 	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, reward_trajectory));
-	if(nOp != 0) {
-		std::string path =  mPath + std::string("samples") + std::to_string(nOp);
+	// if(nOp != 0) {
+	// 	std::string path =  mPath + std::string("samples") + std::to_string(nOp);
 		
-		std::ofstream ofs;
+	// 	std::ofstream ofs;
 
-		ofs.open(path, std::fstream::out | std::fstream::app);
-		for(auto t: data_spline) {	
-			ofs << t.first.transpose() << " " << rewards.second << std::endl;
-		}
-		ofs.close();
-	}
+	// 	ofs.open(path, std::fstream::out | std::fstream::app);
+	// 	for(auto t: data_spline) {	
+	// 		ofs << t.first.transpose() << " " << rewards.second << std::endl;
+	// 	}
+	// 	ofs.close();
+	// }
 
 	mLock.unlock();
 
-	// std::string path = std::string(CAR_DIR)+std::string("/result/trajectory")+std::to_string(mSamples.size());
-	// s->Save(path);
-	
-	// std::ofstream ofs(path, std::fstream::out | std::fstream::app);
-	// ofs << data_spline.size() << std::endl;
-	// for(auto t: data_spline) {
-	// 	ofs << t.second << std::endl;
-	// 	ofs << t.first.transpose() << std::endl;
-	// }
-	// std::cout << "saved trajectory to " << path << std::endl;
-	// ofs.close();
 }
 bool cmp(const std::pair<DPhy::MultilevelSpline*, double> &p1, const std::pair<DPhy::MultilevelSpline*, double> &p2){
     if(p1.second > p2.second){
@@ -622,27 +647,34 @@ bool cmp(const std::pair<DPhy::MultilevelSpline*, double> &p1, const std::pair<D
 void
 ReferenceManager::
 GenerateRandomTrajectory(int i) {
-	std::vector<double> idxs;
-	idxs.push_back(22);
+	std::vector<int> idxs;
+	idxs.push_back(23);
 	idxs.push_back(24);
 	idxs.push_back(25);
 	idxs.push_back(26);
-	idxs.push_back(28);
+	idxs.push_back(27);
+	idxs.push_back(34);
+	idxs.push_back(37);
 	idxs.push_back(40);
-	
+	idxs.push_back(42);
+
 	std::random_device mRD;
 
 	std::mt19937 mMT(mRD());
-	std::uniform_real_distribution<double> mDistribution(-0.2, 0.2);
+	std::uniform_real_distribution<double> mDistribution(0.1, 1);
 
 	MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
 	s->SetKnots(0, mKnots);
 	std::vector<Eigen::VectorXd> cps;
-
 	for(int i = 0; i < mKnots.size(); i++) {
 		Eigen::VectorXd cp(idxs.size());
 		for(int j = 0; j < idxs.size(); j++) {
-			cp(j) = mDistribution(mMT);
+			double d = cps_d[i][idxs[j]] - mPrevCps[i][idxs[j]];
+			d = d * mDistribution(mMT);
+			cp(j) = mPrevCps[i][idxs[j]] + std::max(std::min(d, 0.1), -0.1);
+			// double d = mDistribution(mMT);
+			// cp(j) = mPrevCps[i][idxs[j]] + d;
+
 		}
 		cps.push_back(cp);
 	}
@@ -656,7 +688,7 @@ GenerateRandomTrajectory(int i) {
 
 		Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
 		Eigen::VectorXd d = random_displacement[i];
-		Eigen::VectorXd p = p_bvh;
+		Eigen::VectorXd p = mMotions_phase_adaptive[i]->GetPosition();
 
 		for(int j = 0; j < idxs.size(); j++) {
 			int idx = idxs[j];
@@ -679,14 +711,13 @@ GenerateRandomTrajectory(int i) {
 
 		delete m;
 	}	
-
 }
 bool 
 ReferenceManager::
 Optimize() {
 
 	double rewardTrajectory = 0;
-    int mu = mSamples.size();
+    int mu = 100;
     std::cout << "num sample: " << mSamples.size() << std::endl;
     if(mSamples.size() < 100)
     	return false;
@@ -722,80 +753,75 @@ Optimize() {
 
 	for(int i = 0; i < num_knot; i++) {
 	    mean_cps[i] /= weight_sum;
-	    mPrevCps[i] = mPrevCps[i] * 0.8 + mean_cps[i] * 0.2;
+	    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
 	}
 	rewardTrajectory /= weight_sum;
-	if(nOp == 0)
-		mPrevRewardTrajectory = rewardTrajectory;
-	else
-		mPrevRewardTrajectory = mSamples.back().second;
 
 	std::cout << "current avg elite reward: " << rewardTrajectory << ", cutline: " << mPrevRewardTrajectory << std::endl;
-
-	mean_spline->SetControlPoints(0, mPrevCps);
-	std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
-	std::vector<Eigen::VectorXd> newpos;
-	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-
-	for(int i = 0; i < new_displacement.size(); i++) {
-
-		Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
-		Eigen::VectorXd d = new_displacement[i];
-		Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
-
-		for(int j = 0; j < n_bnodes; j++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			if(dof == 6) {
-				p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
-				p.segment<3>(idx + 3) = d.segment<3>(idx + 3) + p_bvh.segment<3>(idx + 3);
-			} else if (dof == 3) {
-				p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
-			} else {
-				p(idx) = d(idx) + p_bvh(idx);
-			}
-		}
-		newpos.push_back(p);
-	}
-	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
-	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
-		mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
-		mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
-	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
-	this->SaveAdaptiveMotion();
-	this->SaveAdaptiveMotion(std::to_string(nOp));
-
-	//save control points
-	path = mPath + std::string("cp") + std::to_string(nOp);
-	ofs.open(path);
-	ofs << mKnots.size() << std::endl;
-	for(auto t: mKnots) {	
-		ofs << t << std::endl;
-	}
 	
-	for(auto t: mean_cps) {	
-		ofs << t.transpose() << std::endl;
+	if(mPrevRewardTrajectory < rewardTrajectory) {
+		mPrevRewardTrajectory = rewardTrajectory;
+
+		mean_spline->SetControlPoints(0, mPrevCps);
+		std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
+		std::vector<Eigen::VectorXd> newpos;
+		int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+
+		for(int i = 0; i < new_displacement.size(); i++) {
+
+			Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
+			Eigen::VectorXd d = new_displacement[i];
+			Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
+
+			for(int j = 0; j < n_bnodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+				if(dof == 6) {
+					p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
+					p.segment<3>(idx + 3) = d.segment<3>(idx + 3) + p_bvh.segment<3>(idx + 3);
+				} else if (dof == 3) {
+					p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
+				} else {
+					p(idx) = d(idx) + p_bvh(idx);
+				}
+			}
+			newpos.push_back(p);
+		}
+		std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+		for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
+			mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
+			mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
+		}
+		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+		this->SaveAdaptiveMotion();
+		this->SaveAdaptiveMotion(std::to_string(nOp));
+
+		//save motion
+		path =  mPath + std::string("motion") + std::to_string(nOp);
+		ofs.open(path);
+
+		for(auto t: newpos) {	
+			ofs << t.transpose() << std::endl;
+		}
+		ofs.close();
+
+		nOp += 1;
+			
+		while(!mSamples.empty()){
+			MultilevelSpline* s = mSamples.back().first;
+			mSamples.pop_back();
+
+			delete s;
+		}	
+		return true;
+	} else {
+		while(mSamples.size() > 100){
+			MultilevelSpline* s = mSamples.back().first;
+			mSamples.pop_back();
+
+			delete s;
+		}
 	}
-	ofs.close();
-
-	//save motion
-	path =  mPath + std::string("motion") + std::to_string(nOp);
-	ofs.open(path);
-
-	for(auto t: newpos) {	
-		ofs << t.transpose() << std::endl;
-	}
-	ofs.close();
-
-	nOp += 1;
-		
-	while(!mSamples.empty()){
-		MultilevelSpline* s = mSamples.back().first;
-		mSamples.pop_back();
-
-		delete s;
-	}	
-	return true;
+	return false;
 }
 };

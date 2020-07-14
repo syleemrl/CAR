@@ -393,7 +393,7 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		for it in range(num_iteration):
-			if self.adaptive and it % 5 == 0:	
+			if self.adaptive and it % 5 == 0 and self.eval(2):	
 				self.optimizeReference(100)
 
 			for i in range(self.num_slaves):
@@ -446,6 +446,7 @@ class PPO(object):
 		#	if 1:		
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
+					self.env.sim_env.Optimize()
 				else:			
 					self.update(epi_info_iter) 
 
@@ -469,38 +470,39 @@ class PPO(object):
 				epi_info_iter = []
 
 	def optimizeReference(self, num_max_iteration):
+			self.env.sim_env.OptimizationStart()
+			print('Optimization start')
 
-		self.env.sim_env.OptimizationStart()
-		print('Optimization start')
+			for it in range(num_max_iteration):
+			#	self.env.sim_env.GenerateRandomTrajectory()
 
-		for it in range(num_max_iteration):
-			self.env.sim_env.GenerateRandomTrajectory()
-
-			for i in range(self.num_slaves):
-				self.env.reset(i)
-			states = self.env.getStates()
-			
-			while True:
-				# set action
-				actions = self.actor.getMeanAction(states)
-				rewards, dones, times  = self.env.step(actions, False)
-				for j in range(self.num_slaves):
-					if not self.env.getTerminated(j):
-						if dones[j]:
-							self.env.setTerminated(j)
-
-				if self.env.getAllTerminated():
-					break
-
+				for i in range(self.num_slaves):
+					self.env.reset(i)
 				states = self.env.getStates()
+				
+				while True:
+					# set action
+					if it % 2 == 0:
+						actions = self.actor.getMeanAction(states)
+					else:
+						actions, _ = self.actor.getAction(states)
+					rewards, dones, times  = self.env.step(actions, False)
+					for j in range(self.num_slaves):
+						if not self.env.getTerminated(j):
+							if dones[j]:
+								self.env.setTerminated(j)
 
-			print('Optimization: iter {}'.format(it+1),end='\r')
-			t = self.env.sim_env.Optimize()
-			if t:
-				break
+					if self.env.getAllTerminated():
+						break
 
-		print('')
-		print('Optimization done')
+					states = self.env.getStates()
+
+				print('Optimization: iter {}'.format(it+1),end='\r')
+
+			print('')
+			print('Optimization done')
+			self.env.sim_env.OptimizationEnd()
+			self.env.sim_env.Optimize()
 
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
@@ -510,9 +512,38 @@ class PPO(object):
 
 		return action
 
-	def eval(self):
-		pass
+	def eval(self, num_eval):
+		t_per_e_total = []
+		rp_per_i_total = []
+		for it in range(num_eval):
+			for i in range(self.num_slaves):
+				self.env.reset(i)
+			states = self.env.getStates()
+				
+			while True:
+				# set action
+				actions = self.actor.getMeanAction(states)
+				rewards, dones, times  = self.env.step(actions)
+				for j in range(self.num_slaves):
+					if not self.env.getTerminated(j):
+						if dones[j]:
+							self.env.setTerminated(j)
 
+				if self.env.getAllTerminated():
+					break
+
+				states = self.env.getStates()
+			info = self.env.printSummary(False)
+			rp_per_i_total.append(info["rp_per_i"])
+			t_per_e_total.append(info["t_per_e"])
+		
+		rp_per_i = np.mean(rp_per_i_total, axis=0)
+		t_per_e = np.mean(t_per_e_total)
+		print(rp_per_i, t_per_e)
+		if t_per_e > 400 and rp_per_i[2] > 0.9 and rp_per_i[3] > 0.9 and rp_per_i[4] > 0.85:
+			return True
+
+		return False
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
