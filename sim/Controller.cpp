@@ -221,6 +221,7 @@ Step()
 
 	// set action target pos
 	int num_body_nodes = this->mInterestedBodies.size();
+	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
 
 	for(int i = 0; i < mInterestedDof; i++){
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
@@ -245,23 +246,59 @@ Step()
 			mTargetRewardTrajectory = 0;
 		}
 	}
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 
-	Motion* p_v_target;
-
-	if(mOpMode)
-		p_v_target = mReferenceManager->GetMotionForOptimization(mCurrentFrame, id);
-	else {
-		p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
-	}
-
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
+	
 	delete p_v_target;
 
-	this->mPDTargetPositions = this->mTargetPositions;
-	this->mPDTargetVelocities = this->mTargetVelocities;
-
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	this->mPDTargetPositions = p_v_target->GetPosition();
+	this->mPDTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
 	
+	delete p_v_target;
+
+	if(mOpMode) {
+		Motion* ref1 = mReferenceManager->GetMotionForOptimization(mCurrentFrame, id);
+		Motion* ref2 = mReferenceManager->GetMotion(mCurrentFrame, true);
+		
+		Eigen::VectorXd p1 = ref1->GetPosition();
+		Eigen::VectorXd p2 = ref2->GetPosition();
+
+		Eigen::VectorXd d(dof);
+
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			
+			if(dof == 6) {
+				d.segment<3>(idx) = JointPositionDifferences(p1.segment<3>(idx), p2.segment<3>(idx));
+				d.segment<3>(idx + 3) = p1.segment<3>(idx + 3) -  p2.segment<3>(idx + 3);
+			} else if (dof == 3) {
+				d.segment<3>(idx) = JointPositionDifferences(p1.segment<3>(idx), p2.segment<3>(idx));
+			} else {
+				d(idx) = p1(idx) - p2(idx);
+			}
+		}
+
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			if(dof == 6) {
+				mPDTargetPositions.segment<3>(idx) = Rotate3dVector(mPDTargetPositions.segment<3>(idx), d.segment<3>(idx));
+				mPDTargetPositions.segment<3>(idx + 3) = d.segment<3>(idx + 3) + mPDTargetPositions.segment<3>(idx + 3);
+			} else if (dof == 3) {
+				mPDTargetPositions.segment<3>(idx) = Rotate3dVector(mPDTargetPositions.segment<3>(idx), d.segment<3>(idx));
+			} else {
+				mPDTargetPositions(idx) = d(idx) + mPDTargetPositions(idx);
+			}
+		}
+		this->mTargetPositions = ref1->GetPosition();
+		delete ref1, ref2;
+	} 
+
 	int count_dof = 0;
 	for(int i = 0; i < num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getIndexInSkeleton(0);
@@ -349,7 +386,11 @@ Controller::
 SaveStepInfo() 
 {
 	mRecordRewardPosition.push_back(mRewardTargetPositions);
-	mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, false));
+	if(mOpMode)
+		mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, true));
+	else
+		mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, false));
+
 	mRecordTargetPosition.push_back(mTargetPositions);
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());

@@ -613,9 +613,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 		r += cps[i].norm();	
 	}
 
-	double reward_trajectory = rewards.second  * exp(-pow(r, 2)*0.01);
+	double reward_trajectory =rewards.second * (0.5 + 0.5 * exp(-pow(r, 2)*0.01));
 	
-	 std::cout << "reward trajectory: " <<rewards.second << " " << exp(-pow(r, 2)*0.01) << " " << reward_trajectory << std::endl;
+	// std::cout << "reward trajectory: " <<rewards.second << " " << exp(-pow(r, 2)*0.01) << " " << reward_trajectory << std::endl;
 
 	// if(reward_trajectory < mPrevRewardTrajectory)
 	// 	return;
@@ -672,7 +672,7 @@ GenerateRandomTrajectory(int i) {
 		for(int j = 0; j < idxs.size(); j++) {
 			double d = cps_d[i][idxs[j]] - mPrevCps[i][idxs[j]];
 			d = d * mDistribution(mMT);
-			cp(j) = mPrevCps[i][idxs[j]] + std::max(std::min(d, 0.1), -0.1);
+			cp(j) = mPrevCps[i][idxs[j]] + std::max(std::min(d, 0.3), -0.3);
 			// double d = mDistribution(mMT);
 			// cp(j) = mPrevCps[i][idxs[j]] + d;
 
