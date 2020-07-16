@@ -150,6 +150,15 @@ MultilevelSpline(int level, double end) {
 		mSplines.push_back(s);
 	}
 }
+MultilevelSpline::
+~MultilevelSpline (){	
+	while(!mSplines.empty()){
+		Spline* s = mSplines.back();
+		mSplines.pop_back();
+
+		delete s;
+	}	
+}
 void
 MultilevelSpline::
 SetKnots(int i, std::vector<double> knots) {

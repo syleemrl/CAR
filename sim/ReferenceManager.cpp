@@ -370,7 +370,12 @@ void ReferenceManager::RescaleMotion(double w)
 void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
 {
 
-	p_gen.clear();
+	while(!p_gen.empty()){
+		Motion* m = p_gen.back();
+		p_gen.pop_back();
+
+		delete m;
+	}		
 
 	auto& skel = mCharacter->GetSkeleton();
 
@@ -511,20 +516,6 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots.push_back(27);
 	mKnots.push_back(35);
 	
-	// // mKnots.push_back(44);
-	// // mKnots.push_back(56);
-	// // mKnots.push_back(64);
-	// // mKnots.push_back(76);
-	// mKnots.push_back(0);
-	// mKnots.push_back(12);
-	// mKnots.push_back(29);
-	// mKnots.push_back(37);
-	// mKnots.push_back(44);
-	// mKnots.push_back(56);
-	// mKnots.push_back(64);
-	// mKnots.push_back(76);
-
-
 	for(int i = 0; i < this->mKnots.size(); i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
 	}
@@ -544,13 +535,13 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
-	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
+	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mAxis_BVH[i], i));
 	// }
 	// MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
 	// s->SetKnots(0, mKnots);
 
 	// s->ConvertMotionToSpline(pos);
-	// std::string path = std::string(CAR_DIR) + std::string("/result/op_base_cmp");
+	// std::string path = std::string(CAR_DIR) + std::string("/result/op_axis_cmp");
 	
 	// std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
 
@@ -613,7 +604,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 		r += cps[i].norm();	
 	}
 
-	double reward_trajectory =rewards.second * (0.5 + 0.5 * exp(-pow(r, 2)*0.01));
+	double reward_trajectory = 0.8 * rewards.second + 0.2 * exp(-pow(r, 2)*0.01);
 	
 	// std::cout << "reward trajectory: " <<rewards.second << " " << exp(-pow(r, 2)*0.01) << " " << reward_trajectory << std::endl;
 
@@ -648,6 +639,8 @@ bool cmp(const std::pair<DPhy::MultilevelSpline*, double> &p1, const std::pair<D
 void
 ReferenceManager::
 GenerateRandomTrajectory(int i) {
+	
+
 	std::vector<int> idxs;
 	idxs.push_back(23);
 	idxs.push_back(24);
@@ -662,7 +655,7 @@ GenerateRandomTrajectory(int i) {
 	std::random_device mRD;
 
 	std::mt19937 mMT(mRD());
-	std::uniform_real_distribution<double> mDistribution(0.1, 1);
+	std::uniform_real_distribution<double> mDistribution(-0.3, 0.3);
 
 	MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
 	s->SetKnots(0, mKnots);
@@ -670,11 +663,15 @@ GenerateRandomTrajectory(int i) {
 	for(int i = 0; i < mKnots.size(); i++) {
 		Eigen::VectorXd cp(idxs.size());
 		for(int j = 0; j < idxs.size(); j++) {
-			double d = cps_d[i][idxs[j]] - mPrevCps[i][idxs[j]];
-			d = d * mDistribution(mMT);
-			cp(j) = mPrevCps[i][idxs[j]] + std::max(std::min(d, 0.3), -0.3);
-			// double d = mDistribution(mMT);
-			// cp(j) = mPrevCps[i][idxs[j]] + d;
+			// double d = cps_d[i][idxs[j]] - mPrevCps[i][idxs[j]];
+			// d = d * mDistribution(mMT);
+			// if(j < 6) 
+			// 	d = 0;
+			// cp(j) = mPrevCps[i][idxs[j]] + std::max(std::min(d, 0.3), -0.3);
+			double d = mDistribution(mMT);
+			if(j < 6) 
+				d = 0;
+			cp(j) = mPrevCps[i][idxs[j]] + d;
 
 		}
 		cps.push_back(cp);
@@ -682,6 +679,8 @@ GenerateRandomTrajectory(int i) {
 
 	s->SetControlPoints(0, cps);
 	std::vector<Eigen::VectorXd> random_displacement = s->ConvertSplineToMotion();
+	delete s;
+
 	std::vector<Eigen::VectorXd> newpos;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 
@@ -794,6 +793,7 @@ Optimize() {
 			mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
 			mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
 		}
+	
 		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 		this->SaveAdaptiveMotion();
 		this->SaveAdaptiveMotion(std::to_string(nOp));

@@ -658,9 +658,9 @@ GetTargetReward()
 			Eigen::Vector3d target_hand = aa * Eigen::Vector3d(0.017, 0.4, 0.8) + mHeadRoot.segment<3>(3);
 			Eigen::Vector3d target_diff = target_hand - hand;
 		
-			// std::cout << target_diff.transpose() << std::endl;
+//			std::cout << target_diff.transpose() << std::endl;
 			r_target = 2 * exp_of_squared(target_diff,0.3);
-			//std::cout << r_target << std::endl;
+//			std::cout << r_target << std::endl;
 			mControlFlag[0] = 1;
 		}
 	// }

@@ -66,6 +66,13 @@ def read_data(filename):
 	return cps_size, knots, cps, motion_size, motion, time
 def plot(filename, filename2=""):
 	cps_size, knots, cps, motion_size, motion, time = read_data(filename)
+	# motion_j = motion[:, 23]
+	# time_s, motion_j_s = spline_to_motion(motion_size, cps, knots,23 )
+	# plt.plot(time, motion_j)
+	# plt.plot(time_s, motion_j_s, 'r')
+	# plt.show()
+
+	key = 40
 	if filename2 != "":
 		_, _, cps2, _, motion2, _ = read_data(filename2)
 
@@ -82,29 +89,28 @@ def plot(filename, filename2=""):
 		if flag:
 			idxs.append(i)
 
-	print(idxs)
-	motion_j = motion[:, 40]
-	motion_j2 = motion2[:, 40]
+	motion_j = motion[:, key]
+	motion_j2 = motion2[:, key]
 
-	time_s, motion_j_s = spline_to_motion(motion_size, cps, knots, 40)
-	time_s2, motion_j_s2 = spline_to_motion(motion_size, cps2, knots, 40)
+	time_s, motion_j_s = spline_to_motion(motion_size, cps, knots, key)
+	time_s2, motion_j_s2 = spline_to_motion(motion_size, cps2, knots, key)
 
-	# plt.figure(figsize=(12,5))
-	# plt.suptitle("joint 40")
+	plt.figure(figsize=(12,5))
+	plt.suptitle("joint"+str(key))
 
-	# plt.subplot(1, 2, 1)
-	# plt.gca().set_title("original")
-	# plt.plot(time, motion_j)
-	# plt.plot(time_s, motion_j_s, 'r')
+	plt.subplot(1, 2, 1)
+	plt.gca().set_title("original")
+	plt.plot(time, motion_j)
+	plt.plot(time_s, motion_j_s, 'r')
 
 
-	# plt.subplot(1, 2, 2)
-	# plt.gca().set_title("cmp")
-	# plt.plot(time, motion_j2)
-	# plt.plot(time_s2, motion_j_s2, 'r')
+	plt.subplot(1, 2, 2)
+	plt.gca().set_title("cmp")
+	plt.plot(time, motion_j2)
+	plt.plot(time_s2, motion_j_s2, 'r')
 
-	# plt.show()
-	# plt.cla()
+	plt.show()
+	plt.cla()
 
 
 if __name__=="__main__":

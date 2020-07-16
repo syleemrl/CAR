@@ -34,6 +34,7 @@ class MultilevelSpline
 {
 public:
 	MultilevelSpline(int level, double end);
+	~MultilevelSpline();
 	void SetKnots(int i, std::vector<double> knots);
 	void SetKnots(int i, double knot_interval);
 	std::vector<double> GetKnots(int i) { return mSplines[i]->GetKnots(); };

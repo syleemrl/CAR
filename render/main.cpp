@@ -1,5 +1,6 @@
 #include "SimWindow.h"
 #include "RecordWindow.h"
+#include "SeqRecordWindow.h"
 #include <vector>
 #include <string>
 #include <GL/glut.h>
@@ -109,7 +110,7 @@ int main(int argc,char** argv)
 		simwindow->InitWindow(1600,900,"Render");
 		glutMainLoop();
 	}
-	else if(type.compare("rec")==0){
+	else if(type.compare("rec")==0 || type.compare("srec")==0){
 		std::vector<std::string> raw = DPhy::split(file, ',');
 		std::vector<std::string> motion;
 
@@ -143,11 +144,17 @@ int main(int argc,char** argv)
 				std::cout << path[j] << std::endl;
 			}
 		}
-
-		RecordWindow* rwindow = new RecordWindow(motion);
-		glutInit(&argc, argv);
-		rwindow->InitWindow(1600,900,"Render");
-		glutMainLoop();
+		if(type.compare("rec")==0) {
+			RecordWindow* rwindow = new RecordWindow(motion);
+			glutInit(&argc, argv);
+			rwindow->InitWindow(1600,900,"Render");
+			glutMainLoop();
+		} else {
+			SeqRecordWindow* rwindow = new SeqRecordWindow(motion);
+			glutInit(&argc, argv);
+			rwindow->InitWindow(1600,900,"Render");
+			glutMainLoop();
+		}
 	}
 
 	return 0;
