@@ -393,10 +393,8 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		for it in range(num_iteration):
-			if self.adaptive and it % 5 == 0 and self.eval(2):	
-				self.optimizeReference(100)
-			elif self.adaptive and it % 5 == 0:
-				self.env.sim_env.Optimize()
+			# if self.adaptive and it % 5 == 0:	
+			# 	self.optimizeReference(100)
 
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -448,6 +446,8 @@ class PPO(object):
 		#	if 1:		
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
+					#self.optimizeReference(100)
+					self.env.sim_env.Optimize()
 				else:			
 					self.update(epi_info_iter) 
 

@@ -48,11 +48,16 @@ RecordWindow(std::vector<std::string> motion)
 				is >> buffer;
 				p[j] = atof(buffer);
 			}
-				// is >> buffer;
-				// is >> buffer;
+			is >> buffer;
+			is >> buffer;
 
 			Eigen::Vector3d o;
-			o.setZero();
+			if(length == 0) {
+				o = p.segment<3>(3);
+				o[1] = 0;
+			} else 
+				o = mMemoryObj.back();
+
 			// for(int j = 0; j < 3; j++) 
 			// {
 			// 	is >> buffer;

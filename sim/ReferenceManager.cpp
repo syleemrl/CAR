@@ -566,17 +566,24 @@ InitOptimization(int nslaves, std::string save_path) {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
-	// std::cout << "reward tracking: " << rewards.first / mPhaseLength << std::endl;
 	if((rewards.first / mPhaseLength)  < 0.9)
 		return;
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
 
+	std::vector<Eigen::VectorXd> trajectory;
+	for(int i = 0; i < data_spline.size(); i++) {
+		trajectory.push_back(data_spline[i].first);
+	}
+	trajectory = Align(trajectory, this->GetPosition(0).segment<6>(0));
+
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	for(int i = 0; i < data_spline.size(); i++) {
-
+	
+		data_spline[i].first = trajectory[i];
+	
 		Eigen::VectorXd p = data_spline[i].first;
 		Eigen::VectorXd p_bvh = this->GetPosition(data_spline[i].second);
 		Eigen::VectorXd d(mCharacter->GetSkeleton()->getNumDofs() + 1);
@@ -614,16 +621,16 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 	mLock.lock();
 	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, reward_trajectory));
 	// if(nOp != 0) {
-	// 	std::string path =  mPath + std::string("samples") + std::to_string(nOp);
+		std::string path =  mPath + std::string("samples") + std::to_string(nOp);
 		
-	// 	std::ofstream ofs;
+		std::ofstream ofs;
 
-	// 	ofs.open(path, std::fstream::out | std::fstream::app);
-	// 	for(auto t: data_spline) {	
-	// 		ofs << t.first.transpose() << " " << rewards.second << std::endl;
-	// 	}
-	// 	ofs.close();
-	// }
+		ofs.open(path, std::fstream::out | std::fstream::app);
+		for(auto t: data_spline) {	
+			ofs << t.first.transpose() << " " << rewards.first << std::endl;
+		}
+		ofs.close();
+//	}
 
 	mLock.unlock();
 
@@ -640,22 +647,25 @@ void
 ReferenceManager::
 GenerateRandomTrajectory(int i) {
 	
-
 	std::vector<int> idxs;
-	idxs.push_back(23);
-	idxs.push_back(24);
+
 	idxs.push_back(25);
 	idxs.push_back(26);
 	idxs.push_back(27);
-	idxs.push_back(34);
-	idxs.push_back(37);
-	idxs.push_back(40);
-	idxs.push_back(42);
+	idxs.push_back(28);
+	idxs.push_back(30);
+	idxs.push_back(31);
+	idxs.push_back(46);
+	idxs.push_back(48);
+
+
+	// idxs.push_back(28);
+	// idxs.push_back(29);
 
 	std::random_device mRD;
 
 	std::mt19937 mMT(mRD());
-	std::uniform_real_distribution<double> mDistribution(-0.3, 0.3);
+	std::uniform_real_distribution<double> mDistribution(0, 0.5);
 
 	MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
 	s->SetKnots(0, mKnots);
@@ -669,9 +679,9 @@ GenerateRandomTrajectory(int i) {
 			// 	d = 0;
 			// cp(j) = mPrevCps[i][idxs[j]] + std::max(std::min(d, 0.3), -0.3);
 			double d = mDistribution(mMT);
-			if(j < 6) 
-				d = 0;
-			cp(j) = mPrevCps[i][idxs[j]] + d;
+			// if(idxs[j] == 48 || idxs[j] == 46)
+			// 	d *= 0.5;
+			cp(j) = mPrevCps[i][idxs[j]] + mPrevCps[i][idxs[j]] ;
 
 		}
 		cps.push_back(cp);

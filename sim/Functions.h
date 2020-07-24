@@ -56,6 +56,7 @@ Eigen::Vector3d Rotate3dVector(Eigen::Vector3d v, Eigen::Vector3d r);
 void SetBodyNodeColors(dart::dynamics::BodyNode* bn, const Eigen::Vector3d& color);
 void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Vector3d& color);
 void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Vector4d& color);
+std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target);
 
 void EditBVH(std::string& path);
 Eigen::Quaterniond GetYRotation(Eigen::Quaterniond q);

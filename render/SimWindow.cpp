@@ -30,6 +30,9 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mRef2 = new DPhy::Character(path);
 
 	this->mCharacter = new DPhy::Character(path);
+	
+	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
+	this->mObject = new DPhy::Character(path);
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
@@ -231,6 +234,8 @@ void
 SimWindow::
 DrawSkeletons()
 {
+	GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
+
 	if(this->mDrawOutput) {
 		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOM, this->mCurFrame, Eigen::Vector3d(0.9, 0.9, 0.9));
@@ -253,7 +258,8 @@ void
 SimWindow::
 DrawGround()
 {	
-	// GUI::DrawPoint(Eigen::Vector3d(0.3, 1.3, 0.8), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(0.0, 1.3, 0.0), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(0.0, 1.3, 1.0), Eigen::Vector3d(1.0, 1.0, 1.0), 10);
 
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)
