@@ -199,6 +199,13 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	bvh->Parse(path);
 	std::cout << "load trained data from: " << path << std::endl;
 
+	std::vector<std::string> contact;
+	contact.clear();
+	contact.push_back("FootEndR");
+	contact.push_back("FootR");
+	contact.push_back("FootEndL");
+	contact.push_back("FootL");
+
 	auto& skel = mCharacter->GetSkeleton();
 	int dof = skel->getPositions().rows();
 	std::map<std::string,std::string> bvhMap = mCharacter->GetBVHMap(); 
@@ -257,6 +264,18 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 			mMotions_raw.back()->SetVelocity(v);
 		}
 		mMotions_raw.push_back(new Motion(p, Eigen::VectorXd(p.rows())));
+		
+		auto& skel = this->mCharacter->GetSkeleton();
+	
+		skel->setPositions(p);
+		skel->computeForwardKinematics(true,false,false);
+
+		std::vector<bool> c;
+		for(int j = 0; j < contact.size(); j++) {
+			Eigen::Vector3d p = skel->getBodyNode(contact[j])->getWorldTransform().translation();
+			c.push_back(p[1] < 0.04);
+		}
+		mContacts.push_back(c);
 
 		t += bvh->GetTimeStep();
 	}
@@ -267,7 +286,13 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		mMotions_phase.push_back(new Motion(mMotions_raw[i]));
+		if(i != 0 && i != mPhaseLength - 1) {
+			for(int j = 0; j < contact.size(); j++)
+				if(mContacts[i-1][j] && mContacts[i+1][j] && !mContacts[i][j])
+						mContacts[i][j] = true;
+		}
 	}
+
 	delete bvh;
 	this->ComputeAxisMean();
 	this->ComputeAxisDev();
@@ -530,7 +555,8 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	nOp = 0;
 	mPath = save_path;
-	mPrevRewardTrajectory = 0.5;	
+	mPrevRewardTrajectory = 0.5;
+	mPrevRewardTarget = 0.5;	
 	mOpMode = false;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
@@ -563,10 +589,45 @@ InitOptimization(int nslaves, std::string save_path) {
 	// ofs.close();
 
 }
+std::vector<std::pair<bool, Eigen::Vector3d>> 
+ReferenceManager::
+GetContactInfo(Eigen::VectorXd pos) 
+{
+	auto& skel = this->mCharacter->GetSkeleton();
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+	
+	skel->setPositions(pos);
+	skel->computeForwardKinematics(true,false,false);
+
+	std::vector<std::string> contact;
+	contact.clear();
+	contact.push_back("FootEndR");
+	contact.push_back("FootR");
+	contact.push_back("FootEndL");
+	contact.push_back("FootL");
+
+	std::vector<std::pair<bool, Eigen::Vector3d>> result;
+	result.clear();
+	for(int i = 0; i < contact.size(); i++) {
+		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
+		if(p[1] < 0.04) {
+			result.push_back(std::pair<bool, Eigen::Vector3d>(true, p));
+		} else {
+			result.push_back(std::pair<bool, Eigen::Vector3d>(false, p));
+		}
+	}
+
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
+	return result;
+}
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
-	if((rewards.first / mPhaseLength)  < 0.9)
+	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget)
 		return;
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
@@ -576,67 +637,73 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 	for(int i = 0; i < data_spline.size(); i++) {
 		trajectory.push_back(data_spline[i].first);
 	}
-	trajectory = Align(trajectory, this->GetPosition(0).segment<6>(0));
+	// trajectory = Align(trajectory, this->GetPosition(0).segment<6>(0));
 
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
-	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	for(int i = 0; i < data_spline.size(); i++) {
-	
 		data_spline[i].first = trajectory[i];
-	
-		Eigen::VectorXd p = data_spline[i].first;
-		Eigen::VectorXd p_bvh = this->GetPosition(data_spline[i].second);
-		Eigen::VectorXd d(mCharacter->GetSkeleton()->getNumDofs() + 1);
-		for(int j = 0; j < n_bnodes; j++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			
-			if(dof == 6) {
-				d.segment<3>(idx) = JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
-				d.segment<3>(idx + 3) = p.segment<3>(idx + 3) -  p_bvh.segment<3>(idx + 3);
-			} else if (dof == 3) {
-				d.segment<3>(idx) = JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
-			} else {
-				d(idx) = p(idx) - p_bvh(idx);
+	}
+	this->GetDisplacementWithBVH(data_spline, displacement);
+	s->ConvertMotionToSpline(displacement);
+
+	std::vector<Eigen::VectorXd> newpos;
+	std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
+	this->AddDisplacementToBVH(new_displacement, newpos);
+
+	double r_slide = 0;
+	std::vector<std::vector<std::pair<bool, Eigen::Vector3d>>> c;
+	for(int i = 0; i < newpos.size(); i++) {
+		c.push_back(this->GetContactInfo(newpos[i]));
+	}
+	for(int i = 1; i < newpos.size(); i++) {
+		if(i < newpos.size() - 1) {
+			for(int j = 0; j < 4; j++) {
+				if((c[i-1][j].first) && (c[i+1][j].first) && !(c[i][j].first)) 
+					(c[i][j].first) = true;
 			}
 		}
-		d.tail<1>() = p.tail<1>();
-		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, std::fmod(data_spline[i].second, mPhaseLength)));
+		for(int j = 0; j < 2; j++) {
+			bool c_prev_j = (c[i-1][2*j].first) && (c[i-1][2*j + 1].first);
+			bool c_cur_j = (c[i][2*j].first) && (c[i][2*j + 1].first);
+			if(c_prev_j && c_cur_j) {
+				double d = ((c[i-1][2*j].second + c[i-1][2*j+1].second) - (c[i][2*j].second + c[i][2*j+1].second)).norm()*0.5; 
+				r_slide += exp(-pow(d, 2)*1000);
+			} else {
+				r_slide += 1;
+			}
+		}
 	}
-
-	s->ConvertMotionToSpline(displacement);
+	r_slide /= (newpos.size() * 2);
 	auto cps = s->GetControlPoints(0);
-	double r = 0;
+	double r_regul = 0;
 	for(int i = 0; i < cps.size(); i++) {
-		r += cps[i].norm();	
+		r_regul += cps[i].norm();	
 	}
 
-	double reward_trajectory = 0.8 * rewards.second + 0.2 * exp(-pow(r, 2)*0.01);
-	
-	// std::cout << "reward trajectory: " <<rewards.second << " " << exp(-pow(r, 2)*0.01) << " " << reward_trajectory << std::endl;
-
+	double reward_trajectory = 0.2 * exp(-pow(r_regul, 2)*0.01) + 0.8 * (r_slide - 0.5);
+	std::cout << reward_trajectory << std::endl;
 	// if(reward_trajectory < mPrevRewardTrajectory)
 	// 	return;
 
 	mLock.lock();
-	mSamples.push_back(std::pair<MultilevelSpline*, double>(s, reward_trajectory));
-	// if(nOp != 0) {
-		std::string path =  mPath + std::string("samples") + std::to_string(nOp);
+	mSamples.push_back(std::tuple<MultilevelSpline*, double,  double>(s, reward_trajectory, rewards.second));
+	// // if(nOp != 0) {
+	// 	std::string path =  mPath + std::string("samples") + std::to_string(nOp);
 		
-		std::ofstream ofs;
+	// 	std::ofstream ofs;
 
-		ofs.open(path, std::fstream::out | std::fstream::app);
-		for(auto t: data_spline) {	
-			ofs << t.first.transpose() << " " << rewards.first << std::endl;
-		}
-		ofs.close();
+	// 	ofs.open(path, std::fstream::out | std::fstream::app);
+	// 	for(auto t: data_spline) {	
+	// 		ofs << t.first.transpose() << " " << rewards.first << std::endl;
+	// 	}
+	// 	ofs.close();
 //	}
 
 	mLock.unlock();
 
 }
-bool cmp(const std::pair<DPhy::MultilevelSpline*, double> &p1, const std::pair<DPhy::MultilevelSpline*, double> &p2){
-    if(p1.second > p2.second){
+bool cmp(const std::tuple<DPhy::MultilevelSpline*, double, double> &p1, const std::tuple<DPhy::MultilevelSpline*, double, double> &p2){
+    if(std::get<1>(p1) > std::get<1>(p2)){
         return true;
     }
     else{
@@ -722,14 +789,69 @@ GenerateRandomTrajectory(int i) {
 		delete m;
 	}	
 }
+void 
+ReferenceManager::
+AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position) {
+	position.clear();
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+
+	for(int i = 0; i < displacement.size(); i++) {
+
+		Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
+		Eigen::VectorXd d = displacement[i];
+		Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
+
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			if(dof == 6) {
+				p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
+				p.segment<3>(idx + 3) = d.segment<3>(idx + 3) + p_bvh.segment<3>(idx + 3);
+			} else if (dof == 3) {
+				p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
+			} else {
+				p(idx) = d(idx) + p_bvh(idx);
+			}
+		}
+		position.push_back(p);
+	}
+}
+void
+ReferenceManager::
+GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement) {
+	displacement.clear();
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+	for(int i = 0; i < position.size(); i++) {
+		double phase = std::fmod(position[i].second, mPhaseLength);
+		
+		Eigen::VectorXd p = position[i].first;
+		Eigen::VectorXd p_bvh = this->GetPosition(position[i].second);
+		Eigen::VectorXd d(mCharacter->GetSkeleton()->getNumDofs());
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			
+			if(dof == 6) {
+				d.segment<3>(idx) = JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
+				d.segment<3>(idx + 3) = p.segment<3>(idx + 3) -  p_bvh.segment<3>(idx + 3);
+			} else if (dof == 3) {
+				d.segment<3>(idx) = JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
+			} else {
+				d(idx) = p(idx) - p_bvh(idx);
+			}
+		}
+		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, phase));
+	}
+}
+
 bool 
 ReferenceManager::
 Optimize() {
-
+	double rewardTarget = 0;
 	double rewardTrajectory = 0;
-    int mu = 100;
+    int mu = 60;
     std::cout << "num sample: " << mSamples.size() << std::endl;
-    if(mSamples.size() < 100)
+    if(mSamples.size() < 300)
     	return false;
 
     std::stable_sort(mSamples.begin(), mSamples.end(), cmp);
@@ -746,58 +868,42 @@ Optimize() {
 
 	std::string path = mPath + std::string("rewards");
 	std::ofstream ofs;
-	ofs.open(path, std::fstream::out | std::fstream::app);
+//	ofs.open(path, std::fstream::out | std::fstream::app);
 
 	for(int i = 0; i < mu; i++) {
 		double w = log(mu + 1) - log(i + 1);
 	    weight_sum += w;
-	    std::vector<Eigen::VectorXd> cps = mSamples[i].first->GetControlPoints(0);
+	    std::vector<Eigen::VectorXd> cps = std::get<0>(mSamples[i])->GetControlPoints(0);
 	    for(int j = 0; j < num_knot; j++) {
 			mean_cps[j] += w * cps[j].head(cps[j].rows() - 1);
 	    }
-	    rewardTrajectory += w * mSamples[i].second;
-	    ofs << mSamples[i].second << " ";
+	    rewardTrajectory += w * std::get<1>(mSamples[i]);
+	    rewardTarget += std::get<2>(mSamples[i]);
+	 //   ofs << mSamples[i].second << " ";
 	}
-	ofs << std::endl;
-	ofs.close();
+	//ofs << std::endl;
+	//ofs.close();
 
 	rewardTrajectory /= weight_sum;
+	rewardTarget /= (double)mu;
 
-	std::cout << "current avg elite reward: " << rewardTrajectory << ", cutline: " << mPrevRewardTrajectory << std::endl;
+	std::cout << "current avg elite similarity reward: " << rewardTrajectory << ", target reward: " << rewardTarget << ", cutline: " << mPrevRewardTrajectory << std::endl;
 	
-	if(mPrevRewardTrajectory < rewardTrajectory) {
+	// if(mPrevRewardTrajectory < rewardTrajectory) {
+
 		for(int i = 0; i < num_knot; i++) {
 		    mean_cps[i] /= weight_sum;
 		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
 		}
 
 		mPrevRewardTrajectory = rewardTrajectory;
+		mPrevRewardTarget = rewardTarget;
 
 		mean_spline->SetControlPoints(0, mPrevCps);
 		std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
 		std::vector<Eigen::VectorXd> newpos;
-		int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+		this->AddDisplacementToBVH(new_displacement, newpos);
 
-		for(int i = 0; i < new_displacement.size(); i++) {
-
-			Eigen::VectorXd p_bvh = mMotions_phase[i]->GetPosition();
-			Eigen::VectorXd d = new_displacement[i];
-			Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
-
-			for(int j = 0; j < n_bnodes; j++) {
-				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-				if(dof == 6) {
-					p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
-					p.segment<3>(idx + 3) = d.segment<3>(idx + 3) + p_bvh.segment<3>(idx + 3);
-				} else if (dof == 3) {
-					p.segment<3>(idx) = Rotate3dVector(p_bvh.segment<3>(idx), d.segment<3>(idx));
-				} else {
-					p(idx) = d(idx) + p_bvh(idx);
-				}
-			}
-			newpos.push_back(p);
-		}
 		std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
 		for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
 			mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
@@ -820,20 +926,20 @@ Optimize() {
 		nOp += 1;
 			
 		while(!mSamples.empty()){
-			MultilevelSpline* s = mSamples.back().first;
+			MultilevelSpline* s = std::get<0>(mSamples.back());
 			mSamples.pop_back();
 
 			delete s;
 		}	
 		return true;
-	} else {
-		while(mSamples.size() > 100){
-			MultilevelSpline* s = mSamples.back().first;
-			mSamples.pop_back();
+	// } else {
+	// 	while(mSamples.size() > 100){
+	// 		MultilevelSpline* s = mSamples.back().first;
+	// 		mSamples.pop_back();
 
-			delete s;
-		}
-	}
+	// 		delete s;
+	// 	}
+	// }
 	return false;
 }
 };

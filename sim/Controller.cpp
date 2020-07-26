@@ -1032,7 +1032,7 @@ Reset(bool RSI)
 	if(isAdaptive)
 	{
 		Eigen::VectorXd p(mCharacter->GetSkeleton()->getPositions().rows() + 1);
-		p << mCharacter->GetSkeleton()->getPositions(), 1;
+		p << mCharacter->GetSkeleton()->getPositions(), 0;
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(p, mCurrentFrame));
 	}
 

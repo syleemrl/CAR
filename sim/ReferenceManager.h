@@ -68,6 +68,9 @@ public:
 	void InitOptimization(int nslaves, std::string save_path);
 	bool Optimize();
 	void GenerateRandomTrajectory(int i);
+	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
+	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
+	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -77,6 +80,7 @@ protected:
 	std::vector<Motion*> mMotions_raw;
 	std::vector<Motion*> mMotions_phase;
 	std::vector<Motion*> mMotions_phase_adaptive;
+	std::vector<std::vector<bool>> mContacts;
 	std::vector<Motion*> mMotions_gen;
 	std::vector<Motion*> mMotions_gen_adaptive;
 	std::vector<std::vector<Motion*>> mMotions_gen_temp;
@@ -86,7 +90,8 @@ protected:
 	std::vector<Eigen::VectorXd> mAxis_BVH;
 	std::vector<Eigen::VectorXd> mDev_BVH;
 
-	std::vector<std::pair<MultilevelSpline*, double>> mSamples;
+	//cps, target, similarity
+	std::vector<std::tuple<MultilevelSpline*, double, double>> mSamples;
 	std::vector<Eigen::VectorXd> mPrevCps;
 	std::vector<Eigen::VectorXd> mDisplacement;
 	std::vector<double> mKnots;
@@ -97,6 +102,8 @@ protected:
 	bool mSaveTrajectory;
 	std::string mPath;
 	double mPrevRewardTrajectory;
+	double mPrevRewardTarget;
+
 	int mDOF;
 
 	int nOp;

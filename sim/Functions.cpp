@@ -842,7 +842,7 @@ std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::Vec
 
 		Eigen::Vector3d projected_data = Eigen::Vector3d(0, data[i][1], 0);
 		Eigen::Vector3d delta_angular = JointPositionDifferences(data[i].segment<3>(0), data[0].segment<3>(0)); 
-		result[i].segment<3>(0) = Rotate3dVector(delta_angular, new_root);
+		// result[i].segment<3>(0) = Rotate3dVector(delta_angular, new_root);
 		// result[i][0] = data[i][0];
 		// result[i][2] = data[i][2];
 	}

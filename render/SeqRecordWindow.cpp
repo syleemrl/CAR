@@ -1,46 +1,39 @@
 #include <GL/glew.h>
-#include "RecordWindow.h"
+#include "SeqRecordWindow.h"
 #include "dart/external/lodepng/lodepng.h"
 #include "Functions.h"
 #include <algorithm>
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include "Functions.h"
 #include <GL/glut.h>
 using namespace GUI;
 using namespace dart::simulation;
 using namespace dart::dynamics;
 
-RecordWindow::
-RecordWindow(std::vector<std::string> motion)
-	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), mTimeStep(1 / 30.0)
+SeqRecordWindow::
+SeqRecordWindow(std::vector<std::string> motion)
+	:GLUTWindow(),mTrackCamera(false),mIsRotate(false),mIsAuto(false), mTimeStep(1 / 30.0), mInterval(1), mDrawTarget(true)
 {
-	for(int i = 0; i < motion.size(); i++) {
-		mDrawRef.push_back(true);
-	}
 	this->mTotalFrame = 0;
-	this->num = motion.size();
-
+	this->mCurRecord = 0;
 	std::string skel_path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+	this->mRef = new DPhy::Character(skel_path);
+	auto skel = this->mRef->GetSkeleton();
+	int length = 0;
+
 	for(int i = 0; i < motion.size(); i++) {
-		this->mRef.push_back(new DPhy::Character(skel_path));
 
 
 		std::vector<Eigen::VectorXd> record_pos;
 		record_pos.clear();
 
-		int dof = this->mRef[i]->GetSkeleton()->getPositions().rows();
+		int dof = skel->getPositions().rows();
 		std::string record_path = motion[i];
 		std::ifstream is(record_path);
 		
 		char buffer[256];
-		// is >> buffer;
-		// int length = atoi(buffer);
-		// if(this->mTotalFrame == 0 || length < mTotalFrame) {
-		// 	mTotalFrame = length;
-		// }
-
-	//	for(int k = 0; k < length; k++) {
-		int length = 0;
+		int target_count = 1;
 		while(!is.eof()) {
 			Eigen::VectorXd p(dof);
 			for(int j = 0; j < dof; j++) 
@@ -48,49 +41,36 @@ RecordWindow(std::vector<std::string> motion)
 				is >> buffer;
 				p[j] = atof(buffer);
 			}
-			is >> buffer;
-			is >> buffer;
+				// is >> buffer;
+				// is >> buffer;
 
-			Eigen::Vector3d o;
-			if(length == 0) {
-				o = p.segment<3>(3);
-				o[1] = 0;
-			} else 
-				o = mMemoryObj.back();
-			
-			// for(int j = 0; j < 3; j++) 
-			// {
-			// 	is >> buffer;
-			// 	o(j) = atof(buffer);
-			// }
-			record_pos.push_back(p);
-			mMemoryObj.push_back(o);
+			mMemoryRef.push_back(p);
 			length++;
-		}
-		record_pos.pop_back();
-		mMemoryObj.pop_back();
+			if(target_count == 1) {
+				Eigen::AngleAxisd aa(p.segment<3>(0).norm(), p.segment<3>(0).normalized());
+				Eigen::Vector3d target = aa * Eigen::Vector3d(0.65, 0.43, 0.35) + p.segment<3>(3);
+				mMemoryTarget.push_back(target);
+			}
+			if(target_count == 27) {
+				skel->setPositions(p);
+				skel->computeForwardKinematics(true,false,false);
+				mMemoryKey.push_back(skel->getBodyNode("HandR")->getWorldTransform().translation());
 
+			}
+			target_count += 1;
+		}
+		mMemoryRef.pop_back();
 		length -= 1;
-	//	}
+	
+		mEndKeyFrame.push_back(mMemoryRef.size() - 1);
 
 		is.close();
-		if(this->mTotalFrame == 0 || length < mTotalFrame) {
-			mTotalFrame = length;
-		}
-		mMemoryRef.push_back(record_pos);
-		if(i == motion.size()-1)
-			DPhy::SetSkeletonColor(this->mRef.back()->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
-		else
-			DPhy::SetSkeletonColor(this->mRef.back()->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
-
 	}
-
-	Eigen::Vector3d ori_otho(-1.0, 0, 0);
-	for(int i = 1; i < motion.size(); i++) {
-		for(int j = 0; j < mMemoryRef[i].size(); j++) {
-			mMemoryRef[i][j].segment<3>(3) += ori_otho * i;
-		}
+	if(this->mTotalFrame == 0 || length < mTotalFrame) {
+		mTotalFrame = length;
 	}
+	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+
 	this->mCurFrame = 0;
 	this->mDisplayTimeout = 33;
 
@@ -98,7 +78,7 @@ RecordWindow(std::vector<std::string> motion)
 
 }
 void
-RecordWindow::
+SeqRecordWindow::
 SetFrame(int n)
 {
 	if( n < 0 || n >= this->mTotalFrame )
@@ -107,55 +87,71 @@ SetFrame(int n)
 	 	return;
 	}
 
-	for(int i = 0; i < mRef.size(); i++) {
-    	mRef[i]->GetSkeleton()->setPositions(mMemoryRef[i][n]);
-    }
-    mObj = mMemoryObj[0];
+    mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 
 }
 
 void
-RecordWindow::
+SeqRecordWindow::
 NextFrame()
 { 
-	this->mCurFrame+=1;
-	if (this->mCurFrame >= this->mTotalFrame) {
+	if (this->mCurFrame == this->mTotalFrame - 1) {
         this->mCurFrame = 0;
-    }
+    } else if(mEndKeyFrame[mCurRecord] == mCurFrame) {
+		mCurRecord += mInterval;
+		if(mEndKeyFrame.size() > mCurRecord) {
+			mCurFrame = mEndKeyFrame[mCurRecord - 1] + 1;
+		} else {
+			this->mCurFrame = 0;
+		}
+	} else {
+		this->mCurFrame += 1;
+	}
 	this->SetFrame(this->mCurFrame);
 }
 void
-RecordWindow::
+SeqRecordWindow::
 PrevFrame()
 {
-	this->mCurFrame-=1;
-	if( this->mCurFrame < 0 ) {
+	if( this->mCurFrame == 0 ) {
         this->mCurFrame = this->mTotalFrame - 1;
-    }
+    } else if(mEndKeyFrame[mCurRecord - 1] == mCurFrame - 1) {
+		mCurRecord -= mInterval;
+		if(0 <= mCurRecord) {
+			mCurFrame = mEndKeyFrame[mCurRecord + 1] - 1;
+		} else {
+			this->mCurFrame = this->mTotalFrame - 1;
+		}
+	} else {
+		this->mCurFrame -= 1;
+	}
 	this->SetFrame(this->mCurFrame);
 }
 void
-RecordWindow::
+SeqRecordWindow::
 DrawSkeletons()
 {
-	for(int i = 0; i < mRef.size(); i++) {
-		if(this->mDrawRef[i]) {
-			GUI::DrawSkeleton(this->mRef[i]->GetSkeleton(), 0);
+	GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
+	if(mDrawTarget) {
+		std::vector<Eigen::Vector3d> keys;
+		for(int i = 0; i <= mCurRecord; i += mInterval) {
+			keys.push_back(mMemoryKey[i]);
 		}
-    }
+		GUI::DrawTrajectory(keys, keys.size(), Eigen::Vector3d(22./ 255., 194./ 255., 96./ 255.), false);
+		GUI::DrawPoint(mMemoryTarget[mCurRecord], Eigen::Vector3d(194./255., 25./ 255., 48./ 255.), 10);
+
+	}
 }
 void
-RecordWindow::
+SeqRecordWindow::
 DrawGround()
 {
-	GUI::DrawPoint(mObj, Eigen::Vector3d(1.0, 1.0, 1.0), 10);
-
 	Eigen::Vector3d com_root;
-	com_root = this->mRef[num / 2]->GetSkeleton()->getRootBodyNode()->getCOM();
+	com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
 void
-RecordWindow::
+SeqRecordWindow::
 Display() 
 {
 
@@ -163,7 +159,7 @@ Display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	dart::dynamics::SkeletonPtr skel = this->mRef[num / 2]->GetSkeleton();
+	dart::dynamics::SkeletonPtr skel = this->mRef->GetSkeleton();
 	Eigen::Vector3d com_root = skel->getRootBodyNode()->getCOM();
 	Eigen::Vector3d com_front = skel->getRootBodyNode()->getTransform()*Eigen::Vector3d(0.0, 0.0, 2.0);
 
@@ -200,15 +196,16 @@ Display()
 
 }
 void
-RecordWindow::
+SeqRecordWindow::
 Reset()
 {
 	this->mCurFrame = 0;
 	this->SetFrame(this->mCurFrame);
-
+	mCurRecord = 0;
+	this->mMemoryKey.clear();
 }
 void
-RecordWindow::
+SeqRecordWindow::
 Keyboard(unsigned char key,int x,int y) 
 {
 	switch(key)
@@ -216,14 +213,12 @@ Keyboard(unsigned char key,int x,int y)
 		case '`' :mIsRotate= !mIsRotate;break;
 		case '[': mIsAuto=false;this->PrevFrame();break;
 		case ']': mIsAuto=false;this->NextFrame();break;
-		case 'o': this->mCurFrame-=99; this->PrevFrame();break;
-		case 'p': this->mCurFrame+=99; this->NextFrame();break;
+		case 'o': this->mInterval -= 1; std::cout << "interval: " << this->mInterval << std::endl; break;
+		case 'p': this->mInterval += 1; std::cout << "interval: " << this->mInterval << std::endl; break;
 		case 's': std::cout << this->mCurFrame << std::endl;break;
 		case 'r': Reset();break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
-		case '3': mDrawRef[2] = !mDrawRef[2];break;
-		case '2': mDrawRef[1] = !mDrawRef[1];break;
-		case '1': mDrawRef[0] = !mDrawRef[0];break;
+		case '1': mDrawTarget = !mDrawTarget;break;
 		case ' ':
 			mIsAuto = !mIsAuto;
 			break;
@@ -235,7 +230,7 @@ Keyboard(unsigned char key,int x,int y)
 	// glutPostRedisplay();
 }
 void
-RecordWindow::
+SeqRecordWindow::
 Mouse(int button, int state, int x, int y) 
 {
 	if(button == 3 || button == 4){
@@ -266,7 +261,7 @@ Mouse(int button, int state, int x, int y)
 	// glutPostRedisplay();
 }
 void
-RecordWindow::
+SeqRecordWindow::
 Motion(int x, int y) 
 {
 	if (!mIsDrag)
@@ -287,35 +282,23 @@ Motion(int x, int y)
 	mPrevY = y;
 }
 void
-RecordWindow::
+SeqRecordWindow::
 Reshape(int w, int h) 
 {
 	glViewport(0, 0, w, h);
 	mCamera->Apply();
 }
-
-void 
-RecordWindow::
-Step()
-{	
-	this->mCurFrame++;
-	this->SetFrame(this->mCurFrame);
-}
 void
-RecordWindow::
+SeqRecordWindow::
 Timer(int value) 
 {
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-	if( mIsAuto && this->mCurFrame == this->mTotalFrame - 1){
-         Step();
-	} else if( mIsAuto && this->mCurFrame < this->mTotalFrame - 1){
-        this->mCurFrame++;
-        SetFrame(this->mCurFrame);
-        	
+	if( mIsAuto && this->mCurFrame < this->mTotalFrame - 1){
+       NextFrame();
     }
 
-	std::chrono::steady_clock::time_point end= std::chrono::steady_clock::now();
+	std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 	double elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000.;
 	
 	glutTimerFunc(std::max(0.0,mDisplayTimeout-elapsed), TimerEvent,1);

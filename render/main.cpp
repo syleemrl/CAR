@@ -1,6 +1,7 @@
 #include "SimWindow.h"
 #include "RecordWindow.h"
 #include "SeqRecordWindow.h"
+#include "SplineWindow.h"
 #include <vector>
 #include <string>
 #include <GL/glut.h>
@@ -104,13 +105,16 @@ int main(int argc,char** argv)
 	}
 
 	if(type.compare("sim")==0) {
-		std::cout << ref <<" "<< network << " "<< save << std::endl;
 		SimWindow* simwindow = new SimWindow(ref, network, save);
 		glutInit(&argc, argv);
 		simwindow->InitWindow(1600,900,"Render");
 		glutMainLoop();
-	}
-	else if(type.compare("rec")==0 || type.compare("srec")==0){
+	} else if(type.compare("spline")==0) {
+		SplineWindow* swindow = new SplineWindow(ref, std::string(CAR_DIR) + std::string("/") + file);
+		glutInit(&argc, argv);
+		swindow->InitWindow(1600,900,"Render");
+		glutMainLoop();
+	} else if(type.compare("rec")==0 || type.compare("srec")==0){
 		std::vector<std::string> raw = DPhy::split(file, ',');
 		std::vector<std::string> motion;
 

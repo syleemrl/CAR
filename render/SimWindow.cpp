@@ -33,6 +33,12 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	
 	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
 	this->mObject = new DPhy::Character(path);
+	Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+	p_obj.setZero();
+	p_obj[1] = M_PI;
+	p_obj.segment<3>(3) = Eigen::Vector3d(1.2, 0.0, 1.0);
+	mObject->GetSkeleton()->setPositions(p_obj);
+
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
