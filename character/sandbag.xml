@@ -1,5 +1,9 @@
 <Skeleton name="Sandbag">
-	<Joint type="FreeJoint" name="Base1" parent_name="None" size="0.1 2 0.1" mass="5">
+	<Joint type="FreeJoint" name="Ground" parent_name="None" size="0.5 0.1 0.5" mass="20">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+	<Joint type="WeldJoint" name="Base1" parent_name="Ground" size="0.1 2 0.1" mass="5">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1 0"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
@@ -23,7 +27,7 @@
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1.6 0.4"></BodyPosition>
 		<JointPosition translation="0 1.64 0.4"></JointPosition>
 	</Joint>
-	<Joint type="BallJoint" name="Sandbag" size="0.3 1.0 0.3" mass="10" parent_name="String3">
+	<Joint type="BallJoint" name="Sandbag" size="0.4 1.0 0.4" mass="5" parent_name="String3">
         <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 1.06 0.4" />
         <JointPosition translation="0.0 1.56 0.4"/>
         <Capsule direction="0 1 0" radius="0.2" height="0.6"/>

@@ -63,6 +63,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void UpdateGRF(std::vector<std::string> joints);
 	std::vector<Eigen::VectorXd> GetGRF();
 	void SaveStepInfo();
+	Eigen::VectorXd GetObjPositions(int idx) { return this->mRecordObjPosition[idx]; }
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
@@ -106,6 +107,7 @@ protected:
 	bool mOpMode;
 	
 	Character* mCharacter;
+	Character* mObject;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 
@@ -137,7 +139,7 @@ protected:
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
 	// for foot collision, left, right foot, ground
-	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL; 
+	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGOBJ; 
 
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::VectorXd> mRecordVelocity;
@@ -145,6 +147,7 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
 	std::vector<Eigen::VectorXd> mRecordRewardPosition;
+	std::vector<Eigen::VectorXd> mRecordObjPosition;
 
 	std::vector<double> mRecordEnergy;
 	std::vector<double> mRecordWork;

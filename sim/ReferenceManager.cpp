@@ -681,7 +681,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 	}
 
 	double reward_trajectory = 0.2 * exp(-pow(r_regul, 2)*0.01) + 0.8 * (r_slide - 0.5);
-	std::cout << reward_trajectory << std::endl;
 	// if(reward_trajectory < mPrevRewardTrajectory)
 	// 	return;
 

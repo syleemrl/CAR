@@ -169,6 +169,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mRecordTargetPosition.clear();
 	this->mRecordBVHPosition.clear();
 	this->mRecordRewardPosition.clear();
+	this->mRecordObjPosition.clear();
 
 	mControlFlag.resize(2);
 	mRewardLabels.clear();
@@ -187,6 +188,14 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		mRewardLabels.push_back("time");
 	}
 	mOpMode = false;
+
+	if(mRecord) {
+		path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
+		this->mObject = new DPhy::Character(path);
+		this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton()->getBodyNode("Sandbag"));
+		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+
+	}
 }
 void
 Controller::
@@ -334,6 +343,7 @@ Step()
 	Eigen::VectorXd torque;
 
 	double torque_sum = 0;
+	double end_F_sum_norm = 0;
 	Eigen::Vector3d end_F_sum;
 	end_F_sum.setZero();
 	for(int i = 0; i < this->mSimPerCon; i += 2){
@@ -350,6 +360,7 @@ Step()
 		Eigen::MatrixXd J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("HandR"), Eigen::Vector3d(0, 0, 0));
 		Eigen::Vector3d end_F = J * torque;
 		end_F_sum += 2.0 * end_F / mSimulationHz;
+		end_F_sum_norm += 2.0 * end_F.norm() / mSimulationHz;
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
@@ -359,10 +370,9 @@ Step()
 	}
 
 	nTotalSteps += 1;
-	//std::cout << mCurrentFrameOnPhase << ": "<< end_F_sum.transpose() << std::endl;
 
-	if(mCurrentFrameOnPhase >= 18 && mCurrentFrameOnPhase <= 27) 
-		mRecordWork.push_back(end_F_sum.norm());
+	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase <= 27)  
+		mRecordWork.push_back(end_F_sum_norm);
 	if(isAdaptive) {
 		this->UpdateRewardTrajectory();
 		this->UpdateAdaptiveReward();
@@ -398,12 +408,14 @@ SaveStepInfo()
 		mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, true));
 	else
 		mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, false));
-
+	
+	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
 	mRecordTargetPosition.push_back(mTargetPositions);
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	mRecordTime.push_back(mCurrentFrame);
+	
 	bool rightContact = CheckCollisionWithGround("FootEndR") || CheckCollisionWithGround("FootR");
 	bool leftContact = CheckCollisionWithGround("FootEndL") || CheckCollisionWithGround("FootL");
 
@@ -672,9 +684,8 @@ GetTargetReward()
 			}
 			f_hand /= mRecordWork.size();
 			mRecordWork.clear();
-			double f_diff = 0.8 - f_hand;
-			r_target = 2 * exp_of_squared(target_diff,0.3);
-			// std::cout << r_target << std::endl;
+			double f_diff = 1 - f_hand;
+			r_target = exp_of_squared(target_diff,0.3) + exp(-pow(f_diff, 2)*0.75);
 			mControlFlag[0] = 1;
 		}
 	// }
@@ -1022,6 +1033,14 @@ Reset(bool RSI)
 	this->mRecordTargetPosition.clear();
 	this->mRecordBVHPosition.clear();
 	this->mRecordRewardPosition.clear();
+	this->mRecordObjPosition.clear();
+	if(mRecord) {
+		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+		p_obj.setZero();
+		p_obj[1] = M_PI;
+		p_obj.segment<3>(3) = Eigen::Vector3d(1.1, 0.0, 1.0);
+		mObject->GetSkeleton()->setPositions(p_obj);
+	}
 
 	SaveStepInfo();
 

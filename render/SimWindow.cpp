@@ -164,7 +164,8 @@ Save(int n) {
 
    	 	mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     	mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
-    //	std::cout << this->mTotalFrame-1 << ":" << mRewardTotal << std::endl;
+
+    	mMemoryObj.emplace_back(this->mController->GetObjPositions(n));
 	} else {
 		position = mReferenceManager->GetPosition(n);
 		if(mWrap) {
@@ -211,7 +212,7 @@ SetFrame(int n)
   		mCharacter->GetSkeleton()->setPositions(mMemory[n]);
   		mFootContact = mMemoryFootContact[n];
   		mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
-
+  		mObject->GetSkeleton()->setPositions(mMemoryObj[n]);
   	}
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }

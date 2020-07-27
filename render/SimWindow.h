@@ -85,7 +85,7 @@ protected:
 	double mSkelLength;
 	double mRewardTotal;
 	std::string mode;
-	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRef2, mMemoryRef3;
+	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRef2, mMemoryRef3, mMemoryObj;
 	std::vector<Eigen::Vector3d> mMemoryCOM, mMemoryCOMRef, mMemoryCOMRef2;
 	std::vector<std::vector<Eigen::VectorXd>> mMemoryGRF;
 	std::vector<std::pair<bool, bool>> mMemoryFootContact;
