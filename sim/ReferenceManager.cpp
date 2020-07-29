@@ -536,11 +536,14 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 
 	mKnots.push_back(0);
-	mKnots.push_back(9);
-	mKnots.push_back(20);
-	mKnots.push_back(27);
-	mKnots.push_back(35);
-	
+	mKnots.push_back(12);
+	mKnots.push_back(29);
+	mKnots.push_back(37);
+	mKnots.push_back(44);
+	mKnots.push_back(56);
+	mKnots.push_back(64);
+	mKnots.push_back(76);
+
 	for(int i = 0; i < this->mKnots.size(); i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
 	}
@@ -556,7 +559,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	nOp = 0;
 	mPath = save_path;
 	mPrevRewardTrajectory = 0.5;
-	mPrevRewardTarget = 0.5;	
+	mPrevRewardTarget = 0.0;	
 	mOpMode = false;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
@@ -892,7 +895,7 @@ Optimize() {
 
 		for(int i = 0; i < num_knot; i++) {
 		    mean_cps[i] /= weight_sum;
-		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
+		    mPrevCps[i] = mean_cps[i]; // mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
 		}
 
 		mPrevRewardTrajectory = rewardTrajectory;

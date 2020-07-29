@@ -192,9 +192,14 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mDistribution;
+
+	double mStartPhase;
+	int nTotalStepsPhase;
 	double mTarget;
 	double mTarget2;
 	double target_reward = 0;
+
+
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;

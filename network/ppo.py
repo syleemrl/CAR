@@ -395,9 +395,9 @@ class PPO(object):
 		for it in range(num_iteration):
 			# if self.adaptive and it % 5 == 0:	
 			# 	self.optimizeReference(100)
-
 			for i in range(self.num_slaves):
 				self.env.reset(i)
+
 			states = self.env.getStates()
 			local_step = 0
 			last_print = 0
@@ -407,6 +407,7 @@ class PPO(object):
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
+
 				if not self.adaptive:
 					values = self.critic.getValue(states)
 				else:

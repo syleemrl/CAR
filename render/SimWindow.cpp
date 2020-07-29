@@ -241,7 +241,7 @@ void
 SimWindow::
 DrawSkeletons()
 {
-	GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
+	// GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
 
 	if(this->mDrawOutput) {
 		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
