@@ -24,7 +24,6 @@ SimWindow(std::string motion, std::string network, std::string filename)
 		this->mDrawRef2 = false;
 	}
 	this->filename = filename;
-
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 	this->mRef = new DPhy::Character(path);
 	this->mRef2 = new DPhy::Character(path);
@@ -42,7 +41,6 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-
 	if(this->mRunPPO) {
 		path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
 		mReferenceManager->InitOptimization(1, path);
@@ -51,6 +49,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	}
 
 	this->mController = new DPhy::Controller(mReferenceManager, this->mRunPPO, true);
+
 	// this->mReferenceManager->SetOptimizationMode(true);
 	// this->mController->SetOptimizationMode(true);
 	//	mReferenceManager->EditMotion(1.5, "b");
@@ -63,6 +62,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mSkelLength = 0.3;
 
 	this->mController->Reset(false);
+
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 
 	Eigen::VectorXd position = p_v_target->GetPosition();

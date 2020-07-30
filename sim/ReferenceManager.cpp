@@ -212,6 +212,8 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	for(const auto ss :bvhMap){
 		bvh->AddMapping(ss.first,ss.second);
 	}
+
+
 	double t = 0;
 	for(int i = 0; i < bvh->GetMaxFrame(); i++)
 	{
@@ -219,10 +221,12 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 		Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
 		//Set p
 		bvh->SetMotion(t);
+
 		for(auto ss :bvhMap)
 		{
 			dart::dynamics::BodyNode* bn = skel->getBodyNode(ss.first);
 			Eigen::Matrix3d R = bvh->Get(ss.first);
+
 			dart::dynamics::Joint* jn = bn->getParentJoint();
 			Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
 			a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
@@ -242,9 +246,9 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 				else if(p[jn->getIndexInSkeleton(0)]<-M_PI)
 					p[jn->getIndexInSkeleton(0)] += 2*M_PI;
 			}
+
 		}
 		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
-
 		Eigen::VectorXd v;
 		if(t != 0)
 		{
@@ -270,12 +274,12 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 		skel->setPositions(p);
 		skel->computeForwardKinematics(true,false,false);
 
-		std::vector<bool> c;
-		for(int j = 0; j < contact.size(); j++) {
-			Eigen::Vector3d p = skel->getBodyNode(contact[j])->getWorldTransform().translation();
-			c.push_back(p[1] < 0.04);
-		}
-		mContacts.push_back(c);
+		// std::vector<bool> c;
+		// for(int j = 0; j < contact.size(); j++) {
+		// 	Eigen::Vector3d p = skel->getBodyNode(contact[j])->getWorldTransform().translation();
+		// 	c.push_back(p[1] < 0.04);
+		// }
+		// mContacts.push_back(c);
 
 		t += bvh->GetTimeStep();
 	}
@@ -286,12 +290,12 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		mMotions_phase.push_back(new Motion(mMotions_raw[i]));
-		if(i != 0 && i != mPhaseLength - 1) {
-			for(int j = 0; j < contact.size(); j++)
-				if(mContacts[i-1][j] && mContacts[i+1][j] && !mContacts[i][j])
-						mContacts[i][j] = true;
-		}
-	}
+	// 	if(i != 0 && i != mPhaseLength - 1) {
+	// 		for(int j = 0; j < contact.size(); j++)
+	// 			if(mContacts[i-1][j] && mContacts[i+1][j] && !mContacts[i][j])
+	// 					mContacts[i][j] = true;
+	// 	}
+	 }
 
 	delete bvh;
 	this->ComputeAxisMean();
@@ -559,8 +563,12 @@ InitOptimization(int nslaves, std::string save_path) {
 	nOp = 0;
 	mPath = save_path;
 	mPrevRewardTrajectory = 0.5;
-	mPrevRewardTarget = 0.0;	
+	mPrevRewardTarget = 0.35;	
 	mOpMode = false;
+	
+	for(int i = 0; i < 3; i++) {
+		nRejectedSamples.push_back(0);
+	}
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
@@ -630,8 +638,16 @@ GetContactInfo(Eigen::VectorXd pos)
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
-	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget)
+	// std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
+	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
+		nRejectedSamples[0] += 1;
+		if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
+			nRejectedSamples[1] += 1;
+		} else if((rewards.first / mPhaseLength) < 0.9 && rewards.second < mPrevRewardTarget) {
+			nRejectedSamples[2] += 1;
+		}
 		return;
+	}
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
@@ -853,8 +869,12 @@ Optimize() {
 	double rewardTrajectory = 0;
     int mu = 60;
     std::cout << "num sample: " << mSamples.size() << std::endl;
-    if(mSamples.size() < 300)
+    if(mSamples.size() < 300) {
+    	for(int i = 0; i < nRejectedSamples.size(); i++) {
+			std::cout << i << " " << nRejectedSamples[i] << std::endl;
+		}
     	return false;
+    }
 
     std::stable_sort(mSamples.begin(), mSamples.end(), cmp);
 	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength()); 
@@ -933,6 +953,12 @@ Optimize() {
 
 			delete s;
 		}	
+
+		for(int i = 0; i < nRejectedSamples.size(); i++) {
+			std::cout << i << " " << nRejectedSamples[i] << std::endl;
+			nRejectedSamples[i] = 0;
+		}
+
 		return true;
 	// } else {
 	// 	while(mSamples.size() > 100){
@@ -942,6 +968,6 @@ Optimize() {
 	// 		delete s;
 	// 	}
 	// }
-	return false;
+	// return false;
 }
 };

@@ -425,8 +425,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 
 	skel->setPositions(position);
-	if(useVelocity) skel->setVelocities(velocity);
-	skel->computeForwardKinematics(true,useVelocity,false);
+	skel->computeForwardKinematics(true,false,false);
 
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
@@ -492,8 +491,8 @@ GetTargetReward()
 		double target_diff = skel->getCOM()[1] - 1.45;
 		r_target = 2 * exp(-pow(target_diff, 2) * 30);
 		mControlFlag[0] = 1;
-		// if(mRecord)
-		// 	std::cout << this->mCharacter->GetSkeleton()->getRootBodyNode()->getWorldTransform().translation()[1] << " " << r_target << std::endl;
+		if(mRecord)
+			std::cout << skel->getCOM()[1] << " " << r_target << std::endl;
 	}
 
 	// if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase < 39 && mControlFlag[0] == 0) {
@@ -648,7 +647,6 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
-	mTrackingRewardTrajectory += (0.4 * tracking_rewards_bvh[0] + 0.6 * tracking_rewards_bvh[2]);
 	if(r_target != 0) mTargetRewardTrajectory = r_target;
 }
 void
@@ -679,12 +677,56 @@ UpdateReward()
 void 
 Controller::
 UpdateRewardTrajectory() {
+	auto& skel = this->mCharacter->GetSkeleton();
 
-	// double r_target = 0;
-	// //double r_energy = exp(-pow(mRecordWork.back(), 2));
-	// double r_similar = 0; //this->GetSimilarityReward();
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
 
-	// mTargetRewardTrajectory += (0.5 * r_similar + r_target);
+	Eigen::VectorXd p_diff = skel->getPositionDifferences(skel->getPositions(), mTargetPositions);
+	Eigen::VectorXd p_diff_reward;
+	
+	p_diff_reward.resize(mRewardDof);
+	int count_dof = 0;
+
+	for(int i = 0; i < mRewardBodies.size(); i++){
+		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+		int dof = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getNumDofs();
+		
+		p_diff_reward.block(count_dof, 0, dof, 1) = p_diff.block(idx, 0, dof, 1);
+		count_dof += dof;
+	}
+
+	std::vector<Eigen::Isometry3d> ee_transforms;
+	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
+	ee_diff.setZero();	
+	for(int i=0;i<mEndEffectors.size(); i++){
+		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
+	}
+		
+	skel->setPositions(mTargetPositions);
+	skel->computeForwardKinematics(true,false,false);
+
+	for(int i=0;i<mEndEffectors.size();i++){
+		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+		ee_diff.segment<3>(3*i) = diff.translation();
+		ee_diff[3*i+1] = 0;
+	}
+
+	double scale = 1.0;
+
+	double sig_p = 0.5 * scale; 
+	double sig_ee = 0.1 * scale;		
+
+	double r_p = exp_of_squared(p_diff_reward,sig_p);
+	double r_ee = exp_of_squared(ee_diff,sig_ee);
+
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
+
+	mTrackingRewardTrajectory += (0.4 * r_p + 0.6 * r_ee);
+
 }
 void
 Controller::

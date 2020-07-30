@@ -110,6 +110,7 @@ protected:
 	//for debug
 	bool mOpMode;
 
+	std::vector<int> nRejectedSamples;
 };
 }
 
