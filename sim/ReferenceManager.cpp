@@ -563,7 +563,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	nOp = 0;
 	mPath = save_path;
 	mPrevRewardTrajectory = 0.5;
-	mPrevRewardTarget = 0.35;	
+	mPrevRewardTarget = 0.05;	
 	mOpMode = false;
 	
 	for(int i = 0; i < 3; i++) {
@@ -638,7 +638,7 @@ GetContactInfo(Eigen::VectorXd pos)
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
-	// std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
+	std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
 	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
 		nRejectedSamples[0] += 1;
 		if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
