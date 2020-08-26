@@ -322,6 +322,9 @@ class PPO(object):
 				TD_sparse_batch.append(TD_sparse[i])
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages_dense[i]+advantages_sparse[i])
+
+			embed()
+			exit()
 		self.values_sparse /= len(tuples)
 		self.values_dense /= len(tuples)
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(TD_sparse_batch), np.array(neglogp_batch), np.array(GAE_batch)

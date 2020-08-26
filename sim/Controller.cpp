@@ -21,6 +21,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mRecord = record;
 	this->mReferenceManager = ref;
 	this->id = id;
+	this->mDPhaseCoef = 0;
 
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
@@ -235,11 +236,13 @@ Step()
 	for(int i = 0; i < mInterestedDof; i++){
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
+	int sign = 1;
+	if(mActions[mInterestedDof] < 0)
+		sign = -1;
 
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*0.05, -0.8, 0.8);
-	mAdaptiveStep = mActions[mInterestedDof];
-	// if(isAdaptive)
-	// 	mAdaptiveStep *= 0.1;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
+	mAdaptiveStep = mDPhaseCoef * mActions[mInterestedDof];
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -447,7 +450,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	double scale = 1.0;
 
-	double sig_p = 0.5 * scale; 
+	double sig_p = 0.4 * scale; 
 	double sig_v = 2 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.1 * scale;		
@@ -625,6 +628,28 @@ GetContactInfo(Eigen::VectorXd pos)
 
 	return result;
 }
+// double 
+// Controller::
+// GetPhaseReward()
+// {
+// 	std::vector<double> contact_bvh = mReferenceManager->GetContacts(mCurrentFrame);
+// 	auto contact_cur = mReferenceManager->GetContactInfo(this->mCharacter->GetSkeleton()->getPositions()); 
+
+// 	int contact_diff = 0;
+// 	for(int i = 0; i < contact_bvh.size(); i++) {
+// 		if(contact_bvh[i] != 0.5) {
+// 			if(contact_cur[i].first != contact_bvh[i])
+// 				contact_diff += 1;
+// 		}
+// 	}
+
+// 	double r_contact = exp(-pow(contact_diff, 2)*0.25);
+
+// 	if(mRecord)
+// 		std::cout << mCurrentFrameOnPhase << ": " << contact_diff << std::endl;
+
+// 	return r_contact;
+// }
 void
 Controller::
 UpdateAdaptiveReward()
@@ -636,7 +661,7 @@ UpdateAdaptiveReward()
 	double r_target = this->GetTargetReward();
 
 	mRewardParts.clear();
-	double r_tot = accum_bvh + 10 * r_target;
+	double r_tot = accum_bvh + 2 * r_target;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -658,7 +683,7 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mAdaptiveStep*10,2)*50);
+	double r_time = exp(-pow(mActions[mInterestedDof]*5,2)*30);
 
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
@@ -1116,15 +1141,19 @@ GetState()
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
 	delete p_v_target;
 
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	Eigen::VectorXd p_current = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
+	delete p_v_target;
+
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
 	Eigen::VectorXd state;
+	// state.resize(p.rows()+v.rows()+1+1+local_pos.rows()+p_next.rows()+p_current.rows());
+	// state<< p, v, up_vec_angle, root_height, local_pos, p_current, p_next; //, mInputVelocity.first;
+	
 	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-
 	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase; //, mInputVelocity.first;
-	// state.resize(p.rows()+v.rows()+1+1+ee.rows());
-	// state<< p, v, up_vec_angle, phase, ee; //, mInputVelocity.first;
 
 	return state;
 }

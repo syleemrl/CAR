@@ -72,7 +72,7 @@ def plot(filename, filename2=""):
 	# plt.plot(time_s, motion_j_s, 'r')
 	# plt.show()
 
-	key = 40
+	key = 4
 	if filename2 != "":
 		_, _, cps2, _, motion2, _ = read_data(filename2)
 
@@ -93,7 +93,7 @@ def plot(filename, filename2=""):
 	motion_j2 = motion2[:, key]
 
 	time_s, motion_j_s = spline_to_motion(motion_size, cps, knots, key)
-	time_s2, motion_j_s2 = spline_to_motion(motion_size, cps2, knots, key)
+	time_s2, motion_j_s2 = spline_to_motion(len(motion_j2), cps2, knots, key)
 
 	plt.figure(figsize=(12,5))
 	plt.suptitle("joint"+str(key))
@@ -106,7 +106,7 @@ def plot(filename, filename2=""):
 
 	plt.subplot(1, 2, 2)
 	plt.gca().set_title("cmp")
-	plt.plot(time, motion_j2)
+	plt.plot(time_s2, motion_j2)
 	plt.plot(time_s2, motion_j_s2, 'r')
 
 	plt.show()

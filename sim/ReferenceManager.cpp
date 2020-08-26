@@ -186,6 +186,36 @@ LoadAdaptiveMotion(std::string postfix) {
 	is.close();
 
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+
+	std::vector<std::pair<Eigen::VectorXd,double>> pos;
+	for(int i = 0; i < mPhaseLength; i++) {
+		pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase_adaptive[i]->GetPosition(), i));
+	}
+	MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
+	s->SetKnots(0, mKnots);
+
+	s->ConvertMotionToSpline(pos);
+	path = std::string(CAR_DIR) + std::string("/result/jump_spline_ref");
+	
+	std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
+
+	std::ofstream ofs(path);
+
+	ofs << mKnots.size() << std::endl;
+	for(auto t: mKnots) {	
+		ofs << t << std::endl;
+	}
+	for(auto t: cps) {	
+		ofs << t.transpose() << std::endl;
+	}
+
+	ofs << pos.size() << std::endl;
+	for(auto t: pos) {	
+		ofs << t.second << std::endl;
+		ofs << t.first.transpose() << std::endl;
+	}
+	ofs.close();
+
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
 {
@@ -274,12 +304,12 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 		skel->setPositions(p);
 		skel->computeForwardKinematics(true,false,false);
 
-		// std::vector<bool> c;
-		// for(int j = 0; j < contact.size(); j++) {
-		// 	Eigen::Vector3d p = skel->getBodyNode(contact[j])->getWorldTransform().translation();
-		// 	c.push_back(p[1] < 0.04);
-		// }
-		// mContacts.push_back(c);
+		std::vector<bool> c;
+		for(int j = 0; j < contact.size(); j++) {
+			Eigen::Vector3d p = skel->getBodyNode(contact[j])->getWorldTransform().translation();
+			c.push_back(p[1] < 0.04);
+		}
+		mContacts.push_back(c);
 
 		t += bvh->GetTimeStep();
 	}
@@ -290,11 +320,11 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		mMotions_phase.push_back(new Motion(mMotions_raw[i]));
-	// 	if(i != 0 && i != mPhaseLength - 1) {
-	// 		for(int j = 0; j < contact.size(); j++)
-	// 			if(mContacts[i-1][j] && mContacts[i+1][j] && !mContacts[i][j])
-	// 					mContacts[i][j] = true;
-	// 	}
+		if(i != 0 && i != mPhaseLength - 1) {
+			for(int j = 0; j < contact.size(); j++)
+				if(mContacts[i-1][j] && mContacts[i+1][j] && !mContacts[i][j])
+						mContacts[i][j] = true;
+		}
 	 }
 
 	delete bvh;
@@ -563,7 +593,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	nOp = 0;
 	mPath = save_path;
 	mPrevRewardTrajectory = 0.5;
-	mPrevRewardTarget = 0.05;	
+	mPrevRewardTarget = 1.00;	
 	mOpMode = false;
 	
 	for(int i = 0; i < 3; i++) {
@@ -572,13 +602,13 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
-	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mAxis_BVH[i], i));
+	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
 	// }
 	// MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
 	// s->SetKnots(0, mKnots);
 
 	// s->ConvertMotionToSpline(pos);
-	// std::string path = std::string(CAR_DIR) + std::string("/result/op_axis_cmp");
+	// std::string path = std::string(CAR_DIR) + std::string("/result/jump_spline_base");
 	
 	// std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
 
@@ -599,6 +629,35 @@ InitOptimization(int nslaves, std::string save_path) {
 	// }
 	// ofs.close();
 
+}
+std::vector<double> 
+ReferenceManager::
+GetContacts(double t)
+{
+	std::vector<double> result;
+	int k0 = (int) std::floor(t);
+	int k1 = (int) std::ceil(t);	
+
+	if (k0 == k1) {
+		int phase = k0 % mPhaseLength;
+		std::vector<bool> contact = mContacts[phase];
+		for(int i = 0; i < contact.size(); i++)
+			result.push_back(contact[i]);
+	} else {
+		int phase0 = k0 % mPhaseLength;
+		int phase1 = k1 % mPhaseLength;
+
+		std::vector<bool> contact0 = mContacts[phase0];
+		std::vector<bool> contact1 = mContacts[phase1];
+		for(int i = 0; i < contact0.size(); i++) {
+			if(contact0[i] == contact1[i])
+				result.push_back(contact0[i]);
+			else 
+				result.push_back(0.5);
+		}
+
+	}
+	return result;
 }
 std::vector<std::pair<bool, Eigen::Vector3d>> 
 ReferenceManager::
@@ -638,7 +697,7 @@ GetContactInfo(Eigen::VectorXd pos)
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
-	std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
+	// std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
 	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
 		nRejectedSamples[0] += 1;
 		if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
@@ -705,19 +764,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 
 	mLock.lock();
 	mSamples.push_back(std::tuple<MultilevelSpline*, double,  double>(s, reward_trajectory, rewards.second));
-	// // if(nOp != 0) {
-	// 	std::string path =  mPath + std::string("samples") + std::to_string(nOp);
-		
-	// 	std::ofstream ofs;
-
-	// 	ofs.open(path, std::fstream::out | std::fstream::app);
-	// 	for(auto t: data_spline) {	
-	// 		ofs << t.first.transpose() << " " << rewards.first << std::endl;
-	// 	}
-	// 	ofs.close();
-//	}
-
 	mLock.unlock();
+
 
 }
 bool cmp(const std::tuple<DPhy::MultilevelSpline*, double, double> &p1, const std::tuple<DPhy::MultilevelSpline*, double, double> &p2){

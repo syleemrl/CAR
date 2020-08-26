@@ -25,6 +25,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void UpdateReward();
 	void UpdateAdaptiveReward();
 	void UpdateRewardTrajectory();
+	void UpdateDPhaseCoef(double c) {this->mDPhaseCoef = c; }
 
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
@@ -76,11 +77,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
 	void SetOptimizationMode(bool mode) { mOpMode = mode;};
 
-	double ComputeLinearDifferenceFromEllipse();
-	double ComputeAngularDifferenceFromEllipse(int idx);
-	double ComputeAngularDifferenceFromCovarianceEllipse(int idx);
-	double GetSimilarityReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
+	double GetPhaseReward();
 	double GetTargetReward();
 	std::vector<bool> GetContactInfo(Eigen::VectorXd pos);
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
@@ -104,6 +102,7 @@ protected:
 	double mPrevFrameOnPhase;
 	double mTargetRewardTrajectory;
 	double mTrackingRewardTrajectory;
+	double mDPhaseCoef;
 	bool mOpMode;
 	
 	Character* mCharacter;
