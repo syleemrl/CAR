@@ -297,6 +297,8 @@ class PPO(object):
 			advantages_sparse = np.zeros(size)
 			ad_t_sparse = 0
 			ad_t_dense = 0
+
+			timesteps = []
 			for i in reversed(range(len(data))):
 				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
 				ad_t_dense = delta_dense + self.gamma * self.lambd * ad_t_dense
@@ -306,10 +308,29 @@ class PPO(object):
 				# 	delta_sparse = rewards[i][1] - values_sparse[i]
 				# 	ad_t_sparse = delta_sparse
 				# else:
-				delta_sparse = rewards[i][1] + values_sparse[i+1] * self.gamma_sparse - values_sparse[i]
-				ad_t_sparse = delta_sparse + self.gamma_sparse * self.lambd * ad_t_sparse
+				if i == len(data) - 1 or times[i] > times[i+1]:
+					timestep = 0
+				else:
+					timestep = times[i+1]  - times[i]
+				timesteps.append(timestep)
+				delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma, timestep) - values_sparse[i]
+				ad_t_sparse = delta_sparse
 
 				advantages_sparse[i] = ad_t_sparse
+
+			# for i in reversed(range(len(data))):
+			# 	delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
+			# 	ad_t_dense = delta_dense + self.gamma * self.lambd * ad_t_dense
+			# 	advantages_dense[i] = ad_t_dense
+
+			# 	# if i != len(data)-1 and times[i] > times[i+1]:
+			# 	# 	delta_sparse = rewards[i][1] - values_sparse[i]
+			# 	# 	ad_t_sparse = delta_sparse
+			# 	# else:
+			# 	delta_sparse = rewards[i][1] + values_sparse[i+1] * self.gamma_sparse - values_sparse[i]
+			# 	ad_t_sparse = delta_sparse + self.gamma_sparse * self.lambd * ad_t_sparse
+
+			# 	advantages_sparse[i] = ad_t_sparse
 
 			TD = values_dense[:size] + advantages_dense
 			TD_sparse = values_sparse[:size] + advantages_sparse
@@ -323,8 +344,6 @@ class PPO(object):
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages_dense[i]+advantages_sparse[i])
 
-			embed()
-			exit()
 		self.values_sparse /= len(tuples)
 		self.values_dense /= len(tuples)
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(TD_sparse_batch), np.array(neglogp_batch), np.array(GAE_batch)

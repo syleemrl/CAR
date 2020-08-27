@@ -1,6 +1,7 @@
 #ifndef __DEEP_PHYSICS_H__
 #define __DEEP_PHYSICS_H__
 #include "Controller.h"
+// #include "SimpleController.h"
 #include "ReferenceManager.h"
 #include <vector>
 #include <string>
@@ -20,13 +21,11 @@ public:
 	//For general properties
 	int GetNumState();
 	int GetNumAction();
-	p::tuple GetDeformParameter();
 
 	//For each slave
 	void Step(int id);
 	void Reset(int id,bool RSI);
 	p::tuple IsNanAtTerminal(int id);
-	void DeformCharacter(double w);
 
 	np::ndarray GetState(int id);
 	void SetAction(np::ndarray np_array,int id);
@@ -44,8 +43,6 @@ public:
 	np::ndarray GetRewardsByParts();
 	
 	void GenerateRandomTrajectory();
-	void OptimizationStart();
-	void OptimizationEnd();
 	bool Optimize();
 
 	void SaveAdaptiveMotion();
@@ -53,6 +50,7 @@ public:
 	
 private:
 	std::vector<DPhy::Controller*> mSlaves;
+//	std::vector<DPhy::SimpleController*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
 	int mNumSlaves;
 	int mNumState;

@@ -24,6 +24,8 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	for(int i =0;i<num_slaves;i++)
 	{
 		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, false, i));
+	//	mSlaves.push_back(new DPhy::SimpleController());
+
 	}
 	
 
@@ -43,13 +45,7 @@ GetNumAction()
 {
 	return mNumAction;
 }
-p::tuple 
-SimEnv::
-GetDeformParameter()
-{
-	std::tuple<double, double, double> p = mSlaves[0]->GetRescaleParameter();
-	return p::make_tuple(std::get<0>(p), std::get<1>(p), std::get<2>(p));
-}
+
 //For each slave
 void 
 SimEnv::
@@ -189,31 +185,6 @@ GetRewardsByParts()
 }
 void
 SimEnv::
-DeformCharacter(double w)
-{
-	for(int i = 0; i < mNumSlaves; i++) mSlaves[i]->RescaleCharacter(w, 1.0);
-}
-void
-SimEnv::
-OptimizationStart()
-{
-	for(int id = 0; id < mNumSlaves; id++) {
-		mSlaves[id]->SetOptimizationMode(true);
-	}
-	mReferenceManager->SetOptimizationMode(true);
-}
-void
-SimEnv::
-OptimizationEnd()
-{
-	for(int id = 0; id < mNumSlaves; id++) {
-		mSlaves[id]->SetOptimizationMode(false);
-	}
-	mReferenceManager->SetOptimizationMode(false);
-
-}
-void
-SimEnv::
 GenerateRandomTrajectory()
 {
 #pragma omp parallel for	
@@ -244,7 +215,6 @@ BOOST_PYTHON_MODULE(simEnv)
 	class_<SimEnv>("Env",init<int, std::string, std::string, bool>())
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
-		.def("GetDeformParameter",&SimEnv::GetDeformParameter)
 		.def("Step",&SimEnv::Step)
 		.def("Reset",&SimEnv::Reset)
 		.def("GetState",&SimEnv::GetState)
@@ -252,7 +222,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetRewardLabels",&SimEnv::GetRewardLabels)
 		.def("GetReward",&SimEnv::GetReward)
 		.def("GetRewardByParts",&SimEnv::GetRewardByParts)
-		.def("DeformCharacter",&SimEnv::DeformCharacter)
 		.def("Steps",&SimEnv::Steps)
 		.def("Resets",&SimEnv::Resets)
 		.def("IsNanAtTerminal",&SimEnv::IsNanAtTerminal)
@@ -261,8 +230,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("GenerateRandomTrajectory",&SimEnv::GenerateRandomTrajectory)
 		.def("Optimize",&SimEnv::Optimize)
-		.def("OptimizationStart",&SimEnv::OptimizationStart)
-		.def("OptimizationEnd",&SimEnv::OptimizationEnd)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

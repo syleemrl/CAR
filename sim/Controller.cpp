@@ -240,15 +240,15 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof]*5)-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
-	mAdaptiveStep = mDPhaseCoef * mActions[mInterestedDof];
-
+	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	nTotalSteps += 1;
 	nTotalStepsPhase += 1;
+	std::cout << mCurrentFrameOnPhase << " : " << mAdaptiveStep << std::endl;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -268,13 +268,12 @@ Step()
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
-	this->mTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
-	
+	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
 
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	this->mPDTargetPositions = p_v_target->GetPosition();
-	this->mPDTargetVelocities = p_v_target->GetVelocity() * (1 + mAdaptiveStep);
+	this->mPDTargetVelocities = p_v_target->GetVelocity();
 	
 	delete p_v_target;
 
@@ -415,16 +414,17 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	if(useVelocity) {
 		v_diff = skel->getVelocityDifferences(velocity, velocity2);
-		v_diff_reward.resize(mRewardDof);
+		v_diff_reward.resize(3);
 		count_dof = 0;
 
-		for(int i = 0; i < list.size(); i++){
-			int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
-			int dof = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getNumDofs();
+		// for(int i = 0; i < list.size(); i++){
+		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
+		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getNumDofs();
 
-			v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
-			count_dof += dof;
-		}
+		// 	v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
+		// 	count_dof += dof;
+		// }
+		v_diff_reward = v_diff.segment<3>(3);
 	}
 
 	skel->setPositions(position);
@@ -451,7 +451,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double scale = 1.0;
 
 	double sig_p = 0.4 * scale; 
-	double sig_v = 2 * scale;	
+	double sig_v = 0.3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.1 * scale;		
 
@@ -656,18 +656,18 @@ UpdateAdaptiveReward()
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
-								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
+								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_target = this->GetTargetReward();
-
+	// std::cout << accum_bvh << std::endl;
 	mRewardParts.clear();
-	double r_tot = accum_bvh + 2 * r_target;
+	double r_tot = accum_bvh;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(0);
+		mRewardParts.push_back(4 * r_target);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);

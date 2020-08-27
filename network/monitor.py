@@ -25,7 +25,7 @@ class Monitor(object):
 		self.num_evaluation = 0
 		self.num_episodes = 0
 		self.num_transitions = 0
-		self.total_time_elapsed = 0
+		self.total_frames_elapsed = 0
 		self.total_rewards = []
 		self.total_rewards_target = []
 		self.max_episode_length = 0
@@ -105,7 +105,7 @@ class Monitor(object):
 						if self.adaptive:
 							self.num_episodes_opt += 1
 
-						self.total_time_elapsed += times[i]
+						self.total_frames_elapsed += frames[i]
 
 						if frames[i] > self.max_episode_length:
 							self.max_episode_length = frames[i]
@@ -190,8 +190,8 @@ class Monitor(object):
 
 			te_per_t  = 0
 			if self.num_transitions_per_iteration is not 0:
-				te_per_t = self.total_time_elapsed / self.num_transitions_per_iteration;
-			print_list.append('time elapsed per transition : {:.2f}'.format(te_per_t))
+				te_per_t = self.total_frames_elapsed / self.num_transitions_per_iteration;
+			print_list.append('frame elapsed per transition : {:.2f}'.format(te_per_t))
 
 			if self.num_nan_per_iteration != 0:
 				print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
@@ -226,7 +226,7 @@ class Monitor(object):
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
-		self.total_time_elapsed = 0
+		self.total_frames_elapsed = 0
 		self.rewards_target_per_iteration = 0
 		self.num_phase = 0
 

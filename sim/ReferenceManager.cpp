@@ -592,8 +592,8 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	nOp = 0;
 	mPath = save_path;
-	mPrevRewardTrajectory = 0.5;
-	mPrevRewardTarget = 1.00;	
+	mPrevRewardTrajectory = 0.9;
+	mPrevRewardTarget = 0.05;	
 	mOpMode = false;
 	
 	for(int i = 0; i < 3; i++) {

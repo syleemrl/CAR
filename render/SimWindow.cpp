@@ -48,7 +48,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	//	mReferenceManager->GenerateRandomTrajectory(0);
 	}
 
-	this->mController = new DPhy::Controller(mReferenceManager, false, true);
+	this->mController = new DPhy::Controller(mReferenceManager, mRunPPO, true);
 
 	// this->mReferenceManager->SetOptimizationMode(true);
 	// this->mController->SetOptimizationMode(true);
