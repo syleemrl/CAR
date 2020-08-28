@@ -224,14 +224,20 @@ class PPO(object):
 		for data in tuples:
 			size = len(data)		
 			# get values
-			states, actions, rewards, values, neglogprobs = zip(*data)
+			states, actions, rewards, values, neglogprobs, times = zip(*data)
 			values = np.concatenate((values, [0]), axis=0)
 			advantages = np.zeros(size)
 			ad_t = 0
 
 			for i in reversed(range(len(data))):
-				delta = rewards[i] + values[i+1] * self.gamma - values[i]
-				ad_t = delta + self.gamma * self.lambd * ad_t
+				if i == len(data) - 1:
+					timestep = 0
+				elif times[i] > times[i+1]:
+					timestep = times[i+1] + self.env.phaselength - times[i]
+				else:
+					timestep = times[i+1]  - times[i]
+				delta = rewards[i] + values[i+1] * pow(self.gamma, timestep)  - values[i]
+				ad_t = delta + pow(self.lambd, timestep)  * pow(self.gamma, timestep)  * ad_t
 				advantages[i] = ad_t
 
 			TD = values[:size] + advantages
@@ -314,7 +320,7 @@ class PPO(object):
 					timestep = times[i+1]  - times[i]
 				timesteps.append(timestep)
 				delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma, timestep) - values_sparse[i]
-				ad_t_sparse = delta_sparse
+				ad_t_sparse = delta_sparse + pow(self.gamma, timestep) * pow(self.lambd, timestep) * ad_t_sparse
 
 				advantages_sparse[i] = ad_t_sparse
 
@@ -439,7 +445,7 @@ class PPO(object):
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
 						if not self.adaptive and rewards[j] is not None:
-							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j]])
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])

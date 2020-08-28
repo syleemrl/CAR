@@ -205,6 +205,12 @@ LoadAdaptiveMotion()
 {
 	mReferenceManager->LoadAdaptiveMotion();
 }
+double 
+SimEnv::
+GetPhaseLength()
+{
+	return mReferenceManager->GetPhaseLength();
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -213,6 +219,7 @@ BOOST_PYTHON_MODULE(simEnv)
 	np::initialize();
 
 	class_<SimEnv>("Env",init<int, std::string, std::string, bool>())
+		.def("GetPhaseLength",&SimEnv::GetPhaseLength)
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)
 		.def("Step",&SimEnv::Step)

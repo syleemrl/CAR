@@ -30,7 +30,7 @@ class Monitor(object):
 		self.total_rewards_target = []
 		self.max_episode_length = 0
 
-		self.reward_label = self.sim_env.GetRewardLabels();
+		self.reward_label = self.sim_env.GetRewardLabels()
 		self.total_rewards_by_parts = np.array([[]]*len(self.reward_label))
 		self.transition_per_episodes = []
 		self.num_nan_per_iteration = 0
@@ -50,6 +50,8 @@ class Monitor(object):
 		self.rewards_by_part_per_opt = []
 		self.num_transitions_opt = 0
 		self.num_episodes_opt = 0
+
+		self.phaselength = self.sim_env.GetPhaseLength()
 
 		if self.plot:
 			plt.ion()
