@@ -53,21 +53,18 @@ public:
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
 	void RescaleMotion(double w);
 	Motion* GetMotion(double t, bool adaptive=false);
-	Motion* GetMotionForOptimization(double t, int id);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
 	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
 	void ComputeAxisDev();
 	void ComputeAxisMean();
-	void SetOptimizationMode(bool b) { mOpMode = b;}
 	Eigen::VectorXd GetAxisMean(double t);
 	Eigen::VectorXd GetAxisDev(double t);
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards);
 	void InitOptimization(int nslaves, std::string save_path);
 	bool Optimize();
-	void GenerateRandomTrajectory(int i);
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
 	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
@@ -106,10 +103,7 @@ protected:
 	double mPrevRewardTarget;
 
 	int mDOF;
-
 	int nOp;
-	//for debug
-	bool mOpMode;
 
 	std::vector<int> nRejectedSamples;
 };

@@ -72,7 +72,7 @@ def plot(filename, filename2=""):
 	# plt.plot(time_s, motion_j_s, 'r')
 	# plt.show()
 
-	key = 4
+	key = 3
 	if filename2 != "":
 		_, _, cps2, _, motion2, _ = read_data(filename2)
 
@@ -112,9 +112,18 @@ def plot(filename, filename2=""):
 	plt.show()
 	plt.cla()
 
+def plot_solo(filename):
+	key = 36
+	cps_size, knots, cps, motion_size, motion, time = read_data(filename)
+	motion_j = motion[:, key]
+	time_s, motion_j_s = spline_to_motion(motion_size, cps, knots, key)
+
+	plt.plot(time, motion_j)
+	plt.plot(time_s, motion_j_s, 'r')
+	plt.show()
 
 if __name__=="__main__":
 	if len(sys.argv) == 2:
-		plot(sys.argv[1])
+		plot_solo(sys.argv[1])
 	else:
 		plot(sys.argv[1], sys.argv[2])

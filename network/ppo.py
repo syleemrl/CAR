@@ -306,14 +306,17 @@ class PPO(object):
 
 			timesteps = []
 			for i in reversed(range(len(data))):
-				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
-				ad_t_dense = delta_dense + self.gamma * self.lambd * ad_t_dense
-				advantages_dense[i] = ad_t_dense
+				if i == len(data) - 1:
+					timestep = 0
+				elif times[i] > times[i+1]:
+					timestep = times[i+1] + self.env.phaselength - times[i]
+				else:
+					timestep = times[i+1]  - times[i]
 
-				# if i != len(data)-1 and times[i] > times[i+1]:
-				# 	delta_sparse = rewards[i][1] - values_sparse[i]
-				# 	ad_t_sparse = delta_sparse
-				# else:
+				delta_dense = rewards[i][0] + values_dense[i+1] * pow(self.gamma, timestep) - values_dense[i]
+				ad_t_dense = delta_dense + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t_dense
+				advantages_dense[i] = ad_t_dense
+			
 				if i == len(data) - 1 or times[i] > times[i+1]:
 					timestep = 0
 				else:

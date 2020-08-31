@@ -828,24 +828,26 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 }
 std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target) {
 	std::vector<Eigen::VectorXd> result = data;
-	Eigen::Vector3d projected_root = Eigen::Vector3d(0, data[0][1], 0);
-	Eigen::Vector3d projected_target = Eigen::Vector3d(0, target[1], 0);
 
-	Eigen::Vector3d pos_diff_angular = JointPositionDifferences(projected_root, projected_target); 
-	Eigen::AngleAxisd aa_root = Eigen::AngleAxisd(pos_diff_angular.norm(), pos_diff_angular.normalized());
-	Eigen::Vector3d new_root = aa_root.inverse() * data[0].segment<3>(0);
+	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(data[0].head<6>());
+	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(target);
+
+	
+	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
+
+	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
+	T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+	T01.translation()[1] = 0;
+	Eigen::Isometry3d T0_gen = T01*T0_phase;
 
 	for(int i = 0; i < data.size(); i++) {
-		Eigen::Vector3d delta_linear = LinearPositionDifferences(data[i].segment<3>(3), data[0].segment<3>(3), projected_root);
-		result[i].segment<3>(3) = target.segment<3>(3) + aa_root * delta_linear;
-		result[i][4] = data[i][4];
+		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(data[i].head<6>());
+		T_current = T0_phase.inverse()*T_current;
+		T_current = T0_gen*T_current;
 
-		Eigen::Vector3d projected_data = Eigen::Vector3d(0, data[i][1], 0);
-		Eigen::Vector3d delta_angular = JointPositionDifferences(data[i].segment<3>(0), data[0].segment<3>(0)); 
-		// result[i].segment<3>(0) = Rotate3dVector(delta_angular, new_root);
-		// result[i][0] = data[i][0];
-		// result[i][2] = data[i][2];
+		result[i].head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
 	}
+
 	return result;
 }
 Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m) {

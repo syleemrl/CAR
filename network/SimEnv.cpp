@@ -183,15 +183,6 @@ GetRewardsByParts()
 
 	return DPhy::toNumPyArray(rewards);
 }
-void
-SimEnv::
-GenerateRandomTrajectory()
-{
-#pragma omp parallel for	
-	for(int id = 0; id < mNumSlaves; id++) {
-		mReferenceManager->GenerateRandomTrajectory(id);
-	}
-}
 bool
 SimEnv::
 Optimize()
@@ -235,7 +226,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
-		.def("GenerateRandomTrajectory",&SimEnv::GenerateRandomTrajectory)
 		.def("Optimize",&SimEnv::Optimize)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);

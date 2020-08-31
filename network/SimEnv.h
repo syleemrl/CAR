@@ -42,7 +42,6 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 	
-	void GenerateRandomTrajectory();
 	bool Optimize();
 
 	void SaveAdaptiveMotion();
