@@ -327,20 +327,6 @@ class PPO(object):
 
 				advantages_sparse[i] = ad_t_sparse
 
-			# for i in reversed(range(len(data))):
-			# 	delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
-			# 	ad_t_dense = delta_dense + self.gamma * self.lambd * ad_t_dense
-			# 	advantages_dense[i] = ad_t_dense
-
-			# 	# if i != len(data)-1 and times[i] > times[i+1]:
-			# 	# 	delta_sparse = rewards[i][1] - values_sparse[i]
-			# 	# 	ad_t_sparse = delta_sparse
-			# 	# else:
-			# 	delta_sparse = rewards[i][1] + values_sparse[i+1] * self.gamma_sparse - values_sparse[i]
-			# 	ad_t_sparse = delta_sparse + self.gamma_sparse * self.lambd * ad_t_sparse
-
-			# 	advantages_sparse[i] = ad_t_sparse
-
 			TD = values_dense[:size] + advantages_dense
 			TD_sparse = values_sparse[:size] + advantages_sparse
 			self.values_sparse += np.mean(values_sparse)

@@ -597,7 +597,7 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
-	if(r_target != 0) mTargetRewardTrajectory = r_target;
+	if(r_target != 0) mTargetRewardTrajectory += r_target * 0.25;
 }
 void
 Controller::
