@@ -74,9 +74,12 @@ protected:
 	
 	std::vector<Eigen::VectorXd> mMemoryRef;
 	std::vector<Eigen::VectorXd> mMemoryRef2;
+	std::vector<Eigen::VectorXd> mMemoryRef3;
 
 	DPhy::Character* mRef;
 	DPhy::Character* mRef2;
+	DPhy::Character* mRef3;
+
 };
 
 #endif

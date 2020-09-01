@@ -189,6 +189,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		mRewardLabels.push_back("time");
 	}
 	mOpMode = false;
+	nTargets = 1;
 
 	if(mRecord) {
 		path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
@@ -240,7 +241,7 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof]*0.2)-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof]*10)-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -492,51 +493,59 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//jump	
-	if(mCurrentFrameOnPhase >= 22 && mControlFlag[0] == 0) {
-		Eigen::Vector3d v = Eigen::Vector3d(0.0311268, 0.00724147,    0.96794);
-		Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-		v = ori * v + mHeadRoot.segment<3>(3);
-		Eigen::Vector3d diff = skel->getBodyNode("FootL")->getWorldTransform().translation() - v;
-		diff(1) = 0;
 
-		r_target = exp_of_squared(diff, 0.2);
-
+	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+		double target_diff = skel->getCOM()[1] - 1.45;
+		r_target = 2 * exp(-pow(target_diff, 2) * 30);
 		mControlFlag[0] = 1;
+		if(mRecord)
+			std::cout << skel->getCOM()[1] << " " << r_target << std::endl;
+	}
 
-	} else if(mCurrentFrameOnPhase >= 42 && mControlFlag[1] == 0) {
-		Eigen::Vector3d v = Eigen::Vector3d(-0.0774247 , 0.0158098 ,   1.28461);
-		Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-		v = ori * v + mHeadRoot.segment<3>(3);
-		Eigen::Vector3d diff = skel->getBodyNode("FootR")->getWorldTransform().translation() - v;
-		diff(1) = 0;
+	// if(mCurrentFrameOnPhase >= 22 && mControlFlag[0] == 0 && nTargets == 1) {
+	// 	Eigen::Vector3d v = Eigen::Vector3d(0.0311268, 0.00724147,    0.96794);
+	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+	// 	v = ori * v + mHeadRoot.segment<3>(3);
+	// 	Eigen::Vector3d diff = skel->getBodyNode("FootL")->getWorldTransform().translation() - v;
+	// 	diff(1) = 0;
+
+	// 	r_target = exp_of_squared(diff, 0.2);
+
+	// 	mControlFlag[0] = 1;
+	// } else if(mCurrentFrameOnPhase >= 42 && mControlFlag[1] == 0 && nTargets == 2) {
+	// 	Eigen::Vector3d v = Eigen::Vector3d(-0.0774247 , 0.0158098 ,   1.28461);
+	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+	// 	v = ori * v + mHeadRoot.segment<3>(3);
+	// 	Eigen::Vector3d diff = skel->getBodyNode("FootR")->getWorldTransform().translation() - v;
+	// 	diff(1) = 0;
 		
-		r_target = exp_of_squared(diff, 0.2);
+	// 	r_target = exp_of_squared(diff, 0.2);
 
-		mControlFlag[1] = 1;
+	// 	mControlFlag[1] = 1;
 
-	} else if(mCurrentFrameOnPhase >= 58 && mControlFlag[2] == 0) {
-		Eigen::Vector3d v = Eigen::Vector3d(0.0814714 , 0.0165143 ,  2.26718);
-		Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-		v = ori * v + mHeadRoot.segment<3>(3);
-		Eigen::Vector3d diff = skel->getBodyNode("FootL")->getWorldTransform().translation() - v;
-		diff(1) = 0;
+	// } else if(mCurrentFrameOnPhase >= 58 && mControlFlag[2] == 0 && nTargets == 3) {
+	// 	Eigen::Vector3d v = Eigen::Vector3d(0.0814714 , 0.0165143 ,  2.26718);
+	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+	// 	v = ori * v + mHeadRoot.segment<3>(3);
+	// 	Eigen::Vector3d diff = skel->getBodyNode("FootL")->getWorldTransform().translation() - v;
+	// 	diff(1) = 0;
 		
-		r_target = exp_of_squared(diff, 0.2);
+	// 	r_target = exp_of_squared(diff, 0.2);
 
-		mControlFlag[2] = 1;
+	// 	mControlFlag[2] = 1;
 
-	} else if(mCurrentFrameOnPhase >= 73 && mControlFlag[3] == 0) {
-		Eigen::Vector3d v = Eigen::Vector3d(0.0623405 , 0.0233002 ,  2.89893);
-		Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-		v = ori * v + mHeadRoot.segment<3>(3);
-		Eigen::Vector3d diff = skel->getBodyNode("FootR")->getWorldTransform().translation() - v;
-		diff(1) = 0;
+	// } else if(mCurrentFrameOnPhase >= 73 && mControlFlag[3] == 0 && nTargets == 4) {
+	// 	Eigen::Vector3d v = Eigen::Vector3d(0.0623405 , 0.0233002 ,  2.89893);
+	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+	// 	v = ori * v + mHeadRoot.segment<3>(3);
+	// 	Eigen::Vector3d diff = skel->getBodyNode("FootR")->getWorldTransform().translation() - v;
+	// 	diff(1) = 0;
 
-		r_target = exp_of_squared(diff, 0.2);
+	// 	r_target = exp_of_squared(diff, 0.2);
 
-		mControlFlag[3] = 1;
+	// 	mControlFlag[3] = 1;
 
-	} 
+	// } 
 
 	return r_target;
 }
@@ -586,18 +595,18 @@ UpdateAdaptiveReward()
 	double r_target = this->GetTargetReward();
 	// std::cout << accum_bvh << std::endl;
 	mRewardParts.clear();
-	double r_tot = accum_bvh + 4 * r_target;
+	double r_tot = accum_bvh;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(0);
+		mRewardParts.push_back(4 * r_target);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
-	if(r_target != 0) mTargetRewardTrajectory += r_target * 0.25;
+	if(r_target != 0) mTargetRewardTrajectory += r_target;
 }
 void
 Controller::

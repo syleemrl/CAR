@@ -21,6 +21,7 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 	if(record_type.compare("position") == 0) {
 		mDrawRef2 = true;
 		this->mRef2 = new DPhy::Character(skel_path); 
+		this->mRef3 = new DPhy::Character(skel_path); 
 	}
 
 	int n_bnodes = mRef->GetSkeleton()->getNumBodyNodes();
@@ -31,15 +32,17 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 
 	std::vector<double> knots;
 	knots.push_back(0);
-	knots.push_back(9);
-	knots.push_back(20);
-	knots.push_back(27);
-	knots.push_back(35);
+	knots.push_back(12);
+	knots.push_back(29);
+	knots.push_back(37);
+	knots.push_back(44);
+	knots.push_back(56);
+	knots.push_back(64);
+	knots.push_back(76);
 
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength());
 	s->SetKnots(0, knots);
 
-	std::vector<Eigen::VectorXd> cps;
 	int cps_counter = 0;
 	
 	std::ifstream is(record);
@@ -51,6 +54,11 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 	std::vector<Eigen::VectorXd> pos;
 	std::vector<double> step;
 
+	int n = 0;
+	std::vector<Eigen::VectorXd> cps;
+	for(int i = 0; i < knots.size() + 3 ; i++) {
+		cps.push_back(Eigen::VectorXd::Zero(dof));
+	}
 	while(!is.eof()) {
 		if(record_type.compare("spline") == 0) {
 			Eigen::VectorXd cp(dof);
@@ -112,10 +120,10 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 				reward = cur_reward;
 			if(cur_reward != reward) {
 				reward = cur_reward;
-				double curFrame = 0;
 				std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 
 				for(int i = 0; i < pos.size(); i++) {
+					double curFrame = std::fmod(step[i], referenceManager->GetPhaseLength());
 					Eigen::VectorXd p = pos[i];
 					Eigen::VectorXd p_bvh = referenceManager->GetPosition(curFrame);
 					Eigen::VectorXd d(dof);
@@ -133,9 +141,6 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 						}
 					}
 					displacement.push_back(std::pair<Eigen::VectorXd,double>(d, curFrame));
-					
-					if(i < pos.size() - 1)
-					  curFrame += 1 + step[i + 1];
 				}
 				s->ConvertMotionToSpline(displacement);
 				std::vector<Eigen::VectorXd> displacement_s = s->ConvertSplineToMotion();
@@ -160,6 +165,12 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 					new_pos.push_back(p);
 				}
 
+				std::vector<Eigen::VectorXd> cps_cur = s->GetControlPoints(0);
+				for(int i = 0; i < cps_cur.size(); i++) {
+					cps[i] += cps_cur[i];
+				}
+
+				n += 1;
 				for(int i = 0; i < l; i++) {
 					length += 1;
 					mMemoryRef.push_back(pos[i]);
@@ -173,7 +184,37 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 			step.push_back(cur_step);
 		}
 	}
+	for(int i = 0; i < cps.size(); i++) {
+		cps[i] /= n;
+		std::cout << cps[i].transpose() << std::endl;
+	}
+	s->SetControlPoints(0, cps);
+	std::vector<Eigen::VectorXd> displacement_s = s->ConvertSplineToMotion();
+	std::vector<Eigen::VectorXd> new_pos;
+	for(int i = 0; i < referenceManager->GetPhaseLength(); i++) {
+			Eigen::VectorXd p = referenceManager->GetPosition(i);
+			for(int j = 0; j < n_bnodes; j++) {
+				int idx = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int j_dof = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+						
+			if(j_dof == 6) {
+				p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement_s[i].segment<3>(idx));
+				p.segment<3>(idx + 3) += displacement_s[i].segment<3>(idx + 3);
+			} else if (j_dof == 3) {
+				p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement_s[i].segment<3>(idx));
+			} else {
+				p(idx) += displacement_s[i](idx);
+			}				
+		}
+		p[3] += 3;
+		new_pos.push_back(p);
+	}
 
+	for(int i = 0; i < n; i++) {
+		for(int j = 0; j < referenceManager->GetPhaseLength(); j++) {
+			mMemoryRef3.push_back(new_pos[j]);
+		}
+	}
 	is.close();
 	if(this->mTotalFrame == 0 || length < mTotalFrame) {
 		mTotalFrame = length;
@@ -181,6 +222,7 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
+	DPhy::SetSkeletonColor(this->mRef3->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
 	this->mCurFrame = 0;
 	this->mDisplayTimeout = 33;
@@ -199,8 +241,10 @@ SetFrame(int n)
 	}
 
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
-    if(mDrawRef2) 
+    if(mDrawRef2)  {
     	mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
+    	mRef3->GetSkeleton()->setPositions(mMemoryRef3[n]);
+    }
 
 }
 
@@ -229,8 +273,11 @@ SplineWindow::
 DrawSkeletons()
 {
 	GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
-	if(mDrawRef2)
+	if(mDrawRef2) {
 		GUI::DrawSkeleton(this->mRef2->GetSkeleton(), 0);
+		GUI::DrawSkeleton(this->mRef3->GetSkeleton(), 0);
+	}
+
 }
 void
 SplineWindow::

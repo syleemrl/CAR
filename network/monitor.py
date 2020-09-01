@@ -52,6 +52,8 @@ class Monitor(object):
 		self.num_episodes_opt = 0
 
 		self.phaselength = self.sim_env.GetPhaseLength()
+		self.nrewards = 0
+		self.ntargets = 1
 
 		if self.plot:
 			plt.ion()
@@ -91,10 +93,13 @@ class Monitor(object):
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
+				if self.adaptive and rewards[i][1] != 0:
+					self.rewards_target_per_iteration += rewards[i][1]
+					self.nrewards += 1
+
 				if not self.terminated[i] and rewards[i][0] is not None:
 					self.rewards_per_iteration += rewards[i][0]
-					if self.adaptive:
-						self.rewards_target_per_iteration += rewards[i][1]
+
 					self.rewards_by_part_per_iteration.append(rewards[i])
 					
 					self.num_transitions_per_iteration += 1
@@ -113,7 +118,8 @@ class Monitor(object):
 							self.max_episode_length = frames[i]
 
 			if self.adaptive:
-				rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
+				# !!!
+				rewards = [[rewards[i][0]+rewards[i][1], 0] for i in range(len(rewards))]
 				if curframes[i] < self.prevframes[i]:
 					self.num_phase += 1
 			else:	
@@ -156,10 +162,7 @@ class Monitor(object):
 			self.num_episodes += self.num_episodes_per_iteration
 			self.num_evaluation += 1
 			if self.adaptive:
-				if self.num_phase == 0:
-					rt_per_e = 0
-				else:
-					rt_per_e = self.rewards_target_per_iteration/self.num_phase
+				rt_per_e = self.rewards_target_per_iteration / (4 * self.nrewards) * self.ntargets
 				self.total_rewards_target.append(rt_per_e)
 
 			self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
@@ -212,8 +215,6 @@ class Monitor(object):
 				y_list = [[np.asarray(self.transition_per_episodes), 'steps']]
 				for i in range(len(self.total_rewards_by_parts)):
 					y_list.append([np.asarray(self.total_rewards_by_parts[i]), self.reward_label[i]])
-				# if self.adaptive:
-				# 	y_list.append([np.asarray(self.total_rewards_target), "target"])
 
 				self.plotFig(y_list, "rewards" , 1, False, path=self.directory+"result.png")
 
@@ -222,6 +223,16 @@ class Monitor(object):
 					y_list[i][0] = np.array(y_list[i][0])/np.array(self.transition_per_episodes)
 
 				self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
+		
+		if len(self.total_rewards_target) > 5 and self.ntargets < 4:
+			avg = 0
+			for i in range(1, 6):
+				avg += self.total_rewards_target[-i] * 0.2
+			print(avg)
+			if avg > 0.7 and self.total_rewards_target[-i] > 0.7:
+				self.ntargets += 1
+				self.sim_env.UpdateNTargets(self.ntargets)
+				print(self.ntargets)
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
@@ -231,7 +242,7 @@ class Monitor(object):
 		self.total_frames_elapsed = 0
 		self.rewards_target_per_iteration = 0
 		self.num_phase = 0
-
+		self.nrewards = 0
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['rp_per_i'] = rp_per_i

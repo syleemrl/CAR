@@ -543,15 +543,22 @@ GetAxisDev(double t) {
 void
 ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
-
 	mKnots.push_back(0);
-	mKnots.push_back(8);
-	mKnots.push_back(16);
-	mKnots.push_back(24);
-	mKnots.push_back(35);
-	mKnots.push_back(45);
-	mKnots.push_back(53);
-	mKnots.push_back(62);
+	mKnots.push_back(12);
+	mKnots.push_back(29);
+	mKnots.push_back(37);
+	mKnots.push_back(44);
+	mKnots.push_back(56);
+	mKnots.push_back(64);
+	mKnots.push_back(76);
+	// mKnots.push_back(0);
+	// mKnots.push_back(8);
+	// mKnots.push_back(16);
+	// mKnots.push_back(24);
+	// mKnots.push_back(35);
+	// mKnots.push_back(45);
+	// mKnots.push_back(53);
+	// mKnots.push_back(62);
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
@@ -574,35 +581,35 @@ InitOptimization(int nslaves, std::string save_path) {
 		nRejectedSamples.push_back(0);
 	}
 
-	std::vector<std::pair<Eigen::VectorXd,double>> pos;
-	for(int i = 0; i < mPhaseLength; i++) {
-		pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
-	}
-	MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
-	s->SetKnots(0, mKnots);
+	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
+	// for(int i = 0; i < mPhaseLength; i++) {
+	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
+	// }
+	// MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
+	// s->SetKnots(0, mKnots);
 
-	s->ConvertMotionToSpline(pos);
-	std::string path = std::string(CAR_DIR) + std::string("/result/walk_base");
+	// s->ConvertMotionToSpline(pos);
+	// std::string path = std::string(CAR_DIR) + std::string("/result/walk_base");
 	
-	std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
+	// std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
 
-	std::ofstream ofs(path);
+	// std::ofstream ofs(path);
 
-	ofs << mKnots.size() << std::endl;
-	for(auto t: mKnots) {	
-		ofs << t << std::endl;
-	}
-	for(int i = 0; i < cps.size(); i++) {
-		if(i >= 1 && i <= cps.size() - 3)	
-			ofs << cps[i].transpose() << std::endl;
-	}
+	// ofs << mKnots.size() << std::endl;
+	// for(auto t: mKnots) {	
+	// 	ofs << t << std::endl;
+	// }
+	// for(int i = 0; i < cps.size(); i++) {
+	// 	if(i >= 1 && i <= cps.size() - 3)	
+	// 		ofs << cps[i].transpose() << std::endl;
+	// }
 
-	ofs << pos.size() << std::endl;
-	for(auto t: pos) {	
-		ofs << t.second << std::endl;
-		ofs << t.first.transpose() << std::endl;
-	}
-	ofs.close();
+	// ofs << pos.size() << std::endl;
+	// for(auto t: pos) {	
+	// 	ofs << t.second << std::endl;
+	// 	ofs << t.first.transpose() << std::endl;
+	// }
+	// ofs.close();
 
 }
 std::vector<double> 
@@ -693,18 +700,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 	}
 	trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
 
-	std::string path = std::string(CAR_DIR) + std::string("/result/align_test");
-	mLock.lock();
-
-	std::ofstream ofs;
-	ofs.open(path, std::fstream::out | std::fstream::app);
-
-	for(auto t: trajectory) {	
-		ofs << t.transpose() << std::endl;
-	}
-	ofs.close();
-	mLock.unlock();
-
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 	for(int i = 0; i < data_spline.size(); i++) {
 		data_spline[i].first = trajectory[i];
@@ -751,6 +746,17 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 
 	mLock.lock();
 	mSamples.push_back(std::tuple<MultilevelSpline*, double,  double>(s, reward_trajectory, rewards.second));
+	
+	std::string path = mPath + std::string("samples") + std::to_string(nOp);
+
+	std::ofstream ofs;
+	ofs.open(path, std::fstream::out | std::fstream::app);
+
+	for(auto t: data_spline) {	
+		ofs << t.first.transpose() << " " << t.second << " " << rewards.second << std::endl;
+	}
+	ofs.close();
+
 	mLock.unlock();
 
 

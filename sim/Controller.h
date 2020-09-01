@@ -84,7 +84,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
 	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
 	std::vector<double> GetAdaptiveIdxs();
-
+	void UpdateNTargets(int n) { nTargets = n; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -198,6 +198,7 @@ protected:
 	double mTarget2;
 	double target_reward = 0;
 
+	int nTargets;
 
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 

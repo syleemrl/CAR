@@ -196,6 +196,14 @@ LoadAdaptiveMotion()
 {
 	mReferenceManager->LoadAdaptiveMotion();
 }
+void 
+SimEnv::
+UpdateNTargets(int n)
+{
+	for(int i = 0; i < mNumSlaves; i++) {
+		mSlaves[i]->UpdateNTargets(n);
+	}
+}
 double 
 SimEnv::
 GetPhaseLength()
@@ -227,6 +235,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("Optimize",&SimEnv::Optimize)
+		.def("UpdateNTargets",&SimEnv::UpdateNTargets)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }
