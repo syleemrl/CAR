@@ -105,7 +105,10 @@ np::ndarray toNumPyArray(const Eigen::MatrixXd& matrix)
 np::ndarray toNumPyArray(const std::vector<Eigen::VectorXd>& matrix)
 {
 	int n = matrix.size();
-	int m = matrix[0].rows();
+	int m;
+	if(n == 0)
+		m = 0;
+	else  m = matrix[0].rows();
 
 	p::tuple shape = p::make_tuple(n,m);
 	np::dtype dtype = np::dtype::get_builtin<float>();

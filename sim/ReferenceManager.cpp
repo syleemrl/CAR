@@ -307,7 +307,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	}
 	mMotions_raw.back()->SetVelocity(mMotions_raw.front()->GetVelocity());
 
-	mPhaseLength =  74; //mMotions_raw.size();
+	mPhaseLength = mMotions_raw.size();
 	mTimeStep = bvh->GetTimeStep();
 
 	for(int i = 0; i < mPhaseLength; i++) {
@@ -551,14 +551,6 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots.push_back(56);
 	mKnots.push_back(64);
 	mKnots.push_back(76);
-	// mKnots.push_back(0);
-	// mKnots.push_back(8);
-	// mKnots.push_back(16);
-	// mKnots.push_back(24);
-	// mKnots.push_back(35);
-	// mKnots.push_back(45);
-	// mKnots.push_back(53);
-	// mKnots.push_back(62);
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
@@ -678,7 +670,9 @@ GetContactInfo(Eigen::VectorXd pos)
 }
 void 
 ReferenceManager::
-SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards) {
+SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
+				 std::pair<double, double> rewards,
+				 Eigen::VectorXd parameters) {
 	// std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
 	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
 		nRejectedSamples[0] += 1;
@@ -746,7 +740,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 
 	mLock.lock();
 	mSamples.push_back(std::tuple<MultilevelSpline*, double,  double>(s, reward_trajectory, rewards.second));
-	
+	mRegressionSamples.push_back(std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>(cps, parameters));
+
 	std::string path = mPath + std::string("samples") + std::to_string(nOp);
 
 	std::ofstream ofs;
@@ -756,6 +751,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std
 		ofs << t.first.transpose() << " " << t.second << " " << rewards.second << std::endl;
 	}
 	ofs.close();
+
 
 	mLock.unlock();
 
@@ -805,7 +801,7 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 		double phase = std::fmod(position[i].second, mPhaseLength);
 		
 		Eigen::VectorXd p = position[i].first;
-		Eigen::VectorXd p_bvh = this->GetPosition(position[i].second);
+		Eigen::VectorXd p_bvh = this->GetPosition(phase);
 		Eigen::VectorXd d(mCharacter->GetSkeleton()->getNumDofs());
 		for(int j = 0; j < n_bnodes; j++) {
 			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
@@ -823,7 +819,6 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, phase));
 	}
 }
-
 bool 
 ReferenceManager::
 Optimize() {
@@ -878,7 +873,7 @@ Optimize() {
 
 		for(int i = 0; i < num_knot + 3; i++) {
 		    mean_cps[i] /= weight_sum;
-		    mPrevCps[i] = mean_cps[i]; // mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
+		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
 		}
 
 		mPrevRewardTrajectory = rewardTrajectory;
@@ -933,4 +928,27 @@ Optimize() {
 	// }
 	// return false;
 }
+std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> 
+ReferenceManager::
+GetRegressionSamples() {
+	std::vector<Eigen::VectorXd> x;
+	std::vector<Eigen::VectorXd> y;
+	
+	for(int i = 0; i < mRegressionSamples.size(); i++) {
+		std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd> s = mRegressionSamples[i];
+		for(int j = 0; j < mKnots.size() + 3; j++) {
+			Eigen::VectorXd knot_and_target;
+			
+			knot_and_target.resize(1 + s.second.rows());
+			knot_and_target << j, s.second;
+			
+			x.push_back(knot_and_target);
+			y.push_back((s.first)[j]);
+		}
+	}
+	mRegressionSamples.clear();
+
+	return std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>(x, y);
+}
+
 };

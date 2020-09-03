@@ -62,13 +62,15 @@ public:
 	Eigen::VectorXd GetAxisMean(double t);
 	Eigen::VectorXd GetAxisDev(double t);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards);
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters);
 	void InitOptimization(int nslaves, std::string save_path);
 	bool Optimize();
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
 	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 	std::vector<double> GetContacts(double t);
+	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> GetRegressionSamples();
+
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -90,6 +92,10 @@ protected:
 
 	//cps, target, similarity
 	std::vector<std::tuple<MultilevelSpline*, double, double>> mSamples;
+	
+	//cps, parameter
+	std::vector<std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>> mRegressionSamples;
+
 	std::vector<Eigen::VectorXd> mPrevCps;
 	std::vector<Eigen::VectorXd> mDisplacement;
 	std::vector<double> mKnots;

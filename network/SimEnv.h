@@ -43,11 +43,11 @@ public:
 	np::ndarray GetRewardsByParts();
 	
 	bool Optimize();
+	p::list GetRegressionSamples();
 
 	void SaveAdaptiveMotion();
 	void LoadAdaptiveMotion();
 	
-	void UpdateNTargets(int n);
 	double GetPhaseLength();
 private:
 	std::vector<DPhy::Controller*> mSlaves;

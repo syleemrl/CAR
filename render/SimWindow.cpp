@@ -271,9 +271,9 @@ DrawGround()
 	GUI::DrawPoint(Eigen::Vector3d( -1.67886, 0.0248064, 1.83954), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 
 	GUI::DrawPoint(Eigen::Vector3d(-0.63437, 0.0250081, 0.853072), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-	GUI::DrawPoint(Eigen::Vector3d(-0.935316, 0.0246549, 0.999929), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-	GUI::DrawPoint(Eigen::Vector3d(-1.51822, 0.0246163, 1.80672), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-	GUI::DrawPoint(Eigen::Vector3d( -1.97886, 0.0248064, 2.23954), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(-0.935316, 0.0246549, 0.999929), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(-1.51822, 0.0246163, 1.80672), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d( -1.97886, 0.0248064, 2.23954), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
 
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)

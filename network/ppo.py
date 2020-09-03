@@ -90,7 +90,9 @@ class PPO(object):
 
 		#build network and optimizer
 		self.buildOptimize(name)
-			
+		if self.adaptive:
+			self.regression_x = []
+			self.regression_y = []
 		# load pretrained network
 		if self.pretrain is not "":
 			self.load(self.pretrain)
@@ -248,7 +250,29 @@ class PPO(object):
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages[i])
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
-	
+
+	def updateRegression(self, tuples):
+		regression_x += tuples[0]
+		regression_y += tuples[1]
+
+		self.lossvals = []
+
+		ind = np.arange(len(regression_x))
+		np.random.shuffle(ind)
+
+		lossval_reg = 0
+
+		for s in range(int(len(ind)//self.batch_size_reg)):
+			selectedIndex = ind[s*self.batch_size_reg:(s+1)*self.batch_size_reg]
+			val = self.sess.run([self.reg_train_op, self.loss_reg], 
+				feed_dict={
+					self.x: regression_x[selectedIndex], 
+					self.y: regression_y[selectedIndex], 
+				}
+			)
+			lossval_reg += val[1]
+		self.lossvals.append(['loss regression', lossval_reg])
+
 	def updateAdaptive(self, tuples):
 		state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
 		if len(state_batch) < self.batch_size:
@@ -278,7 +302,7 @@ class PPO(object):
 			lossval_ac += val[3]
 			lossval_c += val[4]
 			lossval_cs += val[5]
-		self.lossvals = []
+
 		self.lossvals.append(['loss actor', lossval_ac])
 		self.lossvals.append(['loss critic', lossval_c])
 		self.lossvals.append(['loss critic sparse', lossval_cs])
@@ -463,9 +487,11 @@ class PPO(object):
 			if it % 5 == 4:	
 		#	if 1:		
 				if self.adaptive:
+					data = self.env.sim_env.GetRegressionSamples()
+					self.updateRegression(data)
 					self.updateAdaptive(epi_info_iter)
-					#self.optimizeReference(100)
 					self.env.sim_env.Optimize()
+
 				else:			
 					self.update(epi_info_iter) 
 

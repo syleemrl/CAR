@@ -39,7 +39,6 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_target_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
-		self.num_phase = 0 
 		self.target_update_count = 0
 		self.r_target_avg_old = 0
 
@@ -53,7 +52,6 @@ class Monitor(object):
 
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.nrewards = 0
-		self.ntargets = 1
 
 		if self.plot:
 			plt.ion()
@@ -120,8 +118,6 @@ class Monitor(object):
 			if self.adaptive:
 				# !!!
 				rewards = [[rewards[i][0]+rewards[i][1], 0] for i in range(len(rewards))]
-				if curframes[i] < self.prevframes[i]:
-					self.num_phase += 1
 			else:	
 				rewards = [rewards[i][0] for i in range(len(rewards))]
 				
@@ -161,10 +157,6 @@ class Monitor(object):
 			self.num_transitions += self.num_transitions_per_iteration
 			self.num_episodes += self.num_episodes_per_iteration
 			self.num_evaluation += 1
-			if self.adaptive:
-				rt_per_e = self.rewards_target_per_iteration / (4 * self.nrewards) * self.ntargets
-				self.total_rewards_target.append(rt_per_e)
-
 			self.total_rewards_by_parts = np.insert(self.total_rewards_by_parts, self.total_rewards_by_parts.shape[1], 
 				np.asarray(self.rewards_by_part_per_iteration).sum(axis=0)/self.num_episodes_per_iteration, axis=1)
 			print_list = []
@@ -223,16 +215,6 @@ class Monitor(object):
 					y_list[i][0] = np.array(y_list[i][0])/np.array(self.transition_per_episodes)
 
 				self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
-		
-		if len(self.total_rewards_target) > 5 and self.ntargets < 4:
-			avg = 0
-			for i in range(1, 6):
-				avg += self.total_rewards_target[-i] * 0.2
-			print(avg)
-			if avg > 0.7 and self.total_rewards_target[-i] > 0.7:
-				self.ntargets += 1
-				self.sim_env.UpdateNTargets(self.ntargets)
-				print(self.ntargets)
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0
@@ -241,8 +223,7 @@ class Monitor(object):
 		self.rewards_by_part_per_iteration = []
 		self.total_frames_elapsed = 0
 		self.rewards_target_per_iteration = 0
-		self.num_phase = 0
-		self.nrewards = 0
+
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['rp_per_i'] = rp_per_i

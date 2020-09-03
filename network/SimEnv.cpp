@@ -190,19 +190,25 @@ Optimize()
 	bool t = mReferenceManager->Optimize();
 	return t;
 }
+p::list
+SimEnv::
+GetRegressionSamples()
+{
+	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> x_y = mReferenceManager->GetRegressionSamples();
+	np::ndarray x = DPhy::toNumPyArray(x_y.first);
+	np::ndarray y = DPhy::toNumPyArray(x_y.second);
+
+	p::list l;
+	l.append(x);
+	l.append(y);
+
+	return l;
+}
 void
 SimEnv::
 LoadAdaptiveMotion()
 {
 	mReferenceManager->LoadAdaptiveMotion();
-}
-void 
-SimEnv::
-UpdateNTargets(int n)
-{
-	for(int i = 0; i < mNumSlaves; i++) {
-		mSlaves[i]->UpdateNTargets(n);
-	}
 }
 double 
 SimEnv::
@@ -234,8 +240,8 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
+		.def("GetRegressionSamples",&SimEnv::GetRegressionSamples)
 		.def("Optimize",&SimEnv::Optimize)
-		.def("UpdateNTargets",&SimEnv::UpdateNTargets)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

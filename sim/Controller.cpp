@@ -148,10 +148,9 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mPDTargetPositions = Eigen::VectorXd::Zero(dof);
 	this->mPDTargetVelocities = Eigen::VectorXd::Zero(dof);
 
-	mTarget = mDistribution(mMT);
-
 	//temp
 	this->mRewardParts.resize(7, 0.0);
+	targetParameters.resize(1);
 
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
@@ -189,7 +188,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		mRewardLabels.push_back("time");
 	}
 	mOpMode = false;
-	nTargets = 1;
 
 	if(mRecord) {
 		path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
@@ -241,7 +239,7 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof]*10)-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof]*0.2)-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -327,13 +325,11 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		
 		double weight = mCurrentFrameOnPhase / (1 + mAdaptiveStep);
-		mHeadRoot = BlendPosition(mCharacter->GetSkeleton()->getPositions().segment<6>(0),
-								  mPrevPositions.segment<6>(0), 
-								  weight, true);
+		mHeadRoot = mReferenceManager->GetPosition(mCurrentFrame, true).segment<6>(0);
 
 		mControlFlag.setZero();
 		if(isAdaptive) {
-			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory));
+			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory), targetParameters);
 			data_spline.clear();
 			mTrackingRewardTrajectory = 0;
 			mTargetRewardTrajectory = 0;
@@ -495,57 +491,13 @@ GetTargetReward()
 	//jump	
 
 	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+		targetParameters(0) = skel->getCOM()[1];
 		double target_diff = skel->getCOM()[1] - 1.45;
 		r_target = 2 * exp(-pow(target_diff, 2) * 30);
 		mControlFlag[0] = 1;
 		if(mRecord)
 			std::cout << skel->getCOM()[1] << " " << r_target << std::endl;
 	}
-
-	// if(mCurrentFrameOnPhase >= 22 && mControlFlag[0] == 0 && nTargets == 1) {
-	// 	Eigen::Vector3d v = Eigen::Vector3d(0.0311268, 0.00724147,    0.96794);
-	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-	// 	v = ori * v + mHeadRoot.segment<3>(3);
-	// 	Eigen::Vector3d diff = skel->getBodyNode("FootL")->getWorldTransform().translation() - v;
-	// 	diff(1) = 0;
-
-	// 	r_target = exp_of_squared(diff, 0.2);
-
-	// 	mControlFlag[0] = 1;
-	// } else if(mCurrentFrameOnPhase >= 42 && mControlFlag[1] == 0 && nTargets == 2) {
-	// 	Eigen::Vector3d v = Eigen::Vector3d(-0.0774247 , 0.0158098 ,   1.28461);
-	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-	// 	v = ori * v + mHeadRoot.segment<3>(3);
-	// 	Eigen::Vector3d diff = skel->getBodyNode("FootR")->getWorldTransform().translation() - v;
-	// 	diff(1) = 0;
-		
-	// 	r_target = exp_of_squared(diff, 0.2);
-
-	// 	mControlFlag[1] = 1;
-
-	// } else if(mCurrentFrameOnPhase >= 58 && mControlFlag[2] == 0 && nTargets == 3) {
-	// 	Eigen::Vector3d v = Eigen::Vector3d(0.0814714 , 0.0165143 ,  2.26718);
-	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-	// 	v = ori * v + mHeadRoot.segment<3>(3);
-	// 	Eigen::Vector3d diff = skel->getBodyNode("FootL")->getWorldTransform().translation() - v;
-	// 	diff(1) = 0;
-		
-	// 	r_target = exp_of_squared(diff, 0.2);
-
-	// 	mControlFlag[2] = 1;
-
-	// } else if(mCurrentFrameOnPhase >= 73 && mControlFlag[3] == 0 && nTargets == 4) {
-	// 	Eigen::Vector3d v = Eigen::Vector3d(0.0623405 , 0.0233002 ,  2.89893);
-	// 	Eigen::AngleAxisd ori(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-	// 	v = ori * v + mHeadRoot.segment<3>(3);
-	// 	Eigen::Vector3d diff = skel->getBodyNode("FootR")->getWorldTransform().translation() - v;
-	// 	diff(1) = 0;
-
-	// 	r_target = exp_of_squared(diff, 0.2);
-
-	// 	mControlFlag[3] = 1;
-
-	// } 
 
 	return r_target;
 }
@@ -590,7 +542,7 @@ UpdateAdaptiveReward()
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
-								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
+								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_target = this->GetTargetReward();
 	// std::cout << accum_bvh << std::endl;
@@ -601,12 +553,14 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(4 * r_target);
+		mRewardParts.push_back(10 * r_target);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
-	if(r_target != 0) mTargetRewardTrajectory += r_target;
+	if(r_target != 0) {
+		mTargetRewardTrajectory += r_target;
+	}
 }
 void
 Controller::
@@ -920,6 +874,7 @@ Reset(bool RSI)
 	}
 
 	SaveStepInfo();
+	targetParameters(0) = 0;
 
 	mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
