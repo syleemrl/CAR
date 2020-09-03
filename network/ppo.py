@@ -1,5 +1,6 @@
 from network import Actor
 from network import Critic
+from network import Regression
 from monitor import Monitor
 import argparse
 import random
@@ -30,6 +31,7 @@ class PPO(object):
 		self.learning_rate_critic = learning_rate_critic
 		self.learning_rate_actor = learning_rate_actor
 		self.learning_rate_decay = learning_rate_decay
+		self.learning_rate_regression = 1e-4
 		self.epsilon = epsilon
 		self.gamma = gamma
 		self.gamma_sparse = gamma_sparse
@@ -91,8 +93,8 @@ class PPO(object):
 		#build network and optimizer
 		self.buildOptimize(name)
 		if self.adaptive:
-			self.regression_x = []
-			self.regression_y = []
+			self.regression_x = np.empty(shape=[0, 2])
+			self.regression_y = np.empty(shape=[0, self.env.dof])
 		# load pretrained network
 		if self.pretrain is not "":
 			self.load(self.pretrain)
@@ -105,6 +107,23 @@ class PPO(object):
 		self.printSetting()
 		
 		
+	def initRegression(self, pretrain):
+
+		config = tf.ConfigProto()
+		config.intra_op_parallelism_threads = 1
+		config.inter_op_parallelism_threads = 1
+		self.sess = tf.Session(config=config)
+
+		#build network and optimizer
+		name = pretrain.split("/")[-2]
+		self.buildOptimizeReg(name)
+		
+		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
+		self.saver = tf.train.Saver(var_list=save_list)
+		
+		self.load(pretrain)
+		print(1)
+
 	def printSetting(self):
 		
 		print_list = []
@@ -181,11 +200,21 @@ class PPO(object):
 		
 			grads_and_vars = list(zip(grads, params))
 			self.critic_sparse_train_op = critic_trainer_sparse.apply_gradients(grads_and_vars)
+			self.buildOptimizeReg(name)
 
 		save_list = tf.trainable_variables()
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		self.sess.run(tf.global_variables_initializer())
+
+	def buildOptimizeReg(self, name):
+		self.input = tf.placeholder(tf.float32, shape=[None, 2], name=name+'_input')
+		self.output = tf.placeholder(tf.float32, shape=[None, 57], name=name+'_output')
+
+		self.regression = Regression(self.sess, name, self.input, 57)
+		self.loss_regression = tf.reduce_mean(tf.square(self.regression.value - self.output))
+		regression_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_regression)
+		self.regression_train_op = regression_trainer.minimize(self.loss_regression)
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -250,28 +279,42 @@ class PPO(object):
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages[i])
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
+	def saveRegressionData(self, tuples):
+		out = open(self.directory+"regression_data", "a")
+
+		for i in range(len(tuples[0])):
+			for sx in tuples[0][i]:
+				out.write(str(sx)+' ')
+			out.write(', ')
+			for sy in tuples[1][i]:
+				out.write(str(sy)+' ')
+			out.write('\n')
+		out.close()
 
 	def updateRegression(self, tuples):
-		regression_x += tuples[0]
-		regression_y += tuples[1]
+		self.regression_x = np.concatenate((self.regression_x, tuples[0]), axis=0)
+		self.regression_y = np.concatenate((self.regression_y, tuples[1]), axis=0)
 
 		self.lossvals = []
+		for _ in range(100):
+			if int(len(self.regression_x) // self.batch_size) == 0:
+				return
 
-		ind = np.arange(len(regression_x))
-		np.random.shuffle(ind)
+			ind = np.arange(len(self.regression_x))
+			np.random.shuffle(ind)
 
-		lossval_reg = 0
+			lossval_reg = 0
 
-		for s in range(int(len(ind)//self.batch_size_reg)):
-			selectedIndex = ind[s*self.batch_size_reg:(s+1)*self.batch_size_reg]
-			val = self.sess.run([self.reg_train_op, self.loss_reg], 
-				feed_dict={
-					self.x: regression_x[selectedIndex], 
-					self.y: regression_y[selectedIndex], 
-				}
-			)
-			lossval_reg += val[1]
-		self.lossvals.append(['loss regression', lossval_reg])
+			for s in range(int(len(ind)//self.batch_size)):
+				selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
+				val = self.sess.run([self.regression_train_op, self.loss_regression], 
+					feed_dict={
+						self.input: self.regression_x[selectedIndex], 
+						self.output: self.regression_y[selectedIndex], 
+					}
+				)
+				lossval_reg += val[1]
+		self.lossvals.append(['loss regression', lossval_reg / 100])
 
 	def updateAdaptive(self, tuples):
 		state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
@@ -488,6 +531,7 @@ class PPO(object):
 		#	if 1:		
 				if self.adaptive:
 					data = self.env.sim_env.GetRegressionSamples()
+					self.saveRegressionData(data)
 					self.updateRegression(data)
 					self.updateAdaptive(epi_info_iter)
 					self.env.sim_env.Optimize()
@@ -555,6 +599,12 @@ class PPO(object):
 		action = self.actor.getMeanAction(state)
 
 		return action
+
+	def runRegression(self, input):
+		input = np.reshape(input, (1, 2))
+		print(input)
+		output = self.regression.getValue(input)
+		return output
 
 	def eval(self, num_eval):
 		t_per_e_total = []

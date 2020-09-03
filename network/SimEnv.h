@@ -49,6 +49,7 @@ public:
 	void LoadAdaptiveMotion();
 	
 	double GetPhaseLength();
+	int GetDOF();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 //	std::vector<DPhy::SimpleController*> mSlaves;

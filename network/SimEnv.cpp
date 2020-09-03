@@ -216,6 +216,12 @@ GetPhaseLength()
 {
 	return mReferenceManager->GetPhaseLength();
 }
+int
+SimEnv::
+GetDOF()
+{
+	return mReferenceManager->GetDOF();
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -242,6 +248,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("GetRegressionSamples",&SimEnv::GetRegressionSamples)
 		.def("Optimize",&SimEnv::Optimize)
+		.def("GetDOF",&SimEnv::GetDOF)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

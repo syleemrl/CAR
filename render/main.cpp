@@ -2,6 +2,7 @@
 #include "RecordWindow.h"
 #include "SeqRecordWindow.h"
 #include "SplineWindow.h"
+#include "RegressionWindow.h"
 #include <vector>
 #include <string>
 #include <GL/glut.h>
@@ -50,24 +51,6 @@ bool compare_string_with_number(const std::string& s1, const std::string& s2) {
 }
 int main(int argc,char** argv)
 {
-	// std::string path = std::string(CAR_DIR)+std::string("/character/humanoid2.xml");
-	// DPhy::ReferenceManager* refm;
-	// DPhy::Character* character = new DPhy::Character(path);
-	// refm = new DPhy::ReferenceManager(character);
-	// refm->LoadMotionFromBVH(std::string("/motion/punch_02_05.bvh"));
-	// refm->InitOptimization(1, path);
-	
-	// DPhy::ReferenceManager* ref2;
-	// DPhy::Character* character2 = new DPhy::Character(path);
-	// ref2 = new DPhy::ReferenceManager(character2);
-	// ref2->LoadMotionFromBVH(std::string("/motion/punch_02_05_cmp.bvh"));
-
-	// std::vector<std::pair<Eigen::VectorXd,double>> data;
-	// for(int i = 0; i < ref2->GetPhaseLength(); i++) {
-	// 	data.push_back(std::pair<Eigen::VectorXd,double>(ref2->GetPosition(i), i));
-	// }
-	// refm->SaveTrajectories(data, std::pair<double, double>(0, 0));
-
 	std::cout<<"[ : Frame --"<<std::endl;
 	std::cout<<"] : Frame ++"<<std::endl;
 	std::cout<<"r : Frame = 0"<<std::endl;
@@ -159,6 +142,11 @@ int main(int argc,char** argv)
 			rwindow->InitWindow(1600,900,"Render");
 			glutMainLoop();
 		}
+	} if(type.compare("reg")==0) {
+		RegressionWindow* rgwindow = new RegressionWindow(ref, network);
+		glutInit(&argc, argv);
+		rgwindow->InitWindow(1600,900,"Render");
+		glutMainLoop();
 	}
 
 	return 0;

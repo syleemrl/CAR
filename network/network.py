@@ -5,6 +5,7 @@ activ = tf.nn.relu
 kernel_initialize_func = tf.contrib.layers.xavier_initializer()
 actor_layer_size = 1024
 critic_layer_size = 512
+regression_layer_size = 512
 initial_state_layer_size = 512
 l2_regularizer_scale = 0.0
 regularizer = tf.contrib.layers.l2_regularizer(l2_regularizer_scale)
@@ -101,6 +102,41 @@ class Critic(object):
 	def getValue(self, states):
 		with tf.variable_scope(self.scope):
 			key = self.name+'_state:0'
+			return self.sess.run(self.value, feed_dict={key:states})
+
+	def getVariable(self, trainable_only=False):
+		if trainable_only:
+			return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope)
+		else:
+			return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
+class Regression(object):
+	def __init__(self, sess, scope, input, output, postfix=''):
+		self.sess = sess
+		self.name = scope
+		self.scope = scope + '_Regression' + postfix
+		self.value = self.createNetwork(input, output, False)
+
+	def createNetwork(self, input, output, reuse):	
+		with tf.variable_scope(self.scope, reuse=reuse):
+			L1 = tf.layers.dense(input, regression_layer_size, activation=activ,name='L1',
+	            kernel_initializer=kernel_initialize_func,
+	            kernel_regularizer=regularizer
+			)
+
+			L2 = tf.layers.dense(L1, regression_layer_size, activation=activ,name='L2',
+	            kernel_initializer=kernel_initialize_func,
+	            kernel_regularizer=regularizer
+			)
+
+			out = tf.layers.dense(L2, output, name='out',
+	            kernel_initializer=kernel_initialize_func,
+	            kernel_regularizer=regularizer
+			)
+
+			return out
+	def getValue(self, states):
+		with tf.variable_scope(self.scope):
+			key = self.name+'_input:0'
 			return self.sess.run(self.value, feed_dict={key:states})
 
 	def getVariable(self, trainable_only=False):

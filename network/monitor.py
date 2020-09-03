@@ -51,6 +51,7 @@ class Monitor(object):
 		self.num_episodes_opt = 0
 
 		self.phaselength = self.sim_env.GetPhaseLength()
+		self.dof = self.sim_env.GetDOF()
 		self.nrewards = 0
 
 		if self.plot:

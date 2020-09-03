@@ -70,7 +70,7 @@ public:
 	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 	std::vector<double> GetContacts(double t);
 	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> GetRegressionSamples();
-
+	int GetDOF() {return mDOF; }
 protected:
 	Character* mCharacter;
 	double mTimeStep;
