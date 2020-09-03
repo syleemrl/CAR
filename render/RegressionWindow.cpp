@@ -17,12 +17,18 @@ RegressionWindow(std::string motion, std::string network)
 	this->mTotalFrame = 0;
 
 	std::string skel_path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
-	this->mRef = new DPhy::Character(skel_path);
+	for(int i = 0; i < 5; i++) {
+		this->mRef.push_back(new DPhy::Character(skel_path));
+		std::vector<Eigen::VectorXd> memory;
+		this->mMemoryRef.push_back(memory);
+		DPhy::SetSkeletonColor(this->mRef[i]->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 
-	int n_bnodes = mRef->GetSkeleton()->getNumBodyNodes();
-	int dof = this->mRef->GetSkeleton()->getPositions().rows();
+	}
+	this->mRef_BVH = new DPhy::Character(skel_path);
 
-	DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(this->mRef);
+	int dof = this->mRef[0]->GetSkeleton()->getPositions().rows();
+
+	DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(this->mRef_BVH);
 	referenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 
 	std::vector<double> knots;
@@ -38,7 +44,6 @@ RegressionWindow(std::string motion, std::string network)
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength());
 	s->SetKnots(0, knots);
 	
-	int n = 0;
 	std::vector<Eigen::VectorXd> cps;
 	for(int i = 0; i < knots.size() + 3 ; i++) {
 		cps.push_back(Eigen::VectorXd::Zero(dof));
@@ -46,18 +51,16 @@ RegressionWindow(std::string motion, std::string network)
 
 	Py_Initialize();
 	np::initialize();
-	try{
+	try {
 		p::object ppo_main = p::import("ppo");
 		this->mPPO = ppo_main.attr("PPO")();
 		std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + network;
 		this->mPPO.attr("initRegression")(path);
-	}
-	catch (const p::error_already_set&)
-	{
+	} catch (const p::error_already_set&) {
 		PyErr_Print();
 	}
 
-	for(int i = 116; i < 140; i += 3) {
+	for(int i = 115, c = 0; i <= 150; i += 7, c++) {
 		for(int j = 0; j < cps.size(); j++) {
 			Eigen::VectorXd input(2);
 			input << j, i / 100.0;
@@ -70,12 +73,22 @@ RegressionWindow(std::string motion, std::string network)
 		std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
 		referenceManager->AddDisplacementToBVH(new_displacement, newpos);
 		for(int j = 0; j < newpos.size(); j++) {
-			mMemoryRef.push_back(newpos[j]);
+			newpos[j][3] += (c + 1);
+		}
+		for(int l = 0; l < 5; l++) {
+			for(int j = 0; j < newpos.size(); j++) {
+				mMemoryRef[c].push_back(newpos[j]);
+			}
 		}
 	}
 
-	mTotalFrame = mMemoryRef.size();
-	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+	mTotalFrame = 5 * referenceManager->GetPhaseLength();
+	for(int l = 0; l < 5; l++) {
+		for(int j = 0; j < referenceManager->GetPhaseLength(); j++) {
+			mMemoryRefBVH.push_back(referenceManager->GetPosition(j));
+		}
+	}
+	DPhy::SetSkeletonColor(this->mRef_BVH->GetSkeleton(), Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
 
 	this->mCurFrame = 0;
 	this->mDisplayTimeout = 33;
@@ -92,8 +105,10 @@ SetFrame(int n)
 	 	std::cout << "Frame exceeds limits" << std::endl;
 	 	return;
 	}
+	for(int i = 0; i < 5; i++)
+    	mRef[i]->GetSkeleton()->setPositions(mMemoryRef[i][n]);
+    mRef_BVH->GetSkeleton()->setPositions(mMemoryRefBVH[n]);
 
-    mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
 
 void
@@ -120,14 +135,17 @@ void
 RegressionWindow::
 DrawSkeletons()
 {
-	GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
+	for(int i = 0; i < 5; i++)
+		GUI::DrawSkeleton(this->mRef[i]->GetSkeleton(), 0);
+	GUI::DrawSkeleton(this->mRef_BVH->GetSkeleton(), 0);
+
 }
 void
 RegressionWindow::
 DrawGround()
 {
 	Eigen::Vector3d com_root;
-	com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
+	com_root = this->mRef[0]->GetSkeleton()->getRootBodyNode()->getCOM();
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
 void
@@ -139,7 +157,7 @@ Display()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	dart::dynamics::SkeletonPtr skel = this->mRef->GetSkeleton();
+	dart::dynamics::SkeletonPtr skel = this->mRef[0]->GetSkeleton();
 	Eigen::Vector3d com_root = skel->getRootBodyNode()->getCOM();
 	Eigen::Vector3d com_front = skel->getRootBodyNode()->getTransform()*Eigen::Vector3d(0.0, 0.0, 2.0);
 

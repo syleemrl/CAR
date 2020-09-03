@@ -72,8 +72,11 @@ protected:
 	int mTotalFrame;
 
 	std::vector<Eigen::VectorXd> mMemoryKey;
-	std::vector<Eigen::VectorXd> mMemoryRef;
-	DPhy::Character* mRef;
+	std::vector<std::vector<Eigen::VectorXd>> mMemoryRef;
+	std::vector<Eigen::VectorXd> mMemoryRefBVH;
+
+	std::vector<DPhy::Character*> mRef;
+	DPhy::Character* mRef_BVH;
 
 	p::object mPPO;
 
