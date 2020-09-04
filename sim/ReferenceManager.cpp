@@ -768,11 +768,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	for(int i = 0; i < cps.size(); i++) {
 		r_regul += cps[i].norm();	
 	}
-
 	double reward_trajectory = 0.2 * exp(-pow(r_regul, 2)*0.01) + 0.8 * (r_slide - 0.5);
-
 	mLock.lock();
-	mSamples.push_back(std::tuple<MultilevelSpline*, double,  double>(s, reward_trajectory, rewards.second));
+	mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
+						std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
 	mRegressionSamples.push_back(std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>(cps, parameters));
 
 	std::string path = mPath + std::string("samples") + std::to_string(nOp);
@@ -781,16 +780,15 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	ofs.open(path, std::fstream::out | std::fstream::app);
 
 	for(auto t: data_spline) {	
-		ofs << t.first.transpose() << " " << t.second << " " << rewards.second << std::endl;
+		ofs << t.first.transpose() << " " << t.second << " " << r_slide << std::endl;
 	}
 	ofs.close();
-
 
 	mLock.unlock();
 
 
 }
-bool cmp(const std::tuple<DPhy::MultilevelSpline*, double, double> &p1, const std::tuple<DPhy::MultilevelSpline*, double, double> &p2){
+bool cmp(const std::tuple<DPhy::MultilevelSpline*, std::pair<double, double>, double> &p1, const std::tuple<DPhy::MultilevelSpline*, std::pair<double, double>, double> &p2){
     if(std::get<1>(p1) > std::get<1>(p2)){
         return true;
     }
@@ -881,7 +879,7 @@ Optimize() {
 
 	std::string path = mPath + std::string("rewards");
 	std::ofstream ofs;
-//	ofs.open(path, std::fstream::out | std::fstream::app);
+	ofs.open(path, std::fstream::out | std::fstream::app);
 
 	for(int i = 0; i < mu; i++) {
 		double w = log(mu + 1) - log(i + 1);
@@ -890,12 +888,12 @@ Optimize() {
 	    for(int j = 0; j < num_knot + 3; j++) {
 			mean_cps[j] += w * cps[j];
 	    }
-	    rewardTrajectory += w * std::get<1>(mSamples[i]);
+	    rewardTrajectory += w * std::get<1>(mSamples[i]).first;
 	    rewardTarget += std::get<2>(mSamples[i]);
-	 //   ofs << mSamples[i].second << " ";
+	    ofs << std::get<1>(mSamples[i]).second << " ";
 	}
-	//ofs << std::endl;
-	//ofs.close();
+	ofs << std::endl;
+	ofs.close();
 
 	rewardTrajectory /= weight_sum;
 	rewardTarget /= (double)mu;

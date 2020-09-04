@@ -91,7 +91,7 @@ protected:
 	std::vector<Eigen::VectorXd> mDev_BVH;
 
 	//cps, target, similarity
-	std::vector<std::tuple<MultilevelSpline*, double, double>> mSamples;
+	std::vector<std::tuple<MultilevelSpline*, std::pair<double, double>, double>> mSamples;
 	
 	//cps, parameter
 	std::vector<std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>> mRegressionSamples;
