@@ -423,7 +423,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 		// 	v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
 		// 	count_dof += dof;
 		// }
-		v_diff_reward = v_diff.segment<3>(3);
+		v_diff_reward = v_diff.segment<3>(3) / std::max(velocity2.norm(), 0.2);
+
 	}
 
 	skel->setPositions(position);
@@ -450,7 +451,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double scale = 1.0;
 
 	double sig_p = 0.4 * scale; 
-	double sig_v = 0.3 * scale;	
+	double sig_v = 0.1 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.1 * scale;		
 
@@ -458,7 +459,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double r_v;
 	if(useVelocity)
 	{
-		r_v = exp_of_squared(v_diff_reward,sig_v);
+		r_v = 2 * exp_of_squared(v_diff_reward,sig_v);
 	}
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
@@ -545,7 +546,6 @@ UpdateAdaptiveReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_target = this->GetTargetReward();
-	// std::cout << accum_bvh << std::endl;
 	mRewardParts.clear();
 	double r_tot = accum_bvh;
 	if(dart::math::isNan(r_tot)){
