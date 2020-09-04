@@ -726,7 +726,92 @@ Eigen::VectorXd solveIK(dart::dynamics::SkeletonPtr skel, const std::string& bod
 	}
 	return newPose;
 }
+Eigen::VectorXd solveMCIKRoot(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints)
+{
+	Eigen::VectorXd newPose = skel->getPositions();
+	int num_constraints = constraints.size();
 
+	std::vector<dart::dynamics::BodyNode*> bodynodes(num_constraints);
+	std::vector<Eigen::Vector3d> targetposes(num_constraints);
+	std::vector<Eigen::Vector3d> offsets(num_constraints);
+
+	for(int i = 0; i < num_constraints; i++){
+		bodynodes[i] = skel->getBodyNode(std::get<0>(constraints[i]));
+		targetposes[i] = std::get<1>(constraints[i]);
+		offsets[i] = std::get<2>(constraints[i]);
+	}
+
+	int not_improved = 0;
+	for(std::size_t i = 0; i < 100; i++)
+	{
+
+		// make deviation vector and jacobian matrix
+		Eigen::VectorXd deviation(num_constraints*3);
+		for(int j = 0; j < num_constraints; j++){
+			deviation.segment<3>(j*3) = targetposes[j] - bodynodes[j]->getTransform()*offsets[j];
+		}
+		if(deviation.norm() < 0.001)
+			break;
+
+		int nDofs = skel->getNumDofs();
+		Eigen::MatrixXd jacobian_concatenated(3*num_constraints, nDofs);
+		for(int j = 0; j < num_constraints; j++){
+			dart::math::LinearJacobian jacobian = skel->getLinearJacobian(bodynodes[j], offsets[j]);
+			jacobian.block(0, 0, 3, 1).setZero();
+			jacobian.block(0, 2, 3, 1).setZero();
+			jacobian.block(0, 6, 3, nDofs - 6).setZero();
+			jacobian_concatenated.block(3*j, 0, 3, nDofs) = jacobian;
+		}
+		// std::cout << jacobian_concatenated << std::endl;
+
+		Eigen::JacobiSVD<Eigen::MatrixXd> svd(jacobian_concatenated, Eigen::ComputeThinU | Eigen::ComputeThinV);
+		Eigen::MatrixXd inv_singular_value(3*num_constraints, 3*num_constraints);
+		
+		inv_singular_value.setZero();
+		for(int k=0;k<3*num_constraints;k++)
+		{
+			if(svd.singularValues()[k]<1e-8)
+				inv_singular_value(k,k) = 0.0;
+			else
+				inv_singular_value(k,k) = 1.0/svd.singularValues()[k];
+		}
+
+
+		Eigen::MatrixXd jacobian_inv = svd.matrixV()*inv_singular_value*svd.matrixU().transpose();
+		// std::cout << svd.singularValues().transpose() << std::endl;
+		// std::cout << svd.matrixV().size() << std::endl;
+
+		// std::cout << jacobian_inv << std::endl;
+		// exit(0);
+		// Eigen::VectorXd gradient = jacobian.colPivHouseholderQr().solve(deviation);
+		Eigen::VectorXd gradient = jacobian_inv * deviation;
+		double prev_norm = deviation.norm();
+		double gamma = 0.5;
+		not_improved++;
+		for(int j = 0; j < 24; j++){
+			Eigen::VectorXd newDirection = gamma * gradient;
+			Eigen::VectorXd np = newPose + newDirection;
+			skel->setPositions(np);
+			skel->computeForwardKinematics(true, false, false);
+
+			Eigen::VectorXd new_deviation(num_constraints*3);
+			for(int j = 0; j < num_constraints; j++){
+				new_deviation.segment<3>(j*3) = targetposes[j] - bodynodes[j]->getTransform()*offsets[j];
+			}
+			double new_norm = new_deviation.norm();
+			if(new_norm < prev_norm){
+				newPose = np;
+				not_improved = 0;
+				break;
+			}
+			gamma *= 0.5;
+		}
+		if(not_improved > 1){
+			break;
+		}
+	}
+	return newPose;
+}
 Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints)
 {
 	int foot_l_idx = skel->getBodyNode("FootL")->getParentJoint()->getIndexInSkeleton(0);
@@ -767,7 +852,7 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 		Eigen::MatrixXd jacobian_concatenated(3*num_constraints, nDofs);
 		for(int j = 0; j < num_constraints; j++){
 			dart::math::LinearJacobian jacobian = skel->getLinearJacobian(bodynodes[j], offsets[j]);
-			jacobian.block<3,3>(0,0).setZero();
+			// jacobian.block<3,3>(0,0).setZero();
 			// jacobian.block<3,3>(0,foot_l_idx).setZero();
 			// jacobian.block<3,3>(0,foot_r_idx).setZero();
 			jacobian.block<3,3>(0,footend_l_idx).setZero();

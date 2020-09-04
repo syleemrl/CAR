@@ -179,34 +179,34 @@ LoadAdaptiveMotion(std::string postfix) {
 
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
-	std::vector<std::pair<Eigen::VectorXd,double>> pos;
-	for(int i = 0; i < mPhaseLength; i++) {
-		pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase_adaptive[i]->GetPosition(), i));
-	}
-	MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
-	s->SetKnots(0, mKnots);
+	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
+	// for(int i = 0; i < mPhaseLength; i++) {
+	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase_adaptive[i]->GetPosition(), i));
+	// }
+	// MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
+	// s->SetKnots(0, mKnots);
 
-	s->ConvertMotionToSpline(pos);
-	path = std::string(CAR_DIR) + std::string("/result/jump_spline_ref");
+	// s->ConvertMotionToSpline(pos);
+	// path = std::string(CAR_DIR) + std::string("/result/jump_spline_ref");
 	
-	std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
+	// std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
 
-	std::ofstream ofs(path);
+	// std::ofstream ofs(path);
 
-	ofs << mKnots.size() << std::endl;
-	for(auto t: mKnots) {	
-		ofs << t << std::endl;
-	}
-	for(auto t: cps) {	
-		ofs << t.transpose() << std::endl;
-	}
+	// ofs << mKnots.size() << std::endl;
+	// for(auto t: mKnots) {	
+	// 	ofs << t << std::endl;
+	// }
+	// for(auto t: cps) {	
+	// 	ofs << t.transpose() << std::endl;
+	// }
 
-	ofs << pos.size() << std::endl;
-	for(auto t: pos) {	
-		ofs << t.second << std::endl;
-		ofs << t.first.transpose() << std::endl;
-	}
-	ofs.close();
+	// ofs << pos.size() << std::endl;
+	// for(auto t: pos) {	
+	// 	ofs << t.second << std::endl;
+	// 	ofs << t.first.transpose() << std::endl;
+	// }
+	// ofs.close();
 
 }
 void ReferenceManager::LoadMotionFromBVH(std::string filename)
@@ -430,6 +430,16 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 
 	auto& skel = mCharacter->GetSkeleton();
 
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+	
+	skel->setPositions(p_phase[0]->GetPosition());
+	skel->computeForwardKinematics(true,false,false);
+
+	Eigen::Vector3d p0_footl = skel->getBodyNode("FootL")->getWorldTransform().translation();
+	Eigen::Vector3d p0_footr = skel->getBodyNode("FootR")->getWorldTransform().translation();
+
+
 	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(p_phase[0]->GetPosition().head<6>());
 	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(p_phase.back()->GetPosition().head<6>());
 
@@ -438,7 +448,7 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
 
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
-	T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+	T01.linear() = dart::math::expMapRot(DPhy::projectToXZ(p01));
 	T01.translation()[1] = 0;
 
 	for(int i = 0; i < frames; i++) {
@@ -448,12 +458,39 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 		if(i < mPhaseLength) {
 			p_gen.push_back(new Motion(p_phase[i]));
 		} else {
-			Eigen::VectorXd pos = p_phase[phase]->GetPosition();
-			Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
-			T_current = T0_phase.inverse()*T_current;
-			T_current = T0_gen*T_current;
+			Eigen::VectorXd pos;
+			if(phase == 0) {
+				std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>> constraints;
+	
+				skel->setPositions(p_gen.back()->GetPosition());
+				skel->computeForwardKinematics(true,false,false);
 
-			pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+				Eigen::Vector3d p_footl = skel->getBodyNode("FootL")->getWorldTransform().translation();
+				Eigen::Vector3d p_footr = skel->getBodyNode("FootR")->getWorldTransform().translation();
+
+				p_footl(1) = p0_footl(1);
+				p_footr(1)= p0_footr(1);
+
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("FootL", p_footl, Eigen::Vector3d(0, 0, 0)));
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("FootR", p_footr, Eigen::Vector3d(0, 0, 0)));
+
+				Eigen::VectorXd p = p_phase[phase]->GetPosition();
+				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
+
+				skel->setPositions(p);
+				skel->computeForwardKinematics(true,false,false);
+				pos = solveMCIKRoot(skel, constraints);
+				pos(4) = p_phase[phase]->GetPosition()(4);
+				
+				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+			} else {
+				pos = p_phase[phase]->GetPosition();
+				Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+				T_current = T0_phase.inverse()*T_current;
+				T_current = T0_gen*T_current;
+				pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+			}
+
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, p_gen.back()->GetPosition()) / 0.033;
 			p_gen.back()->SetVelocity(vel);
 			p_gen.push_back(new Motion(pos, vel));
@@ -467,10 +504,6 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 			 		p_gen[i - j - 1]->SetVelocity(vel);
 				}
 			}
-		}
-		if(phase == mPhaseLength - 1) {
-			T0_gen = T01*T0_gen;
-
 		}
 	}
 }

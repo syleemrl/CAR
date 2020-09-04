@@ -66,6 +66,7 @@ Eigen::Isometry3d getJointTransform(dart::dynamics::SkeletonPtr skel, std::strin
 Eigen::Vector4d rootDecomposition(dart::dynamics::SkeletonPtr skel, Eigen::VectorXd positions);
 Eigen::VectorXd solveIK(dart::dynamics::SkeletonPtr skel, const std::string& bodyname, const Eigen::Vector3d& delta,  const Eigen::Vector3d& offset);
 Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints);
+Eigen::VectorXd solveMCIKRoot(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints);
 Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m);
 Eigen::Vector3d projectToXZ(Eigen::Vector3d v);
 
