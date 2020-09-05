@@ -37,7 +37,7 @@ RegressionWindow(std::string motion, std::string network)
 	knots.push_back(29);
 	knots.push_back(37);
 	knots.push_back(44);
-	knots.push_back(56);
+	knots.push_back(56);	
 	knots.push_back(64);
 	knots.push_back(76);
 
@@ -67,6 +67,9 @@ RegressionWindow(std::string motion, std::string network)
 			p::object a = this->mPPO.attr("runRegression")(DPhy::toNumPyArray(input));
 			np::ndarray na = np::from_object(a);
 			cps[j] = DPhy::toEigenVector(na, dof);
+			if(j >= cps.size() - 2) {
+				std::cout << cps[j].transpose() << std::endl;
+			}
 		}
 		s->SetControlPoints(0, cps);
 		std::vector<Eigen::VectorXd> newpos;

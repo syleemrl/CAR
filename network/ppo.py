@@ -290,7 +290,7 @@ class PPO(object):
 			return
 		self.regression_x = np.concatenate((self.regression_x, tuples[0]), axis=0)
 		self.regression_y = np.concatenate((self.regression_y, tuples[1]), axis=0)
-
+		
 		self.lossvals = []
 		for _ in range(50):
 			if int(len(self.regression_x) // self.batch_size) == 0:

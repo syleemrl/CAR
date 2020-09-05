@@ -254,6 +254,9 @@ Step()
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	nTotalSteps += 1;
 	nTotalStepsPhase += 1;
+
+	std::cout << mCurrentFrameOnPhase << " " << 1 + mAdaptiveStep << std::endl;
+	
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -572,8 +575,10 @@ UpdateAdaptiveReward()
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 15, 2);
 		}
 	}
+	double r_con = exp(-con_diff);
+
 	mRewardParts.clear();
-	double r_tot = 0.8 * accum_bvh + 0.2 * con_diff;
+	double r_tot = 0.8 * accum_bvh + 0.2 * r_con;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}

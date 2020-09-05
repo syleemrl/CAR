@@ -36,7 +36,9 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 	knots.push_back(29);
 	knots.push_back(37);
 	knots.push_back(44);
+	knots.push_back(52);
 	knots.push_back(56);
+	knots.push_back(59);	
 	knots.push_back(64);
 	knots.push_back(76);
 

@@ -581,7 +581,8 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots.push_back(29);
 	mKnots.push_back(37);
 	mKnots.push_back(44);
-	mKnots.push_back(53);
+	mKnots.push_back(52);
+	mKnots.push_back(56);
 	mKnots.push_back(59);
 	mKnots.push_back(64);
 	mKnots.push_back(76);
@@ -856,7 +857,7 @@ ReferenceManager::
 Optimize() {
 	double rewardTarget = 0;
 	double rewardTrajectory = 0;
-    int mu = 60;
+    int mu = 50;
     std::cout << "num sample: " << mSamples.size() << std::endl;
     if(mSamples.size() < 300) {
     	for(int i = 0; i < nRejectedSamples.size(); i++) {
@@ -905,7 +906,7 @@ Optimize() {
 
 		for(int i = 0; i < num_knot + 3; i++) {
 		    mean_cps[i] /= weight_sum;
-		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
+		    mPrevCps[i] = mean_cps[i]; // mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
 		}
 
 		mPrevRewardTrajectory = rewardTrajectory;
@@ -973,7 +974,6 @@ GetRegressionSamples() {
 			
 			knot_and_target.resize(1 + s.second.rows());
 			knot_and_target << j, s.second;
-			
 			x.push_back(knot_and_target);
 			y.push_back((s.first)[j]);
 		}

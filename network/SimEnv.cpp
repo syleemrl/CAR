@@ -197,7 +197,7 @@ GetRegressionSamples()
 	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> x_y = mReferenceManager->GetRegressionSamples();
 	np::ndarray x = DPhy::toNumPyArray(x_y.first);
 	np::ndarray y = DPhy::toNumPyArray(x_y.second);
-
+	
 	p::list l;
 	l.append(x);
 	l.append(y);
