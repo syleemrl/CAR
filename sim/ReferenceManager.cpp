@@ -581,7 +581,8 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots.push_back(29);
 	mKnots.push_back(37);
 	mKnots.push_back(44);
-	mKnots.push_back(56);
+	mKnots.push_back(53);
+	mKnots.push_back(59);
 	mKnots.push_back(64);
 	mKnots.push_back(76);
 
@@ -688,7 +689,7 @@ GetContactInfo(Eigen::VectorXd pos)
 	result.clear();
 	for(int i = 0; i < contact.size(); i++) {
 		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
-		if(p[1] < 0.04) {
+		if(p[1] < 0.07) {
 			result.push_back(std::pair<bool, Eigen::Vector3d>(true, p));
 		} else {
 			result.push_back(std::pair<bool, Eigen::Vector3d>(false, p));

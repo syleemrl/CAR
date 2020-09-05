@@ -92,6 +92,13 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	mRewardBodies.push_back("ArmR");
 	mRewardBodies.push_back("HandR");
 	
+	mContacts.clear();
+	mContacts.push_back("FootEndR");
+	mContacts.push_back("FootR");
+	mContacts.push_back("FootEndL");
+	mContacts.push_back("FootL");
+
+
 	mInterestedDof = 0;
 	for(int i = 0; i < mInterestedBodies.size(); i++) {
 		mInterestedDof += mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[i])->getParentJoint()->getNumDofs();
@@ -247,9 +254,7 @@ Step()
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	nTotalSteps += 1;
 	nTotalStepsPhase += 1;
-
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
@@ -504,7 +509,26 @@ GetTargetReward()
 }
 std::vector<bool> 
 Controller::
-GetContactInfo(Eigen::VectorXd pos) 
+GetContacts() 
+{
+	auto& skel = this->mCharacter->GetSkeleton();
+
+	std::vector<bool> result;
+	result.clear();
+	for(int i = 0; i < mContacts.size(); i++) {
+		Eigen::Vector3d p = skel->getBodyNode(mContacts[i])->getWorldTransform().translation();
+		if(p[1] < 0.04) {
+			result.push_back(true);
+		} else {
+			result.push_back(false);
+		}
+	}
+
+	return result;
+}
+std::vector<bool> 
+Controller::
+GetContacts(Eigen::VectorXd pos) 
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 	Eigen::VectorXd p_save = skel->getPositions();
@@ -513,19 +537,11 @@ GetContactInfo(Eigen::VectorXd pos)
 	skel->setPositions(pos);
 	skel->computeForwardKinematics(true,false,false);
 
-
-	std::vector<std::string> contact;
-	contact.clear();
-	contact.push_back("FootEndR");
-	contact.push_back("FootR");
-	contact.push_back("FootEndL");
-	contact.push_back("FootL");
-
 	std::vector<bool> result;
 	result.clear();
-	for(int i = 0; i < contact.size(); i++) {
-		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
-		if(p[1] < 0.04) {
+	for(int i = 0; i < mContacts.size(); i++) {
+		Eigen::Vector3d p = skel->getBodyNode(mContacts[i])->getWorldTransform().translation();
+		if(p[1] < 0.07) {
 			result.push_back(true);
 		} else {
 			result.push_back(false);
@@ -546,8 +562,18 @@ UpdateAdaptiveReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_target = this->GetTargetReward();
+	
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
+
+	double con_diff = 0;
+	for(int i = 0; i < contacts_cur.size(); i++) {
+		if(contacts_ref[i].first || contacts_cur[i].first) {
+			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 15, 2);
+		}
+	}
 	mRewardParts.clear();
-	double r_tot = accum_bvh;
+	double r_tot = 0.8 * accum_bvh + 0.2 * con_diff;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -690,7 +716,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength() * 6 ) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(nTotalSteps > 300) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}

@@ -261,14 +261,8 @@ class PPO(object):
 			ad_t = 0
 
 			for i in reversed(range(len(data))):
-				if i == len(data) - 1:
-					timestep = 0
-				elif times[i] > times[i+1]:
-					timestep = times[i+1] + self.env.phaselength - times[i]
-				else:
-					timestep = times[i+1]  - times[i]
-				delta = rewards[i] + values[i+1] * pow(self.gamma, timestep)  - values[i]
-				ad_t = delta + pow(self.lambd, timestep)  * pow(self.gamma, timestep)  * ad_t
+				delta = rewards[i] + values[i+1] * self.gamma  - values[i]
+				ad_t = delta + self.lambd * self.gamma  * ad_t
 				advantages[i] = ad_t
 
 			TD = values[:size] + advantages
@@ -292,11 +286,13 @@ class PPO(object):
 		out.close()
 
 	def updateRegression(self, tuples):
+		if len(tuples[0]) == 0:
+			return
 		self.regression_x = np.concatenate((self.regression_x, tuples[0]), axis=0)
 		self.regression_y = np.concatenate((self.regression_y, tuples[1]), axis=0)
 
 		self.lossvals = []
-		for _ in range(100):
+		for _ in range(50):
 			if int(len(self.regression_x) // self.batch_size) == 0:
 				return
 
@@ -373,23 +369,20 @@ class PPO(object):
 
 			timesteps = []
 			for i in reversed(range(len(data))):
-				if i == len(data) - 1:
-					timestep = 0
-				elif times[i] > times[i+1]:
-					timestep = times[i+1] + self.env.phaselength - times[i]
-				else:
-					timestep = times[i+1]  - times[i]
 
-				delta_dense = rewards[i][0] + values_dense[i+1] * pow(self.gamma, timestep) - values_dense[i]
-				ad_t_dense = delta_dense + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t_dense
+				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
+				ad_t_dense = delta_dense + self.lambd * self.gamma * ad_t_dense
 				advantages_dense[i] = ad_t_dense
 			
-				if i == len(data) - 1 or times[i] > times[i+1]:
+				if i == len(data) - 1:
 					timestep = 0
+					delta_sparse = rewards[i][1] - values_sparse[i]
+				elif times[i] > times[i+1]:
+					timestep = self.env.phaselength - times[i]
+					delta_sparse = rewards[i][1] - values_sparse[i]
 				else:
 					timestep = times[i+1]  - times[i]
-				timesteps.append(timestep)
-				delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma, timestep) - values_sparse[i]
+					delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma, timestep) - values_sparse[i]
 				ad_t_sparse = delta_sparse + pow(self.gamma, timestep) * pow(self.lambd, timestep) * ad_t_sparse
 
 				advantages_sparse[i] = ad_t_sparse

@@ -80,7 +80,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	double GetPhaseReward();
 	double GetTargetReward();
-	std::vector<bool> GetContactInfo(Eigen::VectorXd pos);
+	std::vector<bool> GetContacts();
+	std::vector<bool> GetContacts(Eigen::VectorXd pos);
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
 	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
 	std::vector<double> GetAdaptiveIdxs();
@@ -166,6 +167,9 @@ protected:
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::pair<double, int> mInputVelocity;
+	std::vector<std::string> mContacts;
+
+
 	int mNumState, mNumAction;
 
 	int terminationReason;

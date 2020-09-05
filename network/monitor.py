@@ -117,8 +117,7 @@ class Monitor(object):
 							self.max_episode_length = frames[i]
 
 			if self.adaptive:
-				# !!!
-				rewards = [[rewards[i][0]+rewards[i][1], 0] for i in range(len(rewards))]
+				rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
 			else:	
 				rewards = [rewards[i][0] for i in range(len(rewards))]
 				
