@@ -92,7 +92,7 @@ class Monitor(object):
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
-				if self.adaptive and rewards[i][1] != 0:
+				if self.adaptive and rewards[i][1] != 0 and rewards[i][1] is not None:
 					self.rewards_target_per_iteration += rewards[i][1]
 					self.nrewards += 1
 

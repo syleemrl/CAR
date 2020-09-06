@@ -122,6 +122,11 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 				reward = cur_reward;
 			if(cur_reward != reward) {
 				reward = cur_reward;
+				if(reward < 0.85) {
+					pos.clear();
+					step.clear();
+					continue;
+				}
 				std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 
 				for(int i = 0; i < pos.size(); i++) {
@@ -188,7 +193,6 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 	}
 	for(int i = 0; i < cps.size(); i++) {
 		cps[i] /= n;
-		std::cout << cps[i].transpose() << std::endl;
 	}
 	s->SetControlPoints(0, cps);
 	std::vector<Eigen::VectorXd> displacement_s = s->ConvertSplineToMotion();

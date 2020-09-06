@@ -708,7 +708,7 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
-	// std::cout << rewards.first / mPhaseLength << " " << rewards.second << std::endl;
+
 	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
 		nRejectedSamples[0] += 1;
 		if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
@@ -758,23 +758,22 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 			bool c_cur_j = (c[i][2*j].first) && (c[i][2*j + 1].first);
 			if(c_prev_j && c_cur_j) {
 				double d = ((c[i-1][2*j].second + c[i-1][2*j+1].second) - (c[i][2*j].second + c[i][2*j+1].second)).norm()*0.5; 
-				r_slide += exp(-pow(d, 2)*1000);
-			} else {
-				r_slide += 1;
-			}
+				r_slide += pow(d*4, 2);
+			} 
 		}
 	}
-	r_slide /= (newpos.size() * 2);
+	r_slide = exp(-r_slide);
 	auto cps = s->GetControlPoints(0);
 	double r_regul = 0;
 	for(int i = 0; i < cps.size(); i++) {
 		r_regul += cps[i].norm();	
 	}
-	double reward_trajectory = 0.2 * exp(-pow(r_regul, 2)*0.01) + 0.8 * (r_slide - 0.5);
+	double reward_trajectory = 0.4 * exp(-pow(r_regul, 2)*0.01) + 0.6 * r_slide;
 	mLock.lock();
 	mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
 						std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
-	mRegressionSamples.push_back(std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>(cps, parameters));
+	if(r_slide > 0.86)
+		mRegressionSamples.push_back(std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>(cps, parameters));
 
 	std::string path = mPath + std::string("samples") + std::to_string(nOp);
 
@@ -857,7 +856,7 @@ ReferenceManager::
 Optimize() {
 	double rewardTarget = 0;
 	double rewardTrajectory = 0;
-    int mu = 50;
+    int mu = 60;
     std::cout << "num sample: " << mSamples.size() << std::endl;
     if(mSamples.size() < 300) {
     	for(int i = 0; i < nRejectedSamples.size(); i++) {
@@ -893,6 +892,7 @@ Optimize() {
 	    rewardTrajectory += w * std::get<1>(mSamples[i]).first;
 	    rewardTarget += std::get<2>(mSamples[i]);
 	    ofs << std::get<1>(mSamples[i]).second << " ";
+
 	}
 	ofs << std::endl;
 	ofs.close();
@@ -906,7 +906,7 @@ Optimize() {
 
 		for(int i = 0; i < num_knot + 3; i++) {
 		    mean_cps[i] /= weight_sum;
-		    mPrevCps[i] = mean_cps[i]; // mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
+		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
 		}
 
 		mPrevRewardTrajectory = rewardTrajectory;

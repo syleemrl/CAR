@@ -255,8 +255,7 @@ Step()
 	nTotalSteps += 1;
 	nTotalStepsPhase += 1;
 
-	std::cout << mCurrentFrameOnPhase << " " << 1 + mAdaptiveStep << std::endl;
-	
+
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -421,7 +420,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	if(useVelocity) {
 		v_diff = skel->getVelocityDifferences(velocity, velocity2);
-		v_diff_reward.resize(3);
+		v_diff_reward.resize(1);
 		count_dof = 0;
 
 		// for(int i = 0; i < list.size(); i++){
@@ -431,7 +430,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 		// 	v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
 		// 	count_dof += dof;
 		// }
-		v_diff_reward = v_diff.segment<3>(3) / std::max(velocity2.norm(), 0.2);
+		v_diff_reward = v_diff.segment<1>(1) / std::max(abs(velocity2(1)), 0.4);
 
 	}
 
@@ -459,7 +458,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double scale = 1.0;
 
 	double sig_p = 0.4 * scale; 
-	double sig_v = 0.1 * scale;	
+	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.1 * scale;		
 
@@ -578,7 +577,7 @@ UpdateAdaptiveReward()
 	double r_con = exp(-con_diff);
 
 	mRewardParts.clear();
-	double r_tot = 0.8 * accum_bvh + 0.2 * r_con;
+	double r_tot =  accum_bvh;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -655,6 +654,7 @@ UpdateRewardTrajectory() {
 		ee_diff[3*i+1] = 0;
 	}
 
+
 	double scale = 1.0;
 
 	double sig_p = 0.5 * scale; 
@@ -721,7 +721,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(nTotalSteps > 300) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 20) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
