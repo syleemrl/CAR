@@ -31,6 +31,21 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
+
+	if(adaptive) {
+		Py_Initialize();
+		np::initialize();
+		try{
+			p::object regression = p::import("regression");
+			this->mRegression = regression.attr("Regression")();
+			this->mRegression.attr("initTrain")(training_path, 2, mReferenceManager->GetDOF());
+		}
+		catch (const p::error_already_set&)
+		{
+			PyErr_Print();
+		}
+	}
+	isAdaptive = adaptive;
 }
 //For general properties
 int
@@ -190,9 +205,9 @@ Optimize()
 	bool t = mReferenceManager->Optimize();
 	return t;
 }
-p::list
+void 
 SimEnv::
-GetRegressionSamples()
+TrainRegressionNetwork()
 {
 	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> x_y = mReferenceManager->GetRegressionSamples();
 	np::ndarray x = DPhy::toNumPyArray(x_y.first);
@@ -202,7 +217,10 @@ GetRegressionSamples()
 	l.append(x);
 	l.append(y);
 
-	return l;
+	this->mRegression.attr("saveRegressionData")(l);
+	this->mRegression.attr("updateRegressionData")(l);
+	this->mRegression.attr("train")();
+
 }
 void
 SimEnv::
@@ -246,7 +264,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
-		.def("GetRegressionSamples",&SimEnv::GetRegressionSamples)
+		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
 		.def("Optimize",&SimEnv::Optimize)
 		.def("GetDOF",&SimEnv::GetDOF)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)

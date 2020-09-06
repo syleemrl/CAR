@@ -78,7 +78,7 @@ protected:
 	std::vector<DPhy::Character*> mRef;
 	DPhy::Character* mRef_BVH;
 
-	p::object mPPO;
+	p::object mRegression;
 
 };
 

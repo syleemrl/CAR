@@ -1,6 +1,5 @@
 from network import Actor
 from network import Critic
-from network import Regression
 from monitor import Monitor
 import argparse
 import random
@@ -31,7 +30,6 @@ class PPO(object):
 		self.learning_rate_critic = learning_rate_critic
 		self.learning_rate_actor = learning_rate_actor
 		self.learning_rate_decay = learning_rate_decay
-		self.learning_rate_regression = 1e-4
 		self.epsilon = epsilon
 		self.gamma = gamma
 		self.gamma_sparse = gamma_sparse
@@ -92,9 +90,6 @@ class PPO(object):
 
 		#build network and optimizer
 		self.buildOptimize(name)
-		if self.adaptive:
-			self.regression_x = np.empty(shape=[0, 2])
-			self.regression_y = np.empty(shape=[0, self.env.dof])
 		# load pretrained network
 		if self.pretrain is not "":
 			self.load(self.pretrain)
@@ -106,23 +101,6 @@ class PPO(object):
 		
 		self.printSetting()
 		
-		
-	def initRegression(self, pretrain):
-
-		config = tf.ConfigProto()
-		config.intra_op_parallelism_threads = 1
-		config.inter_op_parallelism_threads = 1
-		self.sess = tf.Session(config=config)
-
-		#build network and optimizer
-		name = pretrain.split("/")[-2]
-		self.buildOptimizeReg(name)
-		
-		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
-		self.saver = tf.train.Saver(var_list=save_list)
-		
-		self.load(pretrain)
-		print(1)
 
 	def printSetting(self):
 		
@@ -200,21 +178,16 @@ class PPO(object):
 		
 			grads_and_vars = list(zip(grads, params))
 			self.critic_sparse_train_op = critic_trainer_sparse.apply_gradients(grads_and_vars)
-			self.buildOptimizeReg(name)
 
-		save_list = tf.trainable_variables()
+		var_list = tf.trainable_variables()
+		save_list = []
+		for v in var_list:
+			if "Actor" in v.name or "Critic" in v.name:
+				save_list.append(v)
+
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		self.sess.run(tf.global_variables_initializer())
-
-	def buildOptimizeReg(self, name):
-		self.input = tf.placeholder(tf.float32, shape=[None, 2], name=name+'_input')
-		self.output = tf.placeholder(tf.float32, shape=[None, 57], name=name+'_output')
-
-		self.regression = Regression(self.sess, name, self.input, 57)
-		self.loss_regression = tf.reduce_mean(tf.square(self.regression.value - self.output))
-		regression_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_regression)
-		self.regression_train_op = regression_trainer.minimize(self.loss_regression)
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -273,44 +246,7 @@ class PPO(object):
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages[i])
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
-	def saveRegressionData(self, tuples):
-		out = open(self.directory+"regression_data", "a")
 
-		for i in range(len(tuples[0])):
-			for sx in tuples[0][i]:
-				out.write(str(sx)+' ')
-			out.write(', ')
-			for sy in tuples[1][i]:
-				out.write(str(sy)+' ')
-			out.write('\n')
-		out.close()
-
-	def updateRegression(self, tuples):
-		if len(tuples[0]) == 0:
-			return
-		self.regression_x = np.concatenate((self.regression_x, tuples[0]), axis=0)
-		self.regression_y = np.concatenate((self.regression_y, tuples[1]), axis=0)
-		
-		self.lossvals = []
-		for _ in range(50):
-			if int(len(self.regression_x) // self.batch_size) == 0:
-				return
-
-			ind = np.arange(len(self.regression_x))
-			np.random.shuffle(ind)
-
-			lossval_reg = 0
-
-			for s in range(int(len(ind)//self.batch_size)):
-				selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
-				val = self.sess.run([self.regression_train_op, self.loss_regression], 
-					feed_dict={
-						self.input: self.regression_x[selectedIndex], 
-						self.output: self.regression_y[selectedIndex], 
-					}
-				)
-				lossval_reg += val[1]
-		self.lossvals.append(['loss regression', lossval_reg / 100])
 
 	def updateAdaptive(self, tuples):
 		state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
@@ -341,6 +277,8 @@ class PPO(object):
 			lossval_ac += val[3]
 			lossval_c += val[4]
 			lossval_cs += val[5]
+		
+		self.lossvals = []
 
 		self.lossvals.append(['loss actor', lossval_ac])
 		self.lossvals.append(['loss critic', lossval_c])
@@ -521,12 +459,9 @@ class PPO(object):
 			print('')
 
 			if it % 5 == 4:	
-		#	if 1:		
 				if self.adaptive:
-					data = self.env.sim_env.GetRegressionSamples()
-					self.saveRegressionData(data)
-					self.updateRegression(data)
 					self.updateAdaptive(epi_info_iter)
+					self.env.sim_env.TrainRegressionNetwork()
 					self.env.sim_env.Optimize()
 
 				else:			
@@ -551,39 +486,6 @@ class PPO(object):
 
 				epi_info_iter = []
 
-	def optimizeReference(self, num_max_iteration):
-			self.env.sim_env.OptimizationStart()
-			print('Optimization start')
-
-			for it in range(num_max_iteration):
-			#	self.env.sim_env.GenerateRandomTrajectory()
-
-				for i in range(self.num_slaves):
-					self.env.reset(i)
-				states = self.env.getStates()
-				
-				while True:
-					# set action
-
-					actions = self.actor.getMeanAction(states)
-		
-					rewards, dones, times  = self.env.step(actions, False)
-					for j in range(self.num_slaves):
-						if not self.env.getTerminated(j):
-							if dones[j]:
-								self.env.setTerminated(j)
-
-					if self.env.getAllTerminated():
-						break
-
-					states = self.env.getStates()
-
-				print('Optimization: iter {}'.format(it+1),end='\r')
-
-			print('')
-			print('Optimization done')
-			self.env.sim_env.OptimizationEnd()
-			self.env.sim_env.Optimize()
 
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
@@ -592,45 +494,6 @@ class PPO(object):
 		action = self.actor.getMeanAction(state)
 
 		return action
-
-	def runRegression(self, input):
-		input = np.reshape(input, (1, 2))
-		print(input)
-		output = self.regression.getValue(input)
-		return output
-
-	def eval(self, num_eval):
-		t_per_e_total = []
-		rp_per_i_total = []
-		for it in range(num_eval):
-			for i in range(self.num_slaves):
-				self.env.reset(i)
-			states = self.env.getStates()
-				
-			while True:
-				# set action
-				actions = self.actor.getMeanAction(states)
-				rewards, dones, times  = self.env.step(actions)
-				for j in range(self.num_slaves):
-					if not self.env.getTerminated(j):
-						if dones[j]:
-							self.env.setTerminated(j)
-
-				if self.env.getAllTerminated():
-					break
-
-				states = self.env.getStates()
-			info = self.env.printSummary(False)
-			rp_per_i_total.append(info["rp_per_i"])
-			t_per_e_total.append(info["t_per_e"])
-		
-		rp_per_i = np.mean(rp_per_i_total, axis=0)
-		t_per_e = np.mean(t_per_e_total)
-		print(rp_per_i, t_per_e)
-		if t_per_e > 400 and rp_per_i[2] > 0.9 and rp_per_i[3] > 0.9 and rp_per_i[4] > 0.85:
-			return True
-
-		return False
 
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
@@ -658,7 +521,7 @@ if __name__=="__main__":
 			os.mkdir(directory)
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, load=True, directory=directory, plot=args.plot, adaptive=args.adaptive)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
 	else:
 		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
 

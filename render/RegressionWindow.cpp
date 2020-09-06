@@ -54,10 +54,10 @@ RegressionWindow(std::string motion, std::string network)
 	Py_Initialize();
 	np::initialize();
 	try {
-		p::object ppo_main = p::import("ppo");
-		this->mPPO = ppo_main.attr("PPO")();
+		p::object reg_main = p::import("regression");
+		this->mRegression = reg_main.attr("Regression")();
 		std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + network;
-		this->mPPO.attr("initRegression")(path);
+		this->mRegression.attr("initRun")(path, 2, dof);
 	} catch (const p::error_already_set&) {
 		PyErr_Print();
 	}
@@ -66,7 +66,7 @@ RegressionWindow(std::string motion, std::string network)
 		for(int j = 0; j < cps.size(); j++) {
 			Eigen::VectorXd input(2);
 			input << j, i / 100.0;
-			p::object a = this->mPPO.attr("runRegression")(DPhy::toNumPyArray(input));
+			p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 			np::ndarray na = np::from_object(a);
 			cps[j] = DPhy::toEigenVector(na, dof);
 		}

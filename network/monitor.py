@@ -8,7 +8,7 @@ from utils import RunningMeanStd
 from IPython import embed
 
 class Monitor(object):
-	def __init__(self, ref, num_slaves, directory, adaptive, load=False, plot=True, verbose=True):
+	def __init__(self, ref, num_slaves, directory, adaptive, plot=True, verbose=True):
 		self.env = Env(ref, directory, adaptive, num_slaves)
 		self.num_slaves = self.env.num_slaves
 		self.sim_env = self.env.sim_env
@@ -37,10 +37,7 @@ class Monitor(object):
 		self.num_episodes_per_iteration = 0
 		self.num_transitions_per_iteration = 0
 		self.rewards_per_iteration = 0
-		self.rewards_target_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
-		self.target_update_count = 0
-		self.r_target_avg_old = 0
 
 		self.terminated = [False]*self.num_slaves
 		self.states = [0]*self.num_slaves
@@ -51,8 +48,6 @@ class Monitor(object):
 		self.num_episodes_opt = 0
 
 		self.phaselength = self.sim_env.GetPhaseLength()
-		self.dof = self.sim_env.GetDOF()
-		self.nrewards = 0
 
 		if self.plot:
 			plt.ion()
@@ -92,10 +87,6 @@ class Monitor(object):
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
-				if self.adaptive and rewards[i][1] != 0 and rewards[i][1] is not None:
-					self.rewards_target_per_iteration += rewards[i][1]
-					self.nrewards += 1
-
 				if not self.terminated[i] and rewards[i][0] is not None:
 					self.rewards_per_iteration += rewards[i][0]
 
@@ -163,7 +154,6 @@ class Monitor(object):
 			print_list.append('===============================================================')
 			print_list.append(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 			print_list.append("Elapsed time : {:.2f}s".format(time.time() - self.start_time))
-			print_list.append("Target update : {}".format(self.target_update_count))
 			print_list.append('Num eval : {}'.format(self.num_evaluation))
 			print_list.append('total episode count : {}'.format(self.num_episodes))
 			print_list.append('total transition count : {}'.format(self.num_transitions))
@@ -222,7 +212,6 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.total_frames_elapsed = 0
-		self.rewards_target_per_iteration = 0
 
 		summary = dict()
 		summary['r_per_e'] = r_per_e

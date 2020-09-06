@@ -43,11 +43,12 @@ public:
 	np::ndarray GetRewardsByParts();
 	
 	bool Optimize();
-	p::list GetRegressionSamples();
 
 	void SaveAdaptiveMotion();
 	void LoadAdaptiveMotion();
 	
+	void TrainRegressionNetwork();
+
 	double GetPhaseLength();
 	int GetDOF();
 private:
@@ -57,6 +58,10 @@ private:
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
+	bool isAdaptive;
+
+	p::object mRegression;
+
 };
 
 

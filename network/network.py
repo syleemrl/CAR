@@ -109,7 +109,7 @@ class Critic(object):
 			return tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, self.scope)
 		else:
 			return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, self.scope)
-class Regression(object):
+class RegressionNet(object):
 	def __init__(self, sess, scope, input, output, postfix=''):
 		self.sess = sess
 		self.name = scope
