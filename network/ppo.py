@@ -248,8 +248,11 @@ class PPO(object):
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
 
-	def updateAdaptive(self, tuples):
-		state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
+	def updateAdaptive(self, tuples, hindsight=False):
+		if hindsight:
+			state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEHindsight(tuples)
+		else:
+			state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
 		if len(state_batch) < self.batch_size:
 			return
 		GAE_batch = (GAE_batch - GAE_batch.mean())/(GAE_batch.std() + 1e-5)
@@ -339,6 +342,63 @@ class PPO(object):
 
 		self.values_sparse /= len(tuples)
 		self.values_dense /= len(tuples)
+		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(TD_sparse_batch), np.array(neglogp_batch), np.array(GAE_batch)
+	
+	def computeTDandGAEHindsight(self, tuples):
+		state_batch = []
+		action_batch = []
+		TD_batch = []
+		TD_sparse_batch = []
+		neglogp_batch = []
+		GAE_batch = []
+	
+		for data in tuples:
+			size = len(data)-1	
+			# get values
+			states, actions, rewards, times = zip(*data)
+			
+			states = self.env.RMS.apply(states)
+			values_dense =  self.critic.getValue(states)
+			values_sparse =  self.critic_sparse.getValue(states)
+
+			neglogprobs = self.sess.run(self.cur_neglogp, feed_dict={self.state:states, self.action:actions})
+
+			advantages_dense = np.zeros(size)
+			advantages_sparse = np.zeros(size)
+			ad_t_sparse = 0
+			ad_t_dense = 0
+
+			timesteps = []
+			for i in reversed(range(size)):
+
+				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
+				ad_t_dense = delta_dense + self.lambd * self.gamma * ad_t_dense
+				advantages_dense[i] = ad_t_dense
+			
+				if i == len(data) - 1:
+					timestep = 0
+					delta_sparse = rewards[i][1] - values_sparse[i]
+				elif times[i] > times[i+1]:
+					timestep = self.env.phaselength - times[i]
+					delta_sparse = rewards[i][1] - values_sparse[i]
+				else:
+					timestep = times[i+1]  - times[i]
+					delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma, timestep) - values_sparse[i]
+				ad_t_sparse = delta_sparse + pow(self.gamma, timestep) * pow(self.lambd, timestep) * ad_t_sparse
+
+				advantages_sparse[i] = ad_t_sparse
+
+			TD = values_dense[:size] + advantages_dense
+			TD_sparse = values_sparse[:size] + advantages_sparse
+		
+			for i in range(size):
+				state_batch.append(states[i])
+				action_batch.append(actions[i])
+				TD_batch.append(TD[i])
+				TD_sparse_batch.append(TD_sparse[i])
+				neglogp_batch.append(neglogprobs[i])
+				GAE_batch.append(advantages_dense[i]+advantages_sparse[i])
+
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(TD_sparse_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
 	def save(self):
@@ -458,12 +518,14 @@ class PPO(object):
 				states = self.env.getStates()
 			print('')
 
-			if it % 5 == 4:	
+			if it % 5 == 1:	
 				if self.adaptive:
-					self.updateAdaptive(epi_info_iter)
-					self.env.sim_env.TrainRegressionNetwork()
 					self.env.sim_env.Optimize()
-
+					self.env.sim_env.TrainRegressionNetwork()
+					
+					self.updateAdaptive(epi_info_iter, False)
+					epi_infor_iter_hind = self.env.sim_env.GetHindsightTuples()
+					self.updateAdaptive(epi_infor_iter_hind, True)
 				else:			
 					self.update(epi_info_iter) 
 

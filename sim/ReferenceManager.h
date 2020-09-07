@@ -71,6 +71,9 @@ public:
 	std::vector<double> GetContacts(double t);
 	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> GetRegressionSamples();
 	int GetDOF() {return mDOF; }
+	int GetNumCPS() {return (mKnots.size()+3);}
+	std::vector<double> GetKnots() {return mKnots;}
+
 protected:
 	Character* mCharacter;
 	double mTimeStep;

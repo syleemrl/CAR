@@ -201,6 +201,16 @@ class Regression(object):
 		self.save()
 
 	def run(self, input):
-		input = np.reshape(input, (1, self.num_input))
+		input = np.reshape(input, (-1, self.num_input))
 		output = self.regression.getValue(input)
 		return output
+
+	def runBatch(self, input_li):
+		output_li = []
+
+		for input in input_li:
+			input = np.reshape(input, (-1, self.num_input))
+			output = self.regression.getValue(input)
+			output_li.append(output)
+
+		return output_li

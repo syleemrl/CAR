@@ -48,6 +48,7 @@ public:
 	void LoadAdaptiveMotion();
 	
 	void TrainRegressionNetwork();
+	p::list GetHindsightTuples();
 
 	double GetPhaseLength();
 	int GetDOF();
@@ -61,6 +62,7 @@ private:
 	bool isAdaptive;
 
 	p::object mRegression;
+
 
 };
 

@@ -25,7 +25,6 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void UpdateReward();
 	void UpdateAdaptiveReward();
 	void UpdateRewardTrajectory();
-	void UpdateDPhaseCoef(double c) {this->mDPhaseCoef = c; }
 
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
@@ -75,7 +74,6 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
-	void SetOptimizationMode(bool mode) { mOpMode = mode;};
 
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	double GetPhaseReward();
@@ -85,6 +83,9 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
 	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
 	std::vector<double> GetAdaptiveIdxs();
+
+	std::vector<Eigen::VectorXd> GetHindsightTarget() {return mHindsightTarget; }
+	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -94,7 +95,6 @@ protected:
 	int mControlHz;
 	int mSimulationHz;
 	int mSimPerCon;
-	int nPhase;
 	double mCurrentFrameOnPhase;
 	int nTotalSteps;
 	bool isAdaptive;
@@ -102,8 +102,6 @@ protected:
 	double mPrevFrameOnPhase;
 	double mTargetRewardTrajectory;
 	double mTrackingRewardTrajectory;
-	double mDPhaseCoef;
-	bool mOpMode;
 	
 	Character* mCharacter;
 	Character* mObject;
@@ -169,7 +167,6 @@ protected:
 	std::pair<double, int> mInputVelocity;
 	std::vector<std::string> mContacts;
 
-
 	int mNumState, mNumAction;
 
 	int terminationReason;
@@ -198,6 +195,7 @@ protected:
 	double mStartPhase;
 	int nTotalStepsPhase;
 
+	Eigen::VectorXd mInputTargetParameters;
 	Eigen::VectorXd targetParameters;
 	double target_reward = 0;
 
@@ -205,6 +203,15 @@ protected:
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
+
+	//pos, vel, curFrame
+	std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>> mHindsightPhase;
+	std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> mHindsightSAPhase;
+
+	//state, pos, vel, curFrame, target each phase
+	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>>> mHindsightCharacter;
+	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
+	std::vector<Eigen::VectorXd> mHindsightTarget;
 };
 }
 #endif
