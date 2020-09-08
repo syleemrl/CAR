@@ -420,7 +420,7 @@ void ReferenceManager::RescaleMotion(double w)
 }
 void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
 {
-
+	mLock.lock();
 	while(!p_gen.empty()){
 		Motion* m = p_gen.back();
 		p_gen.pop_back();
@@ -506,6 +506,8 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 			}
 		}
 	}
+	mLock.unlock();
+
 }
 Eigen::VectorXd ReferenceManager::GetPosition(double t , bool adaptive) 
 {

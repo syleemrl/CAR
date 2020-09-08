@@ -48,6 +48,7 @@ class RunningMeanStd(object):
             self.var = np.concatenate((self.var, v_new), axis=0)
             print("new RMS state size: ", self.mean.shape)
 
+
 def update_mean_var_count_from_moments(mean, var, count, batch_mean, batch_var, batch_count):
     delta = batch_mean - mean
     tot_count = count + batch_count

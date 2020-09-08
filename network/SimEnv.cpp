@@ -244,6 +244,7 @@ p::list
 SimEnv::
 GetHindsightTuples()
 {
+
 	int nCps = mReferenceManager->GetNumCPS();
 	int dof = mReferenceManager->GetDOF();
 	p::list input_li;
@@ -273,19 +274,15 @@ GetHindsightTuples()
 	}
 
 	p::object output_li = this->mRegression.attr("runBatch")(input_li);
-	std::vector<p::list> result;
-	for (int id = 0; id < mNumSlaves; ++id)
-	{
-		p::list li;
-		result.push_back(li);
-	}
-#pragma omp parallel for
+	std::vector<std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>>> ss;
+	std::vector<std::vector<std::vector<Eigen::VectorXd>>> cps_;
+
 	for (int id = 0; id < mNumSlaves; ++id)
 	{
 		int nInput = targetParameters[id].size()*nCps;
 
 		np::ndarray na = np::from_object(output_li[id]);
-		Eigen::VectorXd output = DPhy::toEigenVector(na, dof*nInput);
+		Eigen::VectorXd output = DPhy::toEigenVector(na, mNumSlaves*dof*nInput);
 		std::vector<std::vector<Eigen::VectorXd>> cps;
 		for(int i = 0; i < targetParameters[id].size(); i++)
 		{
@@ -295,26 +292,34 @@ GetHindsightTuples()
 			}
 			cps.push_back(cps_phase);
 		}
-		std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> sar = mSlaves[id]->GetHindsightSAR(cps);
+		cps_.push_back(cps);
+	}
+#pragma omp parallel for
+	for (int id = 0; id < mNumSlaves; ++id)
+	{
+		std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> sar = mSlaves[id]->GetHindsightSAR(cps_[id]);
+		ss.push_back(sar);
+	}
+	for (int id = 0; id < mNumSlaves; ++id)
+	{
+		auto sar = ss[id];
 		for(int l = 0; l < sar.size(); l++) {
 			p::list sar_episodes;
-			for(int i = 0; i < sar.size(); i++) {
+
+			for(int i = 0; i < sar[l].size(); i++) {
 				p::list sar_tuples;
+
 				sar_tuples.append(DPhy::toNumPyArray(std::get<0>(sar[l][i])));
 				sar_tuples.append(DPhy::toNumPyArray(std::get<1>(sar[l][i])));
 				sar_tuples.append(DPhy::toNumPyArray(std::get<2>(sar[l][i])));
 				sar_tuples.append(std::get<3>(sar[l][i]));
-
+				
 				sar_episodes.append(sar_tuples);
 			}
-			result[id].append(sar_episodes);
+			result_li.append(sar_episodes);
 		}
 	}
-	for (int id = 0; id < mNumSlaves; ++id)
-	{
-		for(int i = 0; i < p::len(result[id]); i++)
-			result_li.append(result[id][i]);
-	}
+
 	return result_li;
 }
 using namespace boost::python;

@@ -21,6 +21,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mRecord = record;
 	this->mReferenceManager = ref;
 	this->id = id;
+	this->mInputTargetParameters.resize(1);
 
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
@@ -233,7 +234,9 @@ GetAdaptiveIdxs()
 void 
 Controller::
 Step()
-{
+{			
+
+
 	if(IsTerminalState())
 		return;
 	Eigen::VectorXd s = this->GetState();
@@ -350,7 +353,7 @@ Step()
 
 			// to get V(t+1)
 			mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
-								(mTargetPositions, mTargetVelocities, mCurrentFrame));
+								(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
 			mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
 
 			mHindsightCharacter.push_back(mHindsightPhase);
@@ -359,6 +362,7 @@ Step()
 			
 			mHindsightPhase.clear();
 			mHindsightSAPhase.clear();
+
 		}
 	}
 
@@ -373,11 +377,12 @@ Step()
 	if(mRecord) {
 		SaveStepInfo();
 	}
+
 	if(isAdaptive)
 	{
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
 		mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
-									(mTargetPositions, mTargetVelocities, mCurrentFrame));
+									(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
 		mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
 
 	}
@@ -691,6 +696,14 @@ std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::Vect
 Controller::
 GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 {
+	std::vector<double> count;
+	for(int i = 0; i < cps.size(); i++) {
+		count.push_back(mHindsightCharacter[i].size());
+	}
+	// std::cout << count.size() << " ";
+	// for(int i = 0; i < count.size(); i++) {
+	// 	std::cout << count[i] << " ";
+	// }
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, mReferenceManager->GetPhaseLength());
 	s->SetKnots(0, mReferenceManager->GetKnots());
 
@@ -699,6 +712,7 @@ GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 	std::vector<Motion*> motions_cps;
 	std::vector<Motion*> motions_phase_cps;
 	for(int i = 0; i < cps.size(); i++) {
+
 		auto cps_phase = cps[i]; 
 		s->SetControlPoints(0, cps_phase);
 
@@ -707,19 +721,23 @@ GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 		mReferenceManager->AddDisplacementToBVH(new_displacement, newpos);
 		std::vector<Eigen::VectorXd> newvel = mReferenceManager->GetVelocityFromPositions(newpos);
 
-		for(int i = 0; i < newpos.size(); i++) {
-			if(motions_phase_cps.size() <= i )
-				motions_phase_cps.push_back(new Motion(newpos[i], newvel[i]));
+		for(int j = 0; j < newpos.size(); j++) {
+			if(motions_phase_cps.size() <= j)
+				motions_phase_cps.push_back(new Motion(newpos[j], newvel[j]));
 			else {
-				motions_phase_cps[i]->SetPosition(newpos[i]);
-				motions_phase_cps[i]->SetVelocity(newvel[i]);
+				motions_phase_cps[j]->SetPosition(newpos[j]);
+				motions_phase_cps[j]->SetVelocity(newvel[j]);
 			}
-
 		}
-		mReferenceManager->GenerateMotionsFromSinglePhase(std::get<2>(mHindsightCharacter[i].back()), false, motions_phase_cps, motions_cps);
+		
+		int len = std::ceil(std::get<2>(mHindsightCharacter[i].back())) + 10;
+		mReferenceManager->GenerateMotionsFromSinglePhase(len, false, motions_phase_cps, motions_cps);
 
 		std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>> sar_epi;
 		mInputTargetParameters = mHindsightTarget[i];
+		
+		mControlFlag[0] = 0;
+
 		auto skel = mCharacter->GetSkeleton();
 		for(int j = 0; j < mHindsightCharacter[i].size() - 1; j++) {
 			mCurrentFrame = std::get<2>(mHindsightCharacter[i][j]);
@@ -728,20 +746,21 @@ GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 			skel->setPositions(std::get<0>(mHindsightCharacter[i][j]));
 			skel->setVelocities(std::get<1>(mHindsightCharacter[i][j]));
 			skel->computeForwardKinematics(true,true,false);
-
 			
 			int k0 = (int) std::floor(mCurrentFrame);
 			int k1 = (int) std::ceil(mCurrentFrame);	
+
 			mTargetPositions = DPhy::BlendPosition(motions_cps[k1]->GetPosition(), motions_cps[k0]->GetPosition(), 1 - (mCurrentFrame-k0));
 			mTargetVelocities = DPhy::BlendPosition(motions_cps[k1]->GetVelocity(), motions_cps[k0]->GetVelocity(), 1 - (mCurrentFrame-k0));
-
+			
 			this->UpdateAdaptiveReward();
 
 			Eigen::VectorXd rewards(2);
 			rewards << mRewardParts[0], mRewardParts[1];
 
+			(mHindsightSA[i][j].first).tail(mInputTargetParameters.rows()) = mInputTargetParameters;
 			sar_epi.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>
-				(mHindsightSA[i][j].first, mHindsightSA[i][j].second, rewards, mCurrentFrame));
+				(mHindsightSA[i][j].first, mHindsightSA[i][j].second, rewards, mCurrentFrameOnPhase));
 		}
 	
 		sar_epi.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>
@@ -749,6 +768,10 @@ GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 				 Eigen::Vector2d(0, 0), 0));
 		sar.push_back(sar_epi);
 	}
+	// std::cout << count.size() << " ";
+	// for(int i = 0; i < count.size(); i++) {
+	// 	std::cout << count[i] << " ";
+	// }
 	while(!motions_cps.empty()){
 		Motion* m = motions_cps.back();
 		motions_cps.pop_back();
@@ -763,6 +786,11 @@ GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 	}		
 
 	delete s;
+	
+	mHindsightSA.clear();
+	mHindsightTarget.clear();
+	mHindsightCharacter.clear();
+
 	return sar;
 }
 void
@@ -967,7 +995,9 @@ Reset(bool RSI)
 	this->mIsTerminal = false;
 
 	this->mRewardParts.resize(7, 0.0);
-	this->mInputTargetParameters(1, 145.0);
+	this->mInputTargetParameters.resize(1);
+	this->mInputTargetParameters(0) = 1.45;
+
 	this->GRFs.clear();
 	this->mRecordVelocity.clear();
 	this->mRecordPosition.clear();
@@ -1152,8 +1182,8 @@ GetState()
 	// state.resize(p.rows()+v.rows()+1+1+local_pos.rows()+p_next.rows()+p_current.rows());
 	// state<< p, v, up_vec_angle, root_height, local_pos, p_current, p_next; //, mInputVelocity.first;
 	
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase; //, mInputVelocity.first;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters; //, mInputVelocity.first;
 
 	return state;
 }

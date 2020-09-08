@@ -281,11 +281,12 @@ class PPO(object):
 			lossval_c += val[4]
 			lossval_cs += val[5]
 		
-		self.lossvals = []
+		if not hindsight:
+			self.lossvals = []
 
-		self.lossvals.append(['loss actor', lossval_ac])
-		self.lossvals.append(['loss critic', lossval_c])
-		self.lossvals.append(['loss critic sparse', lossval_cs])
+			self.lossvals.append(['loss actor', lossval_ac])
+			self.lossvals.append(['loss critic', lossval_c])
+			self.lossvals.append(['loss critic sparse', lossval_cs])
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
@@ -300,7 +301,6 @@ class PPO(object):
 			size = len(data)		
 			# get values
 			states, actions, rewards, values, neglogprobs, times = zip(*data)
-
 			values_dense =  np.concatenate((np.array(values)[:,0], [0]), axis=0)
 			values_sparse =  np.concatenate((np.array(values)[:,1], [0]), axis=0)
 			advantages_dense = np.zeros(size)
@@ -355,8 +355,11 @@ class PPO(object):
 		for data in tuples:
 			size = len(data)-1	
 			# get values
+
 			states, actions, rewards, times = zip(*data)
-			
+			states = np.array(states)
+			actions = np.array(actions)
+			states_raw = states
 			states = self.env.RMS.apply(states)
 			values_dense =  self.critic.getValue(states)
 			values_sparse =  self.critic_sparse.getValue(states)
@@ -390,7 +393,7 @@ class PPO(object):
 
 			TD = values_dense[:size] + advantages_dense
 			TD_sparse = values_sparse[:size] + advantages_sparse
-		
+
 			for i in range(size):
 				state_batch.append(states[i])
 				action_batch.append(actions[i])
@@ -467,6 +470,7 @@ class PPO(object):
 
 	def train(self, num_iteration):
 		epi_info_iter = []
+		epi_info_iter_hind = []
 		for it in range(num_iteration):
 			# if self.adaptive and it % 5 == 0:	
 			# 	self.optimizeReference(100)
@@ -517,15 +521,18 @@ class PPO(object):
 
 				states = self.env.getStates()
 			print('')
-
-			if it % 5 == 1:	
+			if self.adaptive:
+				info_hind = self.env.sim_env.GetHindsightTuples()
+				epi_info_iter_hind += info_hind			
+			if it % 5 == 4:	
 				if self.adaptive:
 					self.env.sim_env.Optimize()
 					self.env.sim_env.TrainRegressionNetwork()
 					
+					self.updateAdaptive(epi_info_iter_hind, True)
 					self.updateAdaptive(epi_info_iter, False)
-					epi_infor_iter_hind = self.env.sim_env.GetHindsightTuples()
-					self.updateAdaptive(epi_infor_iter_hind, True)
+					epi_info_iter_hind = []
+
 				else:			
 					self.update(epi_info_iter) 
 
@@ -552,6 +559,7 @@ class PPO(object):
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
+
 		#action, _ = self.actor.getAction(state)
 		action = self.actor.getMeanAction(state)
 
