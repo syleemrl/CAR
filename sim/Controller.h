@@ -86,6 +86,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 	std::vector<Eigen::VectorXd> GetHindsightTarget() {return mHindsightTarget; }
 	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
+
+	void SetTargetParameters(Eigen::VectorXd tp) {mInputTargetParameters = tp; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -156,6 +158,7 @@ protected:
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
 	bool mRecord;
+	bool mIsHindsight;
 	std::tuple<bool, double, double> mDoubleStanceInfo;
 	std::tuple<double, double, double> mRescaleParameter;
 	std::vector<std::string> mGRFJoints;

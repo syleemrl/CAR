@@ -48,6 +48,7 @@ class ReferenceManager
 public:
 	ReferenceManager(Character* character=nullptr);
 	void SaveAdaptiveMotion(std::string postfix="");
+	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps);
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
@@ -73,7 +74,7 @@ public:
 	int GetDOF() {return mDOF; }
 	int GetNumCPS() {return (mKnots.size()+3);}
 	std::vector<double> GetKnots() {return mKnots;}
-
+	void SetTargetUpdate(bool on) { mTargetUpdate = on; }
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -110,7 +111,7 @@ protected:
 	std::string mPath;
 	double mPrevRewardTrajectory;
 	double mPrevRewardTarget;
-
+	bool mTargetUpdate;
 	int mDOF;
 	int nOp;
 

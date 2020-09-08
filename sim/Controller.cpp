@@ -181,6 +181,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mHindsightCharacter.clear();
 	this->mHindsightTarget.clear();
 	this->mHindsightPhase.clear();
+	this->mIsHindsight = false;
 
 	mControlFlag.resize(4);
 	mRewardLabels.clear();
@@ -351,18 +352,19 @@ Step()
 			nTotalStepsPhase = 0;
 			mStartPhase = mCurrentFrameOnPhase;
 
-			// to get V(t+1)
-			mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
-								(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
-			mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
+			if(mIsHindsight) {
+				// to get V(t+1)
+				mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
+									(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
+				mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
 
-			mHindsightCharacter.push_back(mHindsightPhase);
-			mHindsightSA.push_back(mHindsightSAPhase);
-			mHindsightTarget.push_back(targetParameters);
-			
-			mHindsightPhase.clear();
-			mHindsightSAPhase.clear();
-
+				mHindsightCharacter.push_back(mHindsightPhase);
+				mHindsightSA.push_back(mHindsightSAPhase);
+				mHindsightTarget.push_back(targetParameters);
+				
+				mHindsightPhase.clear();
+				mHindsightSAPhase.clear();
+			}
 		}
 	}
 
@@ -381,10 +383,11 @@ Step()
 	if(isAdaptive)
 	{
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
-		mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
-									(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
-		mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
-
+		if(mIsHindsight) {
+			mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
+										(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
+			mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
+		}
 	}
 
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
@@ -1182,8 +1185,8 @@ GetState()
 	// state.resize(p.rows()+v.rows()+1+1+local_pos.rows()+p_next.rows()+p_current.rows());
 	// state<< p, v, up_vec_angle, root_height, local_pos, p_current, p_next; //, mInputVelocity.first;
 	
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters; //, mInputVelocity.first;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase; //, mInputTargetParameters; //, mInputVelocity.first;
 
 	return state;
 }

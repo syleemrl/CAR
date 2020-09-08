@@ -7,6 +7,7 @@
 #include <string>
 #include <boost/python.hpp>
 #include <boost/python/numpy.hpp>
+#include <queue>
 namespace DPhy
 {
 	class Controller;
@@ -52,6 +53,11 @@ public:
 
 	double GetPhaseLength();
 	int GetDOF();
+	
+	Eigen::VectorXd PickTargetParameters(bool adaptive);
+	void SetTargetParameters(Eigen::VectorXd tp);
+	void SetSubTrainingMode(bool on);
+
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 //	std::vector<DPhy::SimpleController*> mSlaves;
@@ -60,9 +66,14 @@ private:
 	int mNumState;
 	int mNumAction;
 	bool isAdaptive;
+	bool isSubtraining;
 
 	p::object mRegression;
 
+	std::vector<double> mTargetBins;
+
+	std::vector<std::queue<double>> mTargetRewards;
+	std::vector<double> mTargetMeanRewards;
 
 };
 

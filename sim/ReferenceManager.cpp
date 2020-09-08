@@ -131,6 +131,26 @@ SaveAdaptiveMotion(std::string postfix) {
 }
 void 
 ReferenceManager::
+LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps) {
+	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, mPhaseLength);
+	s->SetKnots(0, mKnots);
+	s->SetControlPoints(0, cps);
+
+	std::vector<Eigen::VectorXd> newpos;
+	std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
+	this->AddDisplacementToBVH(new_displacement, newpos);
+	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+
+	for(int j = 0; j < mPhaseLength; j++) {
+		mMotions_phase_adaptive[j]->SetPosition(newpos[j]);
+		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
+	}
+
+	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+
+}
+void 
+ReferenceManager::
 LoadAdaptiveMotion(std::string postfix) {
 	std::string path = mPath + std::string("adaptive") + postfix;
 
@@ -609,6 +629,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	for(int i = 0; i < 3; i++) {
 		nRejectedSamples.push_back(0);
 	}
+	mTargetUpdate = true;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
@@ -710,6 +731,9 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
+	
+	if(!mTargetUpdate)
+		return;
 
 	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
 		nRejectedSamples[0] += 1;
@@ -856,6 +880,9 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 bool 
 ReferenceManager::
 Optimize() {
+	if(!mTargetUpdate)
+		return false;
+	
 	double rewardTarget = 0;
 	double rewardTrajectory = 0;
     int mu = 60;

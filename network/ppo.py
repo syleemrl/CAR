@@ -521,15 +521,15 @@ class PPO(object):
 
 				states = self.env.getStates()
 			print('')
-			if self.adaptive:
-				info_hind = self.env.sim_env.GetHindsightTuples()
-				epi_info_iter_hind += info_hind			
+			# if self.adaptive:
+			# 	info_hind = self.env.sim_env.GetHindsightTuples()
+			# 	epi_info_iter_hind += info_hind			
 			if it % 5 == 4:	
 				if self.adaptive:
 					self.env.sim_env.Optimize()
 					self.env.sim_env.TrainRegressionNetwork()
 					
-					self.updateAdaptive(epi_info_iter_hind, True)
+					# self.updateAdaptive(epi_info_iter_hind, True)
 					self.updateAdaptive(epi_info_iter, False)
 					epi_info_iter_hind = []
 
