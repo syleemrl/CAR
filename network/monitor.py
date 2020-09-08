@@ -1,4 +1,5 @@
 from env import Env
+from sampler import Sampler
 import time
 import datetime
 import matplotlib
@@ -44,11 +45,18 @@ class Monitor(object):
 		self.prevframes = [0]*self.num_slaves
 
 		self.rewards_by_part_per_opt = []
+		
+		self.rewards_dense_phase = [0]*self.num_slaves
+		self.rewards_sparse_phase = [0]*self.num_slaves
+
 		self.num_transitions_opt = 0
 		self.num_episodes_opt = 0
 
 		self.phaselength = self.sim_env.GetPhaseLength()
-
+		
+		self.dim_target = 1
+		self.sampler = Sampler(self.dim_target, 9, [1.1, 1.45])
+		self.nan_count = [False] * self.num_slaves
 		if self.plot:
 			plt.ion()
 
@@ -81,21 +89,31 @@ class Monitor(object):
 
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, nan_count =  self.env.step(actions)
-		curframes = np.array(self.states)[:,-1]
+		curframes = np.array(self.states)[:,-(self.dim_target+1)]
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
 				if not self.terminated[i] and rewards[i][0] is not None:
-					self.rewards_per_iteration += rewards[i][0]
+					if self.prevframes[i] > curframes[i] or dones[i]:
+						if dones[i]:
+							self.rewards_sparse_phase[i] = 0
+							self.rewards_dense_phase[i] = 0
+						self.sampler.saveResults(self.rewards_sparse_phase[i], self.rewards_dense_phase[i])
+						self.rewards_dense_phase[i] = 0
+						self.rewards_sparse_phase[i] = 0
 
+					self.rewards_per_iteration += rewards[i][0]
 					self.rewards_by_part_per_iteration.append(rewards[i])
-					
 					self.num_transitions_per_iteration += 1
+
 					if self.adaptive:
 						self.num_transitions_opt += 1
 						self.rewards_by_part_per_opt.append(rewards[i][2:])
+						
+						self.rewards_dense_phase[i] += rewards[i][0]
+						self.rewards_sparse_phase[i] += rewards[i][1]
 
 					if dones[i]:
 						self.num_episodes_per_iteration += 1
@@ -115,6 +133,11 @@ class Monitor(object):
 			self.prevframes = curframes
 
 		return rewards, dones, curframes
+
+	def updateTarget(self):
+		t = self.sampler.adaptiveSample()
+		t = np.array(t, dtype=np.float32) 
+		self.sim_env.SetTargetParameters(t)
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:

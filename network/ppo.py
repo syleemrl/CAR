@@ -67,7 +67,7 @@ class PPO(object):
 			self.RMS.setNumStates(self.num_state)
 
 	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False, 
-		directory=None, batch_size=1024, steps_per_iteration=10000):
+		directory=None, batch_size=1024, steps_per_iteration=8000):
 
 		self.name = name
 		self.evaluation = evaluation
@@ -521,13 +521,16 @@ class PPO(object):
 
 				states = self.env.getStates()
 			print('')
+			if self.adaptive:
+				self.env.updateTarget()
+
 			# if self.adaptive:
 			# 	info_hind = self.env.sim_env.GetHindsightTuples()
 			# 	epi_info_iter_hind += info_hind			
-			if it % 5 == 4:	
+			if it % 10 == 9:	
 				if self.adaptive:
 					self.env.sim_env.Optimize()
-					self.env.sim_env.TrainRegressionNetwork()
+					#self.env.sim_env.TrainRegressionNetwork()
 					
 					# self.updateAdaptive(epi_info_iter_hind, True)
 					self.updateAdaptive(epi_info_iter, False)

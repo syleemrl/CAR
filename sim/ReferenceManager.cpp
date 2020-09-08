@@ -133,6 +133,7 @@ void
 ReferenceManager::
 LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps) {
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, mPhaseLength);
+
 	s->SetKnots(0, mKnots);
 	s->SetControlPoints(0, cps);
 
@@ -629,7 +630,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	for(int i = 0; i < 3; i++) {
 		nRejectedSamples.push_back(0);
 	}
-	mTargetUpdate = true;
+	mTargetUpdate = false;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
@@ -882,7 +883,7 @@ ReferenceManager::
 Optimize() {
 	if(!mTargetUpdate)
 		return false;
-	
+
 	double rewardTarget = 0;
 	double rewardTrajectory = 0;
     int mu = 60;

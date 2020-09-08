@@ -22,6 +22,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mReferenceManager = ref;
 	this->id = id;
 	this->mInputTargetParameters.resize(1);
+	this->mInputTargetParameters(0) = 1.45;
 
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
@@ -521,14 +522,13 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//jump	
-
 	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
 		targetParameters(0) = skel->getCOM()[1];
 		double target_diff = skel->getCOM()[1] - mInputTargetParameters(0);
 		r_target = 2 * exp(-pow(target_diff, 2) * 30);
 		mControlFlag[0] = 1;
-		if(mRecord)
-			std::cout << skel->getCOM()[1] << " " << r_target << std::endl;
+		
+		//std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
 	}
 
 	return r_target;
@@ -699,6 +699,7 @@ std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::Vect
 Controller::
 GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 {
+	std::cout << "hindsight" << std::endl;
 	std::vector<double> count;
 	for(int i = 0; i < cps.size(); i++) {
 		count.push_back(mHindsightCharacter[i].size());
@@ -998,8 +999,6 @@ Reset(bool RSI)
 	this->mIsTerminal = false;
 
 	this->mRewardParts.resize(7, 0.0);
-	this->mInputTargetParameters.resize(1);
-	this->mInputTargetParameters(0) = 1.45;
 
 	this->GRFs.clear();
 	this->mRecordVelocity.clear();
@@ -1039,7 +1038,6 @@ Reset(bool RSI)
 	{
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
 	}
-
 }
 int
 Controller::
@@ -1185,8 +1183,8 @@ GetState()
 	// state.resize(p.rows()+v.rows()+1+1+local_pos.rows()+p_next.rows()+p_current.rows());
 	// state<< p, v, up_vec_angle, root_height, local_pos, p_current, p_next; //, mInputVelocity.first;
 	
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase; //, mInputTargetParameters; //, mInputVelocity.first;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters; //, mInputVelocity.first;
 
 	return state;
 }

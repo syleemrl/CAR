@@ -46,16 +46,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		}
 	}
 	isAdaptive = adaptive;
-	if(adaptive) {
-		for(int i = 0; i < 9; i++) {
-			std::queue<double> q;
-			mTargetBins.push_back(0);
-			mTargetRewards.push_back(q);
-			mTargetMeanRewards.push_back(0);
-
-		}
-		isSubtraining = false;
-	}
+	nUpdates = 0;
 }
 //For general properties
 int
@@ -220,18 +211,7 @@ SimEnv::
 TrainRegressionNetwork()
 {
 	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> x_y = mReferenceManager->GetRegressionSamples();
-	for(int i = 0; i < x_y.first.size(); i++) {
-		double idx = (x_y.first)[i](1) - 110;
-		idx /= 5;
-		if(idx < 0 && mTargetBins[0] < 100) {
-			mTargetBins[0] += 1;
-		} else if(idx >= 7 && mTargetBins[8] < 100) {
-			mTargetBins[8] += 1;
-		} else {
-			if(mTargetBins[(int) std::floor(idx) + 1] < 100)
-				mTargetBins[(int) std::floor(idx) + 1] += 1;
-		}
-	}
+
 	np::ndarray x = DPhy::toNumPyArray(x_y.first);
 	np::ndarray y = DPhy::toNumPyArray(x_y.second);
 	
@@ -344,72 +324,12 @@ GetHindsightTuples()
 
 	return result_li;
 }
-void
-SimEnv::
-SetSubTrainingMode(bool on) {
-	if(on) {
-		int flag = 0;
-		for(int i = 0; i < mTargetBins.size(); i++) {
-			if(mTargetBins[i] < 50)
-				flag += 1;
-		}
-		if(flag == mTargetBins.size())
-			return;
-
-		Eigen::VectorXd tp = this->PickTargetParameters(false);
-		this->SetTargetParameters(tp);
-
-		isSubtraining = true;
-		mReferenceManager->SetTargetUpdate(false);
-
-	} else {
-		isSubtraining = false;
-		mReferenceManager->SetTargetUpdate(true);
-
-		mReferenceManager->LoadAdaptiveMotion();
-		Eigen::VectorXd tp(1);
-		tp(0) = 1.45;
-		for(int id = 0; id < mNumSlaves; ++id) {
-			mSlaves[id]->SetTargetParameters(tp);
-		}
-	}
-
-}
-
-Eigen::VectorXd 
-SimEnv::
-PickTargetParameters(bool adaptive) {
-	Eigen::VectorXd tp;
-
-	if(adaptive) {
-
-	} else {
-		while(1) {
-			tp(0) = 0;
-
-			double idx = tp(0) - 110;
-			idx /= 5;
-
-			int idx_int;
-			if(idx < 0) {
-				idx_int = 0;
-			} else if(idx >= 7) {
-				idx_int = 8;
-			} else {
-				idx_int = (int) std::floor(idx) + 1;
-			}
-
-			if(mTargetBins[idx_int] >= 50)
-				break;
-		}
-		tp(0) /= 100;
-	}
-	return tp;
-}
 void 
 SimEnv::
-SetTargetParameters(Eigen::VectorXd tp) {
+SetTargetParameters(np::ndarray np_array) {
 
+	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, 1);
+	std::cout << tp.transpose() << std::endl;
 	int dof = mReferenceManager->GetDOF();
 
 	std::vector<Eigen::VectorXd> cps;
@@ -422,6 +342,7 @@ SetTargetParameters(Eigen::VectorXd tp) {
 	}
 
 	mReferenceManager->LoadAdaptiveMotion(cps);
+	nUpdates += 1;
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetTargetParameters(tp);
 	}
@@ -457,7 +378,5 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetDOF",&SimEnv::GetDOF)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("SetTargetParameters",&SimEnv::SetTargetParameters)
-		.def("PickTargetParameters",&SimEnv::PickTargetParameters)
-		.def("SetSubTrainingMode",&SimEnv::SetSubTrainingMode)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

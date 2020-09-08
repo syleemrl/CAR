@@ -54,9 +54,7 @@ public:
 	double GetPhaseLength();
 	int GetDOF();
 	
-	Eigen::VectorXd PickTargetParameters(bool adaptive);
-	void SetTargetParameters(Eigen::VectorXd tp);
-	void SetSubTrainingMode(bool on);
+	void SetTargetParameters(np::ndarray np_array);
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;
@@ -66,15 +64,9 @@ private:
 	int mNumState;
 	int mNumAction;
 	bool isAdaptive;
-	bool isSubtraining;
 
 	p::object mRegression;
-
-	std::vector<double> mTargetBins;
-
-	std::vector<std::queue<double>> mTargetRewards;
-	std::vector<double> mTargetMeanRewards;
-
+	int nUpdates;	
 };
 
 

@@ -31,7 +31,7 @@ class Env(object):
 		frames = []
 		times = []
 		nan_count = 0
-		
+
 		self.sim_env.SetActions(actions)
 		self.sim_env.Steps()
 		for j in range(self.num_slaves):
