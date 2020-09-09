@@ -213,6 +213,13 @@ SimEnv::
 Optimize()
 {
 	bool t = mReferenceManager->Optimize();
+	if(t) {
+		Eigen::VectorXd tp(1);
+		tp(0) = mReferenceManager->GetTargetRefUpdate();
+		for(int id = 0; id < mNumSlaves; ++id) {
+			mSlaves[id]->SetTargetParameters(tp);
+		}
+	}
 	return t;
 }
 void 
@@ -349,7 +356,7 @@ SetRefUpdateMode(bool t) {
 		// load cps
 		mReferenceManager->LoadAdaptiveMotion("updated");
 		Eigen::VectorXd tp(1);
-		tp << 1.45;
+		tp(0) = mReferenceManager->GetTargetRefUpdate();		
 		for(int id = 0; id < mNumSlaves; ++id) {
 			mSlaves[id]->SetTargetParameters(tp);
 		}

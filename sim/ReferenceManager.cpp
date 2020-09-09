@@ -631,7 +631,7 @@ InitOptimization(int nslaves, std::string save_path) {
 		nRejectedSamples.push_back(0);
 	}
 	mRefUpdateMode = true;
-
+	mTargetRefUpdate = 1.25;
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
 	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
@@ -814,6 +814,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	if(flag[1] && mRefUpdateMode) {
 		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
 							std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
+		mSampleTargets.push_back(parameters);
 		std::string path = mPath + std::string("samples") + std::to_string(nOp);
 
 		std::ofstream ofs;
@@ -993,6 +994,18 @@ Optimize() {
 			nRejectedSamples[i] = 0;
 		}
 
+		Eigen::VectorXd meanTarget(mSampleTargets[0].rows());
+		meanTarget.setZero();
+		for(int i = 0; i < mSampleTargets.size(); i++) {
+			meanTarget += mSampleTargets[i];
+		}
+		meanTarget /= mSampleTargets.size();
+
+		if(meanTarget(0) + 5 >= mTargetRefUpdate) {
+			std::cout << "target updated from " << mTargetRefUpdate  << " to " << meanTarget(0) + 5 << std::endl;
+			mTargetRefUpdate = meanTarget(0) + 5;
+		}
+		mSampleTargets.clear();
 		return true;
 	// } else {
 	// 	while(mSamples.size() > 100){

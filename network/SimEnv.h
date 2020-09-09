@@ -71,6 +71,7 @@ private:
 	std::vector<int> mTargetBin;
 	bool mFlag_max;
 
+	
 	p::object mRegression;
 };
 

@@ -78,7 +78,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	double GetPhaseReward();
-	double GetTargetReward();
+	std::pair<double, double>  GetTargetReward();
 	std::vector<bool> GetContacts();
 	std::vector<bool> GetContacts(Eigen::VectorXd pos);
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);

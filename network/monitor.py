@@ -93,7 +93,7 @@ class Monitor(object):
 
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
-		curframes = np.array(self.states)[:,-(self.dim_target+1)]
+		curframes = np.array(self.states)[:,-(self.dim_target+2)]
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		if record:

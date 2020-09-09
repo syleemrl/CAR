@@ -75,6 +75,7 @@ public:
 	int GetNumCPS() {return (mKnots.size()+3);}
 	std::vector<double> GetKnots() {return mKnots;}
 	void SetRefUpdateMode(bool on) { mRefUpdateMode = on; }
+	double GetTargetRefUpdate() {return mTargetRefUpdate;}
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -104,7 +105,7 @@ protected:
 	std::vector<Eigen::VectorXd> mDisplacement;
 	std::vector<double> mKnots;
 	std::vector<std::string> mInterestedBodies;
-
+	std::vector<Eigen::VectorXd> mSampleTargets;
 	double mSlaves;
 	std::mutex mLock;
 	bool mSaveTrajectory;
@@ -115,6 +116,7 @@ protected:
 	int mDOF;
 	int nOp;
 
+	double mTargetRefUpdate;
 	std::vector<int> nRejectedSamples;
 };
 }

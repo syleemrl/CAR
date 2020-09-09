@@ -514,18 +514,20 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	return rewards;
 
 }
-double 
+std::pair<double, double> 
 Controller::
 GetTargetReward()
 {
-	double r_target = 0;
+	double r_target = 0, r_target_update = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 
 	//jump	
 	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
 		targetParameters(0) = skel->getCOM()[1];
 		double target_diff = skel->getCOM()[1] - mInputTargetParameters(0);
-		r_target =1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 150);
+		r_target = 0.5 * exp(-pow(target_diff, 2) * 30) + 1.5 * exp(-pow(target_diff, 2) * 200);
+
+		r_target_update = exp(-pow(target_diff, 2) * 30);
 		mControlFlag[0] = 1;
 	// //	if(mInputTargetParameters(0) != 1.45) {
 		//	std::cout << skel->getCOM()[1] << " " << target_diff << " " <<r_target << std::endl;
@@ -535,7 +537,7 @@ GetTargetReward()
 		 	std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
 	}
 
-	return r_target;
+	return std::pair<double, double>(r_target, r_target_update);
 }
 std::vector<bool> 
 Controller::
@@ -591,7 +593,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
-	double r_target = this->GetTargetReward();
+	auto r_t = this->GetTargetReward();
 	
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
@@ -611,13 +613,13 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(4 * r_target);
+		mRewardParts.push_back(4 * r_t.first);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
-	if(r_target != 0) {
-		mTargetRewardTrajectory += r_target;
+	if(r_t.second != 0) {
+		mTargetRewardTrajectory += r_t.second;
 	}
 }
 void
@@ -1183,9 +1185,13 @@ GetState()
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
 	Eigen::VectorXd state;
-	
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters;
+
+	double com_diff = 0;
+	if(mCurrentFrameOnPhase < 44)
+		com_diff = mInputTargetParameters(0) - skel->getCOM()[1];
+
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows()+1);
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters, com_diff;
 
 	return state;
 }

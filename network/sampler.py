@@ -143,7 +143,7 @@ class Sampler(object):
 
 	def allTrained(self):
 		for i in range(self.nBin):
-			if self.count_update[i] == 0 or np.array(self.rewards_sparse[i]).mean() < 5.5 or np.array(self.rewards_dense[i]).mean() < 70:
+			if self.count_update[i] == 0 or np.array(self.rewards_sparse[i]).mean() < 5 or np.array(self.rewards_dense[i]).mean() < 70:
 				return False
 		return True
 
