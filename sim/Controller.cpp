@@ -525,9 +525,12 @@ GetTargetReward()
 	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
 		targetParameters(0) = skel->getCOM()[1];
 		double target_diff = skel->getCOM()[1] - mInputTargetParameters(0);
-		r_target = 2 * exp(-pow(target_diff, 2) * 30);
+		r_target =1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 150);
 		mControlFlag[0] = 1;
-		
+	// //	if(mInputTargetParameters(0) != 1.45) {
+			std::cout << skel->getCOM()[1] << " " << target_diff << " " <<r_target << std::endl;
+	// 		std::cout <<1.5 *exp(-pow(0.05, 2) * 30) + 0.5 *exp(-pow(0.05, 2) * 150) << std::endl;
+	// //	}
 		// std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
 	}
 
@@ -1180,8 +1183,8 @@ GetState()
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
 	Eigen::VectorXd state;
 	
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters;
 
 	return state;
 }

@@ -55,7 +55,7 @@ class Monitor(object):
 		self.phaselength = self.sim_env.GetPhaseLength()
 		
 		self.dim_target = 1
-		self.sampler = Sampler(self.dim_target, 9, [1.1, 1.45])
+		self.sampler = Sampler(self.dim_target, 4, [110, 150])
 		self.nan_count = [False] * self.num_slaves
 
 		self.ref_update_mode = True
@@ -92,21 +92,23 @@ class Monitor(object):
 		return states_updated, r, t
 
 	def step(self, actions, record=True):
-		self.states, rewards, dones, times, frames, nan_count =  self.env.step(actions)
-		curframes = np.array(self.states)[:,-(self.dim_target*3+1)]
+		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
+		curframes = np.array(self.states)[:,-(self.dim_target+1)]
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
 				if not self.terminated[i] and rewards[i][0] is not None:
-					if self.prevframes[i] > curframes[i] or dones[i]:
-						if dones[i]:
-							self.rewards_sparse_phase[i] = 0
-							self.rewards_dense_phase[i] = 0
-						self.sampler.saveResults(self.rewards_sparse_phase[i], self.rewards_dense_phase[i])
-						self.rewards_dense_phase[i] = 0
-						self.rewards_sparse_phase[i] = 0
+					if not self.ref_update_mode:
+						if self.prevframes[i] > curframes[i] or dones[i]:
+							if dones[i] and terminal_reason[i] == 8:
+								self.rewards_dense_phase[i] = 0
+								self.rewards_sparse_phase[i] = 0
+							else:
+								self.sampler.saveResults(self.rewards_sparse_phase[i], self.rewards_dense_phase[i])
+								self.rewards_dense_phase[i] = 0
+								self.rewards_sparse_phase[i] = 0
 
 					self.rewards_per_iteration += rewards[i][0]
 					self.rewards_by_part_per_iteration.append(rewards[i])
@@ -116,8 +118,9 @@ class Monitor(object):
 						self.num_transitions_opt += 1
 						self.rewards_by_part_per_opt.append(rewards[i][2:])
 						
-						self.rewards_dense_phase[i] += rewards[i][0]
-						self.rewards_sparse_phase[i] += rewards[i][1]
+						if not self.ref_update_mode:
+							self.rewards_dense_phase[i] += rewards[i][0]
+							self.rewards_sparse_phase[i] += rewards[i][1]
 
 					if dones[i]:
 						self.num_episodes_per_iteration += 1
@@ -144,7 +147,7 @@ class Monitor(object):
 			if self.ref_update_counter % 5 == 0: 
 				self.sim_env.TrainRegressionNetwork()
 	
-			if self.ref_update_counter >= 50:
+			if self.ref_update_counter >= 30:
 				self.ref_update_mode = False
 				self.sim_env.SetRefUpdateMode(False)
 		else:
@@ -156,24 +159,21 @@ class Monitor(object):
 				self.sampler.resetCounter()
 
 		if not self.ref_update_mode:
-			t = self.updateTarget()
-			if not t:
+			b = self.sim_env.GetTargetBound()
+			if b[0] == b[1]:
 				self.ref_update_mode = True
-				self.ref_update_counter = 40
-				self.sim_env.SetRefUpdateMode(True)
+				self.ref_update_counter = 20
+				self.sim_env.SetRefUpdateMode(True)		
+			else:
+				self.sampler.updateBound(b)
+				self.updateTarget()
 
-	def updateTarget(self):
-		b = self.sim_env.GetTargetBound()
-		if b[0] == b[1]:
-			return False
-		self.sampler.updateBound(b)
-		
+	def updateTarget(self):		
 		t = self.sampler.adaptiveSample()
 		t = np.array(t, dtype=np.float32) 
 		
 		self.sim_env.SetTargetParameters(t)
 
-		return True
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:

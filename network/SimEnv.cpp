@@ -46,9 +46,9 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		}
 
 		//manual setting
-		mTargetInterval = 4;
-		mMaxbound = std::pair<double, double>(110, 150);
-		nBins = (mMaxbound.second - mMaxbound.first) / mTargetInterval;
+		mTargetInterval = 0.04;
+		mMaxbound = std::pair<double, double>(1.1, 1.5);
+		nBins = (int)std::ceil((mMaxbound.second - mMaxbound.first) / mTargetInterval);
 		for(int i = 0; i < nBins; i++) {
 			mTargetBin.push_back(0);
 		}
@@ -95,7 +95,8 @@ IsNanAtTerminal(int id)
 	int start = mSlaves[id]->GetStartFrame();
 	double e = mSlaves[id]->GetCurrentLength();
 	double tt = mSlaves[id]->GetTimeElapsed();
-	return p::make_tuple(t, n, start, e, tt);
+	int term = mSlaves[id]->GetTerminationReason();
+	return p::make_tuple(t, n, start, e, tt, term);
 }
 np::ndarray
 SimEnv::
@@ -361,6 +362,7 @@ SimEnv::
 SetTargetParameters(np::ndarray np_array) {
 
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, 1);
+	tp /= 100;
 	std::cout << tp.transpose() << std::endl;
 	int dof = mReferenceManager->GetDOF();
 
@@ -383,29 +385,34 @@ SimEnv::
 GetTargetBound() {
 	p::list bound;
 	if(mFlag_max) {
-		bound.append(mMaxbound.first);
-		bound.append(mMaxbound.second);
+		bound.append((int)(mMaxbound.first*100));
+		bound.append((int)(mMaxbound.second*100));
 	} else {
-		double min = -1, max = nBins - 1;
+		double min = -1, max = nBins;
 		for(int i = 0; i < nBins; i++) {
-			if(mTargetBin[i] > 10) {
+			if(mTargetBin[i] >= 10) {
 				if(min == -1)
 					min = i;
 			} else if(min != -1) {
-				max = i - 1;
+				max = i;
 				break;
 			}
 		}
-		if(min == 0 && max == nBins - 1)
+		if(min == 0 && max == nBins)
 			mFlag_max = true;
 
 		if(min == -1) {
 			bound.append(0);
 			bound.append(0);
 		} else {
-			bound.append(mMaxbound.first + mTargetInterval * min);
-			bound.append(mMaxbound.first + mTargetInterval * max);
+			bound.append((int)((mMaxbound.first + mTargetInterval * min)*100));
+			bound.append((int)((mMaxbound.first + mTargetInterval * max)*100));
 		}
+		std::cout << "regression bins: ";
+		for(int i = 0; i < nBins; i++) {
+			std::cout << mTargetBin[i] << " ";
+		}
+		std::cout << std::endl;
 	}
 	return bound;
 }

@@ -29,6 +29,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
 	bool FollowBvh();
+	int GetTerminationReason() {return terminationReason; }
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
 	bool IsTimeEnd(){
@@ -201,7 +202,6 @@ protected:
 	Eigen::VectorXd mInputTargetParameters;
 	Eigen::VectorXd targetParameters;
 	double target_reward = 0;
-
 
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 

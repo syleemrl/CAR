@@ -21,55 +21,61 @@ class Sampler(object):
 		self.target = self.boundary[1]
 		self.flag = 0
 
-	def updateUnderBound(self, u):
-		
+	def updateLowerBound(self, l):
+		if self.boundary[0] == l:
+			return
+
 		nbin_prev = self.nBin
 
-		self.boundary[0] = u
+		self.boundary[0] = l
 		self.nBin = math.ceil((self.boundary[1] - self.boundary[0]) / self.interval)
 
-		diff = self.nBin - nbin_prev
+		diff = nbin_prev - self.nBin
 		
-		if diff < 0:
-			self.rewards_sparse = self.rewards_sparse[-diff:]
-			self.rewards_dense = self.rewards_dense[-diff:]
-			self.count = self.count[-diff:]
-			self.count_update = self.count_update[-diff:]
+		if diff > 0:
+			self.rewards_sparse = self.rewards_sparse[diff:]
+			self.rewards_dense = self.rewards_dense[diff:]
+			self.count = self.count[diff:]
+			self.count_update = self.count_update[diff:]
 
-		elif diff > 0:
-			for _ in range(diff):
+		elif diff < 0:
+			for _ in range(-diff):
 				self.rewards_sparse = [[0]] + self.rewards_sparse
 				self.rewards_dense = [[0]] + self.rewards_dense
 				self.count = [1] + self.count
 				self.count_update = [0] + self.count_update
 
 		print("under bound updated: ", self.boundary)
+		print(self.rewards_sparse)
 
-	def updateUpperBound(self, l):
+	def updateUpperBound(self, u):
+		if self.boundary[1] == u:
+			return
 
 		nbin_prev = self.nBin
 
-		self.boundary[1] = l
+		self.boundary[1] = u
 		self.nBin = math.ceil((self.boundary[1] - self.boundary[0]) / self.interval)
 		diff = self.nBin - nbin_prev
 
 		if diff < 0:
-			self.rewards_sparse = self.rewards_sparse[-diff:]
-			self.rewards_dense = self.rewards_dense[-diff:]
-			self.count = self.count[-diff:]
-			self.count_update = self.count_update[-diff:]
+			self.rewards_sparse = self.rewards_sparse[:self.nBin]
+			self.rewards_dense = self.rewards_dense[:self.nBin]
+			self.count = self.count[:self.nBin]
+			self.count_update = self.count_update[:self.nBin]
 		elif diff > 0:
 			for _ in range(diff):
-				self.rewards_sparse = [[0]] + self.rewards_sparse
-				self.rewards_dense = [[0]] + self.rewards_dense
-				self.count = [1] + self.count
-				self.count_update = [0] + self.count_update
+				self.rewards_sparse = self.rewards_sparse + [[0]] 
+				self.rewards_dense = self.rewards_dense + [[0]]
+				self.count = self.count +  [1]
+				self.count_update = self.count_update + [0] 
 
 		print("upper bound updated: ", self.boundary)
+		print(self.rewards_sparse)
 
 	def updateBound(self, bound):
 		self.updateUpperBound(bound[1])
-		self.updateUnderBound(bound[0])
+		self.updateLowerBound(bound[0])
 
 	def randomSample(self):
 		t = np.random.rand(self.dim)
@@ -78,10 +84,14 @@ class Sampler(object):
 		return target
 
 	def adaptiveSample(self):
-		e = [np.array(self.rewards_sparse[i]).mean() for i in range(len(self.rewards_sparse))]
-		e = np.array(e)
+		e_s = [np.array(self.rewards_sparse[i]).mean() for i in range(len(self.rewards_sparse))]
+		e_d = [np.array(self.rewards_dense[i]).mean() for i in range(len(self.rewards_dense))]
 
-		print("sparse reward per bin : ", e)
+		e = np.array(e_s) + 0.08*np.array(e_d)
+
+		print("sparse reward per bin : ", e_s)
+		print("sparse reward per bin : ", e_d)
+		print("weighted reward per bin : ", e)
 
 		if self.flag == 0:
 			flag_count = 0
@@ -118,7 +128,7 @@ class Sampler(object):
 
 	def saveResults(self, rewards_sparse, rewards_dense):
 		idx = (self.target - self.boundary[0]) / self.interval
-		idx = math.floor(idx)
+		idx = math.ceil(idx) - 1
 		if idx > self.nBin - 1:
 			idx = self.nBin - 1
 		self.count[idx] += 1
@@ -126,16 +136,17 @@ class Sampler(object):
 		self.rewards_dense[idx].append(rewards_dense)
 		self.count_update[idx] = 1
 
-		if self.count[idx] > 100:
-			self.rewards_sparse[idx] = self.rewards_sparse[idx][50:]
-			self.rewards_dense[idx] = self.rewards_dense[idx][50:]
-			self.count[idx] -= 50
+		if self.count[idx] > 200:
+			self.rewards_sparse[idx] = self.rewards_sparse[idx][100:]
+			self.rewards_dense[idx] = self.rewards_dense[idx][100:]
+			self.count[idx] -= 100
 
-	def allTrained():
+	def allTrained(self):
 		for i in range(self.nBin):
-			if self.count_update[i] == 0 or self.rewards_sparse[i] < 5.5:
+			if self.count_update[i] == 0 or np.array(self.rewards_sparse[i]).mean() < 6.5 or  np.array(self.rewards_dense[i]).mean() < 75:
 				return False
 		return True
-	def resetCounter():
+
+	def resetCounter(self):
 		for i in range(self.nBin):
 			self.count_update[i] = 0

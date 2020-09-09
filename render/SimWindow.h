@@ -101,6 +101,8 @@ protected:
 	DPhy::BVH* mBVH;
 
 	p::object mPPO;
+	p::object mRegression;
+
 };
 
 #endif

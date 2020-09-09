@@ -62,13 +62,16 @@ RegressionWindow(std::string motion, std::string network)
 		PyErr_Print();
 	}
 
-	for(int i = 115, c = 0; i <= 150; i += 7, c++) {
+	for(int i = 110, c = 0; i <= 125; i += 3, c++) {
 		for(int j = 0; j < cps.size(); j++) {
 			Eigen::VectorXd input(2);
 			input << j, i / 100.0;
 			p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 			np::ndarray na = np::from_object(a);
 			cps[j] = DPhy::toEigenVector(na, dof);
+			if(j >= cps.size() - 3) {
+				std::cout << j << " " << cps[j].transpose() << std::endl;
+			}
 		}
 		s->SetControlPoints(0, cps);
 		std::vector<Eigen::VectorXd> newpos;

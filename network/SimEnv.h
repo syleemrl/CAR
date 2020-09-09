@@ -65,7 +65,7 @@ private:
 	int mNumAction;
 	bool isAdaptive;
 
-	int mTargetInterval;
+	double mTargetInterval;
 	int nBins;
 	std::pair<double, double> mMaxbound;
 	std::vector<int> mTargetBin;
