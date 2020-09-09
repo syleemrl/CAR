@@ -57,6 +57,10 @@ class Monitor(object):
 		self.dim_target = 1
 		self.sampler = Sampler(self.dim_target, 9, [1.1, 1.45])
 		self.nan_count = [False] * self.num_slaves
+
+		self.ref_update_mode = True
+		self.ref_update_counter = 0
+
 		if self.plot:
 			plt.ion()
 
@@ -89,7 +93,7 @@ class Monitor(object):
 
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, nan_count =  self.env.step(actions)
-		curframes = np.array(self.states)[:,-(self.dim_target+1)]
+		curframes = np.array(self.states)[:,-(self.dim_target*3+1)]
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		if record:
@@ -134,10 +138,42 @@ class Monitor(object):
 
 		return rewards, dones, curframes
 
+	def updateMode(self):
+		if self.ref_update_mode:
+			self.ref_update_counter += 1
+			if self.ref_update_counter % 5 == 0: 
+				self.sim_env.TrainRegressionNetwork()
+	
+			if self.ref_update_counter >= 50:
+				self.ref_update_mode = False
+				self.sim_env.SetRefUpdateMode(False)
+		else:
+			t = self.sampler.allTrained()
+			if t:
+				self.ref_update_mode = True
+				self.sim_env.SetRefUpdateMode(True)
+				self.ref_update_counter = 0
+				self.sampler.resetCounter()
+
+		if not self.ref_update_mode:
+			t = self.updateTarget()
+			if not t:
+				self.ref_update_mode = True
+				self.ref_update_counter = 40
+				self.sim_env.SetRefUpdateMode(True)
+
 	def updateTarget(self):
+		b = self.sim_env.GetTargetBound()
+		if b[0] == b[1]:
+			return False
+		self.sampler.updateBound(b)
+		
 		t = self.sampler.adaptiveSample()
 		t = np.array(t, dtype=np.float32) 
+		
 		self.sim_env.SetTargetParameters(t)
+
+		return True
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:

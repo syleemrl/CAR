@@ -74,7 +74,7 @@ public:
 	int GetDOF() {return mDOF; }
 	int GetNumCPS() {return (mKnots.size()+3);}
 	std::vector<double> GetKnots() {return mKnots;}
-	void SetTargetUpdate(bool on) { mTargetUpdate = on; }
+	void SetRefUpdateMode(bool on) { mRefUpdateMode = on; }
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -111,7 +111,7 @@ protected:
 	std::string mPath;
 	double mPrevRewardTrajectory;
 	double mPrevRewardTarget;
-	bool mTargetUpdate;
+	bool mRefUpdateMode;
 	int mDOF;
 	int nOp;
 

@@ -528,7 +528,7 @@ GetTargetReward()
 		r_target = 2 * exp(-pow(target_diff, 2) * 30);
 		mControlFlag[0] = 1;
 		
-		//std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
+		// std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
 	}
 
 	return r_target;
@@ -1026,7 +1026,6 @@ Reset(bool RSI)
 	}
 
 	SaveStepInfo();
-	targetParameters(0) = 0;
 	mHindsightPhase.clear();
 	mHindsightSAPhase.clear();
 
@@ -1172,7 +1171,7 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, false);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, true);
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
 	delete p_v_target;
 
@@ -1180,11 +1179,9 @@ GetState()
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
 	double phase = ((int) mCurrentFrame % mReferenceManager->GetPhaseLength()) / (double) mReferenceManager->GetPhaseLength();
 	Eigen::VectorXd state;
-	// state.resize(p.rows()+v.rows()+1+1+local_pos.rows()+p_next.rows()+p_current.rows());
-	// state<< p, v, up_vec_angle, root_height, local_pos, p_current, p_next; //, mInputVelocity.first;
 	
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters; //, mInputVelocity.first;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
 
 	return state;
 }

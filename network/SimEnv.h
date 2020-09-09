@@ -55,18 +55,23 @@ public:
 	int GetDOF();
 	
 	void SetTargetParameters(np::ndarray np_array);
-
+	void SetRefUpdateMode(bool t);
+	p::list GetTargetBound();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
-//	std::vector<DPhy::SimpleController*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
 	bool isAdaptive;
 
+	int mTargetInterval;
+	int nBins;
+	std::pair<double, double> mMaxbound;
+	std::vector<int> mTargetBin;
+	bool mFlag_max;
+
 	p::object mRegression;
-	int nUpdates;	
 };
 
 

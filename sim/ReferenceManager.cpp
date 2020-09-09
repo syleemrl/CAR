@@ -630,7 +630,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	for(int i = 0; i < 3; i++) {
 		nRejectedSamples.push_back(0);
 	}
-	mTargetUpdate = false;
+	mRefUpdateMode = true;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
@@ -733,7 +733,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
 	
-	if(!mTargetUpdate)
+	if(!mRefUpdateMode)
 		return;
 
 	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
@@ -881,7 +881,7 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 bool 
 ReferenceManager::
 Optimize() {
-	if(!mTargetUpdate)
+	if(!mRefUpdateMode)
 		return false;
 
 	double rewardTarget = 0;

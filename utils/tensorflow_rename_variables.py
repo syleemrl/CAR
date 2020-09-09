@@ -67,9 +67,9 @@ def main(argv):
         print('Please specify a checkpoint_dir. Usage:')
         print(usage_str)
         sys.exit(2)
-        
+
     rename(checkpoint_dir+'/network-0', replace_from, replace_to, add_prefix, dry_run)
-    rename(checkpoint_dir+'/regnetwork-0', replace_from, replace_to, add_prefix, dry_run)
+    rename(checkpoint_dir+'/reg_network-0', replace_from, replace_to, add_prefix, dry_run)
 
 
 if __name__ == '__main__':

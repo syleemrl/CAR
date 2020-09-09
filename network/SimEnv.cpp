@@ -44,9 +44,17 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		{
 			PyErr_Print();
 		}
+
+		//manual setting
+		mTargetInterval = 4;
+		mMaxbound = std::pair<double, double>(110, 150);
+		nBins = (mMaxbound.second - mMaxbound.first) / mTargetInterval;
+		for(int i = 0; i < nBins; i++) {
+			mTargetBin.push_back(0);
+		}
+		mFlag_max = false;
 	}
 	isAdaptive = adaptive;
-	nUpdates = 0;
 }
 //For general properties
 int
@@ -211,7 +219,15 @@ SimEnv::
 TrainRegressionNetwork()
 {
 	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> x_y = mReferenceManager->GetRegressionSamples();
-
+	if(!mFlag_max) {
+		for(int i = 0; i < x_y.first.size(); i += mReferenceManager->GetNumCPS()) {
+			double idx = ((x_y.first)[i](1) - mMaxbound.first) / mTargetInterval;
+			idx = std::floor(idx);
+			if(idx >= 0 && idx < nBins) {
+				mTargetBin[idx] += 1;
+			}
+		}
+	}
 	np::ndarray x = DPhy::toNumPyArray(x_y.first);
 	np::ndarray y = DPhy::toNumPyArray(x_y.second);
 	
@@ -326,6 +342,22 @@ GetHindsightTuples()
 }
 void 
 SimEnv::
+SetRefUpdateMode(bool t) {
+	mReferenceManager->SetRefUpdateMode(t);
+	if(t) {
+		// load cps
+		mReferenceManager->LoadAdaptiveMotion("updated");
+		Eigen::VectorXd tp(1);
+		tp << 1.45;
+		for(int id = 0; id < mNumSlaves; ++id) {
+			mSlaves[id]->SetTargetParameters(tp);
+		}
+	} else {
+		mReferenceManager->SaveAdaptiveMotion("updated");
+	}
+}
+void 
+SimEnv::
 SetTargetParameters(np::ndarray np_array) {
 
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, 1);
@@ -342,10 +374,40 @@ SetTargetParameters(np::ndarray np_array) {
 	}
 
 	mReferenceManager->LoadAdaptiveMotion(cps);
-	nUpdates += 1;
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetTargetParameters(tp);
 	}
+}
+p::list  
+SimEnv::
+GetTargetBound() {
+	p::list bound;
+	if(mFlag_max) {
+		bound.append(mMaxbound.first);
+		bound.append(mMaxbound.second);
+	} else {
+		double min = -1, max = nBins - 1;
+		for(int i = 0; i < nBins; i++) {
+			if(mTargetBin[i] > 10) {
+				if(min == -1)
+					min = i;
+			} else if(min != -1) {
+				max = i - 1;
+				break;
+			}
+		}
+		if(min == 0 && max == nBins - 1)
+			mFlag_max = true;
+
+		if(min == -1) {
+			bound.append(0);
+			bound.append(0);
+		} else {
+			bound.append(mMaxbound.first + mTargetInterval * min);
+			bound.append(mMaxbound.first + mTargetInterval * max);
+		}
+	}
+	return bound;
 }
 
 using namespace boost::python;
@@ -378,5 +440,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetDOF",&SimEnv::GetDOF)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("SetTargetParameters",&SimEnv::SetTargetParameters)
+		.def("SetRefUpdateMode",&SimEnv::SetRefUpdateMode)
+		.def("GetTargetBound",&SimEnv::GetTargetBound)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 }

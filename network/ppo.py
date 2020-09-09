@@ -330,6 +330,7 @@ class PPO(object):
 
 			TD = values_dense[:size] + advantages_dense
 			TD_sparse = values_sparse[:size] + advantages_sparse
+
 			self.values_sparse += np.mean(values_sparse)
 			self.values_dense += np.mean(values_dense)
 			for i in range(size):
@@ -522,7 +523,7 @@ class PPO(object):
 				states = self.env.getStates()
 			print('')
 			if self.adaptive:
-				self.env.updateTarget()
+				self.env.updateMode()
 
 			# if self.adaptive:
 			# 	info_hind = self.env.sim_env.GetHindsightTuples()
@@ -530,7 +531,6 @@ class PPO(object):
 			if it % 10 == 9:	
 				if self.adaptive:
 					self.env.sim_env.Optimize()
-					#self.env.sim_env.TrainRegressionNetwork()
 					
 					# self.updateAdaptive(epi_info_iter_hind, True)
 					self.updateAdaptive(epi_info_iter, False)
