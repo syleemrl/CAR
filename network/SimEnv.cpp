@@ -390,7 +390,7 @@ GetTargetBound() {
 	} else {
 		double min = -1, max = nBins;
 		for(int i = 0; i < nBins; i++) {
-			if(mTargetBin[i] >= 10) {
+			if(mTargetBin[i] >= 30) {
 				if(min == -1)
 					min = i;
 			} else if(min != -1) {

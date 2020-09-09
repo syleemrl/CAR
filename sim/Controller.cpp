@@ -528,10 +528,11 @@ GetTargetReward()
 		r_target =1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 150);
 		mControlFlag[0] = 1;
 	// //	if(mInputTargetParameters(0) != 1.45) {
-			std::cout << skel->getCOM()[1] << " " << target_diff << " " <<r_target << std::endl;
+		//	std::cout << skel->getCOM()[1] << " " << target_diff << " " <<r_target << std::endl;
 	// 		std::cout <<1.5 *exp(-pow(0.05, 2) * 30) + 0.5 *exp(-pow(0.05, 2) * 150) << std::endl;
 	// //	}
-		// std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
+		if(mRecord)
+		 	std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
 	}
 
 	return r_target;

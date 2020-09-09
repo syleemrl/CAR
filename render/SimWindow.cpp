@@ -97,20 +97,20 @@ SimWindow(std::string motion, std::string network, std::string filename)
 			PyErr_Print();
 		}
 	}
-	Eigen::VectorXd tp(1);
-	tp << 1.25;
+	// Eigen::VectorXd tp(1);
+	// tp << 1.1;
 
-	std::vector<Eigen::VectorXd> cps;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(2);
-		input << j, tp(0);
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-	}
+	// std::vector<Eigen::VectorXd> cps;
+	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	// 	Eigen::VectorXd input(2);
+	// 	input << j, tp(0);
+	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	// 	np::ndarray na = np::from_object(a);
+	// 	cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+	// }
 
-	mReferenceManager->LoadAdaptiveMotion(cps);
-	mController->SetTargetParameters(tp);
+	// mReferenceManager->LoadAdaptiveMotion(cps);
+	// mController->SetTargetParameters(tp);
 
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;

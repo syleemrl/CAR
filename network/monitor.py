@@ -143,11 +143,8 @@ class Monitor(object):
 
 	def updateMode(self):
 		if self.ref_update_mode:
-			self.ref_update_counter += 1
-			if self.ref_update_counter % 5 == 0: 
-				self.sim_env.TrainRegressionNetwork()
-	
-			if self.ref_update_counter >= 30:
+			self.ref_update_counter += 1	
+			if self.ref_update_counter >= 50:
 				self.ref_update_mode = False
 				self.sim_env.SetRefUpdateMode(False)
 		else:
@@ -162,7 +159,7 @@ class Monitor(object):
 			b = self.sim_env.GetTargetBound()
 			if b[0] == b[1]:
 				self.ref_update_mode = True
-				self.ref_update_counter = 20
+				self.ref_update_counter = 40
 				self.sim_env.SetRefUpdateMode(True)		
 			else:
 				self.sampler.updateBound(b)

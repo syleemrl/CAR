@@ -733,18 +733,29 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
 	
-	if(!mRefUpdateMode)
+	std::vector<int> flag;
+	if((rewards.first / mPhaseLength)  < 0.9)
+		flag.push_back(0);
+	else
+		flag.push_back(1);
+
+	if(rewards.second < mPrevRewardTarget)
+		flag.push_back(0);
+	else
+		flag.push_back(1);
+
+	if(flag[0] == 0)
 		return;
 
-	if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
-		nRejectedSamples[0] += 1;
-		if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
-			nRejectedSamples[1] += 1;
-		} else if((rewards.first / mPhaseLength) < 0.9 && rewards.second < mPrevRewardTarget) {
-			nRejectedSamples[2] += 1;
-		}
-		return;
-	}
+	// if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
+	// 	nRejectedSamples[0] += 1;
+	// 	if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
+	// 		nRejectedSamples[1] += 1;
+	// 	} else if((rewards.first / mPhaseLength) < 0.9 && rewards.second < mPrevRewardTarget) {
+	// 		nRejectedSamples[2] += 1;
+	// 	}
+	// 	return;
+	// }
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
@@ -797,20 +808,22 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	}
 	double reward_trajectory = 0.4 * exp(-pow(r_regul, 2)*0.01) + 0.6 * r_slide;
 	mLock.lock();
-	mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
-						std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
+
 	if(r_slide > 0.86)
 		mRegressionSamples.push_back(std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>(cps, parameters));
+	if(flag[1] && mRefUpdateMode) {
+		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
+							std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
+		std::string path = mPath + std::string("samples") + std::to_string(nOp);
 
-	std::string path = mPath + std::string("samples") + std::to_string(nOp);
+		std::ofstream ofs;
+		ofs.open(path, std::fstream::out | std::fstream::app);
 
-	std::ofstream ofs;
-	ofs.open(path, std::fstream::out | std::fstream::app);
-
-	for(auto t: data_spline) {	
-		ofs << t.first.transpose() << " " << t.second << " " << r_slide << std::endl;
+		for(auto t: data_spline) {	
+			ofs << t.first.transpose() << " " << t.second << " " << r_slide << std::endl;
+		}
+		ofs.close();
 	}
-	ofs.close();
 
 	mLock.unlock();
 

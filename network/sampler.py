@@ -104,7 +104,7 @@ class Sampler(object):
 			e = np.ones(e.shape)
 		else:
 			e = np.array([(r - e.min()) for r in e])
-			e = np.exp(-e*0.75)
+			e = np.exp(-e*0.5)
 		tot = e.sum()
 		e = e / tot
 		print("probability of each bin : ", e)
@@ -136,14 +136,14 @@ class Sampler(object):
 		self.rewards_dense[idx].append(rewards_dense)
 		self.count_update[idx] = 1
 
-		if self.count[idx] > 200:
+		if self.count[idx] > 500:
 			self.rewards_sparse[idx] = self.rewards_sparse[idx][100:]
 			self.rewards_dense[idx] = self.rewards_dense[idx][100:]
 			self.count[idx] -= 100
 
 	def allTrained(self):
 		for i in range(self.nBin):
-			if self.count_update[i] == 0 or np.array(self.rewards_sparse[i]).mean() < 6.5 or  np.array(self.rewards_dense[i]).mean() < 75:
+			if self.count_update[i] == 0 or np.array(self.rewards_sparse[i]).mean() < 5.5 or np.array(self.rewards_dense[i]).mean() < 70:
 				return False
 		return True
 
