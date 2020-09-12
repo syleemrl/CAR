@@ -75,7 +75,10 @@ public:
 	int GetNumCPS() {return (mKnots.size()+3);}
 	std::vector<double> GetKnots() {return mKnots;}
 	void SetRefUpdateMode(bool on) { mRefUpdateMode = on; }
-	double GetTargetRefUpdate() {return mTargetRefUpdate;}
+	Eigen::VectorXd GetTargetBase() {return mTargetBase; }
+	Eigen::VectorXd GetTargetGoal() {return mTargetGoal; }
+	Eigen::VectorXd GetTargetUnit() {return mTargetUnit; }
+	Eigen::VectorXd GetTargetCurMean() {return mTargetCurMean; }
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -112,12 +115,17 @@ protected:
 	std::string mPath;
 	double mPrevRewardTrajectory;
 	double mPrevRewardTarget;
+	
 	bool mRefUpdateMode;
 	int mDOF;
 	int nOp;
+	Eigen::VectorXd mTargetBase;
+	Eigen::VectorXd mTargetGoal;
+	Eigen::VectorXd mTargetUnit;
+	Eigen::VectorXd mTargetCurMean;
 
-	double mTargetRefUpdate;
 	std::vector<int> nRejectedSamples;
+
 };
 }
 

@@ -78,7 +78,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	double GetPhaseReward();
-	std::pair<double, double>  GetTargetReward();
+	double  GetTargetReward();
 	std::vector<bool> GetContacts();
 	std::vector<bool> GetContacts(Eigen::VectorXd pos);
 	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
@@ -168,7 +168,6 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordFootConstraint;
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
-	std::pair<double, int> mInputVelocity;
 	std::vector<std::string> mContacts;
 
 	int mNumState, mNumAction;
@@ -191,10 +190,6 @@ protected:
 	Eigen::Vector3d mExtra;
 	//target
 	Eigen::Vector6d mHeadRoot;
-
-	std::random_device mRD;
-	std::mt19937 mMT;
-	std::uniform_real_distribution<double> mDistribution;
 
 	double mStartPhase;
 	int nTotalStepsPhase;

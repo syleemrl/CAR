@@ -12,8 +12,7 @@ namespace DPhy
 Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id)
 	:mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
-	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false),
-	mRD(), mMT(mRD()), mDistribution(0.85, 1.25)
+	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->sig_torque = 0.4;
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
@@ -21,8 +20,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mRecord = record;
 	this->mReferenceManager = ref;
 	this->id = id;
-	this->mInputTargetParameters.resize(1);
-	this->mInputTargetParameters(0) = 1.45;
+	this->mInputTargetParameters = mReferenceManager->GetTargetGoal();
 
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
@@ -158,7 +156,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 
 	//temp
 	this->mRewardParts.resize(7, 0.0);
-	targetParameters.resize(1);
+	targetParameters.resize(mReferenceManager->GetTargetBase().rows());
 
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
@@ -324,11 +322,11 @@ Step()
 			double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
 		}
-		// auto end_node = mCharacter->GetSkeleton()->getBodyNode("HandR");
-		// Eigen::MatrixXd J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("HandR"), Eigen::Vector3d(0, 0, 0));
-		// Eigen::Vector3d end_F = J * torque;
-		// end_F_sum += 2.0 * end_F / mSimulationHz;
-		// end_F_sum_norm += 2.0 * end_F.norm() / mSimulationHz;
+		auto end_node = mCharacter->GetSkeleton()->getBodyNode("HandR");
+		Eigen::MatrixXd J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("HandR"), Eigen::Vector3d(0, 0, 0));
+		Eigen::Vector3d end_F = J * torque;
+		end_F_sum += 2.0 * end_F / mSimulationHz;
+		end_F_sum_norm += 2.0 * end_F.norm() / mSimulationHz;
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
@@ -337,11 +335,15 @@ Step()
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
 	
+	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase <= 27)  
+		mRecordWork.push_back(end_F_sum_norm);
+
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		
 		double weight = mCurrentFrameOnPhase / (1 + mAdaptiveStep);
-		mHeadRoot = mReferenceManager->GetPosition(mCurrentFrame, true).segment<6>(0);
+		double f = mCurrentFrame - std::fmod(mCurrentFrame, mReferenceManager->GetPhaseLength());
+		mHeadRoot = mReferenceManager->GetPosition(f, true).segment<6>(0);
 
 		mControlFlag.setZero();
 		if(isAdaptive) {
@@ -514,30 +516,34 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	return rewards;
 
 }
-std::pair<double, double> 
+double 
 Controller::
 GetTargetReward()
 {
-	double r_target = 0, r_target_update = 0;
+	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 
-	//jump	
-	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-		targetParameters(0) = skel->getCOM()[1];
-		double target_diff = skel->getCOM()[1] - mInputTargetParameters(0);
-		r_target = 0.5 * exp(-pow(target_diff, 2) * 30) + 1.5 * exp(-pow(target_diff, 2) * 200);
+	if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
+		Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
+		Eigen::AngleAxisd aa(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+		Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
 
-		r_target_update = exp(-pow(target_diff, 2) * 30);
+		Eigen::Vector3d target_diff = target_hand - hand;
+
+		double f_hand = 0;
+		for(int i = 0; i < mRecordWork.size(); i++) {
+			f_hand += mRecordWork[i];
+		}
+		f_hand /= mRecordWork.size();
+		mRecordWork.clear();
+		double f_diff = 1.5 - f_hand;
+		r_target = 2 * exp_of_squared(target_diff,0.2); // + exp(-pow(f_diff, 2)*0.75);
 		mControlFlag[0] = 1;
-	// //	if(mInputTargetParameters(0) != 1.45) {
-		//	std::cout << skel->getCOM()[1] << " " << target_diff << " " <<r_target << std::endl;
-	// 		std::cout <<1.5 *exp(-pow(0.05, 2) * 30) + 0.5 *exp(-pow(0.05, 2) * 150) << std::endl;
-	// //	}
-		if(mRecord)
-		 	std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
+		targetParameters.segment<3>(0) = aa.inverse() * (hand - mHeadRoot.segment<3>(3));
 	}
 
-	return std::pair<double, double>(r_target, r_target_update);
+
+	return r_target;
 }
 std::vector<bool> 
 Controller::
@@ -593,7 +599,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
-	auto r_t = this->GetTargetReward();
+	double r_t = this->GetTargetReward();
 	
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
@@ -613,13 +619,13 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(4 * r_t.first);
+		mRewardParts.push_back(4 * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
-	if(r_t.second != 0) {
-		mTargetRewardTrajectory += r_t.second;
+	if(r_t != 0) {
+		mTargetRewardTrajectory += r_t;
 	}
 }
 void
@@ -1187,11 +1193,9 @@ GetState()
 	Eigen::VectorXd state;
 
 	double com_diff = 0;
-	if(mCurrentFrameOnPhase < 44)
-		com_diff = mInputTargetParameters(0) - skel->getCOM()[1];
 
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows()+1);
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters, com_diff;
+	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
+	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters;
 
 	return state;
 }

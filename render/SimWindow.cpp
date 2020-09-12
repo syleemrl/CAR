@@ -87,10 +87,10 @@ SimWindow(std::string motion, std::string network, std::string filename)
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
 			
-			p::object reg_main = p::import("regression");
-			this->mRegression = reg_main.attr("Regression")();
-			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
-			this->mRegression.attr("initRun")(path, 2, mRef->GetSkeleton()->getNumDofs());
+			// p::object reg_main = p::import("regression");
+			// this->mRegression = reg_main.attr("Regression")();
+			// std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
+			// this->mRegression.attr("initRun")(path, 2, mRef->GetSkeleton()->getNumDofs());
 		}
 		catch (const p::error_already_set&)
 		{
@@ -283,15 +283,9 @@ void
 SimWindow::
 DrawGround()
 {	
-	GUI::DrawPoint(Eigen::Vector3d(-0.453437, 0.0250081, 0.703072), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	GUI::DrawPoint(Eigen::Vector3d(-0.935316, 0.0246549, 0.999929), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	GUI::DrawPoint(Eigen::Vector3d(-1.21822, 0.0246163, 1.50672), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	GUI::DrawPoint(Eigen::Vector3d( -1.67886, 0.0248064, 1.83954), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+	GUI::DrawPoint(Eigen::Vector3d(0.54, 1.18, 0.73), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+	GUI::DrawPoint(Eigen::Vector3d(1.00531,  1.30185, 0.572417), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
 
-	GUI::DrawPoint(Eigen::Vector3d(-0.63437, 0.0250081, 0.853072), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-	// GUI::DrawPoint(Eigen::Vector3d(-0.935316, 0.0246549, 0.999929), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-	// GUI::DrawPoint(Eigen::Vector3d(-1.51822, 0.0246163, 1.80672), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-	// GUI::DrawPoint(Eigen::Vector3d( -1.97886, 0.0248064, 2.23954), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
 
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)

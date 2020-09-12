@@ -53,13 +53,17 @@ class Monitor(object):
 		self.num_episodes_opt = 0
 
 		self.phaselength = self.sim_env.GetPhaseLength()
-		
-		self.dim_target = 1
-		self.sampler = Sampler(self.dim_target, 4, [110, 150])
+		target_base = self.sim_env.GetTargetBase()
+		target_unit = self.sim_env.GetTargetUnit()
+
+		self.dim_target = len(target_base)
+		self.sampler = Sampler(self.dim_target, target_base, target_unit)
 		self.nan_count = [False] * self.num_slaves
 
 		self.ref_update_mode = True
 		self.ref_update_counter = 0
+		self.reg_update_counter = 0
+		self.tp_update_counter = 0
 
 		if self.plot:
 			plt.ion()
@@ -93,7 +97,7 @@ class Monitor(object):
 
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
-		curframes = np.array(self.states)[:,-(self.dim_target+2)]
+		curframes = np.array(self.states)[:,-(self.dim_target+1)]
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		if record:
@@ -142,28 +146,41 @@ class Monitor(object):
 		return rewards, dones, curframes
 
 	def updateMode(self):
+
+		if self.reg_update_counter >= 10:
+			self.sim_env.TrainRegressionNetwork()
+			b = self.sim_env.GetTargetBound()
+			if len(b) != 0:
+				self.sampler.updateBound(b)
+
+			self.reg_update_counter = 0
+			
 		if self.ref_update_mode:
+			self.reg_update_counter += 1
 			self.ref_update_counter += 1	
-			if self.ref_update_counter >= 50:
-				self.ref_update_mode = False
-				self.sim_env.SetRefUpdateMode(False)
+			if self.ref_update_counter >= 10:
+				b = self.sim_env.GetTargetBound()
+				if len(b) == 0:
+					self.ref_update_counter = 0
+				else:
+					self.ref_update_mode = False
+					self.sim_env.SetRefUpdateMode(False)
+					self.sampler.resetCounter()
+					self.tp_update_counter = 0
 		else:
-			t = self.sampler.allTrained()
-			if t:
-				self.ref_update_mode = True
-				self.sim_env.SetRefUpdateMode(True)
-				self.ref_update_counter = 0
-				self.sampler.resetCounter()
+			self.reg_update_counter += 0.25
+			self.tp_update_counter += 1
+			if self.tp_update_counter >= 5:
+				self.sampler.updateStatus()
+				t = self.sampler.allTrained()
+				if t:
+					self.ref_update_mode = True
+					self.sim_env.SetRefUpdateMode(True)
+					self.ref_update_counter = 0
+				self.tp_update_counter = 0
 
 		if not self.ref_update_mode:
-			b = self.sim_env.GetTargetBound()
-			if b[0] == b[1]:
-				self.ref_update_mode = True
-				self.ref_update_counter = 40
-				self.sim_env.SetRefUpdateMode(True)		
-			else:
-				self.sampler.updateBound(b)
-				self.updateTarget()
+			self.updateTarget()
 
 	def updateTarget(self):		
 		t = self.sampler.adaptiveSample()

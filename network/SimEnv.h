@@ -14,6 +14,17 @@ namespace DPhy
 }
 namespace p = boost::python;
 namespace np = boost::python::numpy;
+class ParamBin
+{
+public:
+	ParamBin(Eigen::VectorXd i) { idx = i; }
+	Eigen::VectorXd GetIdx(){ return idx; }
+	void PutParam(Eigen::VectorXd p) { param.push_back(p); }
+	int GetNumParams() { return param.size(); }
+private:
+	Eigen::VectorXd idx;
+	std::vector<Eigen::VectorXd> param;
+};
 class SimEnv
 {
 public:
@@ -55,8 +66,14 @@ public:
 	int GetDOF();
 	
 	void SetTargetParameters(np::ndarray np_array);
+
 	void SetRefUpdateMode(bool t);
 	p::list GetTargetBound();
+	np::ndarray GetTargetBase();
+	np::ndarray GetTargetUnit();
+
+	void AssignParamsToBins();
+
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
@@ -65,12 +82,15 @@ private:
 	int mNumAction;
 	bool isAdaptive;
 
-	double mTargetInterval;
-	int nBins;
-	std::pair<double, double> mMaxbound;
-	std::vector<int> mTargetBin;
-	bool mFlag_max;
 
+	int mParamStack;
+	int nDim;
+	Eigen::VectorXd mParamBase;
+	//point, distance from zero point
+	Eigen::VectorXd mParamUnit;
+
+	std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> mParamNotAssigned;
+	std::vector<ParamBin> mParamBins;
 	
 	p::object mRegression;
 };

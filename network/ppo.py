@@ -67,12 +67,14 @@ class PPO(object):
 			self.RMS.setNumStates(self.num_state)
 
 	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False, 
-		directory=None, batch_size=1024, steps_per_iteration=8000):
+		directory=None, batch_size=1024, steps_per_iteration=10000):
 
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
 		self.steps_per_iteration = steps_per_iteration
+		self.steps_per_iteration_tp = steps_per_iteration * 0.25
+
 		self.batch_size = batch_size
 		self.pretrain = pretrain
 		self.adaptive = adaptive
@@ -506,22 +508,33 @@ class PPO(object):
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if local_step < self.steps_per_iteration:
+							if (self.env.ref_update_mode and local_step < self.steps_per_iteration) or \
+								(not(self.env.ref_update_mode) and local_step < self.steps_per_iteration_tp):
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
 
-				if local_step >= self.steps_per_iteration:
-					if self.env.getAllTerminated():
+				if self.env.ref_update_mode:
+					if local_step >= self.steps_per_iteration:
+						if self.env.getAllTerminated():
+							print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
+							break
+					if last_print + 100 < local_step: 
 						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
-						break
-				if last_print + 100 < local_step: 
-					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
-					last_print = local_step
+						last_print = local_step
+				else:
+					if local_step >= self.steps_per_iteration_tp:
+						if self.env.getAllTerminated():
+							print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration_tp),end='\r')
+							break
+					if last_print + 100 < local_step: 
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration_tp),end='\r')
+						last_print = local_step
 
 				states = self.env.getStates()
 			print('')
+			print(self.env.ref_update_mode)
 			if self.adaptive:
 				self.env.updateMode()
 
@@ -529,10 +542,9 @@ class PPO(object):
 			# 	info_hind = self.env.sim_env.GetHindsightTuples()
 			# 	epi_info_iter_hind += info_hind			
 
-			if it % 5 == 4:	
+			if (self.env.ref_update_mode and it % 5 == 4) or ((not self.env.ref_update_mode) and it % 20 == 19) :	
 				if self.adaptive:
 					self.env.sim_env.Optimize()
-					self.env.sim_env.TrainRegressionNetwork()
 
 					# self.updateAdaptive(epi_info_iter_hind, True)
 					self.updateAdaptive(epi_info_iter, False)

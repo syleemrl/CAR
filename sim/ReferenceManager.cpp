@@ -599,16 +599,25 @@ GetAxisDev(double t) {
 void
 ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
+	
 	mKnots.push_back(0);
-	mKnots.push_back(12);
-	mKnots.push_back(29);
-	mKnots.push_back(37);
-	mKnots.push_back(44);
-	mKnots.push_back(52);
-	mKnots.push_back(56);
-	mKnots.push_back(59);
-	mKnots.push_back(64);
-	mKnots.push_back(76);
+	mKnots.push_back(9);
+	mKnots.push_back(20);
+	mKnots.push_back(27);
+	mKnots.push_back(35);
+
+	mTargetBase.resize(3);
+	mTargetBase << 0.28, 0.30, 0.66;
+	mTargetCurMean = mTargetBase;
+
+	mTargetGoal.resize(3);
+	mTargetGoal<< 0.65, 0.43, 0.35;
+
+	mTargetUnit.resize(3);
+	mTargetUnit<< 0.04, 0.04, 0.04;
+
+
+	mRefUpdateMode = true;
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
@@ -624,14 +633,14 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	nOp = 0;
 	mPath = save_path;
-	mPrevRewardTrajectory = 0.9;
+	mPrevRewardTrajectory = 0;
 	mPrevRewardTarget = 0.05;	
 	
-	for(int i = 0; i < 3; i++) {
-		nRejectedSamples.push_back(0);
-	}
-	mRefUpdateMode = true;
-	mTargetRefUpdate = 1.25;
+	// for(int i = 0; i < 3; i++) {
+	// 	nRejectedSamples.push_back(0);
+	// }
+	// mTargetBase << ;
+
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
 	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
@@ -903,9 +912,9 @@ Optimize() {
     int mu = 60;
     std::cout << "num sample: " << mSamples.size() << std::endl;
     if(mSamples.size() < 300) {
-    	for(int i = 0; i < nRejectedSamples.size(); i++) {
-			std::cout << i << " " << nRejectedSamples[i] << std::endl;
-		}
+  //   	for(int i = 0; i < nRejectedSamples.size(); i++) {
+		// 	std::cout << i << " " << nRejectedSamples[i] << std::endl;
+		// }
     	return false;
     }
 
@@ -994,18 +1003,13 @@ Optimize() {
 			nRejectedSamples[i] = 0;
 		}
 
-		Eigen::VectorXd meanTarget(mSampleTargets[0].rows());
-		meanTarget.setZero();
+		mTargetCurMean.setZero();
 		for(int i = 0; i < mSampleTargets.size(); i++) {
-			meanTarget += mSampleTargets[i];
+			mTargetCurMean += mSampleTargets[i];
 		}
-		meanTarget /= mSampleTargets.size();
-
-		if(meanTarget(0) + 5 >= mTargetRefUpdate) {
-			std::cout << "target updated from " << mTargetRefUpdate  << " to " << meanTarget(0) + 5 << std::endl;
-			mTargetRefUpdate = meanTarget(0) + 5;
-		}
+		mTargetCurMean /= mSampleTargets.size();
 		mSampleTargets.clear();
+		
 		return true;
 	// } else {
 	// 	while(mSamples.size() > 100){
