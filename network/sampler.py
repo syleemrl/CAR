@@ -1,15 +1,21 @@
 import numpy as np
 import math
+from regression import Regression
 from IPython import embed
 
 class Sampler(object):
-	def __init__(self, dim, base, unit):
+	def __init__(self, dir, dim, base, unit):
 		self.dim = dim
 		self.unit = unit
 		self.base = base
 		self.rewards_dense = []
 		self.rewards_sparse = []
 		self.bound = []
+
+		# self.v_func = Regression()
+		# self.v_func.initTrain(dir, self.dim, 1, postfix="_param")
+		self.v_mean = 0
+		self.k = 5
 
 	def updateBound(self, bound):
 		bound_prev = self.bound
@@ -29,22 +35,29 @@ class Sampler(object):
 		idx = self.bound[t]
 		target = self.base + (idx + np.random.uniform(0, 1, len(self.unit))) * self.unit
 
-		return target
+		return idx, target
+
+	def prob(self, idx):
+		v = self.v_func.run(idx)[0]
+		return math.exp(-self.k*(v-self.v_mean)/self.v_mean)
+
+	def updateDistribution(self, m=5, N=100):
+		n = 0
+		self.pool = []
+		for i in range(m):
+			x_cur, _ = self.randomSample()
+			for j in range(int(N/m)):
+				self.pool.append(x_cur)
+				x_new, _ = self.randomSample()
+				alpha = min(1.0, self.prob(x_new)/self.prob(x_cur))
+				if np.random.rand() <= alpha:          
+					x_cur = x_new
+	
 
 	def adaptiveSample(self):
-
-		t_index = len(self.bound) - 1
-		cur = 0
-		ran = np.random.uniform(0.0, 1.0)
-		
-		for i in range(len(self.bound)):
-			cur += self.e[i]
-			if ran < cur:
-				t_index = i
-				break
-
-		target = self.base + (self.bound[t_index] + np.random.uniform(0, 1, len(self.unit))) * self.unit
-		self.target_idx = t_index
+		t = np.random.randrange(len(self.pool))
+		target = self.base + self.pool[t] * self.unit
+		self.target_idx = t
 
 		return target
 

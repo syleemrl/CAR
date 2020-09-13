@@ -5,6 +5,7 @@ import datetime
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import copy
 from utils import RunningMeanStd
 from IPython import embed
 
@@ -57,7 +58,7 @@ class Monitor(object):
 		target_unit = self.sim_env.GetTargetUnit()
 
 		self.dim_target = len(target_base)
-		self.sampler = Sampler(self.dim_target, target_base, target_unit)
+		self.sampler = Sampler(self.dim_target, self.directory, target_base, target_unit)
 		self.nan_count = [False] * self.num_slaves
 
 		self.ref_update_mode = True
@@ -103,6 +104,7 @@ class Monitor(object):
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
+			
 				if not self.terminated[i] and rewards[i][0] is not None:
 					if not self.ref_update_mode:
 						if self.prevframes[i] > curframes[i] or dones[i]:
@@ -154,7 +156,7 @@ class Monitor(object):
 				self.sampler.updateBound(b)
 
 			self.reg_update_counter = 0
-			
+
 		if self.ref_update_mode:
 			self.reg_update_counter += 1
 			self.ref_update_counter += 1	

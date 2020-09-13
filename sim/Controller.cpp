@@ -859,7 +859,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 20) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -1160,8 +1160,7 @@ Eigen::VectorXd
 Controller::
 GetState()
 {
-	if(mIsTerminal)
-		return Eigen::VectorXd::Zero(this->mNumState);
+
 	auto& skel = mCharacter->GetSkeleton();
 	
 	double root_height = skel->getRootBodyNode()->getCOM()[1];

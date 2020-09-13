@@ -24,7 +24,7 @@ class Regression(object):
 		self.learning_rate_decay = learning_rate_decay
 		self.learning_rate = learning_rate	
 
-	def initRun(self, directory, num_input, num_output):
+	def initRun(self, directory, num_input, num_output, postfix=""):
 		self.directory = directory
 
 		self.num_input = num_input
@@ -34,18 +34,21 @@ class Regression(object):
 		self.sess = tf.Session(config=config)
 
 		#build network and optimizer
-		name = directory.split("/")[-2]
-		self.buildOptimize(name)
+		self.name = directory.split("/")[-2] + postfix
+		self.postfix = postfix
+		self.buildOptimize(self.name)
 		
 		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		self.load()
 
-	def initTrain(self, directory, num_input, num_output,
+	def initTrain(self, directory, num_input, num_output, postfix="",
 		batch_size=1024, steps_per_iteration=50):
 		name = directory.split("/")[-2]
-		self.name = name
+		self.name = name + postfix
+		self.postfix = postfix
+
 		self.directory = directory
 		self.steps_per_iteration = steps_per_iteration
 		self.batch_size = batch_size
@@ -65,6 +68,7 @@ class Regression(object):
 		self.loadRegressionData()	
 
 		print("init regression network done")
+
 	def buildOptimize(self, name):
 
 		self.input = tf.placeholder(tf.float32, shape=[None, self.num_input], name=name+'_input')
@@ -78,7 +82,7 @@ class Regression(object):
 		var_list = tf.trainable_variables()
 		save_list = []
 		for v in var_list:
-			if "Regression" in v.name:
+			if name in v.name:
 				save_list.append(v)
 
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
@@ -89,7 +93,7 @@ class Regression(object):
 		x_data = []
 		y_data = []
 		try:
-			f = open(self.directory+"regression_data", "r")
+			f = open(self.directory+"regression_data"+self.postfix, "r")
 			for l in f.readlines():
 				l = l[:-1].split(",")
 				x = l[0].split(" ")[:-1]
@@ -111,7 +115,7 @@ class Regression(object):
 		if len(tuples[0]) == 0:
 			return
 
-		out = open(self.directory+"regression_data", "a")
+		out = open(self.directory+"regression_data"+self.postfix, "a")
 
 		for i in range(len(tuples[0])):
 			for sx in tuples[0][i]:
@@ -122,7 +126,7 @@ class Regression(object):
 			out.write('\n')
 		out.close()
 
-		print("save data to "+self.directory+"regression_data")
+		print("save data to "+self.directory+"regression_data"++self.postfix)
 	def updateRegressionData(self, tuples):
 		if len(tuples[0]) == 0:
 			return
@@ -130,10 +134,10 @@ class Regression(object):
 		self.regression_y = np.concatenate((self.regression_y, tuples[1]), axis=0)
 
 	def save(self):
-		self.saver.save(self.sess, self.directory + "reg_network", global_step = 0)
+		self.saver.save(self.sess, self.directory + "reg_network" + self.postfix, global_step = 0)
 
 	def load(self):
-		path = self.directory + "reg_network-0"
+		path = self.directory + "reg_network" + self.postfix + "-0"
 		print("Loading parameters from {}".format(path))
 
 		def get_tensors_in_checkpoint_file(file_name):

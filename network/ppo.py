@@ -300,9 +300,25 @@ class PPO(object):
 		self.values_sparse = 0
 		self.values_dense = 0
 		for data in tuples:
-			size = len(data)		
 			# get values
 			states, actions, rewards, values, neglogprobs, times = zip(*data)
+
+			if len(times) == self.env.phaselength * 6 + 10 + 1:
+				if times[-1] < self.env.phaselength - 1.8:
+					for i in reversed(range(len(times))):
+						if i != len(times) - 1 and times[i] > times[i + 1]:
+							count = i
+							break
+					states = states[:count+1]
+					actions = actions[:count+1]
+					rewards = rewards[:count+1]
+					values = values[:count+1]
+					neglogprobs = neglogprobs[:count+1]
+					times = times[:count+1]
+		
+			size = len(times)		
+
+
 			values_dense =  np.concatenate((np.array(values)[:,0], [0]), axis=0)
 			values_sparse =  np.concatenate((np.array(values)[:,1], [0]), axis=0)
 			advantages_dense = np.zeros(size)
@@ -311,13 +327,13 @@ class PPO(object):
 			ad_t_dense = 0
 
 			timesteps = []
-			for i in reversed(range(len(data))):
+			for i in reversed(range(size)):
 
 				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
 				ad_t_dense = delta_dense + self.lambd * self.gamma * ad_t_dense
 				advantages_dense[i] = ad_t_dense
 			
-				if i == len(data) - 1:
+				if i == size - 1:
 					timestep = 0
 					delta_sparse = rewards[i][1] - values_sparse[i]
 				elif times[i] > times[i+1]:
@@ -508,41 +524,31 @@ class PPO(object):
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if (self.env.ref_update_mode and local_step < self.steps_per_iteration) or \
-								(not(self.env.ref_update_mode) and local_step < self.steps_per_iteration_tp):
+							if local_step < self.steps_per_iteration:
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
 
-				if self.env.ref_update_mode:
-					if local_step >= self.steps_per_iteration:
-						if self.env.getAllTerminated():
-							print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
-							break
-					if last_print + 100 < local_step: 
+				if local_step >= self.steps_per_iteration:
+					if self.env.getAllTerminated():
 						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
-						last_print = local_step
-				else:
-					if local_step >= self.steps_per_iteration_tp:
-						if self.env.getAllTerminated():
-							print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration_tp),end='\r')
-							break
-					if last_print + 100 < local_step: 
-						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration_tp),end='\r')
-						last_print = local_step
+						break
+				if last_print + 100 < local_step: 
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
+					last_print = local_step
+				
 
 				states = self.env.getStates()
 			print('')
-			print(self.env.ref_update_mode)
-			if self.adaptive:
-				self.env.updateMode()
+			# if self.adaptive:
+			# 	self.env.updateMode()
 
 			# if self.adaptive:
 			# 	info_hind = self.env.sim_env.GetHindsightTuples()
 			# 	epi_info_iter_hind += info_hind			
 
-			if (self.env.ref_update_mode and it % 5 == 4) or ((not self.env.ref_update_mode) and it % 20 == 19) :	
+			if it % 5 == 4 :	
 				if self.adaptive:
 					self.env.sim_env.Optimize()
 
