@@ -44,27 +44,19 @@ class Monitor(object):
 		self.terminated = [False]*self.num_slaves
 		self.states = [0]*self.num_slaves
 		self.prevframes = [0]*self.num_slaves
-
-		self.rewards_by_part_per_opt = []
 		
 		self.rewards_dense_phase = [0]*self.num_slaves
 		self.rewards_sparse_phase = [0]*self.num_slaves
-
-		self.num_transitions_opt = 0
-		self.num_episodes_opt = 0
 
 		self.phaselength = self.sim_env.GetPhaseLength()
 		target_base = self.sim_env.GetTargetBase()
 		target_unit = self.sim_env.GetTargetUnit()
 
 		self.dim_target = len(target_base)
-		self.sampler = Sampler(self.dim_target, self.directory, target_base, target_unit)
-		self.nan_count = [False] * self.num_slaves
+		self.sampler = Sampler(target_base, target_unit)
 
-		self.ref_update_mode = True
-		self.ref_update_counter = 0
-		self.reg_update_counter = 0
-		self.tp_update_counter = 0
+		self.mode = 0
+		self.mode_counter = 0
 
 		if self.plot:
 			plt.ion()
@@ -98,7 +90,13 @@ class Monitor(object):
 
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
-		curframes = np.array(self.states)[:,-(self.dim_target+1)]
+		if self.adaptive:
+			params = np.array(self.states)[:,-(self.dim_target+1):]
+			curframes = np.array(self.states)[:,-(self.dim_target+1)]
+		else:
+			params = np.zeros(self.num_slaves, 1)
+			curframes = np.array(self.states)[:,-1]
+
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
 		self.states[~np.array(self.terminated)] = states_updated
 		if record:
@@ -106,33 +104,12 @@ class Monitor(object):
 			for i in range(self.num_slaves):
 			
 				if not self.terminated[i] and rewards[i][0] is not None:
-					if not self.ref_update_mode:
-						if self.prevframes[i] > curframes[i] or dones[i]:
-							if dones[i] and terminal_reason[i] == 8:
-								self.rewards_dense_phase[i] = 0
-								self.rewards_sparse_phase[i] = 0
-							else:
-								self.sampler.saveResults(self.rewards_sparse_phase[i], self.rewards_dense_phase[i])
-								self.rewards_dense_phase[i] = 0
-								self.rewards_sparse_phase[i] = 0
-
 					self.rewards_per_iteration += rewards[i][0]
 					self.rewards_by_part_per_iteration.append(rewards[i])
 					self.num_transitions_per_iteration += 1
 
-					if self.adaptive:
-						self.num_transitions_opt += 1
-						self.rewards_by_part_per_opt.append(rewards[i][2:])
-						
-						if not self.ref_update_mode:
-							self.rewards_dense_phase[i] += rewards[i][0]
-							self.rewards_sparse_phase[i] += rewards[i][1]
-
 					if dones[i]:
 						self.num_episodes_per_iteration += 1
-						if self.adaptive:
-							self.num_episodes_opt += 1
-
 						self.total_frames_elapsed += frames[i]
 
 						if frames[i] > self.max_episode_length:
@@ -145,44 +122,34 @@ class Monitor(object):
 				
 			self.prevframes = curframes
 
-		return rewards, dones, curframes
+		return rewards, dones, curframes, params
 
-	def updateMode(self):
+	def updateMode(self, v_func, results):
+		self.mode_counter += 1	
 
-		if self.reg_update_counter >= 10:
-			self.sim_env.TrainRegressionNetwork()
-			b = self.sim_env.GetTargetBound()
-			if len(b) != 0:
-				self.sampler.updateBound(b)
+		self.sim_env.TrainRegressionNetwork()
+		b = self.sim_env.GetTargetBound()
+		if len(b) != 0:
+			self.sampler.updateBound(b)
 
-			self.reg_update_counter = 0
-
-		if self.ref_update_mode:
-			self.reg_update_counter += 1
-			self.ref_update_counter += 1	
-			if self.ref_update_counter >= 10:
-				b = self.sim_env.GetTargetBound()
+		if self.mode == 0:
+			self.sim_env.Optimize()
+			if self.mode_counter >= 5:
 				if len(b) == 0:
-					self.ref_update_counter = 0
+					self.mode_counter = 4
 				else:
-					self.ref_update_mode = False
+					self.mode = 1
 					self.sim_env.SetRefUpdateMode(False)
-					self.sampler.resetCounter()
-					self.tp_update_counter = 0
+					self.sampler.reset()
+					self.mode_counter = 0
 		else:
-			self.reg_update_counter += 0.25
-			self.tp_update_counter += 1
-			if self.tp_update_counter >= 5:
-				self.sampler.updateStatus()
-				t = self.sampler.allTrained()
-				if t:
-					self.ref_update_mode = True
-					self.sim_env.SetRefUpdateMode(True)
-					self.ref_update_counter = 0
-				self.tp_update_counter = 0
+			if self.sim_env.NeedRefUpdate() and self.sampler.isEnough(results):
+				self.mode = 0
+				self.sim_env.SetRefUpdateMode(True)
+				self.mode_counter = 0
+			else:
+				self.sampler.update(v_func)
 
-		if not self.ref_update_mode:
-			self.updateTarget()
 
 	def updateTarget(self):		
 		t = self.sampler.adaptiveSample()

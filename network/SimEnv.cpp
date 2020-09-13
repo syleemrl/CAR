@@ -36,6 +36,12 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		mParamUnit = mReferenceManager->GetTargetUnit();
 		nDim = mParamBase.rows();
 
+		mParamGoalIdx.resize(nDim);
+		Eigen::VectorXd p = mReferenceManager->GetTargetGoal();
+		for(int j = 0; j < nDim; j++) {
+			mParamGoalIdx(j) = std::floor((p(j) - mParamBase(j)) / mParamUnit(j));
+		}	
+
 		Py_Initialize();
 		np::initialize();
 		try{
@@ -49,6 +55,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		}
 	}
 	isAdaptive = adaptive;
+	mNeedRefUpdate = true;
 }
 //For general properties
 int
@@ -235,8 +242,7 @@ AssignParamsToBins()
 	for(int j = 0; j < nDim; j++) {
 		idx_cur(j) = std::floor((p_cur(j) - mParamBase(j)) / mParamUnit(j));
 	}	
-	std::cout << p_cur.transpose() << std::endl;
-	std::cout << idx_cur.transpose() << std::endl;
+
 	for(int i = 0; i < mParamNotAssigned.size(); i++) {
 		visited.push_back(false);
 		assigned.push_back(false);
@@ -273,6 +279,8 @@ AssignParamsToBins()
 						assigned[p_temp[j]] = true;
 					}
 					mParamBins.push_back(pb);
+					if((idx - mParamGoalIdx).norm() < 1e-2) 
+						mNeedRefUpdate = false;
 				}
 			}
 		}
@@ -435,6 +443,7 @@ GetHindsightTuples()
 void 
 SimEnv::
 SetRefUpdateMode(bool t) {
+
 	mReferenceManager->SetRefUpdateMode(t);
 	if(t) {
 		// load cps
@@ -446,6 +455,11 @@ SetRefUpdateMode(bool t) {
 	} else {
 		mReferenceManager->SaveAdaptiveMotion("updated");
 	}
+}
+bool 
+SimEnv::
+NeedRefUpdate() {
+	return mNeedRefUpdate;
 }
 void 
 SimEnv::
@@ -516,6 +530,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetTargetParameters",&SimEnv::SetTargetParameters)
 		.def("SetRefUpdateMode",&SimEnv::SetRefUpdateMode)
 		.def("GetTargetBound",&SimEnv::GetTargetBound)
+		.def("NeedRefUpdate",&SimEnv::NeedRefUpdate)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts)
 		.def("GetTargetBase",&SimEnv::GetTargetBase)
 		.def("GetTargetUnit",&SimEnv::GetTargetUnit);

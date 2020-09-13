@@ -20,6 +20,7 @@ class Actor(object):
 		self.policy = self.mean + self.std * tf.random_normal(tf.shape(self.mean))
 		self.neglogprob = self.neglogp(self.policy)
 
+		self.state = state
 	def neglogp(self, x):
 		return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / self.std), axis=-1) + 0.5 * np.log(2.0 * np.pi) * tf.to_float(tf.shape(x)[-1]) + tf.reduce_sum(self.logstd, axis=-1)
 
@@ -57,13 +58,12 @@ class Actor(object):
 
 	def getAction(self, states):
 		with tf.variable_scope(self.scope):
-			action, neglogprob = self.sess.run([self.policy, self.neglogprob], feed_dict={self.name+'_state:0':states})
+			action, neglogprob = self.sess.run([self.policy, self.neglogprob], feed_dict={self.state: states})
 			return action, neglogprob
 
 	def getMeanAction(self, states):
 		with tf.variable_scope(self.scope):
-			key = self.name+'_state:0'
-			action = self.sess.run([self.mean], feed_dict={key:states})
+			action = self.sess.run([self.mean], feed_dict={self.state:states})
 			return action[0]
 
 	def getVariable(self, trainable_only=False):
@@ -80,6 +80,7 @@ class Critic(object):
 		self.scope = scope + '_Critic' + postfix
 		self.value = self.createNetwork(state, False, None)
 
+		self.state = state
 	def createNetwork(self, state, reuse, is_training):	
 		with tf.variable_scope(self.scope, reuse=reuse):
 			L1 = tf.layers.dense(state,critic_layer_size,activation=activ,name='L1',
@@ -101,8 +102,7 @@ class Critic(object):
 
 	def getValue(self, states):
 		with tf.variable_scope(self.scope):
-			key = self.name+'_state:0'
-			return self.sess.run(self.value, feed_dict={key:states})
+			return self.sess.run(self.value, feed_dict={self.state:states})
 
 	def getVariable(self, trainable_only=False):
 		if trainable_only:
@@ -116,6 +116,7 @@ class RegressionNet(object):
 		self.scope = scope + '_Regression' + postfix
 		self.value = self.createNetwork(input, output, False)
 
+		self.input = input
 	def createNetwork(self, input, output, reuse):	
 		with tf.variable_scope(self.scope, reuse=reuse):
 			L1 = tf.layers.dense(input, regression_layer_size, activation=activ,name='L1',
@@ -136,8 +137,7 @@ class RegressionNet(object):
 			return out
 	def getValue(self, states):
 		with tf.variable_scope(self.scope):
-			key = self.name+'_input:0'
-			return self.sess.run(self.value, feed_dict={key:states})
+			return self.sess.run(self.value, feed_dict={self.input :states})
 
 	def getVariable(self, trainable_only=False):
 		if trainable_only:

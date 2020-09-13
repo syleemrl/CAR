@@ -67,13 +67,14 @@ class PPO(object):
 			self.RMS.setNumStates(self.num_state)
 
 	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False, 
-		directory=None, batch_size=1024, steps_per_iteration=10000):
+		directory=None, batch_size=1024, steps_per_iteration=10000, optim_frequency=5):
 
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = steps_per_iteration
-		self.steps_per_iteration_tp = steps_per_iteration * 0.25
+		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.25]
+
+		self.optim_frequency = [optim_frequency, optim_frequency * 4]
 
 		self.batch_size = batch_size
 		self.pretrain = pretrain
@@ -132,10 +133,25 @@ class PPO(object):
 			out = open(self.directory+"results", "w")
 			out.close()
 
+	def createCriticNetwork(self, name, input, TD):
+		critic = Critic(self.sess, name, input)
+			
+		with tf.variable_scope(name+'_Optimize'):
+			value_loss = tf.reduce_mean(tf.square(critic.value - TD))
+			loss = value_loss
+
+		critic_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
+		grads, params = zip(*critic_trainer.compute_gradients(loss));
+		grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
+		
+		grads_and_vars = list(zip(grads, params))
+		critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
+			
+		return critic, critic_train_op, loss
+
 	def buildOptimize(self, name):
 		self.state = tf.placeholder(tf.float32, shape=[None, self.num_state], name=name+'_state')
 		self.actor = Actor(self.sess, name, self.state, self.num_action)
-		self.critic = Critic(self.sess, name, self.state)
 
 		with tf.variable_scope(name+'_Optimize'):
 			self.action = tf.placeholder(tf.float32, shape=[None,self.num_action], name='action')
@@ -148,9 +164,7 @@ class PPO(object):
 			clipped_ratio = tf.clip_by_value(self.ratio, 1.0 - self.epsilon, 1.0 + self.epsilon)
 
 			surrogate = -tf.reduce_mean(tf.minimum(self.ratio*self.GAE, clipped_ratio*self.GAE))
-			value_loss = tf.reduce_mean(tf.square(self.critic.value - self.TD))
 			self.loss_actor = surrogate
-			self.loss_critic = value_loss
 
 		actor_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
 		grads, params = zip(*actor_trainer.compute_gradients(self.loss_actor));
@@ -159,27 +173,17 @@ class PPO(object):
 		grads_and_vars = list(zip(grads, params))
 		self.actor_train_op = actor_trainer.apply_gradients(grads_and_vars)
 
-		critic_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
-		grads, params = zip(*critic_trainer.compute_gradients(self.loss_critic));
-		grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
-		
-		grads_and_vars = list(zip(grads, params))
-		self.critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
+		self.critic, self.critic_train_op, self.loss_critic = self.createCriticNetwork(name, self.state, self.TD)
 
 		if self.adaptive:
-			self.critic_sparse = Critic(self.sess, name, self.state, postfix='_sparse')
-			
-			with tf.variable_scope(name+'_Optimize'):
-				self.TD_sparse = tf.placeholder(tf.float32, shape=[None], name='TD')
-				value_sparse_loss = tf.reduce_mean(tf.square(self.critic_sparse.value - self.TD_sparse))
-				self.loss_critic_sparse = value_sparse_loss
+			self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_target], name=name+'_state_target')
 
-			critic_trainer_sparse = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
-			grads, params = zip(*critic_trainer_sparse.compute_gradients(self.loss_critic_sparse));
-			grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
-		
-			grads_and_vars = list(zip(grads, params))
-			self.critic_sparse_train_op = critic_trainer_sparse.apply_gradients(grads_and_vars)
+			with tf.variable_scope(name+'_Optimize'):
+				self.TD_sparse = tf.placeholder(tf.float32, shape=[None], name='TD_sparse')
+				self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
+
+			self.critic_sparse, self.critic_sparse_train_op, self.loss_critic_sparse = self.createCriticNetwork(name+'_sparse', self.state, self.TD_sparse)
+			self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -250,11 +254,11 @@ class PPO(object):
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
 
-	def updateAdaptive(self, tuples, hindsight=False):
-		if hindsight:
-			state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEHindsight(tuples)
-		else:
-			state_batch, action_batch, TD_batch, TD_sparse_batch, neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
+	def updateAdaptive(self, tuples, param_training=0):
+		state_batch, state_target_batch, action_batch, \
+		TD_batch, TD_sparse_batch, TD_target_batch, \
+		neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
+
 		if len(state_batch) < self.batch_size:
 			return
 		GAE_batch = (GAE_batch - GAE_batch.mean())/(GAE_batch.std() + 1e-5)
@@ -265,6 +269,8 @@ class PPO(object):
 		lossval_ac = 0
 		lossval_c = 0
 		lossval_cs = 0
+		lossval_ct = 0
+
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
 			val = self.sess.run([self.actor_train_op, self.critic_train_op, self.critic_sparse_train_op,
@@ -283,38 +289,56 @@ class PPO(object):
 			lossval_c += val[4]
 			lossval_cs += val[5]
 		
-		if not hindsight:
-			self.lossvals = []
+		self.lossvals = []
 
-			self.lossvals.append(['loss actor', lossval_ac])
-			self.lossvals.append(['loss critic', lossval_c])
-			self.lossvals.append(['loss critic sparse', lossval_cs])
+		self.lossvals.append(['loss actor', lossval_ac])
+		self.lossvals.append(['loss critic', lossval_c])
+		self.lossvals.append(['loss critic sparse', lossval_cs])
+		
+		if param_training:
+
+			ind = np.arange(len(state_target_batch))
+			np.random.shuffle(ind)
+			for s in range(int(len(ind)//self.batch_size)):
+				selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
+				val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
+					feed_dict={
+						self.state_target: state_target_batch[selectedIndex], 
+						self.TD_target: TD_target_batch[selectedIndex]
+					}
+				)
+				lossval_ac += val[1]
+			self.lossvals.append(['loss critic target', lossval_ct])
+
+		self.v_target = TD_target_batch
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
+		state_target_batch = []
 		action_batch = []
 		TD_batch = []
 		TD_sparse_batch = []
+		TD_target_batch = []
 		neglogp_batch = []
 		GAE_batch = []
 		self.values_sparse = 0
 		self.values_dense = 0
 		for data in tuples:
 			# get values
-			states, actions, rewards, values, neglogprobs, times = zip(*data)
+			states, actions, rewards, values, neglogprobs, times, param = zip(*data)
 
-			if len(times) == self.env.phaselength * 6 + 10 + 1:
-				if times[-1] < self.env.phaselength - 1.8:
-					for i in reversed(range(len(times))):
-						if i != len(times) - 1 and times[i] > times[i + 1]:
-							count = i
-							break
-					states = states[:count+1]
-					actions = actions[:count+1]
-					rewards = rewards[:count+1]
-					values = values[:count+1]
-					neglogprobs = neglogprobs[:count+1]
-					times = times[:count+1]
+			# if len(times) == self.env.phaselength * 6 + 10 + 1:
+			# 	if times[-1] < self.env.phaselength - 1.8:
+			# 		for i in reversed(range(len(times))):
+			# 			if i != len(times) - 1 and times[i] > times[i + 1]:
+			# 				count = i
+			# 				break
+			# 		states = states[:count+1]
+			# 		actions = actions[:count+1]
+			# 		rewards = rewards[:count+1]
+			# 		values = values[:count+1]
+			# 		neglogprobs = neglogprobs[:count+1]
+			# 		times = times[:count+1]
 		
 			size = len(times)		
 
@@ -326,7 +350,9 @@ class PPO(object):
 			ad_t_sparse = 0
 			ad_t_dense = 0
 
-			timesteps = []
+			TD_t_dense = 0
+			TD_t_sparse = 0
+
 			for i in reversed(range(size)):
 
 				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
@@ -346,6 +372,16 @@ class PPO(object):
 
 				advantages_sparse[i] = ad_t_sparse
 
+				TD_t_dense = rewards[i][0] + self.gamma * TD_t_dense
+				TD_t_sparse = rewards[i][1] + pow(self.gamma, timestep) * TD_t_sparse
+
+				if i == 0 or times[i-1] > times[i]:
+					state_target_batch.append(param[i])
+					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
+
+					TD_t_dense = 0
+					TD_t_sparse = 0
+
 			TD = values_dense[:size] + advantages_dense
 			TD_sparse = values_sparse[:size] + advantages_sparse
 
@@ -361,7 +397,9 @@ class PPO(object):
 
 		self.values_sparse /= len(tuples)
 		self.values_dense /= len(tuples)
-		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(TD_sparse_batch), np.array(neglogp_batch), np.array(GAE_batch)
+		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
+			   np.array(TD_batch), np.array(TD_sparse_batch), np.array(TD_target_batch), \
+			   np.array(neglogp_batch), np.array(GAE_batch)
 	
 	def computeTDandGAEHindsight(self, tuples):
 		state_batch = []
@@ -511,49 +549,50 @@ class PPO(object):
 				else:
 					values = [self.critic.getValue(states), self.critic_sparse.getValue(states)]
 					values = np.array(values).transpose()				
-				rewards, dones, times = self.env.step(actions)
+				rewards, dones, times, params = self.env.step(actions)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
 						if not self.adaptive and rewards[j] is not None:
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
-							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j]])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if local_step < self.steps_per_iteration:
+							if local_step < self.steps_per_iteration[self.env.mode]:
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
 
-				if local_step >= self.steps_per_iteration:
+				if local_step >= self.steps_per_iteration[self.env.mode]:
 					if self.env.getAllTerminated():
-						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
 						break
 				if last_print + 100 < local_step: 
-					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
 					last_print = local_step
 				
-
 				states = self.env.getStates()
 			print('')
-			# if self.adaptive:
-			# 	self.env.updateMode()
+
+			# if self.adaptive and self.env.mode:
+			# 	self.env.updateTarget()
 
 			# if self.adaptive:
 			# 	info_hind = self.env.sim_env.GetHindsightTuples()
 			# 	epi_info_iter_hind += info_hind			
 
-			if it % 5 == 4 :	
+			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				if self.adaptive:
+					self.updateAdaptive(epi_info_iter, self.env.mode)
 					self.env.sim_env.Optimize()
+					# self.env.UpdateMode(self.critic_target, self.v_target)
 
 					# self.updateAdaptive(epi_info_iter_hind, True)
-					self.updateAdaptive(epi_info_iter, False)
 					epi_info_iter_hind = []
 
 				else:			

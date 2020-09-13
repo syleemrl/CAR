@@ -67,6 +67,7 @@ public:
 	
 	void SetTargetParameters(np::ndarray np_array);
 
+	bool NeedRefUpdate();
 	void SetRefUpdateMode(bool t);
 	p::list GetTargetBound();
 	np::ndarray GetTargetBase();
@@ -81,11 +82,12 @@ private:
 	int mNumState;
 	int mNumAction;
 	bool isAdaptive;
-
+	bool mNeedRefUpdate;
 
 	int mParamStack;
 	int nDim;
 	Eigen::VectorXd mParamBase;
+	Eigen::VectorXd mParamGoalIdx;
 	//point, distance from zero point
 	Eigen::VectorXd mParamUnit;
 
