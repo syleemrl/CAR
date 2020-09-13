@@ -24,7 +24,7 @@ class Regression(object):
 		self.learning_rate_decay = learning_rate_decay
 		self.learning_rate = learning_rate	
 
-	def initRun(self, directory, num_input, num_output, postfix=""):
+	def initRun(self, directory, num_input, num_output, postfix="reg"):
 		self.directory = directory
 
 		self.num_input = num_input
@@ -38,12 +38,12 @@ class Regression(object):
 		self.postfix = postfix
 		self.buildOptimize(self.name)
 		
-		save_list = [v for v in tf.trainable_variables() if v.name.find(name)!=-1]
+		save_list = [v for v in tf.trainable_variables() if v.name.find(self.name)!=-1]
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
-		
+
 		self.load()
 
-	def initTrain(self, directory, num_input, num_output, postfix="",
+	def initTrain(self, directory, num_input, num_output, postfix="reg",
 		batch_size=1024, steps_per_iteration=50):
 		name = directory.split("/")[-2]
 		self.name = name + postfix
@@ -126,7 +126,7 @@ class Regression(object):
 			out.write('\n')
 		out.close()
 
-		print("save data to "+self.directory+"regression_data"++self.postfix)
+		print("save data to "+self.directory+"regression_data"+self.postfix)
 	def updateRegressionData(self, tuples):
 		if len(tuples[0]) == 0:
 			return
@@ -207,6 +207,7 @@ class Regression(object):
 	def run(self, input):
 		input = np.reshape(input, (-1, self.num_input))
 		output = self.regression.getValue(input)
+
 		return output
 
 	def runBatch(self, input_li):

@@ -87,23 +87,26 @@ SimWindow(std::string motion, std::string network, std::string filename)
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
 			
-			// p::object reg_main = p::import("regression");
-			// this->mRegression = reg_main.attr("Regression")();
-			// std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
-			// this->mRegression.attr("initRun")(path, 2, mRef->GetSkeleton()->getNumDofs());
+			p::object reg_main = p::import("regression");
+			this->mRegression = reg_main.attr("Regression")();
+			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
+			this->mRegression.attr("initRun")(path, mReferenceManager->GetTargetBase().rows() + 1, mRef->GetSkeleton()->getNumDofs());
 		}
 		catch (const p::error_already_set&)
 		{
 			PyErr_Print();
 		}
 	}
-	// Eigen::VectorXd tp(1);
-	// tp << 1.1;
+	// Eigen::VectorXd tp(3);
+	// tp = mReferenceManager->GetTargetBase();
+	// tp(0) += 0.16;
+	// tp(1) += 0.08;
+	// tp(2) += 0.04;
 
 	// std::vector<Eigen::VectorXd> cps;
 	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	// 	Eigen::VectorXd input(2);
-	// 	input << j, tp(0);
+	// 	Eigen::VectorXd input(4);
+	// 	input << j, tp;
 	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 	// 	np::ndarray na = np::from_object(a);
 	// 	cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));

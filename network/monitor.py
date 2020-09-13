@@ -91,7 +91,7 @@ class Monitor(object):
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
 		if self.adaptive:
-			params = np.array(self.states)[:,-(self.dim_target+1):]
+			params = np.array(self.states)[:,-self.dim_target:]
 			curframes = np.array(self.states)[:,-(self.dim_target+1)]
 		else:
 			params = np.zeros(self.num_slaves, 1)
@@ -134,9 +134,9 @@ class Monitor(object):
 
 		if self.mode == 0:
 			self.sim_env.Optimize()
-			if self.mode_counter >= 5:
+			if self.mode_counter >= 8:
 				if len(b) == 0:
-					self.mode_counter = 4
+					self.mode_counter = 7
 				else:
 					self.mode = 1
 					self.sim_env.SetRefUpdateMode(False)

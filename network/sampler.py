@@ -7,31 +7,33 @@ class Sampler(object):
 	def __init__(self, base, unit):
 		self.unit = unit
 		self.base = base
-		self.rewards_dense = []
-		self.rewards_sparse = []
+		self.dim = len(base)
+
 		self.bound = []
 		
 		self.v_mean = 0
 		self.n_samples = 0
 		self.random = True
 
+		self.k = 5
 	def updateBound(self, bound):
 		self.bound = bound
 
 		print("num new bound: ", len(self.bound))
 
 	def randomSample(self):
-		t = np.random.randrange(len(self.bound))
+		t = np.random.randint(len(self.bound))
 		idx = self.bound[t]
 		target = self.base + (idx + np.random.uniform(0, 1, len(self.unit))) * self.unit
 
 		return target
 
 	def prob(self, v_func, target):
-		v = v_func.run(target)[0]
+		target = np.reshape(target, (-1, self.dim))
+		v = v_func.getValue(target)[0]
 		return math.exp(-self.k*(v-self.v_mean)/self.v_mean)
 
-	def update(self, v_func, m=5, N=100):
+	def update(self, v_func, m=10, N=1000):
 		n = 0
 		self.pool = []
 		for i in range(m):
@@ -43,12 +45,33 @@ class Sampler(object):
 				if np.random.rand() <= alpha:          
 					x_cur = x_new
 	
+		# t = []
+		# count = []
+		# for i in range(len(self.bound)):
+		# 	t.append(self.base + self.bound[i] * self.unit)
+		# 	count.append(0)
+
+		# v = v_func.getValue(t)
+		# for i in range(len(self.pool)):
+		# 	x = self.pool[i]
+		# 	idx = []
+		# 	for j in range(self.dim):
+		# 		idx.append(math.floor((x[j] - self.base[j]) / self.unit[j]))
+		# 	for j in range(len(self.bound)):
+		# 		if np.linalg.norm(idx - self.bound[j]) < 1e-2:
+		# 			count[j] += 1
+		# 			break
+		print("prob: ", np.exp(-self.k*(v-self.v_mean)/self.v_mean))
+		# print("sample: ",end=' ')
+		# for i in range(len(v)):
+		# 	print(v[i], count[i], end=', ')
+		# print()
 
 	def adaptiveSample(self):
 		if self.random:
 			return self.randomSample()
 
-		t = np.random.randrange(len(self.pool))
+		t = np.random.randint(len(self.pool))
 		target = self.pool[t] 
 
 		return target
@@ -66,12 +89,10 @@ class Sampler(object):
 		self.v_mean = (n * v_mean_cur + self.n_samples * self.v_mean) / (n + self.n_samples)
 		self.n_samples += n
 
-		self.random = False
-
 		print("===========================================")
-		print("min reward per bin : ", self.v_mean)
+		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.v_mean < 40:
+		if self.v_mean < 3.2:
 			return False
 		return True

@@ -77,12 +77,16 @@ class PPO(object):
 		self.optim_frequency = [optim_frequency, optim_frequency * 4]
 
 		self.batch_size = batch_size
+		self.batch_size_target = 128
 		self.pretrain = pretrain
 		self.adaptive = adaptive
 		self.env = env
 		self.num_slaves = self.env.num_slaves
 		self.num_action = self.env.num_action
 		self.num_state = self.env.num_state
+
+		self.target_x_batch = []
+		self.target_y_batch = []
 
 		self.last_target_update = 0
 
@@ -133,7 +137,7 @@ class PPO(object):
 			out = open(self.directory+"results", "w")
 			out.close()
 
-	def createCriticNetwork(self, name, input, TD):
+	def createCriticNetwork(self, name, input, TD, clip=True):
 		critic = Critic(self.sess, name, input)
 			
 		with tf.variable_scope(name+'_Optimize'):
@@ -141,8 +145,9 @@ class PPO(object):
 			loss = value_loss
 
 		critic_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
-		grads, params = zip(*critic_trainer.compute_gradients(loss));
-		grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
+		grads, params = zip(*critic_trainer.compute_gradients(loss))
+		if clip:
+			grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
 		
 		grads_and_vars = list(zip(grads, params))
 		critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
@@ -183,7 +188,7 @@ class PPO(object):
 				self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
 
 			self.critic_sparse, self.critic_sparse_train_op, self.loss_critic_sparse = self.createCriticNetwork(name+'_sparse', self.state, self.TD_sparse)
-			self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target)
+			self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -259,6 +264,7 @@ class PPO(object):
 		TD_batch, TD_sparse_batch, TD_target_batch, \
 		neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
 
+
 		if len(state_batch) < self.batch_size:
 			return
 		GAE_batch = (GAE_batch - GAE_batch.mean())/(GAE_batch.std() + 1e-5)
@@ -296,19 +302,27 @@ class PPO(object):
 		self.lossvals.append(['loss critic sparse', lossval_cs])
 		
 		if param_training:
+			if len(self.target_x_batch) == 0:
+				self.target_x_batch = state_target_batch
+				self.target_y_batch = TD_target_batch
+			else:
+				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
+				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
-			ind = np.arange(len(state_target_batch))
-			np.random.shuffle(ind)
-			for s in range(int(len(ind)//self.batch_size)):
-				selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
-				val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
-					feed_dict={
-						self.state_target: state_target_batch[selectedIndex], 
-						self.TD_target: TD_target_batch[selectedIndex]
-					}
-				)
-				lossval_ac += val[1]
+			for _ in range(50):
+				ind = np.arange(len(self.target_x_batch))
+				np.random.shuffle(ind)
+				for s in range(int(len(ind)//self.batch_size_target)):
+					selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
+					val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
+						feed_dict={
+							self.state_target: self.target_x_batch[selectedIndex], 
+							self.TD_target: self.target_y_batch[selectedIndex]
+						}
+					)
+					lossval_ct += val[1]
 			self.lossvals.append(['loss critic target', lossval_ct])
+			self.env.sampler.random = False
 
 		self.v_target = TD_target_batch
 
@@ -327,18 +341,19 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param = zip(*data)
 
-			# if len(times) == self.env.phaselength * 6 + 10 + 1:
-			# 	if times[-1] < self.env.phaselength - 1.8:
-			# 		for i in reversed(range(len(times))):
-			# 			if i != len(times) - 1 and times[i] > times[i + 1]:
-			# 				count = i
-			# 				break
-			# 		states = states[:count+1]
-			# 		actions = actions[:count+1]
-			# 		rewards = rewards[:count+1]
-			# 		values = values[:count+1]
-			# 		neglogprobs = neglogprobs[:count+1]
-			# 		times = times[:count+1]
+			if len(times) == self.env.phaselength * 6 + 10 + 1:
+				if times[-1] < self.env.phaselength - 1.8:
+					for i in reversed(range(len(times))):
+						if i != len(times) - 1 and times[i] > times[i + 1]:
+							count = i
+							break
+					states = states[:count+1]
+					actions = actions[:count+1]
+					rewards = rewards[:count+1]
+					values = values[:count+1]
+					neglogprobs = neglogprobs[:count+1]
+					times = times[:count+1]
+					param = param[:count+1]
 		
 			size = len(times)		
 
@@ -375,10 +390,10 @@ class PPO(object):
 				TD_t_dense = rewards[i][0] + self.gamma * TD_t_dense
 				TD_t_sparse = rewards[i][1] + pow(self.gamma, timestep) * TD_t_sparse
 
-				if i == 0 or times[i-1] > times[i]:
+				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
 					state_target_batch.append(param[i])
 					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
-
+		
 					TD_t_dense = 0
 					TD_t_sparse = 0
 
@@ -579,8 +594,8 @@ class PPO(object):
 				states = self.env.getStates()
 			print('')
 
-			# if self.adaptive and self.env.mode:
-			# 	self.env.updateTarget()
+			if self.adaptive and self.env.mode:
+				self.env.updateTarget()
 
 			# if self.adaptive:
 			# 	info_hind = self.env.sim_env.GetHindsightTuples()
@@ -589,9 +604,11 @@ class PPO(object):
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
-					self.env.sim_env.Optimize()
-					# self.env.UpdateMode(self.critic_target, self.v_target)
-
+					# self.env.sim_env.Optimize()
+					self.env.updateMode(self.critic_target, self.v_target)
+					if self.env.mode == 0:
+						self.target_x_batch = []
+						self.target_y_batch = [] 
 					# self.updateAdaptive(epi_info_iter_hind, True)
 					epi_info_iter_hind = []
 

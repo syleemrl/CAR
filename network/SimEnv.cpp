@@ -466,7 +466,6 @@ SimEnv::
 SetTargetParameters(np::ndarray np_array) {
 
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, nDim);
-	std::cout << tp.transpose() << std::endl;
 	int dof = mReferenceManager->GetDOF();
 
 	std::vector<Eigen::VectorXd> cps;

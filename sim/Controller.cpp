@@ -537,7 +537,7 @@ GetTargetReward()
 		f_hand /= mRecordWork.size();
 		mRecordWork.clear();
 		double f_diff = 1.5 - f_hand;
-		r_target = 2 * exp_of_squared(target_diff,0.2); // + exp(-pow(f_diff, 2)*0.75);
+		r_target = 1.5 * exp_of_squared(target_diff,0.2) + 0.5 * exp_of_squared(target_diff,0.05);// + exp(-pow(f_diff, 2)*0.75);
 		mControlFlag[0] = 1;
 		targetParameters.segment<3>(0) = aa.inverse() * (hand - mHeadRoot.segment<3>(3));
 	}
@@ -603,7 +603,6 @@ UpdateAdaptiveReward()
 	
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
-
 	double con_diff = 0;
 	for(int i = 0; i < contacts_cur.size(); i++) {
 		if(contacts_ref[i].first || contacts_cur[i].first) {
@@ -613,7 +612,7 @@ UpdateAdaptiveReward()
 	double r_con = exp(-con_diff);
 
 	mRewardParts.clear();
-	double r_tot =  accum_bvh;
+	double r_tot = accum_bvh;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -1160,7 +1159,9 @@ Eigen::VectorXd
 Controller::
 GetState()
 {
-
+	if(mIsTerminal && terminationReason != 8){
+		return Eigen::VectorXd::Zero(mNumState);
+	}
 	auto& skel = mCharacter->GetSkeleton();
 	
 	double root_height = skel->getRootBodyNode()->getCOM()[1];
