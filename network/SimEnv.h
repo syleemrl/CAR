@@ -14,16 +14,24 @@ namespace DPhy
 }
 namespace p = boost::python;
 namespace np = boost::python::numpy;
+struct Param
+{
+	Eigen::VectorXd param;
+	std::vector<Eigen::VectorXd> cps;
+	double reward;
+};
 class ParamBin
 {
 public:
 	ParamBin(Eigen::VectorXd i) { idx = i; }
 	Eigen::VectorXd GetIdx(){ return idx; }
-	void PutParam(Eigen::VectorXd p) { param.push_back(p); }
+	void PutParam(Param p) { param.push_back(p); }
 	int GetNumParams() { return param.size(); }
+	std::vector<Param> GetParams() {return param;}
+
 private:
 	Eigen::VectorXd idx;
-	std::vector<Eigen::VectorXd> param;
+	std::vector<Param> param;
 };
 class SimEnv
 {
@@ -74,7 +82,7 @@ public:
 	np::ndarray GetTargetUnit();
 
 	void AssignParamsToBins();
-
+	void CleanupTrainingData();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
@@ -85,13 +93,15 @@ private:
 	bool mNeedRefUpdate;
 
 	int mParamStack;
+	int nTrainingData;
+
 	int nDim;
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamGoalIdx;
 	//point, distance from zero point
 	Eigen::VectorXd mParamUnit;
 
-	std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> mParamNotAssigned;
+	std::vector<std::pair<Param, Eigen::VectorXd>> mParamNotAssigned;
 	std::vector<ParamBin> mParamBins;
 	
 	p::object mRegression;

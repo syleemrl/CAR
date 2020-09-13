@@ -56,6 +56,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	}
 	isAdaptive = adaptive;
 	mNeedRefUpdate = true;
+	nTrainingData = 0;
 }
 //For general properties
 int
@@ -222,14 +223,6 @@ Optimize()
 	}
 	return t;
 }
-bool cmp(const std::pair<Eigen::VectorXd, double> &p1, const std::pair<Eigen::VectorXd, double> &p2){
-    if(p1.second > p2.second){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
 void
 SimEnv::
 AssignParamsToBins() 
@@ -286,7 +279,7 @@ AssignParamsToBins()
 		}
 	}
 
-	std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> paramNotAssigned_new;
+	std::vector<std::pair<Param, Eigen::VectorXd>> paramNotAssigned_new;
 	for(int i = 0; i < mParamNotAssigned.size(); i++) {
 		if(!assigned[i])
 			paramNotAssigned_new.push_back(mParamNotAssigned[i]);
@@ -294,24 +287,96 @@ AssignParamsToBins()
 	mParamNotAssigned = paramNotAssigned_new;
 
 }
+bool cmp(const Param &p1, const Param &p2){
+    if(p1.reward > p2.reward){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+void
+SimEnv::
+CleanupTrainingData()
+{
+	std::vector<Eigen::VectorXd> x;
+	std::vector<Eigen::VectorXd> y;
+	int count = 0;
+	for(int i = 0; i < mParamBins.size(); i++) {
+		std::vector<Param> ps = mParamBins[i].GetParams();
+		if(ps.size() < 30) {
+			count += ps.size() * mReferenceManager->GetNumCPS();
+			for(int j = 0; j < ps.size(); j++) {
+				Param p = ps[j];
+				for(int k = 0; k < mReferenceManager->GetNumCPS(); k++) {
+					Eigen::VectorXd input(1 + nDim);
+					input << k, p.param;
+					x.push_back(input);
+					y.push_back(p.cps[k]);
+				}
+			}
+		} else {
+			// clear bad samples
+    		std::stable_sort(ps.begin(), ps.end(), cmp);
+			count += 30 * mReferenceManager->GetNumCPS();
+
+			for(int j = 0; j < 30; j++) {
+				Param p = ps[j];
+				for(int k = 0; k < mReferenceManager->GetNumCPS(); k++) {
+					Eigen::VectorXd input(1 + nDim);
+					input << k, p.param;
+					x.push_back(input);
+					y.push_back(p.cps[k]);
+				} 
+				while(ps.size() > 30) {
+					ps.pop_back();
+				}
+			}
+		}
+	}
+
+	np::ndarray x_np = DPhy::toNumPyArray(x);
+	np::ndarray y_np = DPhy::toNumPyArray(y);
+
+	p::list l;
+	l.append(x_np);
+	l.append(y_np);
+	  
+	mParamStack = 0;
+	this->mRegression.attr("saveRegressionData")(l, false);
+	this->mRegression.attr("replaceRegressionData")(l);
+	nTrainingData = x.size() / mReferenceManager->GetNumCPS();
+	std::cout << "cleanup training data: " << nTrainingData << std::endl;
+}
 void 
 SimEnv::
 TrainRegressionNetwork()
 {
-	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> x_y = mReferenceManager->GetRegressionSamples();
-	for(int i = 0; i < x_y.first.size(); i += mReferenceManager->GetNumCPS()) {
-		Eigen::VectorXd param = (x_y.first)[i].tail((x_y.first)[i].rows() - 1);
+	std::tuple<std::vector<Eigen::VectorXd>, 
+			   std::vector<Eigen::VectorXd>, 
+			   std::vector<double>> x_y_z = mReferenceManager->GetRegressionSamples();
+	for(int i = 0; i < std::get<0>(x_y_z).size(); i += mReferenceManager->GetNumCPS()) {
+		Eigen::VectorXd param = std::get<0>(x_y_z)[i].tail(std::get<0>(x_y_z)[i].rows() - 1);
 		Eigen::VectorXd idx(nDim);
 		for(int j = 0; j < nDim; j++) {
 			idx(j) = std::floor((param(j) - mParamBase(j)) / mParamUnit(j));
 		}
-		mParamNotAssigned.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(param, idx));
+		std::vector<Eigen::VectorXd> cps;
+		for(int j = i; j < i + mReferenceManager->GetNumCPS(); j++) {
+			cps.push_back(std::get<1>(x_y_z)[j]);
+		}
+		Param p;
+		p.param = param;
+		p.cps = cps;
+		p.reward = std::get<2>(x_y_z)[i];
+
+		mParamNotAssigned.push_back(std::pair<Param, Eigen::VectorXd>(p, idx));
 		mParamStack += 1;
 
 	}
 
-	np::ndarray x = DPhy::toNumPyArray(x_y.first);
-	np::ndarray y = DPhy::toNumPyArray(x_y.second);
+	np::ndarray x = DPhy::toNumPyArray(std::get<0>(x_y_z));
+	np::ndarray y = DPhy::toNumPyArray(std::get<1>(x_y_z));
 	
 	p::list l;
 	l.append(x);
@@ -321,9 +386,13 @@ TrainRegressionNetwork()
 	this->mRegression.attr("updateRegressionData")(l);
 	
 	if(mParamStack > 10) {
+		nTrainingData += mParamStack;
 	    this->AssignParamsToBins();
-		this->mRegression.attr("train")();
+	    std::cout << "num training data: " << nTrainingData << " " << mParamBins.size() * 40 << std::endl;
+	    if(nTrainingData > mParamBins.size() * 40)
+	    	this->CleanupTrainingData();
 
+		this->mRegression.attr("train")();
 	    mParamStack = 0;
 	}
 

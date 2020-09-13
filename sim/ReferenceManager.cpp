@@ -819,7 +819,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mLock.lock();
 
 	if(r_slide > 0.86)
-		mRegressionSamples.push_back(std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>(cps, parameters));
+		mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
+									(cps, parameters, reward_trajectory));
 	if(flag[1] && mRefUpdateMode) {
 		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
 							std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
@@ -1021,26 +1022,28 @@ Optimize() {
 	// }
 	// return false;
 }
-std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> 
+std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> 
 ReferenceManager::
 GetRegressionSamples() {
 	std::vector<Eigen::VectorXd> x;
 	std::vector<Eigen::VectorXd> y;
-	
+	std::vector<double> r;
+
 	for(int i = 0; i < mRegressionSamples.size(); i++) {
-		std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd> s = mRegressionSamples[i];
+		std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> s = mRegressionSamples[i];
 		for(int j = 0; j < mKnots.size() + 3; j++) {
 			Eigen::VectorXd knot_and_target;
 			
-			knot_and_target.resize(1 + s.second.rows());
-			knot_and_target << j, s.second;
+			knot_and_target.resize(1 + std::get<1>(s).rows());
+			knot_and_target << j, std::get<1>(s);
 			x.push_back(knot_and_target);
-			y.push_back((s.first)[j]);
+			y.push_back(std::get<0>(s)[j]);
+			r.push_back(std::get<2>(s));
 		}
 	}
 	mRegressionSamples.clear();
 
-	return std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>(x, y);
+	return std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>(x, y, r);
 }
 
 };

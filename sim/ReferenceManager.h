@@ -70,7 +70,7 @@ public:
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
 	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 	std::vector<double> GetContacts(double t);
-	std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>> GetRegressionSamples();
+	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> GetRegressionSamples();
 	int GetDOF() {return mDOF; }
 	int GetNumCPS() {return (mKnots.size()+3);}
 	std::vector<double> GetKnots() {return mKnots;}
@@ -101,8 +101,8 @@ protected:
 	//cps, target, similarity
 	std::vector<std::tuple<MultilevelSpline*, std::pair<double, double>, double>> mSamples;
 	
-	//cps, parameter
-	std::vector<std::pair<std::vector<Eigen::VectorXd>, Eigen::VectorXd>> mRegressionSamples;
+	//cps, parameter, quality
+	std::vector<std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>> mRegressionSamples;
 
 	std::vector<Eigen::VectorXd> mPrevCps;
 	std::vector<Eigen::VectorXd> mDisplacement;

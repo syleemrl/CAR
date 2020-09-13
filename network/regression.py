@@ -111,12 +111,15 @@ class Regression(object):
 		except:
 			print("Nothing to load")
 
-	def saveRegressionData(self, tuples):
+	def saveRegressionData(self, tuples, append=True):
 		if len(tuples[0]) == 0:
 			return
 
-		out = open(self.directory+"regression_data"+self.postfix, "a")
-
+		if append:
+			out = open(self.directory+"regression_data"+self.postfix, "a")
+		else:
+			out = open(self.directory+"regression_data"+self.postfix, "w")
+		
 		for i in range(len(tuples[0])):
 			for sx in tuples[0][i]:
 				out.write(str(sx)+' ')
@@ -127,6 +130,11 @@ class Regression(object):
 		out.close()
 
 		print("save data to "+self.directory+"regression_data"+self.postfix)
+
+	def replaceRegressionData(self, tuples):
+		self.regression_x = tuples[0]
+		self.regression_y = tuples[1]
+
 	def updateRegressionData(self, tuples):
 		if len(tuples[0]) == 0:
 			return

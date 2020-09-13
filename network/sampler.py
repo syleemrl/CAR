@@ -45,13 +45,10 @@ class Sampler(object):
 				if np.random.rand() <= alpha:          
 					x_cur = x_new
 	
-		# t = []
-		# count = []
-		# for i in range(len(self.bound)):
-		# 	t.append(self.base + self.bound[i] * self.unit)
-		# 	count.append(0)
-
-		# v = v_func.getValue(t)
+		t = []
+		for i in range(len(self.bound)):
+			t.append(self.base + self.bound[i] * self.unit)
+		v = v_func.getValue(t)
 		# for i in range(len(self.pool)):
 		# 	x = self.pool[i]
 		# 	idx = []
