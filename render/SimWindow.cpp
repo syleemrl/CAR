@@ -7,6 +7,8 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 #include <GL/glut.h>
+#include <ctime>
+
 using namespace GUI;
 using namespace dart::simulation;
 using namespace dart::dynamics;
@@ -18,6 +20,8 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	mDrawOutput(true), mDrawRef(true), mDrawRef2(true),
 	mRunPPO(true), mTimeStep(1 / 30.0), mWrap(false)
 {
+	srand(time(NULL));
+
 	if(network.compare("") == 0) {
 		this->mDrawOutput = false;
 		this->mRunPPO = false;
@@ -59,21 +63,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
-	this->mSkelLength = 0.3;
-
 	this->mController->Reset(false);
-
-	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
-
-	Eigen::VectorXd position = p_v_target->GetPosition();
-	if(mWrap) {
-		position.segment<6>(0).setZero();
-		position[4] = 1.0;
-	}	
-	mRef->GetSkeleton()->setPositions(position);
-	mRef2->GetSkeleton()->setPositions(position);
-
-	mCharacter->GetSkeleton()->setPositions(position);
 
 	if(this->mRunPPO)
 	{
@@ -97,23 +87,35 @@ SimWindow(std::string motion, std::string network, std::string filename)
 			PyErr_Print();
 		}
 	}
-	// Eigen::VectorXd tp(3);
-	// tp = mReferenceManager->GetTargetBase();
-	// tp(0) += 0.16;
-	// tp(1) += 0.08;
-	// tp(2) += 0.04;
+	mPhaseCounter = 0;
+	mPrevFrame = 0;
 
-	// std::vector<Eigen::VectorXd> cps;
-	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	// 	Eigen::VectorXd input(4);
-	// 	input << j, tp;
-	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-	// 	np::ndarray na = np::from_object(a);
-	// 	cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-	// }
+	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
 
-	// mReferenceManager->LoadAdaptiveMotion(cps);
-	// mController->SetTargetParameters(tp);
+	std::vector<Eigen::VectorXd> cps;
+	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+		input << j, tp;
+		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+		np::ndarray na = np::from_object(a);
+		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+	}
+
+	mReferenceManager->LoadAdaptiveMotion(cps);
+	mController->SetTargetParameters(tp);
+
+	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
+
+	Eigen::VectorXd position = p_v_target->GetPosition();
+	if(mWrap) {
+		position.segment<6>(0).setZero();
+		position[4] = 1.0;
+	}	
+	mRef->GetSkeleton()->setPositions(position);
+	mRef2->GetSkeleton()->setPositions(position);
+
+	mCharacter->GetSkeleton()->setPositions(position);
 
 	this->mCurFrame = 0;
 	this->mTotalFrame = 0;
@@ -233,7 +235,7 @@ SetFrame(int n)
   		mCharacter->GetSkeleton()->setPositions(mMemory[n]);
   		mFootContact = mMemoryFootContact[n];
   		mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
-  		mObject->GetSkeleton()->setPositions(mMemoryObj[n]);
+  	//	mObject->GetSkeleton()->setPositions(mMemoryObj[n]);
   	}
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
@@ -263,6 +265,7 @@ SimWindow::
 DrawSkeletons()
 {
 	// GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
+	GUI::DrawPoint(mMemoryObj[mCurFrame], Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 
 	if(this->mDrawOutput) {
 		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
@@ -286,8 +289,8 @@ void
 SimWindow::
 DrawGround()
 {	
-	GUI::DrawPoint(Eigen::Vector3d(0.54, 1.18, 0.73), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	GUI::DrawPoint(Eigen::Vector3d(1.00531,  1.30185, 0.572417), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(0.54, 1.18, 0.73), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(1.00531,  1.30185, 0.572417), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
 
 
 	Eigen::Vector3d com_root;
@@ -352,6 +355,23 @@ Reset()
 {
 
 	this->mController->Reset(false);
+
+	mPhaseCounter = 0;
+	
+	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+
+	std::vector<Eigen::VectorXd> cps;
+	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+		input << j, tp;
+		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+		np::ndarray na = np::from_object(a);
+		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+	}
+
+	mReferenceManager->LoadAdaptiveMotion(cps);
+	mController->SetTargetParameters(tp);
 
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 	Eigen::VectorXd position = p_v_target->GetPosition();
@@ -475,6 +495,38 @@ Step()
 		if(this->mRunPPO)
 		{
 			auto state = this->mController->GetState();
+			double curFrame = state(state.rows() - (mReferenceManager->GetTargetBase().rows() + 1));
+
+			if(curFrame < mPrevFrame) {
+				mPhaseCounter += 1;
+				std::cout << "Reference updated "  << mPhaseCounter << std::endl;
+				Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+				tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+				for(int j = 0; j < tp.rows(); j++) {
+					double r = (rand() % 5) * 0.01;
+					if(rand() % 2 == 0)
+						r = -r;
+					tp(j) += r;
+				}
+				std::vector<Eigen::VectorXd> cps;
+				for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+					Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+					input << j, tp;
+					p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+					np::ndarray na = np::from_object(a);
+					cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+				}
+
+				mReferenceManager->LoadAdaptiveMotion(cps);
+				mController->SetTargetParameters(tp);
+
+				if(mPhaseCounter == 10)
+					mPhaseCounter = 0;
+			}
+			mPrevFrame = curFrame;
+
+			state = this->mController->GetState();
+
 			p::object a = this->mPPO.attr("run")(DPhy::toNumPyArray(state));
 			np::ndarray na = np::from_object(a);
 			Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController->GetNumAction());

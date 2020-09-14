@@ -322,7 +322,6 @@ class PPO(object):
 					)
 					lossval_ct += val[1]
 			self.lossvals.append(['loss critic target', lossval_ct])
-			self.env.sampler.random = False
 
 		self.v_target = TD_target_batch
 
@@ -394,7 +393,7 @@ class PPO(object):
 					state_target_batch.append(param[i])
 					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
 		
-					TD_t_dense = 0
+					# TD_t_dense = 0
 					TD_t_sparse = 0
 
 			TD = values_dense[:size] + advantages_dense

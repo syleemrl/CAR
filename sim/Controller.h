@@ -89,6 +89,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
 
 	void SetTargetParameters(Eigen::VectorXd tp) {mInputTargetParameters = tp; }
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;

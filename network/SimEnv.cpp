@@ -8,6 +8,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	:mNumSlaves(num_slaves)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+	mPath = training_path;
 
 	dart::math::seedRand();
 	omp_set_num_threads(num_slaves);
@@ -232,6 +233,8 @@ AssignParamsToBins()
 
 	Eigen::VectorXd p_cur = mReferenceManager->GetTargetCurMean();
 	Eigen::VectorXd idx_cur(nDim);
+
+	bool mFlag_new = false;
 	for(int j = 0; j < nDim; j++) {
 		idx_cur(j) = std::floor((p_cur(j) - mParamBase(j)) / mParamUnit(j));
 	}	
@@ -274,6 +277,7 @@ AssignParamsToBins()
 					mParamBins.push_back(pb);
 					if((idx - mParamGoalIdx).norm() < 1e-2) 
 						mNeedRefUpdate = false;
+					mFlag_new = true;
 				}
 			}
 		}
@@ -286,6 +290,20 @@ AssignParamsToBins()
 	}
 	mParamNotAssigned = paramNotAssigned_new;
 
+	if(mFlag_new) {
+		std::string path = mPath + std::string("boundary");
+
+		std::ofstream ofs;
+		ofs.open(path, std::fstream::out);
+
+		for(auto p: mParamBins) {	
+			Eigen::VectorXd idx = p.GetIdx();
+			Eigen::VectorXd p0 = mParamBase + mParamUnit * idx;
+			Eigen::VectorXd p1 = mParamBase + mParamUnit * (idx + Eigen::VectorXd::Ones(nDim));
+			ofs << p0.transpose() << ", " <<  p1.transpose() << std::endl;
+		}
+		ofs.close();
+	}
 }
 bool cmp(const Param &p1, const Param &p2){
     if(p1.reward > p2.reward){
@@ -297,7 +315,7 @@ bool cmp(const Param &p1, const Param &p2){
 }
 void
 SimEnv::
-CleanupTrainingData()
+RefreshTrainingData()
 {
 	std::vector<Eigen::VectorXd> x;
 	std::vector<Eigen::VectorXd> y;
@@ -388,9 +406,13 @@ TrainRegressionNetwork()
 	if(mParamStack > 10) {
 		nTrainingData += mParamStack;
 	    this->AssignParamsToBins();
-	    std::cout << "num training data: " << nTrainingData << " " << mParamBins.size() * 40 << std::endl;
-	    if(nTrainingData > mParamBins.size() * 40)
-	    	this->CleanupTrainingData();
+	    std::cout << "num training data: " << nTrainingData << std::endl;
+	    int over = 0;
+	    for(int i = 0; i < mParamBins.size(); i++) {
+	    	over += std::max(0, mParamBins[i].GetNumParams() - 30);
+	    }
+	    if(over > 500)
+	    	this->RefreshTrainingData();
 
 		this->mRegression.attr("train")();
 	    mParamStack = 0;
@@ -528,6 +550,8 @@ SetRefUpdateMode(bool t) {
 bool 
 SimEnv::
 NeedRefUpdate() {
+	if(!mNeedRefUpdate)
+		std::cout << "not need ref update" << std::endl;
 	return mNeedRefUpdate;
 }
 void 

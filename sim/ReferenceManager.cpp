@@ -607,14 +607,14 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots.push_back(35);
 
 	mTargetBase.resize(3);
-	mTargetBase << 0.28, 0.30, 0.66;
+	mTargetBase << 0.28, 0.30, 0.66; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(3);
-	mTargetGoal<< 0.65, 0.43, 0.35;
+	mTargetGoal<< 0.65, 0.43, 0.35; //, 2;
 
 	mTargetUnit.resize(3);
-	mTargetUnit<< 0.04, 0.04, 0.04;
+	mTargetUnit<< 0.04, 0.04, 0.04; //, 0.05;
 
 
 	mRefUpdateMode = true;

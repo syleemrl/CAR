@@ -32,15 +32,10 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 
 	std::vector<double> knots;
 	knots.push_back(0);
-	knots.push_back(12);
-	knots.push_back(29);
-	knots.push_back(37);
-	knots.push_back(44);
-	knots.push_back(52);
-	knots.push_back(56);
-	knots.push_back(59);	
-	knots.push_back(64);
-	knots.push_back(76);
+	knots.push_back(9);
+	knots.push_back(20);
+	knots.push_back(27);
+	knots.push_back(35);
 
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength());
 	s->SetKnots(0, knots);

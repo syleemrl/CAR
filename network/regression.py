@@ -32,14 +32,13 @@ class Regression(object):
 
 		config = tf.ConfigProto()
 		self.sess = tf.Session(config=config)
-
 		#build network and optimizer
 		self.name = directory.split("/")[-2] + postfix
 		self.postfix = postfix
 		self.buildOptimize(self.name)
-		
-		save_list = [v for v in tf.trainable_variables() if v.name.find(self.name)!=-1]
-		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
+
+		self.save_list = [v for v in tf.trainable_variables() if v.name.find(self.name)!=-1]
+		self.saver = tf.train.Saver(var_list=self.save_list, max_to_keep=1)
 
 		self.load()
 
@@ -60,7 +59,7 @@ class Regression(object):
 		self.sess = tf.Session(config=config)
 
 		#build network and optimizer
-		self.buildOptimize(name)
+		self.buildOptimize(self.name)
 		self.regression_x = np.empty(shape=[0, num_input])
 		self.regression_y = np.empty(shape=[0, num_output])
 
@@ -164,7 +163,10 @@ class Regression(object):
 			saved_variables, saved_values = get_tensors_in_checkpoint_file(path)
 			saved_dict = {n : v for n, v in zip(saved_variables, saved_values)}
 			restore_op = []
-			for v in tf.trainable_variables():
+
+			for v in self.save_list:
+				# if v.name[0:11]+v.name[14:-2] in saved_dict:
+				# 	saved_v = saved_dict[v.name[0:11]+v.name[14:-2]]
 				if v.name[:-2] in saved_dict:
 					saved_v = saved_dict[v.name[:-2]]
 					if v.shape == saved_v.shape:

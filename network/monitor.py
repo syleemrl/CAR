@@ -134,9 +134,9 @@ class Monitor(object):
 
 		if self.mode == 0:
 			self.sim_env.Optimize()
-			if self.mode_counter >= 8:
+			if self.mode_counter >= 10:
 				if len(b) == 0:
-					self.mode_counter = 7
+					self.mode_counter = 9
 				else:
 					self.mode = 1
 					self.sim_env.SetRefUpdateMode(False)

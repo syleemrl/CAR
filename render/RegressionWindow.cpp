@@ -17,7 +17,7 @@ RegressionWindow(std::string motion, std::string network)
 	this->mTotalFrame = 0;
 
 	std::string skel_path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
-	for(int i = 0; i < 5; i++) {
+	for(int i = 0; i < 1; i++) {
 		this->mRef.push_back(new DPhy::Character(skel_path));
 		std::vector<Eigen::VectorXd> memory;
 		this->mMemoryRef.push_back(memory);
@@ -30,24 +30,19 @@ RegressionWindow(std::string motion, std::string network)
 
 	DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(this->mRef_BVH);
 	referenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-
+	referenceManager->InitOptimization(1, "");
 	std::vector<double> knots;
 	knots.push_back(0);
-	knots.push_back(12);
-	knots.push_back(29);
-	knots.push_back(37);
-	knots.push_back(44);
-	knots.push_back(52);
-	knots.push_back(56);
-	knots.push_back(59);	
-	knots.push_back(64);
-	knots.push_back(76);
+	knots.push_back(9);
+	knots.push_back(20);
+	knots.push_back(27);
+	knots.push_back(35);
 
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength());
 	s->SetKnots(0, knots);
 	
 	std::vector<Eigen::VectorXd> cps;
-	for(int i = 0; i < knots.size() + 3 ; i++) {
+	for(int i = 0; i < referenceManager->GetNumCPS() ; i++) {
 		cps.push_back(Eigen::VectorXd::Zero(dof));
 	}
 
@@ -56,43 +51,39 @@ RegressionWindow(std::string motion, std::string network)
 	try {
 		p::object reg_main = p::import("regression");
 		this->mRegression = reg_main.attr("Regression")();
-		std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + network;
-		this->mRegression.attr("initRun")(path, 2, dof);
+		std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
+		this->mRegression.attr("initRun")(path, referenceManager->GetTargetBase().rows() + 1, dof);
 	} catch (const p::error_already_set&) {
 		PyErr_Print();
 	}
-
-	for(int i = 110, c = 0; i <= 125; i += 3, c++) {
-		for(int j = 0; j < cps.size(); j++) {
-			Eigen::VectorXd input(2);
-			input << j, i / 100.0;
+	for(int i = 0; i <= 10; i++) {
+		Eigen::VectorXd tp(referenceManager->GetTargetBase().rows());
+		tp = (1 - i * 0.1 ) * referenceManager->GetTargetBase() +  i * 0.1 * referenceManager->GetTargetGoal();
+		for(int j = 0; j < referenceManager->GetNumCPS(); j++) {
+			Eigen::VectorXd input(referenceManager->GetTargetBase().rows() + 1);
+			input << j, tp;
 			p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	
 			np::ndarray na = np::from_object(a);
 			cps[j] = DPhy::toEigenVector(na, dof);
-			if(j >= cps.size() - 3) {
-				std::cout << j << " " << cps[j].transpose() << std::endl;
-			}
 		}
 		s->SetControlPoints(0, cps);
 		std::vector<Eigen::VectorXd> newpos;
 		std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
+
 		referenceManager->AddDisplacementToBVH(new_displacement, newpos);
 		for(int j = 0; j < newpos.size(); j++) {
-			newpos[j][3] += (c + 1);
+			mMemoryRef[0].push_back(newpos[j]);
 		}
-		for(int l = 0; l < 5; l++) {
-			for(int j = 0; j < newpos.size(); j++) {
-				mMemoryRef[c].push_back(newpos[j]);
-			}
-		}
-	}
 
-	mTotalFrame = 5 * referenceManager->GetPhaseLength();
-	for(int l = 0; l < 5; l++) {
+	}
+	mTotalFrame = mMemoryRef[0].size();
+	for(int l = 0; l <= 10; l++) {
 		for(int j = 0; j < referenceManager->GetPhaseLength(); j++) {
 			mMemoryRefBVH.push_back(referenceManager->GetPosition(j));
 		}
 	}
+
 	DPhy::SetSkeletonColor(this->mRef_BVH->GetSkeleton(), Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
 
 	this->mCurFrame = 0;
@@ -110,7 +101,7 @@ SetFrame(int n)
 	 	std::cout << "Frame exceeds limits" << std::endl;
 	 	return;
 	}
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < 1; i++)
     	mRef[i]->GetSkeleton()->setPositions(mMemoryRef[i][n]);
     mRef_BVH->GetSkeleton()->setPositions(mMemoryRefBVH[n]);
 
@@ -140,9 +131,9 @@ void
 RegressionWindow::
 DrawSkeletons()
 {
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < 1; i++)
 		GUI::DrawSkeleton(this->mRef[i]->GetSkeleton(), 0);
-	GUI::DrawSkeleton(this->mRef_BVH->GetSkeleton(), 0);
+//	GUI::DrawSkeleton(this->mRef_BVH->GetSkeleton(), 0);
 
 }
 void

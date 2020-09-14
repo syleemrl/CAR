@@ -407,8 +407,11 @@ SaveStepInfo()
 	mRecordRewardPosition.push_back(mRewardTargetPositions);
 	mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, false));
 	
-	if(mRecord)
-		mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
+	if(mRecord) {
+		Eigen::AngleAxisd aa(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
+		Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
+		mRecordObjPosition.push_back(target_hand);
+	}
 	mRecordTargetPosition.push_back(mTargetPositions);
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
@@ -530,16 +533,18 @@ GetTargetReward()
 
 		Eigen::Vector3d target_diff = target_hand - hand;
 
-		double f_hand = 0;
-		for(int i = 0; i < mRecordWork.size(); i++) {
-			f_hand += mRecordWork[i];
-		}
-		f_hand /= mRecordWork.size();
-		mRecordWork.clear();
-		double f_diff = 1.5 - f_hand;
-		r_target = 1.5 * exp_of_squared(target_diff,0.2) + 0.5 * exp_of_squared(target_diff,0.05);// + exp(-pow(f_diff, 2)*0.75);
+		// double f_hand = 0;
+		// for(int i = 0; i < mRecordWork.size(); i++) {
+		// 	f_hand += mRecordWork[i];
+		// }
+		// f_hand /= mRecordWork.size();
+		// mRecordWork.clear();
+		// double f_diff = mInputTargetParameters(3) - f_hand;
+		r_target = 1.5 * exp_of_squared(target_diff,0.2) + 0.5 * exp_of_squared(target_diff,0.05);
 		mControlFlag[0] = 1;
 		targetParameters.segment<3>(0) = aa.inverse() * (hand - mHeadRoot.segment<3>(3));
+		// targetParameters(3) = f_hand;
+
 	}
 
 
@@ -858,7 +863,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(!mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}

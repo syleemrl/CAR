@@ -16,6 +16,8 @@ class Sampler(object):
 		self.random = True
 
 		self.k = 5
+		self.n_iter = 0
+
 	def updateBound(self, bound):
 		self.bound = bound
 
@@ -74,22 +76,28 @@ class Sampler(object):
 		return target
 
 	def reset(self):
-		self.v_mean = 0
+		self.n_iter = 0
 		self.n_samples = 0
 		self.random = True
 
 	def isEnough(self, results):
 
+		self.n_iter += 1
+		self.random = False
+
 		v_mean_cur = np.array(results).mean()
 		n = len(results)
 
 		self.v_mean = (n * v_mean_cur + self.n_samples * self.v_mean) / (n + self.n_samples)
+		if self.v_mean == 0:
+			embed()
+
 		self.n_samples += n
 
 		print("===========================================")
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.v_mean < 3.2:
+		if self.n_iter < 2 or self.v_mean < 3.5:
 			return False
 		return True

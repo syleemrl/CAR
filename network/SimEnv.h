@@ -82,7 +82,7 @@ public:
 	np::ndarray GetTargetUnit();
 
 	void AssignParamsToBins();
-	void CleanupTrainingData();
+	void RefreshTrainingData();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
@@ -105,6 +105,8 @@ private:
 	std::vector<ParamBin> mParamBins;
 	
 	p::object mRegression;
+
+	std::string mPath;
 };
 
 

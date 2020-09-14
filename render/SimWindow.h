@@ -103,6 +103,8 @@ protected:
 	p::object mPPO;
 	p::object mRegression;
 
+	int mPhaseCounter;
+	double mPrevFrame;
 };
 
 #endif
