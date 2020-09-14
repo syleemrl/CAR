@@ -7,6 +7,7 @@
 #include <algorithm> 
 #include <cctype>
 #include <locale>
+#include <Eigen/Eigenvalues>
 
 namespace DPhy
 {
@@ -104,7 +105,10 @@ np::ndarray toNumPyArray(const Eigen::MatrixXd& matrix)
 np::ndarray toNumPyArray(const std::vector<Eigen::VectorXd>& matrix)
 {
 	int n = matrix.size();
-	int m = matrix[0].rows();
+	int m;
+	if(n == 0)
+		m = 0;
+	else  m = matrix[0].rows();
 
 	p::tuple shape = p::make_tuple(n,m);
 	np::dtype dtype = np::dtype::get_builtin<float>();
@@ -187,7 +191,6 @@ Eigen::MatrixXd toEigenMatrix(const np::ndarray& array,int n,int m)
 	}
 	return mat;
 }
-
 // trim from start (in place)
 static inline void ltrim(std::string &s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
@@ -378,7 +381,18 @@ void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Ve
 	}
 }
 
-
+std::vector<dart::dynamics::BodyNode*> GetChildren(const dart::dynamics::SkeletonPtr& skel, 
+												   const dart::dynamics::BodyNode* parent){
+	std::vector<dart::dynamics::BodyNode*> childs;
+	for(int i=0;i<skel->getNumBodyNodes();i++)
+	{
+		auto bn = skel->getBodyNode(i);
+		auto pn = bn->getParentBodyNode();
+		if(pn && !pn->getName().compare(parent->getName()))
+			childs.push_back(bn);
+	}
+	return childs;
+}
 Eigen::Quaterniond DARTPositionToQuaternion(Eigen::Vector3d in){
 	if( in.norm() < 1e-8 ){
 		return Eigen::Quaterniond::Identity();
@@ -396,6 +410,111 @@ Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in){
 	return angle*aa.axis();
 }
 
+Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b, double weight, bool blend_rootpos) {
+
+	Eigen::VectorXd result(target_a.rows());
+	result = target_a;
+
+	for(int i = 0; i < result.size(); i += 3) {
+		if (i == 3) {
+			if(blend_rootpos)	result.segment<3>(i) = (1 - weight) * target_a.segment<3>(i) + weight * target_b.segment<3>(i); 
+			else result[4] = (1-weight) * target_a[4] + weight * target_b[4]; 
+		} else if (i == 0 && !blend_rootpos) {
+			Eigen::Vector3d v_a = target_a.segment<3>(i);
+			Eigen::Vector3d v_b = target_b.segment<3>(i);
+	
+			result(i) = v_a(0) * (1-weight) + v_b(0) * weight;
+			result(i+1) = target_a(i+1);
+			result(i+2) = v_a(2) * (1-weight) + v_b(2) * weight;
+		} else {
+			Eigen::AngleAxisd v1_aa(target_a.segment<3>(i).norm(), target_a.segment<3>(i).normalized());
+			Eigen::AngleAxisd v2_aa(target_b.segment<3>(i).norm(), target_b.segment<3>(i).normalized());
+					
+			Eigen::Quaterniond v1_q(v1_aa);
+			Eigen::Quaterniond v2_q(v2_aa);
+
+			result.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(weight, v2_q)); 
+		}
+	}
+
+	return result;
+}
+Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)
+{
+	Eigen::VectorXd vec(pos.rows());
+	for(int i = 0; i < pos.rows(); i += 3) {
+		if(i != 3) {
+			Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(pos.segment<3>(i).norm(), pos.segment<3>(i).normalized());
+			Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(rot.segment<3>(i).norm(), rot.segment<3>(i).normalized());
+			Eigen::Matrix3d m;
+			m = aa1 * aa2;
+			Eigen::AngleAxisd vec_seg(m);
+			vec.segment<3>(i) = vec_seg.axis() * vec_seg.angle();
+		} else {
+			vec.segment<3>(i) = pos.segment<3>(i);
+		}
+	}
+	return vec;
+}
+Eigen::Vector3d Rotate3dVector(Eigen::Vector3d v, Eigen::Vector3d r) {
+	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(v.norm(), v.normalized());
+	Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(r.norm(), r.normalized());
+  	Eigen::AngleAxisd aa;
+  	aa = aa1 * aa2;
+  	return aa.axis() * aa.angle();
+}
+
+Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1)
+{
+	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(q1.norm(), q1.normalized());
+	Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(q2.norm(), q2.normalized());
+  	Eigen::AngleAxisd aa;
+  	aa = aa1.inverse() * aa2;
+  	return aa.axis() * aa.angle();
+}
+Eigen::Vector3d LinearPositionDifferences(Eigen::VectorXd v2, Eigen::Vector3d v1, Eigen::Vector3d q1)
+{
+	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(q1.norm(), q1.normalized());
+	Eigen::Vector3d diff = v2 - v1;
+
+	return aa1.inverse() * diff;
+}
+Eigen::Vector3d NearestOnGeodesicCurve3d(Eigen::Vector3d targetAxis, Eigen::Vector3d targetPosition, Eigen::Vector3d position) {
+	Eigen::Quaterniond v1_q = DARTPositionToQuaternion(position);
+	Eigen::Quaterniond q = DARTPositionToQuaternion(targetPosition);
+	Eigen::Vector3d axis = targetAxis.normalized();
+	double ws = v1_q.w();
+	Eigen::Vector3d vs = v1_q.vec();
+	double w0 = q.w();
+	Eigen::Vector3d v0 = q.vec();
+
+	double a = ws*w0 + vs.dot(v0);
+	double b = w0*(axis.dot(vs)) - ws*(axis.dot(v0)) + vs.dot(axis.cross(v0));
+
+	double alpha = atan2( a,b );
+
+	double t1 = -2*alpha + M_PI;
+	Eigen::Quaterniond t1_q(Eigen::AngleAxisd(t1, axis));
+	double t2 = -2*alpha - M_PI;
+	Eigen::Quaterniond t2_q(Eigen::AngleAxisd(t2, axis));
+
+	if (v1_q.dot(t1_q) > v1_q.dot(t2_q))
+	{	
+		return QuaternionToDARTPosition(t1_q);
+	} else {
+		return QuaternionToDARTPosition(t2_q);
+	}
+}
+Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position){
+	Eigen::VectorXd result(targetAxis.rows());
+	result.setZero();
+	for(int i = 0; i < targetAxis.size(); i += 3) {
+		if (i!= 3) {
+			result.segment<3>(i) = NearestOnGeodesicCurve3d(targetAxis.segment<3>(i), targetPosition.segment<3>(i), position.segment<3>(i));
+		}
+	}
+	return result;
+}
 void QuaternionNormalize(Eigen::Quaterniond& in){
 	if(in.w() < 0){
 		in.coeffs() *= -1;
@@ -607,7 +726,92 @@ Eigen::VectorXd solveIK(dart::dynamics::SkeletonPtr skel, const std::string& bod
 	}
 	return newPose;
 }
+Eigen::VectorXd solveMCIKRoot(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints)
+{
+	Eigen::VectorXd newPose = skel->getPositions();
+	int num_constraints = constraints.size();
 
+	std::vector<dart::dynamics::BodyNode*> bodynodes(num_constraints);
+	std::vector<Eigen::Vector3d> targetposes(num_constraints);
+	std::vector<Eigen::Vector3d> offsets(num_constraints);
+
+	for(int i = 0; i < num_constraints; i++){
+		bodynodes[i] = skel->getBodyNode(std::get<0>(constraints[i]));
+		targetposes[i] = std::get<1>(constraints[i]);
+		offsets[i] = std::get<2>(constraints[i]);
+	}
+
+	int not_improved = 0;
+	for(std::size_t i = 0; i < 100; i++)
+	{
+
+		// make deviation vector and jacobian matrix
+		Eigen::VectorXd deviation(num_constraints*3);
+		for(int j = 0; j < num_constraints; j++){
+			deviation.segment<3>(j*3) = targetposes[j] - bodynodes[j]->getTransform()*offsets[j];
+		}
+		if(deviation.norm() < 0.001)
+			break;
+
+		int nDofs = skel->getNumDofs();
+		Eigen::MatrixXd jacobian_concatenated(3*num_constraints, nDofs);
+		for(int j = 0; j < num_constraints; j++){
+			dart::math::LinearJacobian jacobian = skel->getLinearJacobian(bodynodes[j], offsets[j]);
+			jacobian.block(0, 0, 3, 1).setZero();
+			jacobian.block(0, 2, 3, 1).setZero();
+			jacobian.block(0, 6, 3, nDofs - 6).setZero();
+			jacobian_concatenated.block(3*j, 0, 3, nDofs) = jacobian;
+		}
+		// std::cout << jacobian_concatenated << std::endl;
+
+		Eigen::JacobiSVD<Eigen::MatrixXd> svd(jacobian_concatenated, Eigen::ComputeThinU | Eigen::ComputeThinV);
+		Eigen::MatrixXd inv_singular_value(3*num_constraints, 3*num_constraints);
+		
+		inv_singular_value.setZero();
+		for(int k=0;k<3*num_constraints;k++)
+		{
+			if(svd.singularValues()[k]<1e-8)
+				inv_singular_value(k,k) = 0.0;
+			else
+				inv_singular_value(k,k) = 1.0/svd.singularValues()[k];
+		}
+
+
+		Eigen::MatrixXd jacobian_inv = svd.matrixV()*inv_singular_value*svd.matrixU().transpose();
+		// std::cout << svd.singularValues().transpose() << std::endl;
+		// std::cout << svd.matrixV().size() << std::endl;
+
+		// std::cout << jacobian_inv << std::endl;
+		// exit(0);
+		// Eigen::VectorXd gradient = jacobian.colPivHouseholderQr().solve(deviation);
+		Eigen::VectorXd gradient = jacobian_inv * deviation;
+		double prev_norm = deviation.norm();
+		double gamma = 0.5;
+		not_improved++;
+		for(int j = 0; j < 24; j++){
+			Eigen::VectorXd newDirection = gamma * gradient;
+			Eigen::VectorXd np = newPose + newDirection;
+			skel->setPositions(np);
+			skel->computeForwardKinematics(true, false, false);
+
+			Eigen::VectorXd new_deviation(num_constraints*3);
+			for(int j = 0; j < num_constraints; j++){
+				new_deviation.segment<3>(j*3) = targetposes[j] - bodynodes[j]->getTransform()*offsets[j];
+			}
+			double new_norm = new_deviation.norm();
+			if(new_norm < prev_norm){
+				newPose = np;
+				not_improved = 0;
+				break;
+			}
+			gamma *= 0.5;
+		}
+		if(not_improved > 1){
+			break;
+		}
+	}
+	return newPose;
+}
 Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints)
 {
 	int foot_l_idx = skel->getBodyNode("FootL")->getParentJoint()->getIndexInSkeleton(0);
@@ -648,7 +852,7 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 		Eigen::MatrixXd jacobian_concatenated(3*num_constraints, nDofs);
 		for(int j = 0; j < num_constraints; j++){
 			dart::math::LinearJacobian jacobian = skel->getLinearJacobian(bodynodes[j], offsets[j]);
-			jacobian.block<3,6>(0,0).setZero();
+			// jacobian.block<3,3>(0,0).setZero();
 			// jacobian.block<3,3>(0,foot_l_idx).setZero();
 			// jacobian.block<3,3>(0,foot_r_idx).setZero();
 			jacobian.block<3,3>(0,footend_l_idx).setZero();
@@ -710,5 +914,44 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 	}
 	return newPose;
 }
+std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target) {
+	std::vector<Eigen::VectorXd> result = data;
 
+	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(data[0].head<6>());
+	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(target);
+
+	
+	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
+
+	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
+	T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+	T01.translation()[1] = 0;
+	Eigen::Isometry3d T0_gen = T01*T0_phase;
+
+	for(int i = 0; i < data.size(); i++) {
+		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(data[i].head<6>());
+		T_current = T0_phase.inverse()*T_current;
+		T_current = T0_gen*T_current;
+
+		result[i].head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+	}
+
+	return result;
+}
+Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m) {
+	Eigen::AngleAxisd m_v;
+	m_v = m;
+	Eigen::Vector3d nearest = DPhy::NearestOnGeodesicCurve3d(Eigen::Vector3d(0, 1, 0), Eigen::Vector3d(0, 0, 0), m_v.axis() * m_v.angle());
+	Eigen::AngleAxisd nearest_aa(nearest.norm(), nearest.normalized());
+	Eigen::Matrix3d result;
+	result = nearest_aa;
+	return result;
+
+}
+Eigen::Vector3d projectToXZ(Eigen::Vector3d v) {
+
+	Eigen::Vector3d nearest = DPhy::NearestOnGeodesicCurve3d(Eigen::Vector3d(0, 1, 0), Eigen::Vector3d(0, 0, 0), v);
+	return nearest;
+
+}
 }

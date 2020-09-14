@@ -4,19 +4,27 @@
 #include "GLUTWindow.h"
 #include "GLfunctions.h"
 #include "Controller.h"
+#include "Character.h"
+#include "BVH.h"
 #include "DART_interface.h"
+#include "ReferenceManager.h"
 #include <string>
+#include <boost/python.hpp>
+#include <boost/python/numpy.hpp>
 /**
 *
 * @brief Modified SimWindow class in dart.
 * @details Renders on window with the recorded data generated in sim.
 *
 */
+namespace p = boost::python;
+namespace np = boost::python::numpy;
+
 class SimWindow : public GUI::GLUTWindow
 {
 public:
 	/// Constructor.
-	SimWindow(std::string motion);
+	SimWindow(std::string motion, std::string network="", std::string filename="");
 
 	/// World object pointer
 	dart::simulation::WorldPtr mWorld;
@@ -47,7 +55,8 @@ protected:
 	void Timer(int value) override;
 
 	void Step();
-
+	
+	void Reset();
 	/// Set the skeleton positions in mWorld to the positions at n frame.
 	void SetFrame(int n);
 
@@ -57,18 +66,45 @@ protected:
 	/// Set the skeleton positions in mWorld to the postions at the previous frame.
 	void PrevFrame();
 	void MemoryClear();
-	void Save();
+	void Save(int n);
 	
+	void SaveReferenceData(std::string path);
+
 	bool mIsRotate;
 	bool mIsAuto;
 	bool mTrackCamera;
+	bool mDrawRef, mDrawRef2, mDrawRef3;
+	bool mDrawOutput;
+	bool mRunPPO;
+	bool mWrap;
+	
 	double mTimeStep;
 	int mCurFrame;
 	int mTotalFrame;
-	
-	std::vector<Eigen::VectorXd> mMemory1;
-
+	std::vector<double> mReward;
+	double mSkelLength;
+	double mRewardTotal;
+	std::string mode;
+	std::vector<Eigen::VectorXd> mMemory, mMemoryRef, mMemoryRef2, mMemoryRef3, mMemoryObj;
+	std::vector<Eigen::Vector3d> mMemoryCOM, mMemoryCOMRef, mMemoryCOMRef2;
+	std::vector<std::vector<Eigen::VectorXd>> mMemoryGRF;
+	std::vector<std::pair<bool, bool>> mMemoryFootContact;
+	std::pair<bool, bool> mFootContact;
+	std::string filename;
 	DPhy::Controller* mController;
+	DPhy::Character* mCharacter;
+	DPhy::Character* mRef;
+	DPhy::Character* mRef2;
+	DPhy::Character* mRef3;
+	DPhy::Character* mObject;
+	DPhy::ReferenceManager* mReferenceManager;
+	DPhy::BVH* mBVH;
+
+	p::object mPPO;
+	p::object mRegression;
+
+	int mPhaseCounter;
+	double mPrevFrame;
 };
 
 #endif

@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 class RunningMeanStd(object):
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
@@ -35,6 +36,18 @@ class RunningMeanStd(object):
                 self.mean = data['mean']
                 self.var = data['var']
                 self.count = data['count']
+        # print('mean', self.mean)
+        # print('var', self.var)
+        
+    def setNumStates(self, size):
+        if size != self.mean.shape[0]:
+            l = size - self.mean.shape[0]
+            m_new = np.zeros(l, 'float64')
+            v_new = np.ones(l, 'float64')
+            self.mean = np.concatenate((self.mean, m_new), axis=0)
+            self.var = np.concatenate((self.var, v_new), axis=0)
+            print("new RMS state size: ", self.mean.shape)
+
 
 def update_mean_var_count_from_moments(mean, var, count, batch_mean, batch_var, batch_count):
     delta = batch_mean - mean

@@ -12,7 +12,8 @@ void DrawSkeleton(
 	const dart::dynamics::SkeletonPtr& skel, int type=0);
 void DrawSkeleton(
 	const dart::dynamics::SkeletonPtr& skel, const Eigen::Vector3d& uniform_color, int type=0);
-
+void DrawFootContact(
+	const dart::dynamics::SkeletonPtr& skel, std::pair<bool, bool> contact);
 void DrawSkeleton(
 	const dart::dynamics::SkeletonPtr& skel,
 	const Eigen::Vector3d& color);
@@ -31,6 +32,12 @@ void DrawShape(const Eigen::Isometry3d& T,
 	const Eigen::Vector4d& color,
 	const Eigen::Vector3d& uniform_color,
 	std::string name);
+
+void DrawBodyNode(const dart::dynamics::SkeletonPtr& skel, 
+	Eigen::Vector4d color,
+	std::string body_name, 
+	int type=0);
+
 };
 
 #endif

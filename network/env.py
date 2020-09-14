@@ -1,41 +1,59 @@
 from utils import RunningMeanStd
 import numpy as np
 import simEnv
-import pickle
+import time
+from IPython import embed
 class Env(object):
-	def __init__(self, motion, num_slaves):
+	def __init__(self, ref, directory, adaptive, num_slaves):
 		self.num_slaves = num_slaves
-		self.motion = motion
-		self.sim_env = simEnv.Env(num_slaves, motion)
+		self.sim_env = simEnv.Env(num_slaves, "/motion/"+ref, directory, adaptive)
 		
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()
+		self.adaptive = adaptive
 
-	def reset(self, i):
-		self.sim_env.Reset(i, True)
+	def reset(self, i, b):
+		self.sim_env.Reset(i, b)
 	
+	def stepForEval(self, action, i):
+		self.sim_env.SetAction(action[0], i)
+		self.sim_env.Steps()
+		is_terminal, nan_occur, start, frame_elapsed, time_elapsed = self.sim_env.IsNanAtTerminal(i)
+		r = self.sim_env.GetRewardByParts(i)
+
+		state = self.sim_env.GetState(i)
+
+		return state, r, is_terminal
+
 	def step(self, actions):
 		rewards = []
 		dones = []
-		time_ends = []
+		frames = []
+		times = []
+		terminal_reason = []
 		nan_count = 0
-		
+
 		self.sim_env.SetActions(actions)
 		self.sim_env.Steps()
-
 		for j in range(self.num_slaves):
-			is_terminal, nan_occur, time_end = self.sim_env.IsNanAtTerminal(j)
+			is_terminal, nan_occur, start, frame_elapsed, time_elapsed, t = self.sim_env.IsNanAtTerminal(j)
 			if not nan_occur:
 				r = self.sim_env.GetRewardByParts(j)
 				rewards.append(r)
 				dones.append(is_terminal)
-				time_ends.append(time_end)
+				times.append(time_elapsed)
+				frames.append(frame_elapsed)
+				terminal_reason.append(t)
 			else:
-				rewards.append(None)
+				if self.adaptive:
+					rewards.append([None, None])
+				else:
+					rewards.append([None])
 				dones.append(True)
-				time_ends.append(time_end)
-				nan_count += 1
-		
-		states = self.sim_env.GetStates()
+				times.append(time_elapsed)
+				frames.append(frame_elapsed)
+				terminal_reason.append(t)
 
-		return states, np.array(rewards), dones, time_ends, nan_count 
+				nan_count += 1
+		states = self.sim_env.GetStates()
+		return states, rewards, dones, times, frames, terminal_reason, nan_count 

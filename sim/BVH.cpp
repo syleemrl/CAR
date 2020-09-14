@@ -114,7 +114,6 @@ GetName()
 BVH::
 BVH()
 {
-
 }
 
 void
@@ -163,14 +162,6 @@ SetMotion(double t)
 	mRootCOM.setZero();
 	mRootCOM = (root_k*(1-dt) + root_k1*dt - mRootCOMOffset)*0.01;
 	
-	// double remain = (double)(mNumTotalFrames-1-k);
-	// double residual = std::max(1.0-remain/num_interpolate,0.0);
-	// Eigen::VectorXd m_t =mMotions[k]+residual*mMotionDiff;
-	// for(auto& bn: mMap)
-	// 	bn.second->Set(m_t);
-
-	// mRootCOM = mMotions[k].segment<3>(0) - (mRootCOMOffset);
-	// mRootCOM *=0.01;
 }
 Eigen::Matrix3d
 BVH::

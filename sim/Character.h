@@ -15,30 +15,28 @@ class Character
 public:
 	Character(){}
 	Character(const std::string& path);
+//	Character(const dart::dynamics::SkeletonPtr& skeleton);
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
-	const std::string& GetCharacterPath();
-
+	void SetSkeleton(dart::dynamics::SkeletonPtr skel);
 	void SetPDParameters(double kp, double kv);
 	void SetPDParameters(const Eigen::VectorXd& kp, const Eigen::VectorXd& kv);
 	void SetPDParameters(const Eigen::VectorXd& k);
 	void ApplyForces(const Eigen::VectorXd& forces);
+	double GetTorqueLimit(const std::string name);
 	Eigen::VectorXd GetPDForces(const Eigen::VectorXd& p_desired, const Eigen::VectorXd& v_desired);
 	Eigen::VectorXd GetSPDForces(const Eigen::VectorXd& p_desired, const Eigen::VectorXd& v_desired);
+	std::map<std::string,std::string> GetBVHMap() {return mBVHMap;} //body_node name and bvh_node name
 
-	void LoadBVHMap(const std::string& path);
+	void LoadBVHMap();
 
-	void InitializeBVH(BVH* bvh);
-	std::pair<Eigen::VectorXd,Eigen::VectorXd> GetTargetPositionsAndVelocitiesFromBVH(BVH* bvh,double t);
-	Eigen::VectorXd GetTargetPositions(BVH* bvh,double t);
 protected:
-	std::string mCharacterPath;
+	std::string mPath;
 	dart::dynamics::SkeletonPtr mSkeleton;
-
+	std::map<std::string, double>* mTorqueMap; //body_node name and bvh_node name
 	std::map<std::string,std::string> mBVHMap; //body_node name and bvh_node name
 	Eigen::VectorXd mKp, mKv;
 	Eigen::VectorXd mKp_default, mKv_default;
-
 };
 };
 

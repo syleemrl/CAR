@@ -1,4 +1,6 @@
 #include <tinyxml.h>
+#include <tinyxml.h>
+#include <cmath>
 #include "SkeletonBuilder.h"
 #include "Functions.h"
 #include "CharacterConfigurations.h"
@@ -40,13 +42,84 @@ Eigen::Isometry3d Orthonormalize(const Eigen::Isometry3d& T_old)
 
 double _default_damping_coefficient = JOINT_DAMPING;
 
-SkeletonPtr 
+void 
+SkeletonBuilder::
+DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
+	dart::dynamics::BodyNode* bn, 
+	std::tuple<std::string, Eigen::Vector3d, double> deform) {
+	
+	auto shape_old = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
+	auto box = dynamic_cast<BoxShape*>(shape_old);
+	Eigen::Vector3d origin = box->getSize();
+	Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
+	ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
+
+	auto inertia = bn->getInertia();
+	inertia.setMass(inertia.getMass() * std::get<2>(deform));
+	inertia.setMoment(shape->computeInertia(inertia.getMass()));
+	bn->setInertia(inertia);
+
+	bn->removeAllShapeNodes();
+    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
+	
+	auto props = bn->getParentJoint()->getJointProperties();
+	Eigen::Vector3d translation = props.mT_ChildBodyToJoint.translation();
+
+	
+	for(int i = 0; i < 3; i++) {
+		if(translation[i] != 0) {
+			double sign = translation[i];
+			sign = sign / fabs(sign);
+
+			Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+			T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+			props.mT_ChildBodyToJoint = props.mT_ChildBodyToJoint * T;
+			bn->getParentJoint()->setProperties(props);
+		}
+	}
+
+	auto children = GetChildren(skel, bn);
+	for(auto child : children) {
+		props = child->getParentJoint()->getJointProperties();
+		translation = props.mT_ParentBodyToJoint.translation();
+		for(int i = 0; i < 3; i++) {
+			if(translation[i] != 0) {
+
+				double sign = translation[i];
+				sign = sign / fabs(sign);
+
+				Eigen::Isometry3d  T = Eigen::Isometry3d::Identity();
+				T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+
+				props.mT_ParentBodyToJoint =  props.mT_ParentBodyToJoint * T;
+				child->getParentJoint()->setProperties(props);
+			}
+		}
+	}
+}
+
+void 
+SkeletonBuilder::
+DeformSkeleton(const dart::dynamics::SkeletonPtr& skel, 
+	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform) {
+	for(auto d : deform) {
+		for(int i=0;i<skel->getNumBodyNodes();i++)
+		{
+			auto bn = skel->getBodyNode(i);
+			if(!bn->getName().compare(std::get<0>(d))) {
+				DeformBodyNode(skel, bn, d);
+				break;
+			}
+		}
+	}
+}
+std::pair<SkeletonPtr, std::map<std::string, double>*>
 SkeletonBuilder::
 BuildFromFile(const std::string& filename){
 	TiXmlDocument doc;
 	if(!doc.LoadFile(filename)){
 		std::cout << "Can't open file : " << filename << std::endl;
-		return nullptr;
+		// return nullptr;
 	}
 
 	TiXmlElement *skeldoc = doc.FirstChildElement("Skeleton");
@@ -54,6 +127,7 @@ BuildFromFile(const std::string& filename){
 	std::string skelname = skeldoc->Attribute("name");
 	SkeletonPtr skel = Skeleton::create(skelname);
 	std::cout << skelname << std::endl;
+	std::map<std::string, double>* torqueMap = new std::map<std::string, double>();
 
 	for(TiXmlElement *body = skeldoc->FirstChildElement("Joint"); body != nullptr; body = body->NextSiblingElement("Joint")){
 		// type
@@ -84,6 +158,13 @@ BuildFromFile(const std::string& filename){
 			jointPosition.linear() = DPhy::string_to_matrix3d(jointPosElem->Attribute("linear"));
 		jointPosition.translation() = DPhy::string_to_vector3d(jointPosElem->Attribute("translation"));
 		jointPosition = Orthonormalize(jointPosition);
+
+		double torquelim = 1e6;
+		TiXmlElement *torquelimElem = body->FirstChildElement("TorqueLimit");
+		if(torquelimElem != nullptr) {
+			torquelim = std::stod(torquelimElem->Attribute("norm"));
+		}
+		torqueMap->insert(std::pair<std::string, double>(name, torquelim));
 
 		// shape : capsule, sphere, none, cylinder, box
 		double shape_radius = 0;
@@ -278,7 +359,7 @@ BuildFromFile(const std::string& filename){
 		}
 
 	}
-	return skel;
+	return std::pair<SkeletonPtr, std::map<std::string, double>*>(skel, torqueMap);
 }
 
 BodyNode* SkeletonBuilder::MakeFreeJointBall(

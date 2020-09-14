@@ -7,8 +7,16 @@ namespace DPhy
 class SkeletonBuilder
 {
 public:
-	static dart::dynamics::SkeletonPtr BuildFromFile(const std::string& filename);
+	static std::pair<dart::dynamics::SkeletonPtr, std::map<std::string, double>*> BuildFromFile(const std::string& filename);
 	//static void WriteSkeleton(std::string filename, dart::dynamics::SkeletonPtr& skel);
+	static void DeformBodyNode(
+		const dart::dynamics::SkeletonPtr& skel,
+		dart::dynamics::BodyNode* bn, 
+		std::tuple<std::string, Eigen::Vector3d, double> deform);
+
+	static void DeformSkeleton(
+		const dart::dynamics::SkeletonPtr& skel,
+		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform);
 
 	//SM) added for drawing ball
     static dart::dynamics::BodyNode* MakeFreeJointBall(

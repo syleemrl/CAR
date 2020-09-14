@@ -41,14 +41,22 @@ double exp_of_squared(const Eigen::MatrixXd& mat,double sigma = 1.0);
 std::pair<int, double> maxCoeff(const Eigen::VectorXd& in);
 
 double RadianClamp(double input);
+std::vector<dart::dynamics::BodyNode*> GetChildren(const dart::dynamics::SkeletonPtr& skel, const dart::dynamics::BodyNode* parent);
 
 Eigen::Quaterniond DARTPositionToQuaternion(Eigen::Vector3d in);
 Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in);
 void QuaternionNormalize(Eigen::Quaterniond& in);
-
+Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight, bool blend_rootpos=true);
+Eigen::Vector3d NearestOnGeodesicCurve3d(Eigen::Vector3d targetAxis, Eigen::Vector3d targetPosition, Eigen::Vector3d position);
+Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position);
+Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot);
+Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1);
+Eigen::Vector3d LinearPositionDifferences(Eigen::VectorXd v2, Eigen::Vector3d v1, Eigen::Vector3d q1);
+Eigen::Vector3d Rotate3dVector(Eigen::Vector3d v, Eigen::Vector3d r);
 void SetBodyNodeColors(dart::dynamics::BodyNode* bn, const Eigen::Vector3d& color);
 void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Vector3d& color);
 void SetSkeletonColor(const dart::dynamics::SkeletonPtr& object, const Eigen::Vector4d& color);
+std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target);
 
 void EditBVH(std::string& path);
 Eigen::Quaterniond GetYRotation(Eigen::Quaterniond q);
@@ -58,7 +66,11 @@ Eigen::Isometry3d getJointTransform(dart::dynamics::SkeletonPtr skel, std::strin
 Eigen::Vector4d rootDecomposition(dart::dynamics::SkeletonPtr skel, Eigen::VectorXd positions);
 Eigen::VectorXd solveIK(dart::dynamics::SkeletonPtr skel, const std::string& bodyname, const Eigen::Vector3d& delta,  const Eigen::Vector3d& offset);
 Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints);
+Eigen::VectorXd solveMCIKRoot(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints);
+Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m);
+Eigen::Vector3d projectToXZ(Eigen::Vector3d v);
 
+std::vector<std::string> split(const std::string &s, char delim);
 }
 
 #endif

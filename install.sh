@@ -50,8 +50,6 @@ make -j4
 sudo make install
 cd ../..
 
-echo "installing tensorflow"
-pip3 install tensorflow
 
 echo "installing ipython"
 pip3 install ipython[all]

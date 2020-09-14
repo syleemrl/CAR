@@ -589,8 +589,9 @@ DrawLine(const Eigen::Vector3d& p0,const Eigen::Vector3d& p1,const Eigen::Vector
 }
 void
 GUI::
-DrawPoint(const Eigen::Vector3d& p0,const Eigen::Vector3d& color)
+DrawPoint(const Eigen::Vector3d& p0,const Eigen::Vector3d& color, const double scale)
 {
+    glPointSize(scale);
 	glColor3f(color[0],color[1],color[2]);
 	glBegin(GL_POINTS);
     glNormal3f(0.0, 1.0, 0.0);
@@ -740,6 +741,30 @@ DrawBezierCurve(
         glVertex3f(p[0],p[1],p[2]);
     }
     glEnd();
+}
+void 
+GUI::
+DrawTrajectory(const std::vector<Eigen::Vector3d> points, const int idx, const Eigen::Vector3d& color, bool line)
+{
+    if(line) {
+        for(int i = std::max(0, idx - 60); i < idx; i+=2) {
+            if(points.size() <= 2 || i + 2 >= points.size()) return;
+            else DrawBezierCurve(points[i], points[i+1], points[i+2], color);
+        }
+    } else {
+        for(int i = 0; i < idx; i++) {
+            GUI::DrawPoint(points[i], color, 10);
+        }
+    }
+
+}
+void 
+GUI::
+DrawForces(const std::vector<Eigen::VectorXd> forces, const Eigen::Vector3d& color)
+{
+    for(int i = 0; i < forces.size(); i++) {
+       DrawLine(forces.at(i).segment<3>(0), forces.at(i).segment<3>(0) + forces.at(i).segment<3>(3), color);
+    }
 }
 
 void
