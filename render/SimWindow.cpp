@@ -90,20 +90,20 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	mPhaseCounter = 0;
 	mPrevFrame = 0;
 
-	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
-	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+	// Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+	// tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
 
-	std::vector<Eigen::VectorXd> cps;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-		input << j, tp;
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-	}
+	// std::vector<Eigen::VectorXd> cps;
+	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	// 	Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+	// 	input << j, tp;
+	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	// 	np::ndarray na = np::from_object(a);
+	// 	cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+	// }
 
-	mReferenceManager->LoadAdaptiveMotion(cps);
-	mController->SetTargetParameters(tp);
+	// mReferenceManager->LoadAdaptiveMotion(cps);
+	// mController->SetTargetParameters(tp);
 
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 
@@ -356,22 +356,22 @@ Reset()
 
 	this->mController->Reset(false);
 
-	mPhaseCounter = 0;
+	// mPhaseCounter = 0;
 	
-	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
-	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+	// Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+	// tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
 
-	std::vector<Eigen::VectorXd> cps;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-		input << j, tp;
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-	}
+	// std::vector<Eigen::VectorXd> cps;
+	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	// 	Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+	// 	input << j, tp;
+	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	// 	np::ndarray na = np::from_object(a);
+	// 	cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+	// }
 
-	mReferenceManager->LoadAdaptiveMotion(cps);
-	mController->SetTargetParameters(tp);
+	// mReferenceManager->LoadAdaptiveMotion(cps);
+	// mController->SetTargetParameters(tp);
 
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 	Eigen::VectorXd position = p_v_target->GetPosition();
@@ -497,32 +497,32 @@ Step()
 			auto state = this->mController->GetState();
 			double curFrame = state(state.rows() - (mReferenceManager->GetTargetBase().rows() + 1));
 
-			if(curFrame < mPrevFrame) {
-				mPhaseCounter += 1;
-				std::cout << "Reference updated "  << mPhaseCounter << std::endl;
-				Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
-				tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
-				// for(int j = 0; j < tp.rows(); j++) {
-				// 	double r = (rand() % 5) * 0.01;
-				// 	if(rand() % 2 == 0)
-				// 		r = -r;
-				// 	tp(j) += r;
-				// }
-				std::vector<Eigen::VectorXd> cps;
-				for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-					Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-					input << j, tp;
-					p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-					np::ndarray na = np::from_object(a);
-					cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-				}
+			// if(curFrame < mPrevFrame) {
+			// 	mPhaseCounter += 1;
+			// 	std::cout << "Reference updated "  << mPhaseCounter << std::endl;
+			// 	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+			// 	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+			// 	// for(int j = 0; j < tp.rows(); j++) {
+			// 	// 	double r = (rand() % 5) * 0.01;
+			// 	// 	if(rand() % 2 == 0)
+			// 	// 		r = -r;
+			// 	// 	tp(j) += r;
+			// 	// }
+			// 	std::vector<Eigen::VectorXd> cps;
+			// 	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+			// 		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+			// 		input << j, tp;
+			// 		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+			// 		np::ndarray na = np::from_object(a);
+			// 		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+			// 	}
 
-				mReferenceManager->LoadAdaptiveMotion(cps);
-				mController->SetTargetParameters(tp);
+			// 	mReferenceManager->LoadAdaptiveMotion(cps);
+			// 	mController->SetTargetParameters(tp);
 
-				if(mPhaseCounter == 10)
-					mPhaseCounter = 0;
-			}
+			// 	if(mPhaseCounter == 10)
+			// 		mPhaseCounter = 0;
+			// }
 			mPrevFrame = curFrame;
 
 			state = this->mController->GetState();

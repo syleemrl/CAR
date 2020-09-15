@@ -63,7 +63,7 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 	Eigen::VectorXd targetBase = referenceManager->GetTargetBase();
 	Eigen::VectorXd targetUnit = referenceManager->GetTargetUnit();
 	Eigen::VectorXd targetIdx(targetBase.size());
-	targetIdx.setZero();
+	targetIdx(0) = 1;
 	while(!is.eof()) {
 		if(record_type.compare("spline") == 0) {
 			// cps number
@@ -76,7 +76,6 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 				tp[j] = atof(buffer);
 				idx[j] = std::floor((tp[j] - targetBase[j]) / targetUnit[j]);
 			}
-
 			// comma
 			is >> buffer;
 
@@ -86,11 +85,15 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 				is >> buffer;
 				cp[j] = atof(buffer);
 			}
-
+			// comma
+			is >> buffer;
+			// reward
+			is >> buffer;
 			if ((targetIdx - idx).norm() > 1e-2) {
 				continue;
 			}
 			cps.push_back(cp);
+			std::cout << atof(buffer) << std::endl;
 
 			if(cps.size() == knots.size() + 3) {
 				s->SetControlPoints(0, cps);
@@ -121,13 +124,16 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 			double cur_step = atof(buffer);			
 			is >> buffer;
 			double cur_reward = atof(buffer);
+			is >> buffer;
+			double cur_reward2 = atof(buffer);
 			if(reward == 0)
 				reward = cur_reward;
 
 			// next phase
 			if(cur_reward != reward) {
 				reward = cur_reward;
-				if(reward < 0.85) {
+				std::cout << 0.2 * cur_reward + 0.8 * cur_reward2 << std::endl;
+				if(0.2 * cur_reward + 0.8 * cur_reward2 < 0.4) {
 					pos.clear();
 					step.clear();
 					continue;

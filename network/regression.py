@@ -123,6 +123,8 @@ class Regression(object):
 			out.write(', ')
 			for sy in tuples[1][i]:
 				out.write(str(sy)+' ')
+			out.write(', ')
+			out.write(str(tuples[2][i]))
 			out.write('\n')
 		out.close()
 

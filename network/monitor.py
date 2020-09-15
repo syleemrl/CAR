@@ -145,10 +145,13 @@ class Monitor(object):
 					self.mode_counter = 0
 					self.updateTarget()
 		else:
-			if self.sim_env.NeedRefUpdate() and self.sampler.isEnough(results):
-				self.mode = 0
-				self.sim_env.SetRefUpdateMode(True)
-				self.mode_counter = 0
+			if self.sampler.isEnough(results):
+				if self.sim_env.NeedRefUpdate():
+					self.mode = 0
+					self.sim_env.SetRefUpdateMode(True)
+					self.mode_counter = 0
+				else:
+					self.sampler.update(v_func)
 			else:
 				self.sampler.update(v_func)
 

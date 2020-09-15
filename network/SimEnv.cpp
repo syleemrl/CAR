@@ -36,6 +36,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		mParamBase = mReferenceManager->GetTargetBase();
 		mParamUnit = mReferenceManager->GetTargetUnit();
 		nDim = mParamBase.rows();
+		nCapacity = 30;
 
 		mParamGoalIdx.resize(nDim);
 		Eigen::VectorXd p = mReferenceManager->GetTargetGoal();
@@ -221,9 +222,16 @@ Optimize()
 		for(int id = 0; id < mNumSlaves; ++id) {
 			mSlaves[id]->SetTargetParameters(tp);
 		}
-		bool b = mReferenceManager->IsTargetGoalUpdated();
+		bool b = mReferenceManager->UpgradeTargetGoal();
 		if(b)
 			mNeedRefUpdate = true;
+
+		Eigen::VectorXd g = mReferenceManager->GetTargetGoal();
+		Eigen::VectorXd c = mReferenceManager->GetTargetCurMean();
+
+		if((g-c).norm() < 0.02) {
+			mNeedRefUpdate = false;
+		}
 	}
 	return t;
 }
@@ -277,10 +285,7 @@ AssignParamsToBins()
 						pb.PutParam(mParamNotAssigned[p_temp[j]].first);
 						assigned[p_temp[j]] = true;
 					}
-					mParamBins.push_back(pb);
-					if((idx - mParamGoalIdx).norm() < 1e-2) 
-						mNeedRefUpdate = false;
-					
+					mParamBins.push_back(pb);					
 					mFlag_new = true;
 				}
 			}
@@ -323,10 +328,12 @@ RefreshTrainingData()
 {
 	std::vector<Eigen::VectorXd> x;
 	std::vector<Eigen::VectorXd> y;
+	std::vector<double> r;
+
 	int count = 0;
 	for(int i = 0; i < mParamBins.size(); i++) {
 		std::vector<Param> ps = mParamBins[i].GetParams();
-		if(ps.size() < 30) {
+		if(ps.size() < nCapacity) {
 			count += ps.size() * mReferenceManager->GetNumCPS();
 			for(int j = 0; j < ps.size(); j++) {
 				Param p = ps[j];
@@ -335,35 +342,45 @@ RefreshTrainingData()
 					input << k, p.param;
 					x.push_back(input);
 					y.push_back(p.cps[k]);
+					r.push_back(p.reward);
 				}
 			}
 		} else {
 			// clear bad samples
     		std::stable_sort(ps.begin(), ps.end(), cmp);
-			count += 30 * mReferenceManager->GetNumCPS();
-
-			for(int j = 0; j < 30; j++) {
+			count += nCapacity * mReferenceManager->GetNumCPS();
+			std::cout << i << std::endl;
+			for(int j = 0; j < nCapacity; j++) {
 				Param p = ps[j];
 				for(int k = 0; k < mReferenceManager->GetNumCPS(); k++) {
 					Eigen::VectorXd input(1 + nDim);
 					input << k, p.param;
 					x.push_back(input);
 					y.push_back(p.cps[k]);
+					r.push_back(p.reward);
 				} 
-				while(ps.size() > 30) {
-					ps.pop_back();
-				}
+				std::cout << p.reward << " " ;
 			}
+			std::cout << std::endl;
+			while(ps.size() > nCapacity) {
+				ps.pop_back();
+			}
+			mParamBins[i].PutParams(ps);
+
+			ps = mParamBins[i].GetParams();
+
 		}
 	}
 
 	np::ndarray x_np = DPhy::toNumPyArray(x);
 	np::ndarray y_np = DPhy::toNumPyArray(y);
+	np::ndarray r_np = DPhy::toNumPyArray(r);
 
 	p::list l;
 	l.append(x_np);
 	l.append(y_np);
-	  
+	l.append(r_np);
+
 	mParamStack = 0;
 	this->mRegression.attr("saveRegressionData")(l, false);
 	this->mRegression.attr("replaceRegressionData")(l);
@@ -399,10 +416,12 @@ TrainRegressionNetwork()
 
 	np::ndarray x = DPhy::toNumPyArray(std::get<0>(x_y_z));
 	np::ndarray y = DPhy::toNumPyArray(std::get<1>(x_y_z));
-	
+	np::ndarray r = DPhy::toNumPyArray(std::get<2>(x_y_z));
+
 	p::list l;
 	l.append(x);
 	l.append(y);
+	l.append(r);
 
 	this->mRegression.attr("saveRegressionData")(l);
 	this->mRegression.attr("updateRegressionData")(l);
@@ -411,13 +430,7 @@ TrainRegressionNetwork()
 		nTrainingData += mParamStack;
 	    this->AssignParamsToBins();
 	    std::cout << "num training data: " << nTrainingData << std::endl;
-	    int over = 0;
-	    for(int i = 0; i < mParamBins.size(); i++) {
-	    	over += std::max(0, mParamBins[i].GetNumParams() - 30);
-	    }
-	    if(over > 500)
-	    	this->RefreshTrainingData();
-
+	    this->RefreshTrainingData();
 		this->mRegression.attr("train")();
 	    mParamStack = 0;
 	}

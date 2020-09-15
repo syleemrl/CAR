@@ -28,7 +28,7 @@ public:
 	void PutParam(Param p) { param.push_back(p); }
 	int GetNumParams() { return param.size(); }
 	std::vector<Param> GetParams() {return param;}
-
+	void PutParams(std::vector<Param> ps) { param = ps;}
 private:
 	Eigen::VectorXd idx;
 	std::vector<Param> param;
@@ -94,6 +94,7 @@ private:
 
 	int mParamStack;
 	int nTrainingData;
+	int nCapacity;
 
 	int nDim;
 	Eigen::VectorXd mParamBase;
