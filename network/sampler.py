@@ -48,9 +48,12 @@ class Sampler(object):
 					x_cur = x_new
 	
 		t = []
+		count = []
 		for i in range(len(self.bound)):
 			t.append(self.base + self.bound[i] * self.unit)
+			count.append(0)
 		v = v_func.getValue(t)
+
 		# for i in range(len(self.pool)):
 		# 	x = self.pool[i]
 		# 	idx = []
@@ -60,7 +63,9 @@ class Sampler(object):
 		# 		if np.linalg.norm(idx - self.bound[j]) < 1e-2:
 		# 			count[j] += 1
 		# 			break
+
 		print("prob: ", np.exp(-self.k*(v-self.v_mean)/self.v_mean))
+		
 		# print("sample: ",end=' ')
 		# for i in range(len(v)):
 		# 	print(v[i], count[i], end=', ')
@@ -98,6 +103,6 @@ class Sampler(object):
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.n_iter < 2 or self.v_mean < 3.5:
+		if self.n_iter < 2 or self.v_mean < 2.4:
 			return False
 		return True

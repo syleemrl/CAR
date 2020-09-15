@@ -392,7 +392,7 @@ class PPO(object):
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
 					state_target_batch.append(param[i])
 					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
-		
+
 					# TD_t_dense = 0
 					TD_t_sparse = 0
 

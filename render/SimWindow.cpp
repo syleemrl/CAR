@@ -502,12 +502,12 @@ Step()
 				std::cout << "Reference updated "  << mPhaseCounter << std::endl;
 				Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
 				tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
-				for(int j = 0; j < tp.rows(); j++) {
-					double r = (rand() % 5) * 0.01;
-					if(rand() % 2 == 0)
-						r = -r;
-					tp(j) += r;
-				}
+				// for(int j = 0; j < tp.rows(); j++) {
+				// 	double r = (rand() % 5) * 0.01;
+				// 	if(rand() % 2 == 0)
+				// 		r = -r;
+				// 	tp(j) += r;
+				// }
 				std::vector<Eigen::VectorXd> cps;
 				for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
 					Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);

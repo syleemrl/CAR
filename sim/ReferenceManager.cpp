@@ -601,22 +601,27 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	mKnots.push_back(9);
-	mKnots.push_back(20);
-	mKnots.push_back(27);
-	mKnots.push_back(35);
+	mKnots.push_back(12);
+	mKnots.push_back(29);
+	mKnots.push_back(37);
+	mKnots.push_back(44);
+	mKnots.push_back(52);
+	mKnots.push_back(56);
+	mKnots.push_back(59);
+	mKnots.push_back(64);
+	mKnots.push_back(76);
 
-	mTargetBase.resize(3);
-	mTargetBase << 0.28, 0.30, 0.66; //, 1.5;
+	mTargetBase.resize(1);
+	mTargetBase << 1.15; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
-	mTargetGoal.resize(3);
-	mTargetGoal<< 0.65, 0.43, 0.35; //, 2;
+	mTargetGoal.resize(1);
+	mTargetGoal<< 1.5; //, 2;
 
-	mTargetUnit.resize(3);
-	mTargetUnit<< 0.04, 0.04, 0.04; //, 0.05;
+	mTargetUnit.resize(1);
+	mTargetUnit<< 0.04; //, 0.05;
 
-
+	mTargetGoalUpdated = false;
 	mRefUpdateMode = true;
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
@@ -1009,6 +1014,13 @@ Optimize() {
 			mTargetCurMean += mSampleTargets[i];
 		}
 		mTargetCurMean /= mSampleTargets.size();
+		if(mTargetCurMean(0) >= mTargetGoal(0) && mTargetGoal(0) < 1.7) {
+			mTargetGoal(0) = 1.7;
+			mTargetGoalUpdated = true;
+
+			double target_diff = 1.7 - mTargetCurMean(0);
+			mPrevRewardTarget = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
+		}
 		mSampleTargets.clear();
 		
 		return true;
@@ -1044,6 +1056,15 @@ GetRegressionSamples() {
 	mRegressionSamples.clear();
 
 	return std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>(x, y, r);
+}
+bool 
+ReferenceManager::
+IsTargetGoalUpdated() {
+	if(mTargetGoalUpdated) {
+		mTargetGoalUpdated = false;
+		return true;
+	}
+	return false;
 }
 
 };

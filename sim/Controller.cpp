@@ -525,28 +525,15 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-
-	if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
-		Eigen::Vector3d hand = skel->getBodyNode("HandR")->getWorldTransform().translation();
-		Eigen::AngleAxisd aa(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-		Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
-
-		Eigen::Vector3d target_diff = target_hand - hand;
-
-		// double f_hand = 0;
-		// for(int i = 0; i < mRecordWork.size(); i++) {
-		// 	f_hand += mRecordWork[i];
-		// }
-		// f_hand /= mRecordWork.size();
-		// mRecordWork.clear();
-		// double f_diff = mInputTargetParameters(3) - f_hand;
-		r_target = 1.5 * exp_of_squared(target_diff,0.2) + 0.5 * exp_of_squared(target_diff,0.05);
+	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+		targetParameters(0) = skel->getCOM()[1];
+		double target_diff = skel->getCOM()[1] - mInputTargetParameters(0);
+		r_target = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
 		mControlFlag[0] = 1;
-		targetParameters.segment<3>(0) = aa.inverse() * (hand - mHeadRoot.segment<3>(3));
-		// targetParameters(3) = f_hand;
 
+		if(mRecord)
+		 	std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
 	}
-
 
 	return r_target;
 }

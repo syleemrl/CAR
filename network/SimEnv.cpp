@@ -221,6 +221,9 @@ Optimize()
 		for(int id = 0; id < mNumSlaves; ++id) {
 			mSlaves[id]->SetTargetParameters(tp);
 		}
+		bool b = mReferenceManager->IsTargetGoalUpdated();
+		if(b)
+			mNeedRefUpdate = true;
 	}
 	return t;
 }
@@ -277,6 +280,7 @@ AssignParamsToBins()
 					mParamBins.push_back(pb);
 					if((idx - mParamGoalIdx).norm() < 1e-2) 
 						mNeedRefUpdate = false;
+					
 					mFlag_new = true;
 				}
 			}

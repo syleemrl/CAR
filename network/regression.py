@@ -37,9 +37,6 @@ class Regression(object):
 		self.postfix = postfix
 		self.buildOptimize(self.name)
 
-		self.save_list = [v for v in tf.trainable_variables() if v.name.find(self.name)!=-1]
-		self.saver = tf.train.Saver(var_list=self.save_list, max_to_keep=1)
-
 		self.load()
 
 	def initTrain(self, directory, num_input, num_output, postfix="reg",
@@ -85,6 +82,7 @@ class Regression(object):
 				save_list.append(v)
 
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
+		self.save_list = save_list
 
 		self.sess.run(tf.global_variables_initializer())
 
@@ -167,6 +165,7 @@ class Regression(object):
 			for v in self.save_list:
 				# if v.name[0:11]+v.name[14:-2] in saved_dict:
 				# 	saved_v = saved_dict[v.name[0:11]+v.name[14:-2]]
+
 				if v.name[:-2] in saved_dict:
 					saved_v = saved_dict[v.name[:-2]]
 					if v.shape == saved_v.shape:

@@ -79,6 +79,7 @@ public:
 	Eigen::VectorXd GetTargetGoal() {return mTargetGoal; }
 	Eigen::VectorXd GetTargetUnit() {return mTargetUnit; }
 	Eigen::VectorXd GetTargetCurMean() {return mTargetCurMean; }
+	bool IsTargetGoalUpdated();
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -123,6 +124,8 @@ protected:
 	Eigen::VectorXd mTargetGoal;
 	Eigen::VectorXd mTargetUnit;
 	Eigen::VectorXd mTargetCurMean;
+	
+	bool mTargetGoalUpdated;
 
 	std::vector<int> nRejectedSamples;
 
