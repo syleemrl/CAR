@@ -309,6 +309,10 @@ class PPO(object):
 				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
 				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
+				if len(self.target_x_batch) > 2500:
+					self.target_x_batch = self.target_x_batch[1000:]
+					self.target_y_batch = self.target_y_batch[1000:]
+
 			for _ in range(50):
 				ind = np.arange(len(self.target_x_batch))
 				np.random.shuffle(ind)
@@ -638,8 +642,8 @@ class PPO(object):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 
-		action, _ = self.actor.getAction(state)
-		#action = self.actor.getMeanAction(state)
+		#action, _ = self.actor.getAction(state)
+		action = self.actor.getMeanAction(state)
 
 		return action
 

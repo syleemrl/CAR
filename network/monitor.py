@@ -57,6 +57,7 @@ class Monitor(object):
 
 		self.mode = 0
 		self.mode_counter = 0
+		self.flag_updated = False
 
 		if self.plot:
 			plt.ion()
@@ -94,6 +95,8 @@ class Monitor(object):
 		if self.adaptive:
 			params = np.array(self.states)[:,-self.dim_target:]
 			curframes = np.array(self.states)[:,-(self.dim_target+1)]
+	#		curframes = np.array(self.states)[:,-1]
+
 		else:
 			params = np.zeros(self.num_slaves, 1)
 			curframes = np.array(self.states)[:,-1]
@@ -126,7 +129,6 @@ class Monitor(object):
 		return rewards, dones, curframes, params
 
 	def updateMode(self, v_func, results):
-		self.mode_counter += 1	
 
 		self.sim_env.TrainRegressionNetwork()
 		b = self.sim_env.GetTargetBound()
@@ -134,22 +136,21 @@ class Monitor(object):
 			self.sampler.updateBound(b)
 
 		if self.mode == 0:
-			self.sim_env.Optimize()
-			if self.mode_counter >= 8:
-				if len(b) == 0:
-					self.mode_counter = 7
-				else:
+			self.mode_counter += 1
+			if self.sim_env.Optimize():
+				self.flag_updated = True
+			if self.flag_updated and self.mode_counter >= 4:
+				if len(b) != 0:
 					self.mode = 1
 					self.sim_env.SetRefUpdateMode(False)
 					self.sampler.reset()
-					self.mode_counter = 0
 					self.updateTarget()
 		else:
 			if self.sampler.isEnough(results):
 				if self.sim_env.NeedRefUpdate():
+					self.mode_counter = 0
 					self.mode = 0
 					self.sim_env.SetRefUpdateMode(True)
-					self.mode_counter = 0
 				else:
 					self.sampler.update(v_func)
 			else:
@@ -226,7 +227,7 @@ class Monitor(object):
 			if self.num_transitions_per_iteration is not 0:
 				te_per_t = self.total_frames_elapsed / self.num_transitions_per_iteration;
 			print_list.append('frame elapsed per transition : {:.2f}'.format(te_per_t))
-
+			print_list.append('target goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetTargetGoal()]))			
 			if self.num_nan_per_iteration != 0:
 				print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
 			print_list.append('===============================================================')

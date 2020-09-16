@@ -113,6 +113,7 @@ DeformSkeleton(const dart::dynamics::SkeletonPtr& skel,
 		}
 	}
 }
+// torque limit map, position limit map
 std::pair<SkeletonPtr, std::map<std::string, double>*>
 SkeletonBuilder::
 BuildFromFile(const std::string& filename){
@@ -128,6 +129,7 @@ BuildFromFile(const std::string& filename){
 	SkeletonPtr skel = Skeleton::create(skelname);
 	std::cout << skelname << std::endl;
 	std::map<std::string, double>* torqueMap = new std::map<std::string, double>();
+	std::map<std::string, Eigen::VectorXd>* positionMap = new std::map<std::string, Eigen::VectorXd>();
 
 	for(TiXmlElement *body = skeldoc->FirstChildElement("Joint"); body != nullptr; body = body->NextSiblingElement("Joint")){
 		// type
@@ -220,11 +222,6 @@ BuildFromFile(const std::string& filename){
 
 		bool contact = true;
 		
-		// if(body->Attribute("contact")!=nullptr)
-		// {
-		// 	if(std::string(body->Attribute("contact"))=="On")
-		// 		contact = true;
-		// }
 		if(!jointType.compare("FreeJoint") ){
 			SkeletonBuilder::MakeFreeJointBody(
 				name,
@@ -244,19 +241,6 @@ BuildFromFile(const std::string& filename){
 				);
 		}
 
-//        if(!jointType.compare("FreeJointBall") ){
-//            SkeletonBuilder::MakeFreeJointBall(
-//                    name,
-//                    skel,
-//                    parent,
-//                    size,
-//                    jointPosition,
-//                    bodyPosition,
-//                    mass,
-//                    contact
-//            );
-//        }
-
 		else if(!jointType.compare("BallJoint")){
 			// joint limit
 			bool isLimitEnforced = false;
@@ -267,7 +251,7 @@ BuildFromFile(const std::string& filename){
 				upperLimit = DPhy::string_to_vector3d(jointPosElem->Attribute("upper"));
 				lowerLimit = DPhy::string_to_vector3d(jointPosElem->Attribute("lower"));
 			}
-			
+
 			SkeletonBuilder::MakeBallJointBody(
 				name,
 				skel,
@@ -359,7 +343,7 @@ BuildFromFile(const std::string& filename){
 		}
 
 	}
-	return std::pair<SkeletonPtr, std::map<std::string, double>*>(skel, torqueMap);
+	return std::pair<SkeletonPtr, std::map<std::string, double>*> (skel, torqueMap);
 }
 
 BodyNode* SkeletonBuilder::MakeFreeJointBall(
@@ -558,11 +542,6 @@ BodyNode* SkeletonBuilder::MakeBallJointBody(
 		props.mT_ParentBodyToJoint = parent->getTransform().inverse()*joint_position;
 	props.mT_ChildBodyToJoint = body_position.inverse()*joint_position;
 
-	// std::cout<<props.mT_ChildBodyToJoint.translation().transpose()<<std::endl;
-	// std::cout<<props.mT_ChildBodyToJoint.linear()<<std::endl;
-	// std::cout<<props.mT_ChildBodyToJoint.linear().determinant()<<std::endl;
-	// std::cout<<dart::math::verifyTransform(props.mT_ChildBodyToJoint)<<std::endl;
-
 	bn = target_skel->createJointAndBodyNodePair<BallJoint>(
 		parent,props,BodyNode::AspectProperties(body_name)).second;
 
@@ -641,6 +620,7 @@ BodyNode* SkeletonBuilder::MakeBallJointBody(
 	if(isLimitEnforced){
 		JointPtr joint = bn->getParentJoint();
 		joint->setPositionLimitEnforced(isLimitEnforced);
+
 		for(int i = 0; i < 3; i++)
 		{
 			joint->setPositionUpperLimit(i, upper_limit[i]);

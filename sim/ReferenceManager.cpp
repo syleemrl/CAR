@@ -637,13 +637,12 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	nOp = 0;
 	mPath = save_path;
-	mPrevRewardTrajectory = 0;
-	mPrevRewardTarget = 0.05;	
+	mPrevRewardTrajectory = 0.6;
+	mPrevRewardTarget = 0.0;	
 	
 	// for(int i = 0; i < 3; i++) {
 	// 	nRejectedSamples.push_back(0);
 	// }
-	// mTargetBase << ;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
@@ -757,18 +756,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	else
 		flag.push_back(1);
 
-	if(flag[0] == 0)
-		return;
-
-	// if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
-	// 	nRejectedSamples[0] += 1;
-	// 	if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
-	// 		nRejectedSamples[1] += 1;
-	// 	} else if((rewards.first / mPhaseLength) < 0.9 && rewards.second < mPrevRewardTarget) {
-	// 		nRejectedSamples[2] += 1;
-	// 	}
+	// if(flag[0] == 0)
 	// 	return;
-	// }
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
@@ -839,10 +828,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
 	double reward_trajectory = 0.5 * r_regul + 0.5 * r_slide;
 	mLock.lock();
+	if(reward_trajectory > 0.6)
+		mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
+									(cps, parameters, reward_trajectory));
 
-	mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
-								(cps, parameters, reward_trajectory));
-	if(flag[1] && mRefUpdateMode) {
+	if((flag[0] || (!flag[0] && reward_trajectory > mPrevRewardTrajectory)) && flag[1] && mRefUpdateMode) {
 		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
 							std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
 		mSampleTargets.push_back(parameters);

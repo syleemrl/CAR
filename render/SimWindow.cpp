@@ -87,7 +87,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 			PyErr_Print();
 		}
 	}
-	mPhaseCounter = 0;
+	mPhaseCounter = 13;
 	mPrevFrame = 0;
 
 	// Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
@@ -356,7 +356,7 @@ Reset()
 
 	this->mController->Reset(false);
 
-	// mPhaseCounter = 0;
+	mPhaseCounter = 13;
 	
 	// Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
 	// tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
@@ -523,7 +523,7 @@ Step()
 			// 	if(mPhaseCounter == 10)
 			// 		mPhaseCounter = 0;
 			// }
-			mPrevFrame = curFrame;
+			// mPrevFrame = curFrame;
 
 			state = this->mController->GetState();
 

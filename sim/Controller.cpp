@@ -262,7 +262,6 @@ Step()
 	nTotalSteps += 1;
 	nTotalStepsPhase += 1;
 
-	// std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << std::endl;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();

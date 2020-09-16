@@ -90,7 +90,7 @@ class Regression(object):
 		x_data = []
 		y_data = []
 		try:
-			f = open(self.directory+"regression_data"+self.postfix, "r")
+			f = open(self.directory+"regression_data", "r")
 			for l in f.readlines():
 				l = l[:-1].split(",")
 				x = l[0].split(" ")[:-1]
@@ -113,9 +113,9 @@ class Regression(object):
 			return
 
 		if append:
-			out = open(self.directory+"regression_data"+self.postfix, "a")
+			out = open(self.directory+"regression_data", "a")
 		else:
-			out = open(self.directory+"regression_data"+self.postfix, "w")
+			out = open(self.directory+"regression_data", "w")
 		
 		for i in range(len(tuples[0])):
 			for sx in tuples[0][i]:
@@ -128,7 +128,7 @@ class Regression(object):
 			out.write('\n')
 		out.close()
 
-		print("save data to "+self.directory+"regression_data"+self.postfix)
+		print("save data to "+self.directory+"regression_data")
 
 	def replaceRegressionData(self, tuples):
 		self.regression_x = tuples[0]

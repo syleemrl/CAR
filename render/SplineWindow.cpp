@@ -63,7 +63,7 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 	Eigen::VectorXd targetBase = referenceManager->GetTargetBase();
 	Eigen::VectorXd targetUnit = referenceManager->GetTargetUnit();
 	Eigen::VectorXd targetIdx(targetBase.size());
-	targetIdx(0) = 1;
+	targetIdx(0) = 0;
 	while(!is.eof()) {
 		if(record_type.compare("spline") == 0) {
 			// cps number

@@ -80,9 +80,11 @@ public:
 	p::list GetTargetBound();
 	np::ndarray GetTargetBase();
 	np::ndarray GetTargetUnit();
+	np::ndarray GetTargetGoal();
 
-	void AssignParamsToBins();
+	void AssignParamsToBins(bool limit=true);
 	void RefreshTrainingData();
+	void LoadParamBins();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
