@@ -320,7 +320,7 @@ Optimize()
 		Eigen::VectorXd g = mReferenceManager->GetTargetGoal();
 		Eigen::VectorXd c = mReferenceManager->GetTargetCurMean();
 
-		if((g-c).norm() < 0.02) {
+		if((g-c).norm() < 1e-2) {
 			mNeedRefUpdate = false;
 		}
 	}

@@ -19,6 +19,11 @@ ReferenceManager::ReferenceManager(Character* character)
 
 	auto& skel = mCharacter->GetSkeleton();
 	mDOF = skel->getPositions().rows();
+
+	mTargetBase.resize(1);
+	mTargetUnit.resize(1);
+	mTargetGoal.resize(1);
+
 }
 void
 ReferenceManager::
@@ -345,6 +350,11 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	this->ComputeAxisDev();
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
 
+	for(int i = 0; i < this->GetPhaseLength(); i++) {
+		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
+	}
+	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -616,7 +626,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(1);
-	mTargetGoal<< 1.45; //, 2;
+	mTargetGoal<< 1.75; //, 2;
 
 	mTargetUnit.resize(1);
 	mTargetUnit<< 0.04; //, 0.05;
@@ -625,14 +635,6 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
-	}
-	for(int i = 0; i < this->GetPhaseLength(); i++) {
-		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
-	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
-	for(int i = 0; i < nslaves; i++) {
-		std::vector<Motion*> mlist;
-		mMotions_gen_temp.push_back(mlist);
 	}
 
 	nOp = 0;
@@ -1036,8 +1038,8 @@ Optimize() {
 }
 bool
 ReferenceManager::UpgradeTargetGoal() {
-	if(mTargetCurMean(0) >= (mTargetGoal(0) - 0.05) && mTargetGoal(0) < 1.7) {
-		mTargetGoal(0) += 0.15;
+	if(mTargetCurMean(0) >= (mTargetGoal(0) - 0.02) && mTargetGoal(0) < 1.6) {
+		mTargetGoal(0) += 0.1;
 
 		double target_diff = mTargetGoal(0) - mTargetCurMean(0);
 		mPrevRewardTarget = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);

@@ -94,11 +94,11 @@ class Monitor(object):
 
 		if self.adaptive:
 			params = np.array(self.states)[:,-self.dim_target:]
-			curframes = np.array(self.states)[:,-(self.dim_target+1)]
-	#		curframes = np.array(self.states)[:,-1]
+	#		curframes = np.array(self.states)[:,-(self.dim_target+1)]
+			curframes = np.array(self.states)[:,-1]
 
 		else:
-			params = np.zeros(self.num_slaves, 1)
+			params = np.zeros(self.num_slaves)
 			curframes = np.array(self.states)[:,-1]
 
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
@@ -145,6 +145,7 @@ class Monitor(object):
 					self.sim_env.SetRefUpdateMode(False)
 					self.sampler.reset()
 					self.updateTarget()
+					self.flag_updated = False
 		else:
 			if self.sampler.isEnough(results):
 				if self.sim_env.NeedRefUpdate():

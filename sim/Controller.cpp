@@ -204,8 +204,8 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		this->mObject = new DPhy::Character(path);
 		// this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton()->getBodyNode("Sandbag"));
 		// this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-
 	}
+
 }
 void
 Controller::
@@ -253,7 +253,7 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof]*5)-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -320,6 +320,9 @@ Step()
 			double torquelim = mCharacter->GetTorqueLimit(mInterestedBodies[j]);
 			double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			// if(mInterestedBodies[i].compare("FootEndR") ==0 || mInterestedBodies[i].compare("FootEndL") ==0) {
+			// 	std::cout << torque_norm << " ";
+			// }
 		}
 		auto end_node = mCharacter->GetSkeleton()->getBodyNode("HandR");
 		Eigen::MatrixXd J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("HandR"), Eigen::Vector3d(0, 0, 0));
@@ -333,7 +336,6 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
-	
 	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase <= 27)  
 		mRecordWork.push_back(end_F_sum_norm);
 
@@ -449,17 +451,17 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	if(useVelocity) {
 		v_diff = skel->getVelocityDifferences(velocity, velocity2);
-		v_diff_reward.resize(1);
+		v_diff_reward.resize(mRewardDof);
 		count_dof = 0;
 
-		// for(int i = 0; i < list.size(); i++){
-		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
-		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getNumDofs();
+		for(int i = 0; i < list.size(); i++){
+			int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getNumDofs();
 
-		// 	v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
-		// 	count_dof += dof;
-		// }
-		v_diff_reward = v_diff.segment<1>(1) / std::max(abs(velocity2(1)), 0.4);
+			v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
+			count_dof += dof;
+		}
+	//	v_diff_reward = v_diff.segment<1>(1) / std::max(abs(velocity2(1)), 0.4);
 
 	}
 
@@ -489,13 +491,13 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_p = 0.4 * scale; 
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
-	double sig_ee = 0.1 * scale;		
+	double sig_ee = 0.2 * scale;		
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
 	if(useVelocity)
 	{
-		r_v = 2 * exp_of_squared(v_diff_reward,sig_v);
+		r_v = exp_of_squared(v_diff_reward,sig_v);
 	}
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
@@ -1174,7 +1176,7 @@ GetState()
 		ee.segment<3>(3*i) << transform.translation();
 	}
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, true);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, isAdaptive);
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
 	delete p_v_target;
 
@@ -1185,9 +1187,14 @@ GetState()
 
 	double com_diff = 0;
 
-	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
-	state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters;
-
+	if(isAdaptive) {
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters;
+	}
+	else {
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
+	}
 	return state;
 }
 void

@@ -607,8 +607,8 @@ class PPO(object):
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
-					# self.env.sim_env.Optimize()
-					self.env.updateMode(self.critic_target, self.v_target)
+					self.env.sim_env.Optimize()
+					#self.env.updateMode(self.critic_target, self.v_target)
 					if self.env.mode == 0:
 						self.target_x_batch = []
 						self.target_y_batch = [] 
