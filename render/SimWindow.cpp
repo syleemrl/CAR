@@ -197,7 +197,6 @@ Save(int n) {
 		mRef->GetSkeleton()->setPositions(position);
    	 	mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     	mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
-    	std::cout << n <<" " << mRef->GetSkeleton()->getCOM()[1] << std::endl;
 	}
 }
 void
@@ -299,7 +298,7 @@ DrawGround()
 	else 
 		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
 
-	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
+	GUI::DrawGround((int)com_root[0], (int)com_root[2], -0.02);
 }
 void
 SimWindow::

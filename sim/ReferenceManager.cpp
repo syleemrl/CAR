@@ -249,10 +249,10 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	std::vector<std::string> contact;
 	contact.clear();
-	contact.push_back("FootEndR");
-	contact.push_back("FootR");
-	contact.push_back("FootEndL");
-	contact.push_back("FootL");
+	contact.push_back("RightToe");
+	contact.push_back("RightFoot");
+	contact.push_back("LeftToe");
+	contact.push_back("LeftFoot");
 
 	auto& skel = mCharacter->GetSkeleton();
 	int dof = skel->getPositions().rows();
@@ -261,12 +261,12 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 		bvh->AddMapping(ss.first,ss.second);
 	}
 
-
 	double t = 0;
 	for(int i = 0; i < bvh->GetMaxFrame(); i++)
 	{
 		Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
 		Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
+
 		//Set p
 		bvh->SetMotion(t);
 
@@ -296,6 +296,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 			}
 
 		}
+
 		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
 		Eigen::VectorXd v;
 		if(t != 0)
@@ -315,6 +316,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 			}
 			mMotions_raw.back()->SetVelocity(v);
 		}
+
 		mMotions_raw.push_back(new Motion(p, Eigen::VectorXd(p.rows())));
 		
 		auto& skel = this->mCharacter->GetSkeleton();
@@ -331,6 +333,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 		t += bvh->GetTimeStep();
 	}
+
 	mMotions_raw.back()->SetVelocity(mMotions_raw.front()->GetVelocity());
 
 	mPhaseLength = mMotions_raw.size();
@@ -346,15 +349,14 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	 }
 
 	delete bvh;
-	this->ComputeAxisMean();
-	this->ComputeAxisDev();
+	// this->ComputeAxisMean();
+	// this->ComputeAxisDev();
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
-
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -467,8 +469,8 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 	skel->setPositions(p_phase[0]->GetPosition());
 	skel->computeForwardKinematics(true,false,false);
 
-	Eigen::Vector3d p0_footl = skel->getBodyNode("FootL")->getWorldTransform().translation();
-	Eigen::Vector3d p0_footr = skel->getBodyNode("FootR")->getWorldTransform().translation();
+	Eigen::Vector3d p0_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	Eigen::Vector3d p0_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
 
 	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(p_phase[0]->GetPosition().head<6>());
@@ -496,14 +498,14 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 				skel->setPositions(p_gen.back()->GetPosition());
 				skel->computeForwardKinematics(true,false,false);
 
-				Eigen::Vector3d p_footl = skel->getBodyNode("FootL")->getWorldTransform().translation();
-				Eigen::Vector3d p_footr = skel->getBodyNode("FootR")->getWorldTransform().translation();
+				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+				Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
 				p_footl(1) = p0_footl(1);
 				p_footr(1)= p0_footr(1);
 
-				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("FootL", p_footl, Eigen::Vector3d(0, 0, 0)));
-				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("FootR", p_footr, Eigen::Vector3d(0, 0, 0)));
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("LeftFoot", p_footl, Eigen::Vector3d(0, 0, 0)));
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("RightFoot", p_footr, Eigen::Vector3d(0, 0, 0)));
 
 				Eigen::VectorXd p = p_phase[phase]->GetPosition();
 				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);

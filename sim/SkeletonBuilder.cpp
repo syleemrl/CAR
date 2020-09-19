@@ -97,22 +97,6 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 		}
 	}
 }
-
-void 
-SkeletonBuilder::
-DeformSkeleton(const dart::dynamics::SkeletonPtr& skel, 
-	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform) {
-	for(auto d : deform) {
-		for(int i=0;i<skel->getNumBodyNodes();i++)
-		{
-			auto bn = skel->getBodyNode(i);
-			if(!bn->getName().compare(std::get<0>(d))) {
-				DeformBodyNode(skel, bn, d);
-				break;
-			}
-		}
-	}
-}
 // torque limit map, position limit map
 std::pair<SkeletonPtr, std::map<std::string, double>*>
 SkeletonBuilder::
@@ -149,7 +133,8 @@ BuildFromFile(const std::string& filename){
 		TiXmlElement *bodyPosElem = body->FirstChildElement("BodyPosition");
 		Eigen::Isometry3d bodyPosition;
 		bodyPosition.setIdentity();
-		bodyPosition.linear() = DPhy::string_to_matrix3d(bodyPosElem->Attribute("linear"));
+		if(bodyPosElem->Attribute("linear")!=nullptr)
+			bodyPosition.linear() = DPhy::string_to_matrix3d(bodyPosElem->Attribute("linear"));
 		bodyPosition.translation() = DPhy::string_to_vector3d(bodyPosElem->Attribute("translation"));
 		bodyPosition = Orthonormalize(bodyPosition);
 		// joint position
@@ -380,7 +365,21 @@ BodyNode* SkeletonBuilder::MakeFreeJointBall(
     return bn;
 }
 
-
+void 
+SkeletonBuilder::
+DeformSkeleton(const dart::dynamics::SkeletonPtr& skel, 
+	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform) {
+	for(auto d : deform) {
+		for(int i=0;i<skel->getNumBodyNodes();i++)
+		{
+			auto bn = skel->getBodyNode(i);
+			if(!bn->getName().compare(std::get<0>(d))) {
+				DeformBodyNode(skel, bn, d);
+				break;
+			}
+		}
+	}
+}
 
 BodyNode* SkeletonBuilder::MakeFreeJointBody(
 	const std::string& body_name,
