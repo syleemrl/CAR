@@ -748,7 +748,7 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
-	
+	return;
 	std::vector<int> flag;
 	if((rewards.first / mPhaseLength)  < 0.9)
 		flag.push_back(0);

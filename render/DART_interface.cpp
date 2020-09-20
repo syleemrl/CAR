@@ -68,12 +68,12 @@ DrawFootContact(
 	const dart::dynamics::SkeletonPtr& skel, std::pair<bool, bool> contact)
 {
 	if(contact.first) {
-		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootR");
-		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootEndR");
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "RightFoot");
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "RightToe");
 	}
 	if(contact.second) {
-		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootL");
-		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "FootEndL");
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "LeftFoot");
+		DrawBodyNode(skel, Eigen::Vector4d(0.2, 0.2, 0.2, 1), "LeftToe");
 	}
 }
 void
@@ -92,7 +92,7 @@ DrawSkeleton(
 		std::string name = bn->getName();
 		Eigen::Vector4d color = shapeNodes[type]->getVisualAspect()->getRGBA();
 		color.head<3>() *= 0.5;
-		if(name == "FemurL" || name == "FemurR" || name == "TibiaL" || name == "TibiaR"){
+		if(name == "LeftUpLeg" || name == "RightUpLeg" || name == "LeftLeg" || name == "RightLeg"){
 			glPushMatrix();
 			glColor4f(color[0], color[1], color[2], color[3]);
 			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
@@ -101,7 +101,7 @@ DrawSkeleton(
 			glPopMatrix();
 		}
 
-		if(name == "ForeArmL" || name == "ForeArmR"){
+		if(name == "LeftForeArm" || name == "RightForeArm"){
 			glPushMatrix();
 			glColor4f(color[0], color[1], color[2], color[3]);
 			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
@@ -110,7 +110,7 @@ DrawSkeleton(
 			glPopMatrix();
 		}
 
-		if(name == "HandL" || name == "HandR"){
+		if(name == "LeftHand" || name == "RightHand"){
 			glPushMatrix();
 			glColor4f(color[0], color[1], color[2], color[3]);
 			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
@@ -119,7 +119,7 @@ DrawSkeleton(
 			glPopMatrix();
 		}
 
-		if(name == "FootL" || name == "FootR"){
+		if(name == "LeftFoot" || name == "RightFoot"){
 			glPushMatrix();
 			glColor4f(color[0], color[1], color[2], color[3]);
 			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);

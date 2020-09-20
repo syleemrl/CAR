@@ -302,13 +302,14 @@ Step()
 			}
 		}
 	}
-
 	if(isAdaptive) {
 		this->UpdateRewardTrajectory();
 		this->UpdateAdaptiveReward();
+
 	}
 	else
 		this->UpdateReward();
+
 	this->UpdateTerminalInfo();
 
 	if(mRecord) {
@@ -449,15 +450,15 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
-		targetParameters(0) = skel->getCOM()[1];
-		double target_diff = skel->getCOM()[1] - mInputTargetParameters(0);
-		r_target = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
-		mControlFlag[0] = 1;
+	// if(mCurrentFrameOnPhase >= 44 && mControlFlag[0] == 0) {
+	// 	targetParameters(0) = skel->getCOM()[1];
+	// 	double target_diff = skel->getCOM()[1] - mInputTargetParameters(0);
+	// 	r_target = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
+	// 	mControlFlag[0] = 1;
 
-		if(mRecord)
-		 	std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
-	}
+	// 	if(mRecord)
+	// 	 	std::cout << skel->getCOM()[1] << " " << mInputTargetParameters(0) << " " << r_target << std::endl;
+	// }
 
 	return r_target;
 }
@@ -517,15 +518,15 @@ UpdateAdaptiveReward()
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_t = this->GetTargetReward();
 	
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
-	double con_diff = 0;
-	for(int i = 0; i < contacts_cur.size(); i++) {
-		if(contacts_ref[i].first || contacts_cur[i].first) {
-			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 15, 2);
-		}
-	}
-	double r_con = exp(-con_diff);
+	// std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
+	// std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
+	// double con_diff = 0;
+	// for(int i = 0; i < contacts_cur.size(); i++) {
+	// 	if(contacts_ref[i].first || contacts_cur[i].first) {
+	// 		con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 15, 2);
+	// 	}
+	// }
+	// double r_con = exp(-con_diff);
 
 	mRewardParts.clear();
 	double r_tot = accum_bvh;
@@ -576,18 +577,18 @@ UpdateRewardTrajectory() {
 	Eigen::VectorXd v_save = skel->getVelocities();
 
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(skel->getPositions(), mTargetPositions);
-	Eigen::VectorXd p_diff_reward;
+	Eigen::VectorXd p_diff_reward = p_diff;
 	
-	p_diff_reward.resize(mRewardDof);
-	int count_dof = 0;
+	// p_diff_reward.resize(mRewardDof);
+	// int count_dof = 0;
 
-	for(int i = 0; i < mRewardBodies.size(); i++){
-		int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
-		int dof = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getNumDofs();
+	// for(int i = 0; i < mRewardBodies.size(); i++){
+	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getIndexInSkeleton(0);
+	// 	int dof = mCharacter->GetSkeleton()->getBodyNode(mRewardBodies[i])->getParentJoint()->getNumDofs();
 		
-		p_diff_reward.block(count_dof, 0, dof, 1) = p_diff.block(idx, 0, dof, 1);
-		count_dof += dof;
-	}
+	// 	p_diff_reward.block(count_dof, 0, dof, 1) = p_diff.block(idx, 0, dof, 1);
+	// 	count_dof += dof;
+	// }
 
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
