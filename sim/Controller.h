@@ -58,7 +58,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 
 	void RescaleCharacter(double w0, double w1);
-	void SaveDisplayedData(std::string directory);
+	void SaveDisplayedData(std::string directory, bool bvh=false);
 	void SaveStats(std::string directory);
 	void UpdateSigTorque();
 	void UpdateGRF(std::vector<std::string> joints);

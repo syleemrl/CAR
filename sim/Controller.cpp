@@ -244,22 +244,23 @@ Step()
 	end_F_sum.setZero();
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
-		// for(int j = 0; j < num_body_nodes; j++) {
-		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getIndexInSkeleton(0);
-		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(mInterestedBodies[j])->getParentJoint()->getNumDofs();
-
-		// 	double torquelim = mCharacter->GetTorqueLimit(mInterestedBodies[j]);
-		// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
-		// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-		// 	// if(mInterestedBodies[i].compare("FootEndR") ==0 || mInterestedBodies[i].compare("FootEndL") ==0) {
-		// 	// 	std::cout << torque_norm << " ";
-		// 	// }
-		// }
-		// auto end_node = mCharacter->GetSkeleton()->getBodyNode("HandR");
-		// Eigen::MatrixXd J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("HandR"), Eigen::Vector3d(0, 0, 0));
-		// Eigen::Vector3d end_F = J * torque;
-		// end_F_sum += 2.0 * end_F / mSimulationHz;
-		// end_F_sum_norm += 2.0 * end_F.norm() / mSimulationHz;
+		for(int j = 0; j < num_body_nodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			double torquelim = mCharacter->GetTorqueLimit(name);
+			double torque_norm = torque.block(idx, 0, dof, 1).norm();
+		
+			torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			// if(mInterestedBodies[i].compare("FootEndR") ==0 || mInterestedBodies[i].compare("FootEndL") ==0) {
+			// 	std::cout << torque_norm << " ";
+			// }
+		}
+		auto end_node = mCharacter->GetSkeleton()->getBodyNode("RightHand");
+		Eigen::MatrixXd J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("RightHand"), Eigen::Vector3d(0, 0, 0));
+		Eigen::Vector3d end_F = J * torque;
+		end_F_sum += 2.0 * end_F / mSimulationHz;
+		end_F_sum_norm += 2.0 * end_F.norm() / mSimulationHz;
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
@@ -1122,14 +1123,55 @@ GetState()
 	return state;
 }
 void
-Controller::SaveDisplayedData(std::string directory) {
+Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	std::string path = std::string(CAR_DIR) + std::string("/") +  directory;
 	std::cout << "save results to" << path << std::endl;
 
 	std::ofstream ofs(path);
+	std::vector<std::string> bvh_order;
+	bvh_order.push_back("Hips");
+	bvh_order.push_back("Spine");
+	bvh_order.push_back("Spine1");
+	bvh_order.push_back("Spine2");
+	bvh_order.push_back("LeftShoulder");
+	bvh_order.push_back("LeftArm");
+	bvh_order.push_back("LeftForeArm");
+	bvh_order.push_back("LeftHand");
+	bvh_order.push_back("RightShoulder");
+	bvh_order.push_back("RightArm");
+	bvh_order.push_back("RightForeArm");
+	bvh_order.push_back("RightHand");
+	bvh_order.push_back("Neck");
+	bvh_order.push_back("Head");
+	bvh_order.push_back("LeftUpLeg");
+	bvh_order.push_back("LeftLeg");
+	bvh_order.push_back("LeftFoot");
+	bvh_order.push_back("LeftToe");
+	bvh_order.push_back("RightUpLeg");
+	bvh_order.push_back("RightLeg");
+	bvh_order.push_back("RightFoot");
+	bvh_order.push_back("RightToe");
 
+
+	if(bvh)
+		ofs << mRecordPosition.size() << std::endl;
 	for(auto t: mRecordPosition) {
-		ofs << t.transpose() << std::endl;
+		if(bvh) {
+			ofs << t.segment<3>(3).transpose() * 100 << " ";
+
+			for(int i = 0; i < bvh_order.size(); i++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(bvh_order[i])->getParentJoint()->getIndexInSkeleton(0);
+				Eigen::AngleAxisd aa(t.segment<3>(idx).norm(), t.segment<3>(idx).normalized());
+				Eigen::Matrix3d m;
+				m = aa;
+				Eigen::Vector3d v = dart::math::matrixToEulerZXY(m);
+				ofs << v.transpose() * 180 / M_PI << " ";			
+			}
+			ofs << std::endl;
+		} else {
+			ofs << t.transpose() << std::endl;
+		}
+		
 	}
 	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
 	ofs.close();

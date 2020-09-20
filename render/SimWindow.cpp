@@ -418,7 +418,7 @@ Keyboard(unsigned char key,int x,int y)
 			mIsAuto = !mIsAuto;
 			break;
 		case 'R': SaveReferenceData(filename); break;
-		case 'D': this->mController->SaveDisplayedData(filename); break;
+		case 'D': this->mController->SaveDisplayedData(filename, true); break;
 		case 'S': this->mController->SaveStats(filename); break;
 		case 27: exit(0);break;
 		default : break;
