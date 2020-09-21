@@ -33,8 +33,8 @@ wget https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.gz
 tar -xzf ./boost_1_66_0.tar.gz
 rm ./boost_1_66_0.tar.gz
 cd ./boost_1_66_0
-./bootstrap.sh --with-python=python3 --with-libraries=atomic,chrono,filesystem,python,system,regex
-sudo ./b2 --with-python --with-filesystem --with-regex --with-system install
+./bootstrap.sh --with-python=python3 --with-libraries=atomic,chrono,filesystem,python,system,regex,program_options
+sudo ./b2 --with-python --with-filesystem --with-regex --with-system --with-program_options install
 cd ..
 
 echo "cloning dart"
@@ -53,6 +53,9 @@ cd ../..
 
 echo "installing ipython"
 pip3 install ipython[all]
+
+echo "installing tensorflow"
+pip3 install tensorflow==1.14.0
 
 echo "build CAR"
 cd CAR
