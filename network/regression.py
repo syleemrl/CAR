@@ -40,7 +40,7 @@ class Regression(object):
 		self.load()
 
 	def initTrain(self, directory, num_input, num_output, postfix="reg",
-		batch_size=1024, steps_per_iteration=50):
+		batch_size=128, steps_per_iteration=50):
 		name = directory.split("/")[-2]
 		self.name = name + postfix
 		self.postfix = postfix

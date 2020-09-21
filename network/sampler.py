@@ -54,22 +54,22 @@ class Sampler(object):
 			count.append(0)
 		v = v_func.getValue(t)
 
-		for i in range(len(self.pool)):
-			x = self.pool[i]
-			idx = []
-			for j in range(self.dim):
-				idx.append(math.floor((x[j] - self.base[j]) / self.unit[j]))
-			for j in range(len(self.bound)):
-				if np.linalg.norm(idx - self.bound[j]) < 1e-2:
-					count[j] += 1
-					break
+		# for i in range(len(self.pool)):
+		# 	x = self.pool[i]
+		# 	idx = []
+		# 	for j in range(self.dim):
+		# 		idx.append(math.floor((x[j] - self.base[j]) / self.unit[j]))
+		# 	for j in range(len(self.bound)):
+		# 		if np.linalg.norm(idx - self.bound[j]) < 1e-2:
+		# 			count[j] += 1
+		# 			break
 
 		print("prob: ", np.exp(-self.k*(v-self.v_mean)/self.v_mean))
 		
-		print("sample: ",end=' ')
-		for i in range(len(v)):
-			print(v[i], count[i], end=', ')
-		print()
+		# print("sample: ",end=' ')
+		# for i in range(len(v)):
+		# 	print(v[i], count[i], end=', ')
+		# print()
 
 	def adaptiveSample(self):
 		if self.random:

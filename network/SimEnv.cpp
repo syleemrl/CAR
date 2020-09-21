@@ -346,6 +346,7 @@ AssignParamsToBins(bool limit)
 		assigned.push_back(false);
 	}
 	for(int i = 0; i < mParamNotAssigned.size(); i++) {
+
 		if(!visited[i]) {
 			Eigen::VectorXd idx = mParamNotAssigned[i].second;
 			for(int j = 0; j < mParamBins.size(); j++) {
@@ -359,9 +360,9 @@ AssignParamsToBins(bool limit)
 			}
 			if(!assigned[i]) {
 				double dist_cur = (idx_cur - idx).norm();
-				if(limit && dist_cur > 1)
-					continue;
 
+				if(limit && dist_cur > 5)
+					continue;
 				std::vector<int> p_temp;
 				p_temp.push_back(i);
 				for(int j = i + 1; j < mParamNotAssigned.size(); j++) {
@@ -370,6 +371,7 @@ AssignParamsToBins(bool limit)
 						p_temp.push_back(j);
 					}
 				}
+
 				if(p_temp.size() >= 10) {
 					ParamBin pb = ParamBin(idx);
 					for(int j = 0; j < p_temp.size(); j++) {
@@ -482,7 +484,6 @@ TrainRegressionNetwork()
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
 			   std::vector<double>> x_y_z = mReferenceManager->GetRegressionSamples();
-
 	if(std::get<0>(x_y_z).size() == 0)
 		return;
 
@@ -522,6 +523,7 @@ TrainRegressionNetwork()
 		nTrainingData += mParamStack;
 	    this->AssignParamsToBins();
 	    std::cout << "num training data: " << nTrainingData << std::endl;
+
 	    if(mParamBins.size() > 0) {
 	    	this->RefreshTrainingData();
 			this->mRegression.attr("train")();

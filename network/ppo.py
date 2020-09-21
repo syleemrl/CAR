@@ -394,6 +394,8 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + pow(self.gamma, timestep) * TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
+					if self.env.mode:
+						embed()
 					state_target_batch.append(param[i])
 					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
 
@@ -608,7 +610,9 @@ class PPO(object):
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
 					self.env.sim_env.Optimize()
-					#self.env.updateMode(self.critic_target, self.v_target)
+					self.env.sim_env.TrainRegressionNetwork()
+
+#					self.env.updateMode(self.critic_target, self.v_target)
 					if self.env.mode == 0:
 						self.target_x_batch = []
 						self.target_y_batch = [] 

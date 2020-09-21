@@ -150,12 +150,9 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordRewardPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
 
-	std::vector<double> mRecordEnergy;
-	std::vector<double> mRecordWork;
+	std::vector<std::pair<double, double>> mRecordHandForce;
 	std::vector<double> mRecordDCOM;
 	std::vector<Eigen::VectorXd> mRecordTorque;
-	std::vector<Eigen::VectorXd> mRecordWorkByJoints;
-	std::vector<Eigen::VectorXd> mRecordTorqueByJoints;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
@@ -211,6 +208,7 @@ protected:
 	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>>> mHindsightCharacter;
 	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
 	std::vector<Eigen::VectorXd> mHindsightTarget;
+
 };
 }
 #endif

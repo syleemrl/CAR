@@ -613,25 +613,25 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	mKnots.push_back(12);
-	mKnots.push_back(29);
-	mKnots.push_back(37);
+	mKnots.push_back(5);
+	mKnots.push_back(13);
+	mKnots.push_back(19);
+	mKnots.push_back(27);
+	mKnots.push_back(38);
 	mKnots.push_back(44);
-	mKnots.push_back(52);
-	mKnots.push_back(56);
-	mKnots.push_back(59);
-	mKnots.push_back(64);
-	mKnots.push_back(76);
+	mKnots.push_back(49);
+	mKnots.push_back(57);
 
-	mTargetBase.resize(1);
-	mTargetBase << 1.15; //, 1.5;
+	mTargetBase.resize(4);
+	mTargetBase << 0.493169, -0.856197, -0.785988, 0.4; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
-	mTargetGoal.resize(1);
-	mTargetGoal<< 1.75; //, 2;
+	mTargetGoal.resize(4);
+	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
+	mTargetGoal <<  0.492106,  -1.03435, -0.980513 , 4;
 
-	mTargetUnit.resize(1);
-	mTargetUnit<< 0.04; //, 0.05;
+	mTargetUnit.resize(4);
+	mTargetUnit<< 0.1, 0.1, 0.1, 0.3; //, 0.05;
 
 	mRefUpdateMode = true;
 
@@ -641,7 +641,7 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	nOp = 0;
 	mPath = save_path;
-	mPrevRewardTrajectory = 0.6;
+	mPrevRewardTrajectory = 0.5;
 	mPrevRewardTarget = 0.0;	
 	
 	// for(int i = 0; i < 3; i++) {
@@ -721,10 +721,10 @@ GetContactInfo(Eigen::VectorXd pos)
 
 	std::vector<std::string> contact;
 	contact.clear();
-	contact.push_back("FootEndR");
-	contact.push_back("FootR");
-	contact.push_back("FootEndL");
-	contact.push_back("FootL");
+	contact.push_back("RightFoot");
+	contact.push_back("RightToe");
+	contact.push_back("LeftFoot");
+	contact.push_back("LeftToe");
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> result;
 	result.clear();
@@ -748,12 +748,15 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
-	return;
 	std::vector<int> flag;
-	if((rewards.first / mPhaseLength)  < 0.9)
+	if((rewards.first / mPhaseLength)  < 0.9) {
 		flag.push_back(0);
-	else
+	}
+	else {
 		flag.push_back(1);
+	}
+	if((rewards.first / mPhaseLength)  < 0.6 || rewards.second < mPrevRewardTarget)
+		return;
 
 	if(rewards.second < mPrevRewardTarget)
 		flag.push_back(0);
@@ -777,13 +780,13 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	for(int i = 0; i < data_spline.size(); i++) {
 		data_spline[i].first = trajectory[i];
 	}
+
 	this->GetDisplacementWithBVH(data_spline, displacement);
 	s->ConvertMotionToSpline(displacement);
 
 	std::vector<Eigen::VectorXd> newpos;
 	std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
 	this->AddDisplacementToBVH(new_displacement, newpos);
-
 
 	double r_slide = 0;
 	std::vector<std::vector<std::pair<bool, Eigen::Vector3d>>> c;
@@ -807,6 +810,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_slide = exp(-r_slide);
+
 	auto cps = s->GetControlPoints(0);
 	double r_regul = 0;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
@@ -817,11 +821,14 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
 			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
 			if(dof == 6) {
-				r_regul += 2 * cps[i].segment<3>(idx).norm();
-				r_regul += 2 * cps[i].segment<3>(idx + 3).norm();
+				r_regul += 1 * cps[i].segment<3>(idx).norm();
+				r_regul += 1 * cps[i].segment<3>(idx + 3).norm();
 			} else if (dof == 3) {
-				if(b_name.find("Femur") != std::string::npos || 
-				   b_name.find("Spine") != std::string::npos) {
+				if(b_name.find("RightShoulder") != std::string::npos || 
+				   b_name.find("RightArm") != std::string::npos ||
+				   b_name.find("RightForeArm") != std::string::npos ||
+				   b_name.find("RightHand") != std::string::npos) {
+					r_regul += 2 * cps[i].segment<3>(idx).norm();
 				} else {
 					r_regul += 0.5 * cps[i].segment<3>(idx).norm();
 
@@ -831,10 +838,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
 	double reward_trajectory = 0.5 * r_regul + 0.5 * r_slide;
+
 	mLock.lock();
-	if(reward_trajectory > 0.6)
+	if(reward_trajectory > 0.4) {
 		mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
 									(cps, parameters, reward_trajectory));
+	}
 
 	if((flag[0] || (!flag[0] && reward_trajectory > mPrevRewardTrajectory)) && flag[1] && mRefUpdateMode) {
 		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
@@ -1024,7 +1033,6 @@ Optimize() {
 			mTargetCurMean += mSampleTargets[i];
 		}
 		mTargetCurMean /= mSampleTargets.size();
-		std::cout << mTargetCurMean << std::endl;
 		mSampleTargets.clear();
 		
 		return true;
@@ -1040,14 +1048,14 @@ Optimize() {
 }
 bool
 ReferenceManager::UpgradeTargetGoal() {
-	if(mTargetCurMean(0) >= (mTargetGoal(0) - 0.02) && mTargetGoal(0) < 1.6) {
-		mTargetGoal(0) += 0.1;
+	// if(mTargetCurMean(0) >= (mTargetGoal(0) - 0.02) && mTargetGoal(0) < 1.6) {
+	// 	mTargetGoal(0) += 0.1;
 
-		double target_diff = mTargetGoal(0) - mTargetCurMean(0);
-		mPrevRewardTarget = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
-		std::cout << "target upgrade : " << mTargetGoal.transpose() << " "<< mPrevRewardTarget << std::endl;
-		return true;
-	}
+	// 	double target_diff = mTargetGoal(0) - mTargetCurMean(0);
+	// 	mPrevRewardTarget = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
+	// 	std::cout << "target upgrade : " << mTargetGoal.transpose() << " "<< mPrevRewardTarget << std::endl;
+	// 	return true;
+	// }
 	return false;
 }
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> 
