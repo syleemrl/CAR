@@ -131,7 +131,15 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
 		this->mObject = new DPhy::Character(path);
 		// this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton()->getBodyNode("Sandbag"));
+		// for(size_t i = 0; i < mObject->GetSkeleton()->getNumDofs(); ++i)
+		// {
+		//   	dart::dynamics::DegreeOfFreedom* dof = mObject->GetSkeleton()->getDof(i);
+		//   	double damping = dof->getDampingCoefficient();
+		//   	if(damping != 0)
+		//  		dof->setDampingCoefficient(1);
+		// }
 		// this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+
 	}
 
 }
@@ -234,10 +242,10 @@ Step()
 	kv = KV_RATIO * kp;
 	mCharacter->SetPDParameters(kp, kv);
 	Eigen::VectorXd torque;
-	Eigen::Vector3d d = Eigen::Vector3d(0.0872334, 0.0240735,  0.187724);
-	double end_f_sum = 0;
-	
+	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
+	double end_f_sum = 0;	
 	double torque_sum = 0;
+	
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
 		for(int j = 0; j < num_body_nodes; j++) {
@@ -252,21 +260,27 @@ Step()
 			// 	std::cout << torque_norm << " ";
 			// }
 		}
-		auto end_node = mCharacter->GetSkeleton()->getBodyNode("RightHand");
-		Eigen::MatrixXd J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("RightHand"), Eigen::Vector3d(0, 0, 0));
-		Eigen::Vector3d end_F = J * torque;
-		end_f_sum += 2.0 * -d.dot(end_F) / mSimulationHz;
+
 		for(int j = 0; j < 2; j++)
 		{
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step();
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
+
+		if(i % 5 == 0) {
+			auto end_node = mCharacter->GetSkeleton()->getBodyNode("RightHand");
+			Eigen::MatrixXd	J = mCharacter->GetSkeleton()->getLinearJacobian(mCharacter->GetSkeleton()->getBodyNode("RightHand"), Eigen::Vector3d(0, 0, 0));
+			Eigen::MatrixXd Jt = J.transpose();
+			Eigen::MatrixXd Jt_inv = getPseudoInverse(Jt);
+			Eigen::Vector3d end_F = Jt_inv * torque;
+			end_f_sum += - d.dot(end_F) * 5 / mSimulationHz;
+		}
 	}
+
 	if(mCurrentFrameOnPhase >= 16 && mCurrentFrameOnPhase <= 19) {
 		mRecordHandForce.push_back(std::pair<double, double>(mCurrentFrameOnPhase, end_f_sum));
 	}
-
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		
@@ -340,7 +354,7 @@ SaveStepInfo()
 	if(mRecord) {
 		Eigen::AngleAxisd aa(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
 		Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
-		mRecordObjPosition.push_back(target_hand);
+		mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
 	}
 	mRecordTargetPosition.push_back(mTargetPositions);
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
@@ -461,27 +475,37 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 19 && mControlFlag[0] == 0) {
 		Eigen::Vector3d hand = skel->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::AngleAxisd aa(mHeadRoot.segment<3>(0).norm(), mHeadRoot.segment<3>(0).normalized());
-		Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
+		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
+		root_new = projectToXZ(root_new);
+		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
 
+		// Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
+		Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
+		target_hand(1) = 1.3;
 		Eigen::Vector3d target_diff = target_hand - hand;
+		mTargetDiff = target_diff;
 
 		double f_hand = 0;
 		for(int i = 0 ; i < mRecordHandForce.size(); i++) {
 			f_hand += mRecordHandForce[i].second / mRecordHandForce.size();
 		}
-
 		double f_diff = mInputTargetParameters(3) - f_hand;
-		r_target = 0.5 * exp_of_squared(target_diff,0.2); // 0.75 * exp_of_squared(target_diff,0.4) + 0.5 * exp_of_squared(target_diff,0.01);
-		r_target += 1.5 * (exp(-pow(f_diff, 2)*0.01) + 0.5 * exp(-pow(f_diff, 2)*0.5)); // (0.5 * exp(-pow(f_diff, 2)*0.5) + 0.25 * exp(-pow(f_diff, 2)*5));
+
+		r_target = 0.5 * (exp_of_squared(target_diff,0.15)); // 0.75 * exp_of_squared(target_diff,0.4) + 0.5 * exp_of_squared(target_diff,0.01);
+		r_target += 1.5 * (0.75 * exp(-pow(f_diff, 2)*0.15) + 0.25 * exp(-pow(f_diff, 2)*0.3)); // (0.5 * exp(-pow(f_diff, 2)*0.5) + 0.25 * exp(-pow(f_diff, 2)*5));
 		mControlFlag[0] = 1;
-		targetParameters.segment<3>(0) = aa.inverse() * (hand - mHeadRoot.segment<3>(3));
+		
+		hand = Eigen::Vector3d(0, 1.3, 1.3) - mHeadRoot.segment<3>(3);
+		hand(1) = 0;
+		targetParameters.segment<3>(0) = aa.inverse() * hand;
 		targetParameters(3) = f_hand;
 
 		mRecordHandForce.clear();
 
-		if(mRecord)
-			std::cout << f_hand << std::endl;
+		if(mRecord) {
+			std::cout << target_diff.transpose() << " " << exp_of_squared(target_diff,0.15) << std::endl;
+			std::cout << f_hand << " " << exp(-pow(f_diff, 2)*0.15) << " " << exp(-pow(f_diff, 2)*0.3) << std::endl;
+		}
 	}
 	return r_target;
 }
@@ -759,7 +783,10 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
-
+	// else if(!mRecord && isAdaptive && mTargetDiff.norm() > 0.3) {
+	// 	mIsTerminal = true;
+	// 	terminationReason = 6;
+	// }
 	if(mRecord) {
 		if(mIsTerminal) std::cout << terminationReason << std::endl;
 	}
@@ -921,12 +948,12 @@ Reset(bool RSI)
 	this->mRecordRewardPosition.clear();
 	this->mRecordObjPosition.clear();
 	this->mRecordHandForce.clear();
-
+	mTargetDiff.setZero();
 	if(mRecord) {
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		p_obj.setZero();
 		p_obj[1] = M_PI;
-		p_obj.segment<3>(3) = Eigen::Vector3d(1.1, 0.0, 1.0);
+		p_obj.segment<3>(3) = Eigen::Vector3d(0.0, 0.0, 1.7);
 		mObject->GetSkeleton()->setPositions(p_obj);
 	}
 	SaveStepInfo();
@@ -1089,8 +1116,8 @@ GetState()
 	double com_diff = 0;
 
 	if(isAdaptive) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mInputTargetParameters.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mInputTargetParameters;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1); //+mInputTargetParameters.rows());
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase; //, mInputTargetParameters;
 	}
 	else {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);

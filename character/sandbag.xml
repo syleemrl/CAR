@@ -1,36 +1,36 @@
 <Skeleton name="Sandbag">
-	<Joint type="FreeJoint" name="Ground" parent_name="None" size="0.5 0.1 0.5" mass="20">
+	<Joint type="FreeJoint" name="Ground" parent_name="None" size="0.5 0.1 0.5" mass="25">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="WeldJoint" name="Base1" parent_name="Ground" size="0.1 2 0.1" mass="5">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1 0"></BodyPosition>
+	<Joint type="WeldJoint" name="Base1" parent_name="Ground" size="0.1 2.4 0.1" mass="10">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1.2 0"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="WeldJoint" name="Base2" parent_name="Base1" size="0.1 0.1 0.5" mass="0.5">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2 0.2"></BodyPosition>
-		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2 0"></JointPosition>
+	<Joint type="WeldJoint" name="Base2" parent_name="Base1" size="0.1 0.1 0.5" mass="2">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.4 0.2"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.4 0"></JointPosition>
 	</Joint>
-	<Joint type="WeldJoint" name="Base3" parent_name="Base2" size="0.1 0.2 0.1" mass="0.5">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1.9 0.4"></BodyPosition>
-		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2 0.4"></JointPosition>
+	<Joint type="WeldJoint" name="Base3" parent_name="Base2" size="0.1 0.2 0.1" mass="2">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.3 0.4"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.4 0.4"></JointPosition>
 	</Joint>
 	<Joint type="BallJoint" name="String1" parent_name="Base3" size="0.1 0.08 0.05" mass="0.2">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1.76 0.4"></BodyPosition>
-		<JointPosition translation="0 1.8 0.4"></JointPosition>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.16 0.4"></BodyPosition>
+		<JointPosition translation="0 2.2 0.4"></JointPosition>
 	</Joint>
 	<Joint type="BallJoint" name="String2" parent_name="String1" size="0.1 0.08 0.05" mass="0.2">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1.68 0.4"></BodyPosition>
-		<JointPosition translation="0 1.72 0.4"></JointPosition>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.08 0.4"></BodyPosition>
+		<JointPosition translation="0 2.12 0.4"></JointPosition>
 	</Joint>
 	<Joint type="BallJoint" name="String3" parent_name="String2" size="0.1 0.08 0.05" mass="0.2">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 1.6 0.4"></BodyPosition>
-		<JointPosition translation="0 1.64 0.4"></JointPosition>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.0 0.4"></BodyPosition>
+		<JointPosition translation="0 2.04 0.4"></JointPosition>
 	</Joint>
-	<Joint type="BallJoint" name="Sandbag" size="0.4 1.0 0.4" mass="5" parent_name="String3">
-        <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 1.06 0.4" />
-        <JointPosition translation="0.0 1.56 0.4"/>
-        <Capsule direction="0 1 0" radius="0.2" height="0.6"/>
+	<Joint type="BallJoint" name="Sandbag" size="0.4 1.2 0.4" mass="8" parent_name="String3">
+        <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 1.36 0.4" />
+        <JointPosition translation="0.0 1.96 0.4"/>
+        <Capsule direction="0 1 0" radius="0.2" height="0.8"/>
 
     </Joint>
 </Skeleton>

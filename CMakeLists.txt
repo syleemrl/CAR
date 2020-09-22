@@ -2,17 +2,17 @@ cmake_minimum_required(VERSION 2.8.6)
 project(CAR)
 
 add_compile_options(-fPIC)
-add_compile_options(-std=c++17)
+add_compile_options(-std=gnu++17)
 add_compile_options(-Wdeprecated-declarations)
 add_compile_options(-lm)
 
+set(Boost_DEBUG 1)
 add_definitions(-DCAR_DIR="${CMAKE_HOME_DIRECTORY}")
 set(CMAKE_MODULE_PATH "${CMAKE_HOME_DIRECTORY}/cmake_module")
-
 find_package(DART REQUIRED COMPONENTS gui optimizer-ipopt collision-bullet collision-ode CONFIG)
-find_package(Boost 1.66.0 COMPONENTS filesystem python3 numpy3 program_options)
-find_package(PythonLibs 3.5 REQUIRED)
-find_package(PythonInterp 3.5 REQUIRED)
+find_package(Boost 1.67.0 COMPONENTS filesystem python36 numpy36 program_options)
+find_package(PythonLibs 3.6 REQUIRED)
+find_package(PythonInterp 3.6 REQUIRED)
 find_package(TinyXML REQUIRED)
 
 add_subdirectory( sim )

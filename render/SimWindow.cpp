@@ -36,12 +36,6 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	
 	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
 	this->mObject = new DPhy::Character(path);
-	Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
-	p_obj.setZero();
-	p_obj[1] = M_PI;
-	p_obj.segment<3>(3) = Eigen::Vector3d(1.2, 0.0, 1.0);
-	mObject->GetSkeleton()->setPositions(p_obj);
-
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
@@ -50,6 +44,9 @@ SimWindow(std::string motion, std::string network, std::string filename)
 		mReferenceManager->InitOptimization(1, path);
 		mReferenceManager->LoadAdaptiveMotion("");
 	//	mReferenceManager->GenerateRandomTrajectory(0);
+	} else {
+		mReferenceManager->InitOptimization(1, "");
+
 	}
 
 	this->mController = new DPhy::Controller(mReferenceManager, mRunPPO, true);
@@ -234,7 +231,7 @@ SetFrame(int n)
   		mCharacter->GetSkeleton()->setPositions(mMemory[n]);
   		mFootContact = mMemoryFootContact[n];
   		mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
-  	//	mObject->GetSkeleton()->setPositions(mMemoryObj[n]);
+  		mObject->GetSkeleton()->setPositions(mMemoryObj[n]);
   	}
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
@@ -263,8 +260,6 @@ void
 SimWindow::
 DrawSkeletons()
 {
-	// GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
-	// GUI::DrawPoint(mMemoryObj[mCurFrame], Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 	if(this->mDrawOutput) {
 		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOM, this->mCurFrame, Eigen::Vector3d(0.9, 0.9, 0.9));
@@ -274,7 +269,9 @@ DrawSkeletons()
 		}
 		GUI::DrawFootContact(this->mCharacter->GetSkeleton(), mFootContact);
 	}
-
+	// if(this->mRunPPO) {
+	// 	GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
+	// }
 	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOMRef, this->mCurFrame);
@@ -289,8 +286,8 @@ SimWindow::
 DrawGround()
 {	
 	// GUI::DrawPoint(Eigen::Vector3d(0.0,  1.38,  1.4), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	// GUI::DrawPoint(Eigen::Vector3d(1.00531,  1.30185, 0.572417), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-	GUI::DrawArrow3D(Eigen::Vector3d(0.0,  1.38,  1.4), Eigen::Vector3d(0.0872334, 0.0240735,  0.187724).normalized(),0.1,0.1);
+	// GUI::DrawPoint(Eigen::Vector3d(0.0,  1.3,  1.3), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
+	// GUI::DrawArrow3D(Eigen::Vector3d(0.0,  1.3, 1.3), Eigen::Vector3d(0, 0, 1).normalized(),0.1,0.1);
 
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)

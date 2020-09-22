@@ -94,8 +94,8 @@ class Monitor(object):
 
 		if self.adaptive:
 			params = np.array(self.states)[:,-self.dim_target:]
-			curframes = np.array(self.states)[:,-(self.dim_target+1)]
-	#		curframes = np.array(self.states)[:,-1]
+	#		curframes = np.array(self.states)[:,-(self.dim_target+1)]
+			curframes = np.array(self.states)[:,-1]
 
 		else:
 			params = np.zeros(self.num_slaves)

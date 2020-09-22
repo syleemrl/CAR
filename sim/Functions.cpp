@@ -954,4 +954,21 @@ Eigen::Vector3d projectToXZ(Eigen::Vector3d v) {
 	return nearest;
 
 }
+Eigen::MatrixXd getPseudoInverse(Eigen::MatrixXd m){
+	Eigen::JacobiSVD<Eigen::MatrixXd> svd(m, Eigen::ComputeThinU | Eigen::ComputeThinV);
+	int min = std::min(m.cols(), m.rows());
+	Eigen::MatrixXd inv_singular_value(min, min);
+		
+	inv_singular_value.setZero();
+	for(int k=0;k<min;k++)
+	{
+		if(svd.singularValues()[k]<1e-8)
+			inv_singular_value(k,k) = 0.0;
+		else
+			inv_singular_value(k,k) = 1.0/svd.singularValues()[k];
+	}
+
+	Eigen::MatrixXd inv = svd.matrixV()*inv_singular_value*svd.matrixU().transpose();
+	return inv;
+}
 }

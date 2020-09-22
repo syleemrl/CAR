@@ -610,7 +610,7 @@ class PPO(object):
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
 					self.env.sim_env.Optimize()
-					self.env.sim_env.TrainRegressionNetwork()
+			#		self.env.sim_env.TrainRegressionNetwork()
 
 #					self.env.updateMode(self.critic_target, self.v_target)
 					if self.env.mode == 0:
