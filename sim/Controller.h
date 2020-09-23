@@ -150,7 +150,7 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordRewardPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
 
-	std::vector<std::pair<double, double>> mRecordHandForce;
+	std::vector<double> mRecordEval;
 	std::vector<double> mRecordDCOM;
 	std::vector<Eigen::VectorXd> mRecordTorque;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;

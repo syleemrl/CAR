@@ -628,7 +628,7 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	mTargetGoal.resize(4);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  0.913845,         0, -0.924868  , 4;
+	mTargetGoal <<  0.913845,         0, -0.924868  , 3;
 
 	mTargetUnit.resize(4);
 	mTargetUnit<< 0.1, 0.1, 0.1, 0.3; //, 0.05;

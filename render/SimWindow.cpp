@@ -135,6 +135,7 @@ MemoryClear() {
     mMemoryCOMRef2.clear();
     mMemoryGRF.clear();
     mMemoryFootContact.clear();
+    mMemoryObj.clear();
     mReward.clear();
 }
 void 
@@ -269,9 +270,9 @@ DrawSkeletons()
 		}
 		GUI::DrawFootContact(this->mCharacter->GetSkeleton(), mFootContact);
 	}
-	// if(this->mRunPPO) {
-	// 	GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
-	// }
+	if(this->mRunPPO) {
+		GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
+	}
 	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOMRef, this->mCurFrame);
