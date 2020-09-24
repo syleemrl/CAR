@@ -34,7 +34,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 	this->mCharacter = new DPhy::Character(path);
 	
-	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
+	path = std::string(CAR_DIR)+std::string("/character/box.xml");
 	this->mObject = new DPhy::Character(path);
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
@@ -286,7 +286,7 @@ void
 SimWindow::
 DrawGround()
 {	
-	// GUI::DrawPoint(Eigen::Vector3d(0.0,  1.38,  1.4), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(1.0,  1.3,  0.8), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 	// GUI::DrawPoint(Eigen::Vector3d(0.0,  1.3,  1.3), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
 	// GUI::DrawArrow3D(Eigen::Vector3d(0.0,  1.3, 1.3), Eigen::Vector3d(0, 0, 1).normalized(),0.1,0.1);
 
@@ -417,7 +417,6 @@ Keyboard(unsigned char key,int x,int y)
 			break;
 		case 'R': SaveReferenceData(filename); break;
 		case 'D': this->mController->SaveDisplayedData(filename, true); break;
-		case 'S': this->mController->SaveStats(filename); break;
 		case 27: exit(0);break;
 		default : break;
 	}

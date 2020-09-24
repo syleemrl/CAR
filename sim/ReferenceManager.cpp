@@ -628,7 +628,7 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	mTargetGoal.resize(4);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  0.913845,         0, -0.924868  , 3;
+	mTargetGoal <<  0.913845,         0, -0.924868  , 2;
 
 	mTargetUnit.resize(4);
 	mTargetUnit<< 0.1, 0.1, 0.1, 0.3; //, 0.05;
@@ -749,7 +749,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
 	std::vector<int> flag;
-	if((rewards.first / mPhaseLength)  < 0.9) {
+	if((rewards.first / mPhaseLength)  < 0.85) {
 		flag.push_back(0);
 	}
 	else {
@@ -757,7 +757,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	}
 	if((rewards.first / mPhaseLength)  < 0.6 || rewards.second < mPrevRewardTarget)
 		return;
-
 	if(rewards.second < mPrevRewardTarget)
 		flag.push_back(0);
 	else

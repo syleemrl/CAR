@@ -23,13 +23,17 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 	void Step();
 	void UpdateReward();
-	void UpdateAdaptiveReward();
-	void UpdateRewardTrajectory();
-
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
-	bool FollowBvh();
 	int GetTerminationReason() {return terminationReason; }
+	int GetNumState();
+	int GetNumAction();
+	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
+	Eigen::VectorXd GetState();
+
+	
+	bool FollowBvh();
+
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
 	bool IsTimeEnd(){
@@ -38,12 +42,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 		else
 			return false;
 	}
-	int GetNumState();
-	int GetNumAction();
-	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
 
 	bool CheckCollisionWithGround(std::string bodyName);
-	Eigen::VectorXd GetState();
 	void SetAction(const Eigen::VectorXd& action);
 	double GetReward() {return mRewardParts[0]; }
 	std::vector<double> GetRewardByParts() {return mRewardParts; }
@@ -57,13 +57,11 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 
-	void RescaleCharacter(double w0, double w1);
 	void SaveDisplayedData(std::string directory, bool bvh=false);
-	void SaveStats(std::string directory);
-	void UpdateSigTorque();
-	void UpdateGRF(std::vector<std::string> joints);
-	std::vector<Eigen::VectorXd> GetGRF();
 	void SaveStepInfo();
+	void ClearRecord();
+	// get record (for visualization)
+
 	Eigen::VectorXd GetObjPositions(int idx) { return this->mRecordObjPosition[idx]; }
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
@@ -71,19 +69,22 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	double GetTime(int idx) { return this->mRecordTime[idx]; }
 	Eigen::VectorXd GetTargetPositions(int idx) { return this->mRecordTargetPosition[idx]; }
 	Eigen::VectorXd GetBVHPositions(int idx) { return this->mRecordBVHPosition[idx]; }
-	Eigen::VectorXd GetRewardPositions(int idx) { return this->mRecordRewardPosition[idx];}
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
+
+
+ 	// functions related to adaptive motion retargeting
+	void RescaleCharacter(double w0, double w1);	
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
 
-	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
-	double GetPhaseReward();
+	void UpdateAdaptiveReward();
+	void UpdateRewardTrajectory();
 	double  GetTargetReward();
+	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
+	
 	std::vector<bool> GetContacts();
 	std::vector<bool> GetContacts(Eigen::VectorXd pos);
-	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
-	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
-	std::vector<double> GetAdaptiveIdxs();
+
 
 	std::vector<Eigen::VectorXd> GetHindsightTarget() {return mHindsightTarget; }
 	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
@@ -114,7 +115,6 @@ protected:
 
 	Eigen::VectorXd mTargetPositions;
 	Eigen::VectorXd mTargetVelocities;
-	std::pair<bool, bool> mTargetContacts;
 
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;
@@ -126,16 +126,13 @@ protected:
 	Eigen::Vector3d mTargetCOMvelocity;
 	double mAdaptiveCOM;
 	double mAdaptiveStep;
-	double sig_torque;
 	double meanTargetReward;
-	int mCount;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
 	int mInterestedDof;
 	int mRewardDof;
 
-	std::vector<std::string> mAdaptiveBodies;
 	std::vector<std::string> mEndEffectors;
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
@@ -147,23 +144,17 @@ protected:
 	std::vector<Eigen::Vector3d> mRecordCOM;
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
-	std::vector<Eigen::VectorXd> mRecordRewardPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
-
-	std::vector<double> mRecordEval;
-	std::vector<double> mRecordDCOM;
-	std::vector<Eigen::VectorXd> mRecordTorque;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
+	std::vector<double> mRecordTorqueNorm;
+
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
 	bool mRecord;
 	bool mIsHindsight;
-	std::tuple<bool, double, double> mDoubleStanceInfo;
 	std::tuple<double, double, double> mRescaleParameter;
-	std::vector<std::string> mGRFJoints;
 	std::vector<double> mRecordTime;
 	std::vector<double> mRecordDTime;
-	std::vector<Eigen::VectorXd> mRecordFootConstraint;
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::vector<std::string> mContacts;
@@ -172,29 +163,16 @@ protected:
 
 	int terminationReason;
 
-	std::vector<std::vector<Eigen::VectorXd>> GRFs;
-	std::shared_ptr<dart::collision::DARTCollisionDetector> mGroundCollisionChecker;	
-
-	Eigen::VectorXd mTorqueMean;
-	Eigen::VectorXd mTorqueMin;
-	Eigen::VectorXd mTorqueMax;
-
 	Eigen::VectorXd mPrevPositions;
 	Eigen::VectorXd mPrevTargetPositions;
-	Eigen::VectorXd mTorqueSig;
 	Eigen::VectorXd mMask;
 	Eigen::VectorXd mControlFlag;
 
-	Eigen::Vector3d mExtra;
 	//target
 	Eigen::Vector6d mHeadRoot;
 
-	double mStartPhase;
-	int nTotalStepsPhase;
-
 	Eigen::VectorXd mInputTargetParameters;
 	Eigen::VectorXd targetParameters;
-	double target_reward = 0;
 
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
@@ -209,7 +187,8 @@ protected:
 	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
 	std::vector<Eigen::VectorXd> mHindsightTarget;
 	Eigen::Vector3d mTargetDiff;
-
+	double maxSpeedObj;
+	double mTorqueSum;
 };
 }
 #endif

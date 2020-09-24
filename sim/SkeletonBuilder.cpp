@@ -313,6 +313,7 @@ BuildFromFile(const std::string& filename){
 				axis,
 				contact
 				);	
+
 		}
 		else if(!jointType.compare("WeldJoint")){
 			SkeletonBuilder::MakeWeldJointBody(
@@ -709,6 +710,7 @@ BodyNode* SkeletonBuilder::MakePrismaticJointBody(
 	if(parent!=nullptr)
 		props.mT_ParentBodyToJoint = parent->getTransform().inverse()*joint_position;
 	props.mT_ChildBodyToJoint = body_position.inverse()*joint_position;
+	props.mActuatorType = dart::dynamics::Joint::LOCKED;
 
 	bn = target_skel->createJointAndBodyNodePair<PrismaticJoint>(
 		parent,props,BodyNode::AspectProperties(body_name)).second;
