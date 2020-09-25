@@ -844,7 +844,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	// 								(cps, parameters, reward_trajectory));
 	// }
 
-	if((flag[0] || (!flag[0] && reward_trajectory > mPrevRewardTrajectory)) && flag[1] && mRefUpdateMode) {
+	// if((flag[0] || (!flag[0] && reward_trajectory > mPrevRewardTrajectory)) && flag[1] && mRefUpdateMode) {
+	if(flag[0] && flag[1] && mRefUpdateMode) {
 		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
 							std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
 		mSampleTargets.push_back(parameters);

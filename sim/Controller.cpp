@@ -232,14 +232,15 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 		mTorqueSum += torque.norm() * 2 / mSimulationHz;
-		if(mControlFlag[0] == 1 && i % 2 == 0) {
+		if(mControlFlag[0] == 2 && i % 2 == 0) {
 			if(mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm() > maxSpeedObj) {
 				maxSpeedObj = mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm();
+				//std::cout << maxSpeedObj << std::endl;
 			}
 		}
 	}
 
-	if(mCurrentFrameOnPhase >= 17 && mControlFlag[0] == 0) {
+	if(isAdaptive && mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
 		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
 		rot = projectToXZ(rot);		
 		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
@@ -268,9 +269,10 @@ Step()
 		mObject->GetSkeleton()->setPositions(p_obj);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
-		
-		mControlFlag[0] = 1;
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		std::cout << mCharacter->GetSkeleton()->getBodyNode("RightHand")->getCOMLinearVelocity().transpose() << std::endl;
+
+		mControlFlag[0] = 2;
 
 	} else if(isAdaptive && mControlFlag[0] == 2) {
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
@@ -279,9 +281,8 @@ Step()
 		mObject->GetSkeleton()->setPositions(p_obj);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
-
-		mControlFlag[0] = 3;
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+	//	mControlFlag[0] = 3;
 	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -496,7 +497,7 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 20.5 && mControlFlag[0] == 1) {
+	if(mCurrentFrameOnPhase >= 20 && mControlFlag[0] == 2) {
 		Eigen::Vector3d hand = skel->getBodyNode("RightHand")->getWorldTransform().translation();
 		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
 		root_new = projectToXZ(root_new);
@@ -519,7 +520,7 @@ GetTargetReward()
 			std::cout << target_diff.transpose() << " "<< exp_of_squared(target_diff,0.15) << std::endl;
 			std::cout << v_diff << " " << exp(-pow(v_diff, 2)*0.5) << " " << exp(-pow(v_diff, 2)) << std::endl;
 		}
-		mControlFlag[0] = 2;		
+		mControlFlag[0] = 3;		
 
 	}
 	return r_target;
@@ -591,7 +592,7 @@ UpdateAdaptiveReward()
 	double r_con = exp(-con_diff);
 	double r_time = exp(-pow(mAdaptiveStep,2)*20);
 	double r_tq = exp(-pow(mTorqueSum, 2) * 0.01);
-	double r_tot = 0.95 * accum_bvh + 0.02 * r_time + 0.03 * r_tq;
+	double r_tot = 0.98 * accum_bvh + 0.02 * r_time;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){

@@ -33,17 +33,17 @@
     </Joint>
 
 
-    <Joint type="BallJoint" name="LeftShoulder" parent_name="Spine2" size="0.137849 0.06 0.06" mass="2.0" bvh="clavicle_l">
+    <Joint type="BallJoint" name="LeftShoulder" parent_name="Spine2" size="0.137849 0.06 0.06" mass="1.0" bvh="clavicle_l">
         <BodyPosition  translation="0.6286765 0.00638131 -0.0378198"/>
         <JointPosition translation="0.549752 0.00638131 -0.0378198"/>
         <TorqueLimit norm="100"/>
     </Joint>
-    <Joint type="BallJoint" name="LeftArm" parent_name="LeftShoulder" size="0.3234 0.1 0.1" mass="1.0" bvh="upperarm_l">
+    <Joint type="BallJoint" name="LeftArm" parent_name="LeftShoulder" size="0.3234 0.1 0.1" mass="3.0" bvh="upperarm_l">
         <BodyPosition  translation="0.8393005 0.00638131 -0.0378198"/>
         <JointPosition translation="0.707601 0.00638131 -0.0378198"/>
         <TorqueLimit norm="100"/>
     </Joint>
-    <Joint type="BallJoint" name="LeftForeArm" parent_name="LeftArm" size="0.249752 0.08 0.08" mass="1.0" bvh="lowerarm_l">
+    <Joint type="BallJoint" name="LeftForeArm" parent_name="LeftArm" size="0.249752 0.08 0.08" mass="2.0" bvh="lowerarm_l">
         <BodyPosition  translation="1.145876 0.00638131 -0.0378198"/>
         <JointPosition translation="1.011 0.00638131 -0.0378198"/>
         <TorqueLimit norm="60"/>
@@ -55,17 +55,17 @@
     </Joint>
 
 
-    <Joint type="BallJoint" name="RightShoulder" parent_name="Spine2" size="0.137848 0.06 0.06" mass="2.0" bvh="clavicle_r">
+    <Joint type="BallJoint" name="RightShoulder" parent_name="Spine2" size="0.137848 0.06 0.06" mass="1.0" bvh="clavicle_r">
         <BodyPosition  translation="0.470829 0.00638121 0.03782"/>
         <JointPosition translation="0.549753 0.00638121 0.03782"/>
         <TorqueLimit norm="100"/>
     </Joint>
-    <Joint type="BallJoint" name="RightArm" parent_name="RightShoulder" size="0.3234 0.1 0.1" mass="1.0" bvh="upperarm_r">
+    <Joint type="BallJoint" name="RightArm" parent_name="RightShoulder" size="0.3234 0.1 0.1" mass="3.0" bvh="upperarm_r">
         <BodyPosition  translation="0.260205 0.00638121 0.03782"/>
         <JointPosition translation="0.391905 0.00638121 0.03782"/>
         <TorqueLimit norm="100"/>
     </Joint>
-    <Joint type="BallJoint" name="RightForeArm" parent_name="RightArm" size="0.249752 0.08 0.08" mass="1.0" bvh="lowerarm_r">
+    <Joint type="BallJoint" name="RightForeArm" parent_name="RightArm" size="0.249752 0.08 0.08" mass="2.0" bvh="lowerarm_r">
         <BodyPosition  translation="-0.046371 0.00638121 0.03782"/>
         <JointPosition translation="0.088505 0.00638121 0.03782"/>
         <TorqueLimit norm="60"/>
