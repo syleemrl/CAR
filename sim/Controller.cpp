@@ -270,7 +270,6 @@ Step()
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		std::cout << mCharacter->GetSkeleton()->getBodyNode("RightHand")->getCOMLinearVelocity().transpose() << std::endl;
 
 		mControlFlag[0] = 2;
 
