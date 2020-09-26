@@ -18,7 +18,7 @@
     </Joint>
     <Joint type="BallJoint" name="Spine2" parent_name="Spine1" size="0.155588 0.17 0.30 " mass="5" bvh="spine_03">
         <BodyPosition  translation="0.513709 0.03192562 0"/>
-        <JointPosition translation="0.430915 0.03370221 0" lower="-0.4 -3.0  -1.0" upper="0.4 3.0 1.0"/>
+        <JointPosition translation="0.430915 0.03370221 0"/>
         <TorqueLimit norm="100"/>
     </Joint>
     <Joint type="BallJoint" name="Neck" parent_name="Spine2" size="0.0828361 0.06 0.06" mass="1.5" bvh="neck_01">

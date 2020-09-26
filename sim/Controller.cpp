@@ -508,8 +508,8 @@ GetTargetReward()
 		Eigen::Vector3d target_diff = target_hand - hand;
 
 		double v_diff = (mInputTargetParameters(3) - maxSpeedObj);
-		r_target = 0.5 * (exp_of_squared(target_diff,0.15)); // 0.75 * exp_of_squared(target_diff,0.4) + 0.5 * exp_of_squared(target_diff,0.01);
-		r_target += 1.5 * (0.75 * exp(-pow(v_diff, 2)*0.5) + 0.25 * exp(-pow(v_diff, 2))); // (0.5 * exp(-pow(f_diff, 2)*0.5) + 0.25 * exp(-pow(f_diff, 2)*5));
+		r_target = 0.75 * (exp_of_squared(target_diff,0.15)); // 0.75 * exp_of_squared(target_diff,0.4) + 0.5 * exp_of_squared(target_diff,0.01);
+		r_target += 1.25 * (0.75 * exp(-pow(v_diff, 2)*2) + 0.25 * exp(-pow(v_diff, 2)*5)); // (0.5 * exp(-pow(f_diff, 2)*0.5) + 0.25 * exp(-pow(f_diff, 2)*5));
 		hand = hand - mHeadRoot.segment<3>(3);
 		hand(1) = 0;
 		targetParameters.segment<3>(0) = aa.inverse() * hand;
@@ -517,7 +517,7 @@ GetTargetReward()
 
 		if(mRecord) {
 			std::cout << target_diff.transpose() << " "<< exp_of_squared(target_diff,0.15) << std::endl;
-			std::cout << v_diff << " " << exp(-pow(v_diff, 2)*0.5) << " " << exp(-pow(v_diff, 2)) << std::endl;
+			std::cout << v_diff << " " << exp(-pow(v_diff, 2)*2) << " " << exp(-pow(v_diff, 2)*5) << std::endl;
 		}
 		mControlFlag[0] = 3;		
 
@@ -598,7 +598,7 @@ UpdateAdaptiveReward()
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
-		mRewardParts.push_back(r_tot);
+		mRewardParts.push_back(0.5 * r_tot);
 		mRewardParts.push_back(8 * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
@@ -607,7 +607,7 @@ UpdateAdaptiveReward()
 	if(r_t != 0) {
 		mTargetRewardTrajectory += r_t;
 	}
-	mTrackingRewardTrajectory += (0.4 * tracking_rewards_bvh[0] + 0.4 * tracking_rewards_bvh[2] + 0.2 * r_con);
+	mTrackingRewardTrajectory += (0.4 * tracking_rewards_bvh[0] + 0.4 * tracking_rewards_bvh[1] + 0.2 * r_con);
 
 }
 void

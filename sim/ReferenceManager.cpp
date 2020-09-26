@@ -612,23 +612,29 @@ void
 ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
-	mKnots.push_back(0);
-	mKnots.push_back(5);
-	mKnots.push_back(13);
-	mKnots.push_back(19);
-	mKnots.push_back(27);
-	mKnots.push_back(38);
-	mKnots.push_back(44);
-	mKnots.push_back(49);
-	mKnots.push_back(57);
+	// mKnots.push_back(0);
+	// mKnots.push_back(5);
+	// mKnots.push_back(13);
+	// mKnots.push_back(19);
+	// mKnots.push_back(27);
+	// mKnots.push_back(38);
+	// mKnots.push_back(44);
+	// mKnots.push_back(49);
+	// mKnots.push_back(57);
 
+	for(int i = 0; i < 20; i+=2) {
+		mKnots.push_back(i);
+	} 
+	for(int i = 20; i < mPhaseLength-2; i+= 4) {
+		mKnots.push_back(i);
+	}
 	mTargetBase.resize(4);
 	mTargetBase << 0.493169, -0.856197, -0.785988, 0.4; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(4);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  0.913845,         0, -0.924868  , 2;
+	mTargetGoal <<  0.913845,         0, -0.924868  , 1;
 
 	mTargetUnit.resize(4);
 	mTargetUnit<< 0.1, 0.1, 0.1, 0.3; //, 0.05;
@@ -762,8 +768,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	else
 		flag.push_back(1);
 
-	// if(flag[0] == 0)
-	// 	return;
+	if(flag[0] == 0)
+		return;
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
@@ -836,7 +842,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = 0.5 * r_regul + 0.5 * r_slide;
+	double reward_trajectory = 0.1 * r_regul + 0.5 * r_slide + 0.2 * rewards.second;
 
 	mLock.lock();
 	// if(reward_trajectory > 0.4) {
@@ -855,7 +861,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		ofs.open(path, std::fstream::out | std::fstream::app);
 
 		for(auto t: data_spline) {	
-			ofs << t.first.transpose() << " " << t.second << " " << r_slide << " " << r_regul << std::endl;
+			ofs << t.first.transpose() << " " << t.second << " " << r_slide << " " << r_regul << " " << rewards.second << std::endl;
 		}
 		ofs.close();
 	}

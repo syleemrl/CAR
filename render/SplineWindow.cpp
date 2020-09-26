@@ -89,11 +89,8 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 			is >> buffer;
 			// reward
 			is >> buffer;
-			if ((targetIdx - idx).norm() > 1e-2) {
-				continue;
-			}
+		
 			cps.push_back(cp);
-			std::cout << atof(buffer) << std::endl;
 
 			if(cps.size() == knots.size() + 3) {
 				s->SetControlPoints(0, cps);
@@ -132,12 +129,7 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 			// next phase
 			if(cur_reward != reward) {
 				reward = cur_reward;
-				std::cout << 0.2 * cur_reward + 0.8 * cur_reward2 << std::endl;
-				if(0.2 * cur_reward + 0.8 * cur_reward2 < 0.4) {
-					pos.clear();
-					step.clear();
-					continue;
-				}
+			
 				std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 				pos = DPhy::Align(pos, referenceManager->GetPosition(std::fmod(step[0], referenceManager->GetPhaseLength())).segment<6>(0));
 				std::vector<std::pair<Eigen::VectorXd,double>> trajectory;

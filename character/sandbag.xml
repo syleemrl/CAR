@@ -27,7 +27,7 @@
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.0 0.4"></BodyPosition>
 		<JointPosition translation="0 2.04 0.4"></JointPosition>
 	</Joint>
-	<Joint type="BallJoint" name="Sandbag" size="0.4 1.2 0.4" mass="8" parent_name="String3">
+	<Joint type="BallJoint" name="Sandbag" size="0.4 1.2 0.4" mass="20" parent_name="String3">
         <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 1.36 0.4" />
         <JointPosition translation="0.0 1.96 0.4"/>
         <Capsule direction="0 1 0" radius="0.2" height="0.8"/>
