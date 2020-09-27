@@ -34,8 +34,6 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 	this->mCharacter = new DPhy::Character(path);
 	
-	path = std::string(CAR_DIR)+std::string("/character/box.xml");
-	this->mObject = new DPhy::Character(path);
 
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
@@ -184,8 +182,6 @@ Save(int n) {
 
    	 	mMemoryRef.emplace_back(mRef->GetSkeleton()->getPositions());
     	mMemoryCOMRef.emplace_back(mRef->GetSkeleton()->getCOM());
-
-    	mMemoryObj.emplace_back(this->mController->GetObjPositions(n));
 	} else {
 		position = mReferenceManager->GetPosition(n);
 		if(mWrap) {
@@ -232,7 +228,6 @@ SetFrame(int n)
   		mCharacter->GetSkeleton()->setPositions(mMemory[n]);
   		mFootContact = mMemoryFootContact[n];
   		mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
-  		mObject->GetSkeleton()->setPositions(mMemoryObj[n]);
   	}
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
@@ -269,9 +264,6 @@ DrawSkeletons()
 			GUI::DrawForces(grfs, Eigen::Vector3d(1, 0, 0));
 		}
 		GUI::DrawFootContact(this->mCharacter->GetSkeleton(), mFootContact);
-	}
-	if(this->mRunPPO) {
-		GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
 	}
 	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);

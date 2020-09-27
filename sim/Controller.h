@@ -187,8 +187,9 @@ protected:
 	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
 	std::vector<Eigen::VectorXd> mHindsightTarget;
 	Eigen::Vector3d mTargetDiff;
-	double maxSpeedObj;
-	double mTorqueSum;
+	double mMomentum;
+	double mVelocity;
+	int mCountTarget;
 };
 }
 #endif
