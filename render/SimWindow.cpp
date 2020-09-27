@@ -287,7 +287,7 @@ SimWindow::
 DrawGround()
 {	
 	// GUI::DrawPoint(Eigen::Vector3d(1.0,  1.3,  0.8), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	// GUI::DrawPoint(Eigen::Vector3d(0.0,  1.3,  1.3), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
+	GUI::DrawPoint(Eigen::Vector3d(1.2,  1.1,  1.0), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
 	// GUI::DrawArrow3D(Eigen::Vector3d(0.0,  1.3, 1.3), Eigen::Vector3d(0, 0, 1).normalized(),0.1,0.1);
 
 	Eigen::Vector3d com_root;

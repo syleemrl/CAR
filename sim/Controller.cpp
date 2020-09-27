@@ -424,15 +424,10 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 		// 	count_dof += dof;
 		// }
 	//	v_diff_reward = v_diff.segment<1>(1) / std::max(abs(velocity2(1)), 0.4);
-		for(int i = 0; i < num_body_nodes; i++) {
-			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-		 	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-
-			if(name.compare("RightHand") == 0 || name.compare("RightForeArm") == 0 || name.compare("RightArm") == 0 || name.compare("RightShoulder") == 0 ) {
-				v_diff_reward.segment<3>(idx) *= 2;
-				p_diff_reward.segment<3>(idx) *= 2;
-			}
-		}
+		// for(int i = 0; i < num_body_nodes; i++) {
+		// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
+		//  	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+		// }
 	}
 
 	skel->setPositions(position);
@@ -502,22 +497,31 @@ GetTargetReward()
 		root_new = projectToXZ(root_new);
 		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
 
-		// Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
-		Eigen::Vector3d target_hand = aa * mInputTargetParameters.segment<3>(0) + mHeadRoot.segment<3>(3);
-		target_hand(1) = 1.3;
-		Eigen::Vector3d target_diff = target_hand - hand;
+		Eigen::Vector3d target_hand = Eigen::Vector3d(cos(mInputTargetParameters(0)), 0, sin(mInputTargetParameters(0))) * mInputTargetParameters(1);
+		target_hand = aa * target_hand + mHeadRoot.segment<3>(3);
+		target_hand(1) = mInputTargetParameters(2);
+
+
+		Eigen::Vector3d p_diff = target_hand - hand;
 
 		double v_diff = (mInputTargetParameters(3) - maxSpeedObj);
-		r_target = 0.75 * (exp_of_squared(target_diff,0.15)); // 0.75 * exp_of_squared(target_diff,0.4) + 0.5 * exp_of_squared(target_diff,0.01);
-		r_target += 1.25 * (0.75 * exp(-pow(v_diff, 2)*2) + 0.25 * exp(-pow(v_diff, 2)*5)); // (0.5 * exp(-pow(f_diff, 2)*0.5) + 0.25 * exp(-pow(f_diff, 2)*5));
-		hand = hand - mHeadRoot.segment<3>(3);
-		hand(1) = 0;
-		targetParameters.segment<3>(0) = aa.inverse() * hand;
-		targetParameters(3) = v_diff;
+		r_target = 0.75 * (0.75 * exp_of_squared(p_diff, 0.5) + 0.25 * exp_of_squared(p_diff, 0.1)); // 0.75 * exp_of_squared(target_diff,0.4) + 0.5 * exp_of_squared(target_diff,0.01);
+		r_target += 1.25 * exp(-pow(v_diff, 2)*5); // (0.5 * exp(-pow(f_diff, 2)*0.5) + 0.25 * exp(-pow(f_diff, 2)*5));
+	
+		Eigen::Vector3d diff = hand - mHeadRoot.segment<3>(3);
+		diff(1) = 0;
+
+		double dist = diff.norm();
+		double height = hand(1);
+
+		Eigen::Vector3d angle_xz = aa.inverse() * diff;
+
+		double angle = atan2(angle_xz(2), angle_xz(0));
+		targetParameters << angle, dist, height, maxSpeedObj;
 
 		if(mRecord) {
-			std::cout << target_diff.transpose() << " "<< exp_of_squared(target_diff,0.15) << std::endl;
-			std::cout << v_diff << " " << exp(-pow(v_diff, 2)*2) << " " << exp(-pow(v_diff, 2)*5) << std::endl;
+			std::cout << p_diff.transpose() << " "<< exp_of_squared(p_diff,0.5)  <<" " << exp_of_squared(p_diff, 0.1) << std::endl;
+			std::cout << v_diff << " " << exp(-pow(v_diff, 2)*5)<< std::endl;
 		}
 		mControlFlag[0] = 3;		
 

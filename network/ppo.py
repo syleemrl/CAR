@@ -22,7 +22,7 @@ if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
 	tf.contrib._warning = None
 class PPO(object):
 	def __init__(self, learning_rate_actor=2e-4, learning_rate_critic=0.001, learning_rate_decay=0.9993,
-		gamma=0.95, gamma_sparse=0.97, lambd=0.95, epsilon=0.2):
+		gamma=0.95, gamma_sparse=0.98, lambd=0.95, epsilon=0.2):
 		random.seed(int(time.time()))
 		np.random.seed(int(time.time()))
 		tf.set_random_seed(int(time.time()))
@@ -34,6 +34,8 @@ class PPO(object):
 		self.gamma = gamma
 		self.gamma_sparse = gamma_sparse
 		self.lambd = lambd
+		self.lambd_sparse = gamma_sparse
+
 		self.reward_max = 0
 
 	def initRun(self, pretrain, num_state, num_action, num_slaves=1):
@@ -385,13 +387,13 @@ class PPO(object):
 					delta_sparse = rewards[i][1] - values_sparse[i]
 				else:
 					timestep = times[i+1]  - times[i]
-					delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma, timestep) - values_sparse[i]
-				ad_t_sparse = delta_sparse + pow(self.gamma, timestep) * pow(self.lambd, timestep) * ad_t_sparse
+					delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma_sparse, timestep) - values_sparse[i]
+				ad_t_sparse = delta_sparse + pow(self.gamma_sparse, timestep) * pow(self.lambd_sparse, timestep) * ad_t_sparse
 
 				advantages_sparse[i] = ad_t_sparse
 
 				TD_t_dense = rewards[i][0] + self.gamma * TD_t_dense
-				TD_t_sparse = rewards[i][1] + pow(self.gamma, timestep) * TD_t_sparse
+				TD_t_sparse = rewards[i][1] + pow(self.gamma_sparse, timestep) * TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
 					if self.env.mode:
@@ -608,11 +610,11 @@ class PPO(object):
 
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				if self.adaptive:
-					self.updateAdaptive(epi_info_iter, self.env.mode)
+				#	self.updateAdaptive(epi_info_iter, self.env.mode)
 					self.env.sim_env.Optimize()
 			#		self.env.sim_env.TrainRegressionNetwork()
 
-#					self.env.updateMode(self.critic_target, self.v_target)
+			#		self.env.updateMode(self.critic_target, self.v_target)
 					if self.env.mode == 0:
 						self.target_x_batch = []
 						self.target_y_batch = [] 

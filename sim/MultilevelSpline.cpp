@@ -8,8 +8,8 @@ Spline(std::vector<double> knots, double end) {
 	mKnots = knots;
 	mNC_idxs.clear();
 
-	// mNC_idxs.push_back(3);
-	// mNC_idxs.push_back(5);
+	mNC_idxs.push_back(3);
+	mNC_idxs.push_back(5);
 
 }
 Spline::
@@ -22,8 +22,8 @@ Spline(double knot_interval, double end) {
 
 	mNC_idxs.clear();
 
-	// mNC_idxs.push_back(3);
-	// mNC_idxs.push_back(5);
+	mNC_idxs.push_back(3);
+	mNC_idxs.push_back(5);
 
 }
 void
