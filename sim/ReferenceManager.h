@@ -56,13 +56,12 @@ public:
 	Motion* GetMotion(double t, bool adaptive=false);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
-	double GetTimeStep() {return mTimeStep; }
+	double GetTimeStep(double t, bool adaptive);
 	int GetPhaseLength() {return mPhaseLength; }
 	void ComputeAxisDev();
 	void ComputeAxisMean();
 	Eigen::VectorXd GetAxisMean(double t);
 	Eigen::VectorXd GetAxisDev(double t);
-
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters);
 	void InitOptimization(int nslaves, std::string save_path);
 	bool Optimize();
@@ -79,7 +78,7 @@ public:
 	Eigen::VectorXd GetTargetGoal() {return mTargetGoal; }
 	Eigen::VectorXd GetTargetUnit() {return mTargetUnit; }
 	Eigen::VectorXd GetTargetCurMean() {return mTargetCurMean; }
-	bool UpgradeTargetGoal();
+	int UpdateTargetWeight();
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -98,9 +97,9 @@ protected:
 	
 	std::vector<Eigen::VectorXd> mAxis_BVH;
 	std::vector<Eigen::VectorXd> mDev_BVH;
-
+	std::vector<double> mTimeStep_adaptive;
 	//cps, target, similarity
-	std::vector<std::tuple<MultilevelSpline*, std::pair<double, double>, double>> mSamples;
+	std::vector<std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, std::pair<double, double>, double>> mSamples;
 	
 	//cps, parameter, quality
 	std::vector<std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>> mRegressionSamples;
@@ -125,8 +124,8 @@ protected:
 	Eigen::VectorXd mTargetUnit;
 	Eigen::VectorXd mTargetCurMean;
 	
-	std::vector<int> nRejectedSamples;
-
+	std::vector<int> mUpdateStats;
+	double nUpdateCount;
 };
 }
 

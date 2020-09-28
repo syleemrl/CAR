@@ -123,11 +123,11 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 		//   	if(damping != 0)
 		//  		dof->setDampingCoefficient(1);
 		// }
-		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	//	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 
 	//}
 	this->mIsHindsight = false;
-
+	this->mWeightTarget = 4;
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -159,8 +159,11 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
-	this->mCurrentFrame += (1 + mAdaptiveStep);
-	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
+
+	double t_next = mReferenceManager->GetTimeStep(mCurrentFrame, false);
+
+	this->mCurrentFrame += (t_next + mAdaptiveStep);
+	this->mCurrentFrameOnPhase += (t_next + mAdaptiveStep);
 	nTotalSteps += 1;
 
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
@@ -232,57 +235,8 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 		mTorqueSum += torque.norm() * 2 / mSimulationHz;
-		if(mControlFlag[0] == 2 && i % 2 == 0) {
-			if(mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm() > maxSpeedObj) {
-				maxSpeedObj = mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm();
-				//std::cout << maxSpeedObj << std::endl;
-			}
-		}
 	}
 
-	if(isAdaptive && mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
-		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
-		rot = projectToXZ(rot);		
-		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
-		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::Vector3d delta(0.065 + 0.15 + 0.02, 0 , 0.02);
-		delta = obj_dir * delta;
-		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
-		
-		p_obj.setZero();
-
-		for(int i = 0; i < mObject->GetSkeleton()->getNumBodyNodes(); i++) {
-			std::string name = mObject->GetSkeleton()->getBodyNode(i)->getName();
-			if(!name.compare("Sandbag"))
-				continue;
-
-			int idx = mObject->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-			if(!name.compare("Ground")) {
-				p_obj.segment<3>(idx) = obj_dir.angle() * obj_dir.axis();
-				p_obj.segment<3>(idx + 3) = obj_pos - delta;
-				p_obj[idx + 4] = 0;
-			} else if (!name.compare("Base2")) {
-				p_obj[idx] = obj_pos[1] - 0.9;
-			}
-		}
-
-		mObject->GetSkeleton()->setPositions(p_obj);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-
-		mControlFlag[0] = 2;
-
-	} else if(isAdaptive && mControlFlag[0] == 2) {
-		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
-		p_obj.setZero();
-		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
-		mObject->GetSkeleton()->setPositions(p_obj);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-	//	mControlFlag[0] = 3;
-	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		
@@ -343,6 +297,19 @@ Step()
 	if(isAdaptive && mIsTerminal)
 		data_spline.clear();
 
+}
+double
+Controller::UpdateTargetWeight(int i) {
+	if(i == 1) {
+		mWeightTarget *= 2;
+	} else if (i == -1) {
+		mWeightTarget *= 0.25;
+	}
+	if(mWeightTarget < 1)
+		mWeightTarget = 1;
+	if(mWeightTarget > 32)
+		mWeightTarget = 32;
+	std::cout << "current target weight: " << mWeightTarget << std::endl;
 }
 void
 Controller::
@@ -491,40 +458,14 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 20 && mControlFlag[0] == 2) {
-		Eigen::Vector3d hand = skel->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
-		root_new = projectToXZ(root_new);
-		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+	if(mCurrentFrameOnPhase >= 33 && mControlFlag[0] == 0) {
+		targetParameters(0) = skel->getCOM()[1];
+		Eigen::Vector3d target_diff = skel->getCOM() - mInputTargetParameters;
+		r_target = exp_of_squared(target_diff, 0.075);
+		mControlFlag[0] = 1;
 
-		Eigen::Vector3d target_hand = Eigen::Vector3d(cos(mInputTargetParameters(0)), 0, sin(mInputTargetParameters(0))) * mInputTargetParameters(1);
-		target_hand = aa * target_hand + mHeadRoot.segment<3>(3);
-		target_hand(1) = mInputTargetParameters(2);
-
-
-		Eigen::Vector3d p_diff = target_hand - hand;
-
-		double v_diff = (mInputTargetParameters(3) - maxSpeedObj);
-		r_target = 0.75 * (0.75 * exp_of_squared(p_diff, 0.5) + 0.25 * exp_of_squared(p_diff, 0.1)); // 0.75 * exp_of_squared(target_diff,0.4) + 0.5 * exp_of_squared(target_diff,0.01);
-		r_target += 1.25 * exp(-pow(v_diff, 2)*5); // (0.5 * exp(-pow(f_diff, 2)*0.5) + 0.25 * exp(-pow(f_diff, 2)*5));
-	
-		Eigen::Vector3d diff = hand - mHeadRoot.segment<3>(3);
-		diff(1) = 0;
-
-		double dist = diff.norm();
-		double height = hand(1);
-
-		Eigen::Vector3d angle_xz = aa.inverse() * diff;
-
-		double angle = atan2(angle_xz(2), angle_xz(0));
-		targetParameters << angle, dist, height, maxSpeedObj;
-
-		if(mRecord) {
-			std::cout << p_diff.transpose() << " "<< exp_of_squared(p_diff,0.5)  <<" " << exp_of_squared(p_diff, 0.1) << std::endl;
-			std::cout << v_diff << " " << exp(-pow(v_diff, 2)*5)<< std::endl;
-		}
-		mControlFlag[0] = 3;		
-
+		if(mRecord)
+		 	std::cout << target_diff.transpose() << " " << exp_of_squared(target_diff, 0.075) << std::endl;
 	}
 	return r_target;
 }
@@ -602,8 +543,8 @@ UpdateAdaptiveReward()
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
-		mRewardParts.push_back(0.5 * r_tot);
-		mRewardParts.push_back(8 * r_t);
+		mRewardParts.push_back(r_tot);
+		mRewardParts.push_back(mWeightTarget * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
@@ -611,7 +552,7 @@ UpdateAdaptiveReward()
 	if(r_t != 0) {
 		mTargetRewardTrajectory += r_t;
 	}
-	mTrackingRewardTrajectory += (0.4 * tracking_rewards_bvh[0] + 0.4 * tracking_rewards_bvh[1] + 0.2 * r_con);
+	mTrackingRewardTrajectory += (0.4 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.2 * tracking_rewards_bvh[2] + 0.2 * r_con);
 
 }
 void
@@ -929,16 +870,6 @@ Reset(bool RSI)
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
 
-//	if(mRecord) {
-		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
-		p_obj.setZero();
-		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
-		mObject->GetSkeleton()->setPositions(p_obj);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
-//	}
-
 	ClearRecord();
 	SaveStepInfo();
 
@@ -1084,8 +1015,8 @@ GetState()
 		Eigen::Isometry3d transform = cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee.segment<3>(3*i) << transform.translation();
 	}
-
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+1, isAdaptive);
+	double t_next = mCurrentFrame + mReferenceManager->GetTimeStep(mCurrentFrame, false);
+	Motion* p_v_target = mReferenceManager->GetMotion(t_next, isAdaptive);
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity());
 	delete p_v_target;
 

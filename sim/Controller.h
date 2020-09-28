@@ -49,7 +49,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	std::vector<double> GetRewardByParts() {return mRewardParts; }
 	std::vector<std::string> GetRewardLabels() {return mRewardLabels; }
 	const dart::simulation::WorldPtr& GetWorld() {return mWorld;}
-
+	double UpdateTargetWeight(int i);
 	double GetTimeElapsed(){return this->mTimeElapsed;}
 	double GetCurrentFrame(){return this->mCurrentFrame;}
 	double GetCurrentLength() {return this->mCurrentFrame - this->mStartFrame; }
@@ -189,6 +189,7 @@ protected:
 	Eigen::Vector3d mTargetDiff;
 	double maxSpeedObj;
 	double mTorqueSum;
+	double mWeightTarget;
 };
 }
 #endif

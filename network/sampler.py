@@ -103,6 +103,6 @@ class Sampler(object):
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.n_iter < 2 or self.v_mean < 2.6:
+		if self.n_iter < 2 or self.v_mean < 16:
 			return False
 		return True

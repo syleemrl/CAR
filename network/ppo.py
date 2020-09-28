@@ -327,7 +327,7 @@ class PPO(object):
 						}
 					)
 					lossval_ct += val[1]
-			self.lossvals.append(['loss critic target', lossval_ct])
+			self.lossvals.append(['loss critic target', lossval_ct / 50])
 
 		self.v_target = TD_target_batch
 
@@ -396,10 +396,8 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + pow(self.gamma_sparse, timestep) * TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					if self.env.mode:
-						embed()
 					state_target_batch.append(param[i])
-					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
+					TD_target_batch.append(TD_t_dense + TD_t_sparse)
 
 					# TD_t_dense = 0
 					TD_t_sparse = 0
@@ -610,7 +608,7 @@ class PPO(object):
 
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				if self.adaptive:
-				#	self.updateAdaptive(epi_info_iter, self.env.mode)
+					self.updateAdaptive(epi_info_iter, self.env.mode)
 					self.env.sim_env.Optimize()
 			#		self.env.sim_env.TrainRegressionNetwork()
 

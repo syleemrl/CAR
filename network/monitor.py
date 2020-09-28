@@ -94,8 +94,8 @@ class Monitor(object):
 
 		if self.adaptive:
 			params = np.array(self.states)[:,-self.dim_target:]
-			curframes = np.array(self.states)[:,-(self.dim_target+1)]
-	#		curframes = np.array(self.states)[:,-1]
+	#		curframes = np.array(self.states)[:,-(self.dim_target+1)]
+			curframes = np.array(self.states)[:,-1]
 
 		else:
 			params = np.zeros(self.num_slaves)
@@ -139,7 +139,7 @@ class Monitor(object):
 			self.mode_counter += 1
 			if self.sim_env.Optimize():
 				self.flag_updated = True
-			if self.flag_updated and self.mode_counter >= 4:
+			if self.flag_updated and self.mode_counter >= 2:
 				if len(b) != 0:
 					self.mode = 1
 					self.sim_env.SetRefUpdateMode(False)

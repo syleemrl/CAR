@@ -307,15 +307,14 @@ SimEnv::
 Optimize()
 {
 	bool t = mReferenceManager->Optimize();
+	// int b = mReferenceManager->UpdateTargetWeight();
+	// if(b != 0) {
+	// 	for(int id = 0; id < mNumSlaves; ++id) {
+	// 		mSlaves[id]->UpdateTargetWeight(b);
+	// 	}
+	// }
+
 	if(t) {
-		bool b = mReferenceManager->UpgradeTargetGoal();
-		if(b) {
-			mNeedRefUpdate = true;
-			Eigen::VectorXd tp = mReferenceManager->GetTargetGoal();
-			for(int id = 0; id < mNumSlaves; ++id) {
-				mSlaves[id]->SetTargetParameters(tp);
-			}
-		}
 
 		Eigen::VectorXd g = mReferenceManager->GetTargetGoal();
 		Eigen::VectorXd c = mReferenceManager->GetTargetCurMean();
@@ -361,7 +360,7 @@ AssignParamsToBins(bool limit)
 			if(!assigned[i]) {
 				double dist_cur = (idx_cur - idx).norm();
 
-				if(limit && dist_cur > 5)
+				if(mNeedRefUpdate && limit && dist_cur > 5)
 					continue;
 				std::vector<int> p_temp;
 				p_temp.push_back(i);
@@ -391,6 +390,8 @@ AssignParamsToBins(bool limit)
 			paramNotAssigned_new.push_back(mParamNotAssigned[i]);
 	}
 	mParamNotAssigned = paramNotAssigned_new;
+	std::cout << mParamBase.transpose() << std::endl;
+	std::cout << mParamUnit.transpose() << std::endl;
 
 	if(mFlag_new) {
 		std::string path = mPath + std::string("boundary");
@@ -400,8 +401,9 @@ AssignParamsToBins(bool limit)
 
 		for(auto p: mParamBins) {	
 			Eigen::VectorXd idx = p.GetIdx();
-			Eigen::VectorXd p0 = mParamBase + mParamUnit * idx;
-			Eigen::VectorXd p1 = mParamBase + mParamUnit * (idx + Eigen::VectorXd::Ones(nDim));
+			Eigen::VectorXd p0 = mParamBase + mParamUnit.cwiseProduct(idx);
+			Eigen::VectorXd p1 = mParamBase + mParamUnit.cwiseProduct(idx + Eigen::VectorXd::Ones(nDim));
+
 			ofs << p0.transpose() << " , " <<  p1.transpose() << std::endl;
 		}
 		ofs.close();
