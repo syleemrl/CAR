@@ -141,9 +141,9 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*5-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
-	mAdaptiveStep = mActions[mInterestedDof];
+	mAdaptiveStep = mActions[mInterestedDof] * 0.05;
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
@@ -222,20 +222,26 @@ Step()
 		mVelocity = mCurrentFrameOnPhase;
 		mControlFlag[0] = 1;
 	}
-	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 1) {
-		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+	// if(mCurrentFrameOnPhase >= 36.5 && mCurrentFrameOnPhase <= 53) {
+	// 	Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
+	// 	Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 
-		Eigen::Vector3d momentum;
-		momentum.setZero();
-		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
-			auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
-			momentum += bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMSpatialVelocity().segment<3>(3));
-		}
-		mMomentum += momentum(0);
-		mCountTarget += 1;
-
-	}
+	// 	Eigen::Vector3d momentum;
+	// 	momentum.setZero();
+	// 	for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
+	// 		auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+	// 		Eigen::Matrix3d R = bn->getWorldTransform().linear();
+	// 		double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
+	// 		bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
+	// 		Eigen::Matrix3d I;
+	// 		I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
+	// 		I = R * I * R.transpose();
+	// 		Eigen::AngleAxisd aa(I); 
+	// 		Eigen::Vector3d aa_v = aa.axis() * aa.angle();
+	// 		momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+	// 	}
+	// 	std::cout << mCurrentFrameOnPhase << " " <<  momentum.norm() << " " << V.segment<3>(0).norm() << std::endl;
+	// }
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
