@@ -119,6 +119,8 @@ SaveAdaptiveMotion(std::string postfix) {
 	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
 		ofs << mMotions_phase_adaptive[i]->GetPosition().transpose() << std::endl;
 		ofs << mMotions_phase_adaptive[i]->GetVelocity().transpose() << std::endl;
+		ofs << mTimeStep_adaptive[i] << std::endl;
+
 	}
 	ofs.close();
 	
@@ -181,6 +183,8 @@ LoadAdaptiveMotion(std::string postfix) {
 		}
 		mMotions_phase_adaptive[i]->SetPosition(pos);
 		mMotions_phase_adaptive[i]->SetVelocity(vel);
+		is >> buffer;
+		mTimeStep_adaptive[i] = atof(buffer);
 	}
 	is.close();
 	
@@ -613,26 +617,26 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	mKnots.push_back(8);
-	mKnots.push_back(15);
-
-	for(int i = 17; i < 60; i+= 2) {
-		mKnots.push_back(i);
-	}
-
-	mKnots.push_back(64);
-	mKnots.push_back(71);
-	mKnots.push_back(78);
-	mKnots.push_back(90);
-	mKnots.push_back(100);
+	mKnots.push_back(6);
+	mKnots.push_back(14);
+	mKnots.push_back(18);
+	mKnots.push_back(21);
+	mKnots.push_back(24);
+	mKnots.push_back(29);
+	mKnots.push_back(36);
+	mKnots.push_back(40);
+	mKnots.push_back(44);
+	mKnots.push_back(54);
+	mKnots.push_back(60);
+	mKnots_t = mKnots;
 
 	mTargetBase.resize(2);
-	mTargetBase << 37, 1; //, 1.5;
+	mTargetBase << 48, 8; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(2);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  37, 0.8;
+	mTargetGoal <<  48, 11;
 
 	mTargetUnit.resize(2);
 	mTargetUnit<< 0.1, 0.1; //, 0.05;
@@ -641,8 +645,13 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
+		mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
 	}
-
+	
+	mTimeStep_adaptive.clear();
+	for(int i = 0; i < mPhaseLength; i++) {
+		mTimeStep_adaptive.push_back(1.0);
+	}
 	nOp = 0;
 	mPath = save_path;
 	mPrevRewardTrajectory = 0.5;
@@ -747,12 +756,31 @@ GetContactInfo(Eigen::VectorXd pos)
 
 	return result;
 }
+double 
+ReferenceManager::
+GetTimeStep(double t, bool adaptive) {
+	if(adaptive) {
+		t = std::fmod(t, mPhaseLength);
+		int k0 = (int) std::floor(t);
+		int k1 = (int) std::ceil(t);	
+		if (k0 == k1) {
+			return mTimeStep_adaptive[k0];
+		}
+		else if(k1 >= mTimeStep_adaptive.size())
+			return (1 - (t - k0)) * mTimeStep_adaptive[k0] + (t-k0) * mTimeStep_adaptive[0];
+		else
+			return (1 - (t - k0)) * mTimeStep_adaptive[k0] + (t-k0) * mTimeStep_adaptive[k1];
+	} else 
+		return 1.0;
+}
+
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
 	std::vector<int> flag;
+
 	if((rewards.first / mPhaseLength)  < 0.85) {
 		flag.push_back(0);
 	}
@@ -769,7 +797,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	if(flag[0] == 0)
 		return;
 
-	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
+	std::vector<int> nc;
+	nc.push_back(3);
+	nc.push_back(5);
+
+	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength(), nc);
 	s->SetKnots(0, mKnots);
 
 	double start_phase = std::fmod(data_spline[0].second, mPhaseLength);
@@ -790,6 +822,25 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	std::vector<Eigen::VectorXd> newpos;
 	std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
 	this->AddDisplacementToBVH(new_displacement, newpos);
+
+	nc.clear();
+	nc.push_back(0);
+	MultilevelSpline* st = new MultilevelSpline(1, this->GetPhaseLength(), nc);
+	st->SetKnots(0, mKnots_t);
+
+	std::vector<std::pair<Eigen::VectorXd,double>> displacement_t;
+	for(int i = 0; i < data_spline.size(); i++) {
+		double phase = std::fmod(data_spline[i].second, mPhaseLength);
+		if(i < data_spline.size() - 1) {
+			Eigen::VectorXd ts(1);
+			ts << data_spline[i+1].second - data_spline[i].second - 1;
+			displacement_t.push_back(std::pair<Eigen::VectorXd,double>(ts, phase));
+		}
+		else
+			displacement_t.push_back(std::pair<Eigen::VectorXd,double>(Eigen::VectorXd::Zero(1), phase));
+	}
+
+	st->ConvertMotionToSpline(displacement_t);
 
 	double r_slide = 0;
 	std::vector<std::vector<std::pair<bool, Eigen::Vector3d>>> c;
@@ -827,21 +878,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 				r_regul += 1 * cps[i].segment<3>(idx).norm();
 				r_regul += 1 * cps[i].segment<3>(idx + 3).norm();
 			} else if (dof == 3) {
-				if(b_name.find("RightShoulder") != std::string::npos || 
-				   b_name.find("RightArm") != std::string::npos ||
-				   b_name.find("RightForeArm") != std::string::npos ||
-				   b_name.find("RightHand") != std::string::npos) {
-					r_regul += 2 * cps[i].segment<3>(idx).norm();
-				} else {
-					r_regul += 0.5 * cps[i].segment<3>(idx).norm();
-
-				}
+				r_regul += 0.5 * cps[i].segment<3>(idx).norm();
 			} 
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = 0.1 * r_regul + 0.5 * r_slide + 0.2 * rewards.second;
-
+	double reward_trajectory = r_regul * r_slide;
 	mLock.lock();
 	// if(reward_trajectory > 0.4) {
 	// 	mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
@@ -850,8 +892,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	// if((flag[0] || (!flag[0] && reward_trajectory > mPrevRewardTrajectory)) && flag[1] && mRefUpdateMode) {
 	if(flag[0] && flag[1] && mRefUpdateMode) {
-		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
-							std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
+		mSamples.push_back(std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, 
+							std::pair<double, double>,  
+							double>(std::pair<MultilevelSpline*, MultilevelSpline*>(s, st), 
+									std::pair<double, double>(reward_trajectory, r_slide), 
+									rewards.second));
 		mSampleTargets.push_back(parameters);
 		std::string path = mPath + std::string("samples") + std::to_string(nOp);
 
@@ -868,8 +913,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 
 }
-bool cmp(const std::tuple<DPhy::MultilevelSpline*, std::pair<double, double>, double> &p1, const std::tuple<DPhy::MultilevelSpline*, std::pair<double, double>, double> &p2){
-    if(std::get<1>(p1) > std::get<1>(p2)){
+bool cmp(const std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, std::pair<double, double>, double> &p1, const std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, std::pair<double, double>, double> &p2){
+    if(std::get<1>(p1).first > std::get<1>(p2).first){
         return true;
     }
     else{
@@ -948,16 +993,35 @@ Optimize() {
     }
 
     std::stable_sort(mSamples.begin(), mSamples.end(), cmp);
-	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength()); 
+
+	std::vector<int> nc;
+	nc.push_back(3);
+	nc.push_back(5);
+
+	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength(), nc); 
 	mean_spline->SetKnots(0, mKnots);
-	
+
+	nc.clear();
+	nc.push_back(0);
+	MultilevelSpline* mean_spline_t = new MultilevelSpline(1, this->GetPhaseLength(), nc); 
+	mean_spline_t->SetKnots(0, mKnots_t);
 
 	std::vector<Eigen::VectorXd> mean_cps;   
    	mean_cps.clear();
+
+   	std::vector<Eigen::VectorXd> mean_cps_t;
+   	mean_cps_t.clear();
+
    	int num_knot = mean_spline->GetKnots(0).size();
    	for(int i = 0; i < num_knot + 3; i++) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDOF));
 	}
+   	
+   	int num_knot_t = mean_spline_t->GetKnots(0).size();
+	for(int i = 0;i < num_knot_t + 3; i++) {
+		mean_cps_t.push_back(Eigen::VectorXd::Zero(1));
+	}
+
 	double weight_sum = 0;
 
 	std::string path = mPath + std::string("rewards");
@@ -967,9 +1031,13 @@ Optimize() {
 	for(int i = 0; i < mu; i++) {
 		double w = log(mu + 1) - log(i + 1);
 	    weight_sum += w;
-	    std::vector<Eigen::VectorXd> cps = std::get<0>(mSamples[i])->GetControlPoints(0);
+	    std::vector<Eigen::VectorXd> cps = std::get<0>(mSamples[i]).first->GetControlPoints(0);
 	    for(int j = 0; j < num_knot + 3; j++) {
 			mean_cps[j] += w * cps[j];
+	    }
+	    std::vector<Eigen::VectorXd> cps_t = std::get<0>(mSamples[i]).second->GetControlPoints(0);
+	    for(int j = 0; j < num_knot_t + 3; j++) {
+			mean_cps_t[j] += w * cps_t[j];
 	    }
 	    rewardTrajectory += w * std::get<1>(mSamples[i]).first;
 	    rewardTarget += std::get<2>(mSamples[i]);
@@ -990,6 +1058,10 @@ Optimize() {
 		    mean_cps[i] /= weight_sum;
 		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
 		}
+		for(int i = 0; i < num_knot_t + 3; i++) {
+		    mean_cps_t[i] /= weight_sum;
+		    mPrevCps_t[i] = mPrevCps_t[i] * 0.6 + mean_cps_t[i] * 0.4;
+		}
 
 		mPrevRewardTrajectory = rewardTrajectory;
 		mPrevRewardTarget = rewardTarget;
@@ -998,6 +1070,13 @@ Optimize() {
 		std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
 		std::vector<Eigen::VectorXd> newpos;
 		this->AddDisplacementToBVH(new_displacement, newpos);
+
+		mean_spline_t->SetControlPoints(0, mPrevCps_t);
+		std::vector<Eigen::VectorXd> new_displacement_t = mean_spline_t->ConvertSplineToMotion();
+
+		for(int i = 0; i < mPhaseLength; i++) {
+			mTimeStep_adaptive[i] = 1 + new_displacement_t[i](0);
+		}
 
 		std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
 		for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
@@ -1021,10 +1100,14 @@ Optimize() {
 		nOp += 1;
 			
 		while(!mSamples.empty()){
-			MultilevelSpline* s = std::get<0>(mSamples.back());
+			MultilevelSpline* s = std::get<0>(mSamples.back()).first;
+			MultilevelSpline* st = std::get<0>(mSamples.back()).second;
+
 			mSamples.pop_back();
 
 			delete s;
+			delete st;
+
 		}	
 
 		for(int i = 0; i < nRejectedSamples.size(); i++) {

@@ -56,12 +56,12 @@ public:
 	Motion* GetMotion(double t, bool adaptive=false);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
-	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
 	void ComputeAxisDev();
 	void ComputeAxisMean();
 	Eigen::VectorXd GetAxisMean(double t);
 	Eigen::VectorXd GetAxisDev(double t);
+	double GetTimeStep(double t, bool adaptive);
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters);
 	void InitOptimization(int nslaves, std::string save_path);
@@ -93,6 +93,7 @@ protected:
 	std::vector<Motion*> mMotions_gen;
 	std::vector<Motion*> mMotions_gen_adaptive;
 	std::vector<std::vector<Motion*>> mMotions_gen_temp;
+	std::vector<double> mTimeStep_adaptive;
 
 	std::vector<double> mIdxs;
 	
@@ -100,14 +101,16 @@ protected:
 	std::vector<Eigen::VectorXd> mDev_BVH;
 
 	//cps, target, similarity
-	std::vector<std::tuple<MultilevelSpline*, std::pair<double, double>, double>> mSamples;
+	std::vector<std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, std::pair<double, double>, double>> mSamples;
 	
 	//cps, parameter, quality
 	std::vector<std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>> mRegressionSamples;
 
 	std::vector<Eigen::VectorXd> mPrevCps;
+	std::vector<Eigen::VectorXd> mPrevCps_t;
 	std::vector<Eigen::VectorXd> mDisplacement;
 	std::vector<double> mKnots;
+	std::vector<double> mKnots_t;
 	std::vector<std::string> mInterestedBodies;
 	std::vector<Eigen::VectorXd> mSampleTargets;
 	double mSlaves;

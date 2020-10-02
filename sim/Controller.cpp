@@ -141,9 +141,9 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
-	mAdaptiveStep = mActions[mInterestedDof] * 0.05;
+	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
@@ -217,31 +217,30 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
+	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase <= 40) {
+		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
+		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 
-	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
-		mVelocity = mCurrentFrameOnPhase;
-		mControlFlag[0] = 1;
+		Eigen::Vector3d momentum;
+		momentum.setZero();
+		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
+			auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+			Eigen::Matrix3d R = bn->getWorldTransform().linear();
+			double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
+			bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
+			Eigen::Matrix3d I;
+			I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
+			I = R * I * R.transpose();
+			Eigen::AngleAxisd aa(I); 
+			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
+			momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+		}
+		mVelocity += V.segment<3>(0).norm();
+		mMomentum += momentum.norm();
+		mCountTarget += 1;
+
+		// std::cout << momentum << " " << V.segment<3>(0).norm() << std::endl;
 	}
-	// if(mCurrentFrameOnPhase >= 36.5 && mCurrentFrameOnPhase <= 53) {
-	// 	Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-	// 	Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
-
-	// 	Eigen::Vector3d momentum;
-	// 	momentum.setZero();
-	// 	for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
-	// 		auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
-	// 		Eigen::Matrix3d R = bn->getWorldTransform().linear();
-	// 		double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
-	// 		bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
-	// 		Eigen::Matrix3d I;
-	// 		I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
-	// 		I = R * I * R.transpose();
-	// 		Eigen::AngleAxisd aa(I); 
-	// 		Eigen::Vector3d aa_v = aa.axis() * aa.angle();
-	// 		momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
-	// 	}
-	// 	std::cout << mCurrentFrameOnPhase << " " <<  momentum.norm() << " " << V.segment<3>(0).norm() << std::endl;
-	// }
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -384,15 +383,15 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 		// 	count_dof += dof;
 		// }
 	//	v_diff_reward = v_diff.segment<1>(1) / std::max(abs(velocity2(1)), 0.4);
-		for(int i = 0; i < num_body_nodes; i++) {
-			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-		 	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+		// for(int i = 0; i < num_body_nodes; i++) {
+		// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
+		//  	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 
-			if(name.compare("RightHand") == 0 || name.compare("RightForeArm") == 0 || name.compare("RightArm") == 0 || name.compare("RightShoulder") == 0 ) {
-				v_diff_reward.segment<3>(idx) *= 2;
-				p_diff_reward.segment<3>(idx) *= 2;
-			}
-		}
+		// 	if(name.compare("RightHand") == 0 || name.compare("RightForeArm") == 0 || name.compare("RightArm") == 0 || name.compare("RightShoulder") == 0 ) {
+		// 		v_diff_reward.segment<3>(idx) *= 2;
+		// 		p_diff_reward.segment<3>(idx) *= 2;
+		// 	}
+		// }
 	}
 
 	skel->setPositions(position);
@@ -456,18 +455,18 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 52 && mControlFlag[0] == 1) {
+	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
 		double meanMomentum = mMomentum / mCountTarget;
-		double meanVelocity = (mCurrentFrameOnPhase - mVelocity) / (mCountTarget - 1);
+		double meanVelocity = mVelocity / mCountTarget;
 
-		r_target = 0.5 *exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.4);
-		r_target += 1.5 * exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*40);
+		r_target = 0.5 * exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075);
+		r_target += 1.5 * exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) * exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075);
 
 		if(mRecord) {
-			std::cout << meanMomentum << " " <<  exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.4) << std::endl;
-			std::cout << meanVelocity << " " <<  exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*40) << std::endl;
+			std::cout << meanMomentum << " " <<  meanMomentum - mInputTargetParameters(0) << " " <<  exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075) << std::endl;
+			std::cout << meanVelocity << " " <<  meanVelocity - mInputTargetParameters(1) << " " << exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) << std::endl;
 		}
-		mControlFlag[0] = 2;		
+		mControlFlag[0] = 1;		
 
 	}
 	return r_target;
@@ -537,21 +536,24 @@ UpdateAdaptiveReward()
 		}
 	}
 	double r_con = exp(-con_diff);
-	double r_time = exp(-pow(mAdaptiveStep,2)*20);
-	double r_tot = 0.98 * accum_bvh + 0.02 * r_time;
+
+	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
+	double r_time = exp(-pow(time_diff, 2)*80);
+
+	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
-		mRewardParts.push_back(0.5 * r_tot);
-		mRewardParts.push_back(8 * r_t);
+		mRewardParts.push_back(r_tot);
+		mRewardParts.push_back(4 * r_con * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
 	if(r_t != 0) {
-		mTargetRewardTrajectory += r_t;
+		mTargetRewardTrajectory += r_con * r_t;
 	}
 	mTrackingRewardTrajectory += (0.4 * tracking_rewards_bvh[0] + 0.4 * tracking_rewards_bvh[1] + 0.2 * r_con);
 
