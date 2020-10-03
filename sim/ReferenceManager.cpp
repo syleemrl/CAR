@@ -648,9 +648,12 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
-		mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
 	}
 	
+	for(int i = 0; i < this->mKnots_t.size() + 3; i++) {
+		mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
+	}
+
 	mTimeStep_adaptive.clear();
 	for(int i = 0; i < mPhaseLength; i++) {
 		mTimeStep_adaptive.push_back(1.0);
