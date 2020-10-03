@@ -439,6 +439,13 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b
 
 	return result;
 }
+Eigen::VectorXd BlendVelocity(Eigen::VectorXd target_a, Eigen::VectorXd target_b, double weight) {
+
+	Eigen::VectorXd result(target_a.rows());
+	result= (1 - weight) * target_a + weight * target_b; 
+		
+	return result;
+}
 Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)
 {
 	Eigen::VectorXd vec(pos.rows());

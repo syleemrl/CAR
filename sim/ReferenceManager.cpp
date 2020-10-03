@@ -303,6 +303,7 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
 		Eigen::VectorXd v;
+
 		if(t != 0)
 		{
 			v = skel->getPositionDifferences(p, mMotions_raw.back()->GetPosition()) / 0.033;
@@ -320,11 +321,8 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 			}
 			mMotions_raw.back()->SetVelocity(v);
 		}
-
 		mMotions_raw.push_back(new Motion(p, Eigen::VectorXd(p.rows())));
 		
-		auto& skel = this->mCharacter->GetSkeleton();
-	
 		skel->setPositions(p);
 		skel->computeForwardKinematics(true,false,false);
 
@@ -369,6 +367,8 @@ GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos)
 	std::vector<Eigen::VectorXd> vel;
 	auto skel = mCharacter->GetSkeleton();
 	for(int i = 0; i < pos.size() - 1; i++) {
+		skel->setPositions(pos[i]);
+		skel->computeForwardKinematics(true,false,false);
 		Eigen::VectorXd v = skel->getPositionDifferences(pos[i + 1], pos[i]) / 0.033;
 		for(auto& jn : skel->getJoints()){
 			if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
@@ -592,9 +592,10 @@ Motion* ReferenceManager::GetMotion(double t, bool adaptive)
 
 	if (k0 == k1)
 		return new Motion((*p_gen)[k0]);
-	else
+	else {
 		return new Motion(DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0)), 
-				DPhy::BlendPosition((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+				DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+	}
 }
 Eigen::VectorXd 
 ReferenceManager::
@@ -628,15 +629,17 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots.push_back(44);
 	mKnots.push_back(54);
 	mKnots.push_back(60);
-	mKnots_t = mKnots;
 
+	for(int i = 0; i < mPhaseLength; i+= 2) {
+		mKnots_t.push_back(i);
+	}
 	mTargetBase.resize(2);
 	mTargetBase << 48, 8; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(2);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  48, 11;
+	mTargetGoal <<  48, 12;
 
 	mTargetUnit.resize(2);
 	mTargetUnit<< 0.1, 0.1; //, 0.05;
@@ -780,8 +783,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
 	std::vector<int> flag;
-
-	if((rewards.first / mPhaseLength)  < 0.85) {
+	if((rewards.first / mPhaseLength)  < 0.75) {
 		flag.push_back(0);
 	}
 	else {
@@ -883,7 +885,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = r_regul * r_slide;
+	double reward_trajectory =0.6 * (rewards.first / mPhaseLength) + 0.2 * r_slide + 0.2 * r_regul; // r_regul * r_slide;
 	mLock.lock();
 	// if(reward_trajectory > 0.4) {
 	// 	mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
