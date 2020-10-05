@@ -220,7 +220,7 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
-	if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase <= 52) {
+	if(mCurrentFrameOnPhase >= 20 && mCurrentFrameOnPhase <= 40) {
 		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
 		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 
@@ -238,9 +238,9 @@ Step()
 			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
 			momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
 		}
-		mVelocity += V.segment<3>(0).norm();
-		mMomentum += momentum.norm();
-		std::cout << momentum.transpose() << " " << V.segment<3>(0).transpose() << std::endl;
+		mVelocity += V(0); // V.segment<3>(0).norm();
+		mMomentum += momentum(0);
+		// std::cout << momentum.transpose() << " " << V.segment<3>(0).transpose() << std::endl;
 		mCountTarget += 1;
 	}
 
@@ -372,30 +372,6 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	if(useVelocity) {
 		v_diff = skel->getVelocityDifferences(velocity, velocity2);
 		v_diff_reward = v_diff;
-
-		// v_diff_reward.resize(mRewardDof);
-		// count_dof = 0;
-
-		// for(int i = 0; i < list.size(); i++){
-		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getIndexInSkeleton(0);
-		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(list[i])->getParentJoint()->getNumDofs();
-
-		// 	v_diff_reward.block(count_dof, 0, dof, 1) = v_diff.block(idx, 0, dof, 1);
-		// 	count_dof += dof;
-		// }
-	//	v_diff_reward = v_diff.segment<1>(1) / std::max(abs(velocity2(1)), 0.4);
-		for(int i = 0; i < num_body_nodes; i++) {
-			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-		 	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-
-			if(name.compare("Hips") == 0) {
-				v_diff_reward.segment<3>(idx) *= 4;
-				p_diff_reward.segment<3>(idx) *= 4;
-			} else {
-				v_diff_reward.segment<3>(idx) *= 0.5;
-				p_diff_reward.segment<3>(idx) *= 0.5;
-			}
-		}
 	}
 
 	skel->setPositions(position);
@@ -527,28 +503,11 @@ UpdateAdaptiveReward()
 {
 
 	auto& skel = this->mCharacter->GetSkeleton();
-	// double max_r = 0;
-	// int max_i;
-	// for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-	// 	auto p_v_target = mReferenceManager->GetMotion(i, false);
-	// 	Eigen::VectorXd p = p_v_target->GetPosition();
-	// 	Eigen::VectorXd v = p_v_target->GetVelocity();
-	// 	delete p_v_target;
-	
-	// 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), p,
-	// 								 skel->getVelocities(), v, mRewardBodies, false);
-	// 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
-	// 	double r = accum_bvh;
-	// 	if(max_r < r) {
-	// 		max_r = r;
-	// 		max_i = i;
-	// 	}	
-	// }
+
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_t = this->GetTargetReward();
-//	std::cout << mCurrentFrameOnPhase << " " << max_i << " " << max_r << " " << accum_bvh << std::endl;
 	
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
@@ -570,7 +529,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(6 * r_con * r_t);
+		mRewardParts.push_back(6 * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
