@@ -397,7 +397,7 @@ Keyboard(unsigned char key,int x,int y)
 		case ']': mIsAuto=false;this->NextFrame();break;
 		case 'o': this->mCurFrame-=99; this->PrevFrame();break;
 		case 'p': this->mCurFrame+=99; this->NextFrame();break;
-		case 's': std::cout << this->mCurFrame << ": " << this->mController->GetTime(mCurFrame) << std::endl;break;
+		case 's': std::cout << this->mCurFrame << ": " << this->mController->GetPhase(mCurFrame) << std::endl;break;
 		case 'r': Reset();break;
 		case 'w': mWrap = !mWrap; break;
 		case 't': mTrackCamera = !mTrackCamera; this->SetFrame(this->mCurFrame); break;
@@ -410,6 +410,7 @@ Keyboard(unsigned char key,int x,int y)
 		case 'R': SaveReferenceData(filename); break;
 		case 'D': this->mController->SaveDisplayedData(filename, false); break;
 		case 'B': this->mController->SaveDisplayedData(filename, true); break;
+		case 'T': this->mController->SaveTimeData(filename); break;
 		case 27: exit(0);break;
 		default : break;
 	}

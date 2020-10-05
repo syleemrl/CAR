@@ -125,6 +125,7 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 			double cur_reward2 = atof(buffer);
 			if(reward == 0)
 				reward = cur_reward;
+			is >> buffer;
 
 			// next phase
 			if(cur_reward != reward) {

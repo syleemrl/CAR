@@ -616,30 +616,42 @@ GetAxisDev(double t) {
 void
 ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
-	
+	// backflip
+	// mKnots.push_back(0);
+	// mKnots.push_back(6);
+	// mKnots.push_back(14);
+	// mKnots.push_back(18);
+	// mKnots.push_back(21);
+	// mKnots.push_back(24);
+	// mKnots.push_back(29);
+	// mKnots.push_back(36);
+	// mKnots.push_back(40);
+	// mKnots.push_back(44);
+	// mKnots.push_back(54);
+	// mKnots.push_back(60);
+
+	// cartwheel
 	mKnots.push_back(0);
-	mKnots.push_back(6);
-	mKnots.push_back(14);
-	mKnots.push_back(18);
-	mKnots.push_back(21);
-	mKnots.push_back(24);
-	mKnots.push_back(29);
-	mKnots.push_back(36);
-	mKnots.push_back(40);
-	mKnots.push_back(44);
-	mKnots.push_back(54);
-	mKnots.push_back(60);
+	mKnots.push_back(9);
+	mKnots.push_back(28);
+	mKnots.push_back(39);
+	mKnots.push_back(46);
+	mKnots.push_back(53);
+	mKnots.push_back(63);
+	mKnots.push_back(72);
+	mKnots.push_back(86);
+	mKnots.push_back(93);
 
 	for(int i = 0; i < mPhaseLength; i+= 2) {
 		mKnots_t.push_back(i);
 	}
 	mTargetBase.resize(2);
-	mTargetBase << 48, 8; //, 1.5;
+	mTargetBase << 65, 5; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(2);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  48, 12;
+	mTargetGoal <<  65, 8;
 
 	mTargetUnit.resize(2);
 	mTargetUnit<< 0.1, 0.1; //, 0.05;

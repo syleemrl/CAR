@@ -149,7 +149,10 @@ Step()
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-//	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	
+	if(mRecord)
+		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
@@ -217,7 +220,7 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
-	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase <= 40) {
+	if(mCurrentFrameOnPhase >= 35 && mCurrentFrameOnPhase <= 52) {
 		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
 		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 
@@ -237,9 +240,8 @@ Step()
 		}
 		mVelocity += V.segment<3>(0).norm();
 		mMomentum += momentum.norm();
+		std::cout << momentum.transpose() << " " << V.segment<3>(0).transpose() << std::endl;
 		mCountTarget += 1;
-
-		// std::cout << momentum << " " << V.segment<3>(0).norm() << std::endl;
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -316,7 +318,7 @@ SaveStepInfo()
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
-	mRecordTime.push_back(mCurrentFrame);
+	mRecordPhase.push_back(mCurrentFrame);
 	
 	bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
 	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
@@ -333,7 +335,7 @@ ClearRecord()
 	this->mRecordTargetPosition.clear();
 	this->mRecordBVHPosition.clear();
 	this->mRecordObjPosition.clear();
-	this->mRecordTime.clear();
+	this->mRecordPhase.clear();
 	this->mRecordFootContact.clear();
 	this->mRecordTorqueNorm.clear();
 
@@ -543,7 +545,7 @@ UpdateAdaptiveReward()
 	// 	}	
 	// }
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
-								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
+								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_t = this->GetTargetReward();
 //	std::cout << mCurrentFrameOnPhase << " " << max_i << " " << max_r << " " << accum_bvh << std::endl;
@@ -563,12 +565,12 @@ UpdateAdaptiveReward()
 
 	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
 	mRewardParts.clear();
-	if(dart::math::isNan(r_tot)){
+	if(dart::math::isNan(r_tot) || dart::math::isNan(r_t)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(4 * r_con * r_t);
+		mRewardParts.push_back(6 * r_con * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
@@ -1061,6 +1063,20 @@ GetState()
 		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
 	}
 	return state;
+}
+void
+Controller::SaveTimeData(std::string directory) {
+	std::string path = std::string(CAR_DIR) + std::string("/") +  directory;
+	std::cout << "save results to" << path << std::endl;
+	
+	std::ofstream ofs(path);
+	ofs << mReferenceManager->GetPhaseLength() << std::endl;
+
+	for(int i = 0; i < mRecordPhase.size() - 1; i++) {
+		ofs << i << " " << mRecordPhase[i] << " " << mRecordPhase[i+1] - mRecordPhase[i] << std::endl;
+	}
+	ofs.close();
+
 }
 void
 Controller::SaveDisplayedData(std::string directory, bool bvh) {

@@ -58,15 +58,17 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 
 	void SaveDisplayedData(std::string directory, bool bvh=false);
+	void SaveTimeData(std::string directory);
 	void SaveStepInfo();
 	void ClearRecord();
+
 	// get record (for visualization)
 
 	Eigen::VectorXd GetObjPositions(int idx) { return this->mRecordObjPosition[idx]; }
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
-	double GetTime(int idx) { return this->mRecordTime[idx]; }
+	double GetPhase(int idx) { return this->mRecordPhase[idx]; }
 	Eigen::VectorXd GetTargetPositions(int idx) { return this->mRecordTargetPosition[idx]; }
 	Eigen::VectorXd GetBVHPositions(int idx) { return this->mRecordBVHPosition[idx]; }
 	int GetRecordSize() { return this->mRecordPosition.size(); }
@@ -147,14 +149,13 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	std::vector<double> mRecordTorqueNorm;
+	std::vector<double> mRecordPhase;
 
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
 	bool mRecord;
 	bool mIsHindsight;
 	std::tuple<double, double, double> mRescaleParameter;
-	std::vector<double> mRecordTime;
-	std::vector<double> mRecordDTime;
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::vector<std::string> mContacts;
