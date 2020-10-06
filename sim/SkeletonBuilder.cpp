@@ -49,53 +49,52 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 	std::tuple<std::string, Eigen::Vector3d, double> deform) {
 	
 	auto shape_old = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
-	auto box = dynamic_cast<BoxShape*>(shape_old);
-	Eigen::Vector3d origin = box->getSize();
-	Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
-	ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
+	// auto box = dynamic_cast<BoxShape*>(shape_old);
+	// Eigen::Vector3d origin = box->getSize();
+	// Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
+	// ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
 
 	auto inertia = bn->getInertia();
 	inertia.setMass(inertia.getMass() * std::get<2>(deform));
-	inertia.setMoment(shape->computeInertia(inertia.getMass()));
+	inertia.setMoment(shape_old->computeInertia(inertia.getMass()));
 	bn->setInertia(inertia);
-
-	bn->removeAllShapeNodes();
-    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
+	// bn->removeAllShapeNodes();
+ //    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
 	
-	auto props = bn->getParentJoint()->getJointProperties();
-	Eigen::Vector3d translation = props.mT_ChildBodyToJoint.translation();
+	// auto props = bn->getParentJoint()->getJointProperties();
+	// Eigen::Vector3d translation = props.mT_ChildBodyToJoint.translation();
 
 	
-	for(int i = 0; i < 3; i++) {
-		if(translation[i] != 0) {
-			double sign = translation[i];
-			sign = sign / fabs(sign);
+	// for(int i = 0; i < 3; i++) {
+	// 	if(translation[i] != 0) {
+	// 		double sign = translation[i];
+	// 		sign = sign / fabs(sign);
 
-			Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
-			T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
-			props.mT_ChildBodyToJoint = props.mT_ChildBodyToJoint * T;
-			bn->getParentJoint()->setProperties(props);
-		}
-	}
+	// 		Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+	// 		T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+	// 		props.mT_ChildBodyToJoint = props.mT_ChildBodyToJoint * T;
+	// 		bn->getParentJoint()->setProperties(props);
+	// 	}
+	// }
 
-	auto children = GetChildren(skel, bn);
-	for(auto child : children) {
-		props = child->getParentJoint()->getJointProperties();
-		translation = props.mT_ParentBodyToJoint.translation();
-		for(int i = 0; i < 3; i++) {
-			if(translation[i] != 0) {
+	// auto children = GetChildren(skel, bn);
+	// for(auto child : children) {
+	// 	props = child->getParentJoint()->getJointProperties();
+	// 	translation = props.mT_ParentBodyToJoint.translation();
+	// 	for(int i = 0; i < 3; i++) {
+	// 		if(translation[i] != 0) {
 
-				double sign = translation[i];
-				sign = sign / fabs(sign);
+	// 			double sign = translation[i];
+	// 			sign = sign / fabs(sign);
 
-				Eigen::Isometry3d  T = Eigen::Isometry3d::Identity();
-				T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+	// 			Eigen::Isometry3d  T = Eigen::Isometry3d::Identity();
+	// 			T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
 
-				props.mT_ParentBodyToJoint =  props.mT_ParentBodyToJoint * T;
-				child->getParentJoint()->setProperties(props);
-			}
-		}
-	}
+	// 			props.mT_ParentBodyToJoint =  props.mT_ParentBodyToJoint * T;
+	// 			child->getParentJoint()->setProperties(props);
+	// 		}
+	// 	}
+	// }
 }
 // torque limit map, position limit map
 std::pair<SkeletonPtr, std::map<std::string, double>*>

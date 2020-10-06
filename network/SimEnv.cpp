@@ -307,15 +307,33 @@ SimEnv::
 Optimize()
 {
 	bool t = mReferenceManager->Optimize();
-	if(t) {
-		bool b = mReferenceManager->UpgradeTargetGoal();
-		if(b) {
-			mNeedRefUpdate = true;
-			Eigen::VectorXd tp = mReferenceManager->GetTargetGoal();
+	bool b = mReferenceManager->UpgradeExternalTarget();
+	if(b) {
+		Eigen::Vector3d g = mSlaves[0]->GetGravity();
+		double w = mSlaves[0]->GetSkeletonWeight();
+		if(g(1) < - 0.5 * 9.81) {
+			g(1) = g(1) + 9.81 * 0.05;
+			std::cout << "gravity updated: " << g.transpose() << std::endl;
 			for(int id = 0; id < mNumSlaves; ++id) {
-				mSlaves[id]->SetTargetParameters(tp);
+				mSlaves[id]->SetGravity(g);
+			}
+		} 
+		if(w > 0.5) {
+			w -= 0.05;
+			for(int id = 0; id < mNumSlaves; ++id) {
+				mSlaves[id]->SetSkeletonWeight(w);
 			}
 		}
+	}
+	if(t) {
+		// bool b = mReferenceManager->UpgradeTargetGoal();
+		// if(b) {
+		// 	mNeedRefUpdate = true;
+		// 	Eigen::VectorXd tp = mReferenceManager->GetTargetGoal();
+		// 	for(int id = 0; id < mNumSlaves; ++id) {
+		// 		mSlaves[id]->SetTargetParameters(tp);
+		// 	}
+		// }
 
 		Eigen::VectorXd g = mReferenceManager->GetTargetGoal();
 		Eigen::VectorXd c = mReferenceManager->GetTargetCurMean();

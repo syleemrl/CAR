@@ -78,7 +78,9 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
  	// functions related to adaptive motion retargeting
 	void RescaleCharacter(double w0, double w1);	
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
-
+	
+	void SetSkeletonWeight(double weight);
+	double GetSkeletonWeight() {return mWeight; }
 	void UpdateAdaptiveReward();
 	void UpdateRewardTrajectory();
 	double  GetTargetReward();
@@ -93,6 +95,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 	void SetTargetParameters(Eigen::VectorXd tp) {mInputTargetParameters = tp; }
 
+	Eigen::Vector3d GetGravity() { return mGravity; }
+	void SetGravity(Eigen::Vector3d g) { mGravity = g; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -188,7 +192,10 @@ protected:
 	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
 	std::vector<Eigen::VectorXd> mHindsightTarget;
 	Eigen::Vector3d mTargetDiff;
-	double mMomentum;
+	Eigen::Vector3d mMomentum;
+	Eigen::Vector3d mGravity;
+	double mWeight;
+	double mPrevVelocity;
 	double mVelocity;
 	int mCountTarget;
 };

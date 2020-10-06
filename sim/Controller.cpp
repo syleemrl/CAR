@@ -23,7 +23,10 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
-	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81,0));
+
+	this->mWeight = 1.0;
+	this->mGravity = Eigen::Vector3d(0,-9.81,0);
+	this->mWorld->setGravity(this->mGravity);
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
@@ -34,7 +37,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mWorld->addSkeleton(this->mGround);
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
-	// this->RescaleCharacter(1, 1);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
@@ -150,8 +152,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	if(mRecord)
-		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	// if(mRecord)
+	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -165,6 +167,7 @@ Step()
 	delete p_v_target;
 
 	int count_dof = 0;
+
 	for(int i = 1; i <= num_body_nodes; i++){
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		int dof = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getNumDofs();
@@ -219,29 +222,22 @@ Step()
 			mWorld->step(false);
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
-	}
-	if(mCurrentFrameOnPhase >= 20 && mCurrentFrameOnPhase <= 40) {
-		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+		if(mCurrentFrameOnPhase >= 10 && mControlFlag[0] == 0) {
+			double curVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
+			if(mPrevVelocity * curVelocity < 0) {
+				mControlFlag[0] = 1;
+			}
 
-		Eigen::Vector3d momentum;
-		momentum.setZero();
-		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
-			auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
-			Eigen::Matrix3d R = bn->getWorldTransform().linear();
-			double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
-			bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
-			Eigen::Matrix3d I;
-			I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
-			I = R * I * R.transpose();
-			Eigen::AngleAxisd aa(I); 
-			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
-			momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+			mPrevVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
+
+		} else if(mControlFlag[0] == 1) {
+			if(mVelocity < mCharacter->GetSkeleton()->getCOMLinearVelocity()(1)) {
+				mVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
+				mMomentum = mCharacter->GetSkeleton()->getMass() * mCharacter->GetSkeleton()->getCOMLinearVelocity();
+
+			}
+			mPrevVelocity = 0;
 		}
-		mVelocity += V(0); // V.segment<3>(0).norm();
-		mMomentum += momentum(0);
-		// std::cout << momentum.transpose() << " " << V.segment<3>(0).transpose() << std::endl;
-		mCountTarget += 1;
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -259,7 +255,7 @@ Step()
 
 
 			mControlFlag.setZero();
-			mMomentum = 0;
+			mMomentum.setZero();
 			mVelocity = 0;
 			mCountTarget = 0;
 
@@ -345,10 +341,9 @@ ClearRecord()
 	this->mControlFlag.resize(4);
 	this->mControlFlag.setZero();
 
-	mMomentum = 0;
+	mMomentum.setZero();
 	mVelocity = 0;
-	mCountTarget = 0;
-
+	mPrevVelocity = 0;
 }
 
 std::vector<double> 
@@ -435,20 +430,16 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
-		double meanMomentum = mMomentum / mCountTarget;
-		double meanVelocity = mVelocity / mCountTarget;
-
-		r_target = 0.5 * exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075);
-		r_target += 1.5 * exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) * exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075);
-
+	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
+		Eigen::VectorXd l_diff = mMomentum - mInputTargetParameters.segment<3>(2);
+		l_diff *= 0.1;
+		r_target = exp_of_squared(l_diff, 3);
 		if(mRecord) {
-			std::cout << meanMomentum << " " <<  meanMomentum - mInputTargetParameters(0) << " " <<  exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075) << std::endl;
-			std::cout << meanVelocity << " " <<  meanVelocity - mInputTargetParameters(1) << " " << exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) << std::endl;
+		 	std::cout << l_diff.transpose() << " " << mVelocity << " " << exp_of_squared(l_diff, 3) << std::endl;
 		}
-		mControlFlag[0] = 1;		
+		mControlFlag[0] = 2;		
 
-	}
+	} 
 	return r_target;
 }
 std::vector<bool> 
@@ -512,13 +503,13 @@ UpdateAdaptiveReward()
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
 	double con_diff = 0;
+
 	for(int i = 0; i < contacts_cur.size(); i++) {
 		if(contacts_ref[i].first || contacts_cur[i].first) {
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 5, 2);
 		}
 	}
 	double r_con = exp(-con_diff);
-
 	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
@@ -529,7 +520,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(6 * r_t);
+		mRewardParts.push_back(10 * r_con * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
@@ -732,6 +723,10 @@ UpdateTerminalInfo()
 	if(mRecord) {
 		if(mIsTerminal) std::cout << terminationReason << std::endl;
 	}
+
+	if(mIsTerminal && terminationReason != 8)
+		mReferenceManager->ReportEarlyTermination();
+
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
@@ -762,62 +757,28 @@ FollowBvh()
 }
 void
 Controller::
-RescaleCharacter(double w0,double w1)
+SetSkeletonWeight(double weight)
 {
+	double w = weight / mWeight;
+	mWeight = weight;
 
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-	// deform.push_back(std::make_tuple("Head", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 
-	// deform.push_back(std::make_tuple("Torso", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("Spine", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
+	for(int i = 0; i < n_bnodes; i++){
+		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
+		deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, 1), w));
+	}
 
-	// deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(w0, w1, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
-	// deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(w0, 1, w1), w1*1*w0));
-
-	// deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(w1, w0, w1), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(w1, 1, w0), w1*w1*w0));
-	// deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
-	// deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(w1, 1, w0), w1*1*w0));
-
-	// DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
-	
-	// if(w0 != 1) mReferenceManager->RescaleMotion(std::sqrt(w0));
-
-
-	// deform.push_back(std::make_tuple("ForeArmR", Eigen::Vector3d(1, 1, 1), 4));
-	// deform.push_back(std::make_tuple("ArmR", Eigen::Vector3d(1, 1, 1), 4));
-	// deform.push_back(std::make_tuple("HandR", Eigen::Vector3d(1, 1, 1), 4));
-
-	// deform.push_back(std::make_tuple("ForeArmL", Eigen::Vector3d(1, 1, 1), 4));
-	// deform.push_back(std::make_tuple("ArmL", Eigen::Vector3d(1, 1, 1), 4));
-	// deform.push_back(std::make_tuple("HandL", Eigen::Vector3d(1, 1, 1), 4));
-
-
-	deform.push_back(std::make_tuple("FemurR", Eigen::Vector3d(1, 1, 1), 4));
-	deform.push_back(std::make_tuple("TibiaR", Eigen::Vector3d(1, 1, 1), 4));
-	deform.push_back(std::make_tuple("FootR", Eigen::Vector3d(1, 1, 1), 4));
-	deform.push_back(std::make_tuple("FootEndR", Eigen::Vector3d(1, 1, 1), 4));
-
-	deform.push_back(std::make_tuple("FemurL", Eigen::Vector3d(1, 1, 1), 4));
-	deform.push_back(std::make_tuple("TibiaL", Eigen::Vector3d(1, 1, 1), 4));
-	deform.push_back(std::make_tuple("FootL", Eigen::Vector3d(1, 1, 1), 4));
-	deform.push_back(std::make_tuple("FootEndL", Eigen::Vector3d(1, 1, 1), 4));
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
-	std::cout << "Deform done "  << std::endl;
+	std::cout << "current weight : "  << mWeight << std::endl;
 
 }
 void 
 Controller::
 Reset(bool RSI)
 {
+	this->mWorld->setGravity(this->mGravity);
 	this->mWorld->reset();
 	auto& skel = mCharacter->GetSkeleton();
 	skel->clearConstraintImpulses();

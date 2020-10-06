@@ -615,33 +615,36 @@ GetAxisDev(double t) {
 void
 ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
-	backflip
+	
 	mKnots.push_back(0);
-	mKnots.push_back(6);
-	mKnots.push_back(14);
-	mKnots.push_back(18);
-	mKnots.push_back(21);
+	mKnots.push_back(5);
+	mKnots.push_back(10);
+	mKnots.push_back(15);
+	mKnots.push_back(20);
 	mKnots.push_back(24);
 	mKnots.push_back(29);
+	mKnots.push_back(33);
 	mKnots.push_back(36);
-	mKnots.push_back(40);
-	mKnots.push_back(44);
-	mKnots.push_back(54);
-	mKnots.push_back(60);
+	mKnots.push_back(42);
+	mKnots.push_back(48);
+	mKnots.push_back(58);
+	mKnots.push_back(64);
 
 	for(int i = 0; i < mPhaseLength; i+= 2) {
 		mKnots_t.push_back(i);
 	}
-	mTargetBase.resize(2);
-	mTargetBase << 48, 8; //, 1.5;
+
+	// gravity, mass, linear momentum
+	mTargetBase.resize(5);
+	mTargetBase << 1, 1, 0, 155, 0; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
-	mTargetGoal.resize(2);
+	mTargetGoal.resize(5);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  48, 11;
+	mTargetGoal <<  0.5, 1, 0, 200, 0;
 
-	mTargetUnit.resize(2);
-	mTargetUnit<< 0.1, 0.1; //, 0.05;
+	mTargetUnit.resize(3);
+	mTargetUnit<< 0.05, 0.05, 0.1; //, 0.05;
 
 	mRefUpdateMode = true;
 
@@ -661,7 +664,10 @@ InitOptimization(int nslaves, std::string save_path) {
 	mPath = save_path;
 	mPrevRewardTrajectory = 0.5;
 	mPrevRewardTarget = 0.0;	
-	
+	mMeanTrackingReward = 0;
+
+	nET = 0;
+	nT = 0;
 	// for(int i = 0; i < 3; i++) {
 	// 	nRejectedSamples.push_back(0);
 	// }
@@ -778,14 +784,33 @@ GetTimeStep(double t, bool adaptive) {
 	} else 
 		return 1.0;
 }
-
+void
+ReferenceManager::
+ReportEarlyTermination() {
+	mLock_ET.lock();
+	nET +=1;
+	mLock_ET.unlock();
+}
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
+
+	if(dart::math::isNan(rewards.first) || dart::math::isNan(rewards.second)) {
+		mLock_ET.lock();
+		nET +=1;
+		mLock_ET.unlock();
+		return;
+	}
+
+	
+	mLock_ET.lock();
+	nT += 1;
+	mLock_ET.unlock();
+	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * (rewards.first / mPhaseLength);
 	std::vector<int> flag;
-	if((rewards.first / mPhaseLength)  < 0.75) {
+	if((rewards.first / mPhaseLength)  < 0.88) {
 		flag.push_back(0);
 	}
 	else {
@@ -1138,15 +1163,16 @@ Optimize() {
 	// return false;
 }
 bool
-ReferenceManager::UpgradeTargetGoal() {
-	// if(mTargetCurMean(0) >= (mTargetGoal(0) - 0.02) && mTargetGoal(0) < 1.6) {
-	// 	mTargetGoal(0) += 0.1;
+ReferenceManager::UpgradeExternalTarget() {
 
-	// 	double target_diff = mTargetGoal(0) - mTargetCurMean(0);
-	// 	mPrevRewardTarget = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
-	// 	std::cout << "target upgrade : " << mTargetGoal.transpose() << " "<< mPrevRewardTarget << std::endl;
-	// 	return true;
-	// }
+	double survival_ratio = (double)nT / (nET + nT);
+	std::cout << "current mean tracking reward :" << mMeanTrackingReward  << ", survival ratio: " << survival_ratio << std::endl;
+	nT = 0;
+	nET = 0;
+	if(survival_ratio > 0.8 && mMeanTrackingReward > 0.8) {
+		mMeanTrackingReward = 0;
+		return true;
+	}
 	return false;
 }
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> 
