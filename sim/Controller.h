@@ -79,8 +79,6 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	void RescaleCharacter(double w0, double w1);	
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
 	
-	void SetSkeletonWeight(double weight);
-	double GetSkeletonWeight() {return mWeight; }
 	void UpdateAdaptiveReward();
 	void UpdateRewardTrajectory();
 	double  GetTargetReward();
@@ -94,9 +92,14 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
 
 	void SetTargetParameters(Eigen::VectorXd tp) {mInputTargetParameters = tp; }
+	void SetSigTarget(double s) { mSigTarget = s;}
+	double GetSigTarget() {return mSigTarget; }
 
 	Eigen::Vector3d GetGravity() { return mGravity; }
 	void SetGravity(Eigen::Vector3d g) { mGravity = g; }
+	void SetSkeletonWeight(double weight);
+	double GetSkeletonWeight() {return mWeight; }
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee,w_srl;
@@ -192,12 +195,13 @@ protected:
 	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
 	std::vector<Eigen::VectorXd> mHindsightTarget;
 	Eigen::Vector3d mTargetDiff;
-	Eigen::Vector3d mMomentum;
+	Eigen::Vector3d mEnergy;
 	Eigen::Vector3d mGravity;
 	double mWeight;
 	double mPrevVelocity;
 	double mVelocity;
 	int mCountTarget;
+	double mSigTarget;
 };
 }
 #endif

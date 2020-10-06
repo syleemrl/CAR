@@ -58,6 +58,7 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 	inertia.setMass(inertia.getMass() * std::get<2>(deform));
 	inertia.setMoment(shape_old->computeInertia(inertia.getMass()));
 	bn->setInertia(inertia);
+
 	// bn->removeAllShapeNodes();
  //    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
 	

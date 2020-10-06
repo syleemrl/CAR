@@ -79,8 +79,11 @@ public:
 	Eigen::VectorXd GetTargetGoal() {return mTargetGoal; }
 	Eigen::VectorXd GetTargetUnit() {return mTargetUnit; }
 	Eigen::VectorXd GetTargetCurMean() {return mTargetCurMean; }
-	bool UpgradeExternalTarget();
+	bool UpdateExternalTarget();
 	void ReportEarlyTermination();
+	void ClearTargetReward() { mPrevRewardTarget = 0.0; }
+	int NeedUpdateSigTarget();
+	void UpdateTargetReward(double old_sig, double new_sig);
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -133,6 +136,7 @@ protected:
 	
 	std::vector<int> nRejectedSamples;
 	double mMeanTrackingReward;
+	double mMeanTargetReward;
 	int nET;
 	int nT;
 };

@@ -115,7 +115,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	}
 
 	this->mIsHindsight = false;
-
+	mSigTarget = 1;
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -144,7 +144,7 @@ Step()
 		sign = -1;
 
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2-2) - exp(-2)) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.995, 0.995);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -152,8 +152,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	// if(mRecord)
-	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	if(mRecord)
+		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -228,13 +228,13 @@ Step()
 				mControlFlag[0] = 1;
 			}
 
-			mPrevVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
+			mPrevVelocity = curVelocity;
 
 		} else if(mControlFlag[0] == 1) {
-			if(mVelocity < mCharacter->GetSkeleton()->getCOMLinearVelocity()(1)) {
-				mVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
-				mMomentum = mCharacter->GetSkeleton()->getMass() * mCharacter->GetSkeleton()->getCOMLinearVelocity();
-
+			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+			if(mVelocity < c_vel(1)) {
+				mVelocity = c_vel(1);
+				mEnergy = 0.5 * mCharacter->GetSkeleton()->getMass() * c_vel.cwiseProduct(c_vel);
 			}
 			mPrevVelocity = 0;
 		}
@@ -255,7 +255,7 @@ Step()
 
 
 			mControlFlag.setZero();
-			mMomentum.setZero();
+			mEnergy.setZero();
 			mVelocity = 0;
 			mCountTarget = 0;
 
@@ -341,7 +341,7 @@ ClearRecord()
 	this->mControlFlag.resize(4);
 	this->mControlFlag.setZero();
 
-	mMomentum.setZero();
+	mEnergy.setZero();
 	mVelocity = 0;
 	mPrevVelocity = 0;
 }
@@ -431,11 +431,11 @@ GetTargetReward()
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
-		Eigen::VectorXd l_diff = mMomentum - mInputTargetParameters.segment<3>(2);
+		Eigen::VectorXd l_diff = mEnergy - mInputTargetParameters.segment<3>(2);
 		l_diff *= 0.1;
-		r_target = exp_of_squared(l_diff, 3);
+		r_target = exp_of_squared(l_diff, mSigTarget);
 		if(mRecord) {
-		 	std::cout << l_diff.transpose() << " " << mVelocity << " " << exp_of_squared(l_diff, 3) << std::endl;
+		 	std::cout << mEnergy.transpose() << " " << mVelocity << " " << exp_of_squared(l_diff, mSigTarget) << std::endl;
 		}
 		mControlFlag[0] = 2;		
 
@@ -771,7 +771,7 @@ SetSkeletonWeight(double weight)
 	}
 
 	DPhy::SkeletonBuilder::DeformSkeleton(mCharacter->GetSkeleton(), deform);
-	std::cout << "current weight : "  << mWeight << std::endl;
+	std::cout << "current weight : "  << mWeight << ", " << mCharacter->GetSkeleton()->getMass() << std::endl;
 
 }
 void 

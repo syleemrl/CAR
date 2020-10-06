@@ -307,17 +307,19 @@ SimEnv::
 Optimize()
 {
 	bool t = mReferenceManager->Optimize();
-	bool b = mReferenceManager->UpgradeExternalTarget();
-	if(b) {
+	
+	bool flag_et = mReferenceManager->UpdateExternalTarget();
+	if(flag_et) {
 		Eigen::Vector3d g = mSlaves[0]->GetGravity();
-		double w = mSlaves[0]->GetSkeletonWeight();
-		if(g(1) < - 0.5 * 9.81) {
+		if(g(1) < - 0.16666 * 9.81) {
 			g(1) = g(1) + 9.81 * 0.05;
 			std::cout << "gravity updated: " << g.transpose() << std::endl;
 			for(int id = 0; id < mNumSlaves; ++id) {
 				mSlaves[id]->SetGravity(g);
 			}
+			mReferenceManager->ClearTargetReward();
 		} 
+		double w = mSlaves[0]->GetSkeletonWeight();
 		if(w > 0.5) {
 			w -= 0.05;
 			for(int id = 0; id < mNumSlaves; ++id) {
@@ -325,6 +327,24 @@ Optimize()
 			}
 		}
 	}
+	
+	int flag_sig = mReferenceManager->NeedUpdateSigTarget();
+	if(flag_sig) {
+		double sig = mSlaves[0]->GetSigTarget();
+		double new_sig = sig;
+		if(flag_sig > 0)
+			new_sig *= 2;
+		else if(flag_sig < 0 && sig > 0.3)
+			new_sig /= 2;
+		if(sig != new_sig) {
+			mReferenceManager->UpdateTargetReward(sig, new_sig);
+			for(int id = 0; id < mNumSlaves; ++id) {
+				mSlaves[id]->SetSigTarget(new_sig);
+			}		
+		}
+
+	}
+
 	if(t) {
 		// bool b = mReferenceManager->UpgradeTargetGoal();
 		// if(b) {

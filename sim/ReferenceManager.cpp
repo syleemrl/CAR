@@ -25,89 +25,6 @@ ReferenceManager::ReferenceManager(Character* character)
 	mTargetGoal.resize(1);
 
 }
-void
-ReferenceManager::
-ComputeAxisMean(){
-	mAxis_BVH.clear();
-	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-
-	for(int i = 0; i < mPhaseLength - 1; i++) {
-		Eigen::VectorXd m_cur = mMotions_phase[i]->GetPosition();
-		Eigen::VectorXd m_next = mMotions_phase[i+1]->GetPosition();
-
-		Eigen::VectorXd axis(mDOF);
-		for(int j = 0; j < n_bnodes; j++) {
-			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-
-			if(dof == 6) {
-				axis.segment<3>(idx) = JointPositionDifferences(m_next.segment<3>(idx), m_cur.segment<3>(idx));
-
-				Eigen::AngleAxisd root_ori = Eigen::AngleAxisd(m_cur.segment<3>(idx).norm(), m_cur.segment<3>(idx).normalized());
-				Eigen::Vector3d v = m_next.segment<3>(idx + 3) - m_cur.segment<3>(idx + 3);
-				axis.segment<3>(idx + 3) = root_ori.inverse() * v;
-			} else if(dof == 3) {
-				axis.segment<3>(idx) = JointPositionDifferences(m_next.segment<3>(idx), m_cur.segment<3>(idx));
-			} else {
-				axis(idx) = m_next(idx) - m_cur(idx);
-			}
-		}
-		mAxis_BVH.push_back(axis);
-	}
-	mAxis_BVH.push_back(mAxis_BVH[0]);
-}
-void
-ReferenceManager::
-ComputeAxisDev() {
-	mDev_BVH.clear();
-	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-
-	for(int i = 0; i < mPhaseLength; i++) {
-		int t = i + mPhaseLength;
-		std::vector<std::pair<Eigen::VectorXd, double>> data;
-		data.clear();
-		for(int j = t - 3; j <= t + 3; j++) {
-			int t_ = j % mPhaseLength;
-			Eigen::VectorXd y(mDOF);
-			y.setZero();
-
-			for(int k = 0; k < n_bnodes; k++) {
-				int dof = mCharacter->GetSkeleton()->getBodyNode(k)->getParentJoint()->getNumDofs();
-				int idx = mCharacter->GetSkeleton()->getBodyNode(k)->getParentJoint()->getIndexInSkeleton(0);
-
-				if(dof == 6) {
-					Eigen::Vector3d diff = mAxis_BVH[i].segment<3>(idx) - mAxis_BVH[t_].segment<3>(idx);
-					double x = diff.dot(mAxis_BVH[i].segment<3>(idx).normalized());
- 					y(idx) = (diff - x * mAxis_BVH[i].segment<3>(idx).normalized()).norm() 
- 							/ std::max(mAxis_BVH[i].segment<3>(idx).norm(), 0.02);	
-				
-					diff = mAxis_BVH[i].segment<3>(idx + 3) - mAxis_BVH[t_].segment<3>(idx + 3);
-					x = diff.dot(mAxis_BVH[i].segment<3>(idx + 3).normalized());
- 					y(idx + 3) = (diff - x * mAxis_BVH[i].segment<3>(idx + 3).normalized()).norm() 
- 							/ std::max(mAxis_BVH[i].segment<3>(idx + 3).norm(), 0.02);
-
-				} else if(dof == 3) {
-					Eigen::Vector3d diff  = mAxis_BVH[i].segment<3>(idx) - mAxis_BVH[t_].segment<3>(idx);
-					double x = diff.dot(mAxis_BVH[i].segment<3>(idx).normalized());
- 					y(idx) = (diff - x * mAxis_BVH[i].segment<3>(idx).normalized()).norm() 
- 							/ std::max(mAxis_BVH[i].segment<3>(idx).norm(), 0.02);				
- 				} else {
-					y(idx) = 0;
-				}
-				
-			}
- 			data.push_back(std::pair<Eigen::VectorXd, double>(y, (1 - abs(t - j) * 0.3)));
-		}
-	 	Eigen::VectorXd dev(mDOF);
-		dev.setZero();
-		for(int i = 0; i < data.size(); i++) {
-			int n = (int)(data[i].second * 100.0);
-			Eigen::VectorXd y = data[i].first;
-			dev += n * y.cwiseProduct(y);
-		}
-		mDev_BVH.push_back(dev.cwiseSqrt());
-	}
-}
 void 
 ReferenceManager::
 SaveAdaptiveMotion(std::string postfix) {
@@ -209,37 +126,10 @@ LoadAdaptiveMotion(std::string postfix) {
 
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
-	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
-	// for(int i = 0; i < mPhaseLength; i++) {
-	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase_adaptive[i]->GetPosition(), i));
-	// }
-	// MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
-	// s->SetKnots(0, mKnots);
-
-	// s->ConvertMotionToSpline(pos);
-	// path = std::string(CAR_DIR) + std::string("/result/jump_spline_ref");
-	
-	// std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
-
-	// std::ofstream ofs(path);
-
-	// ofs << mKnots.size() << std::endl;
-	// for(auto t: mKnots) {	
-	// 	ofs << t << std::endl;
-	// }
-	// for(auto t: cps) {	
-	// 	ofs << t.transpose() << std::endl;
-	// }
-
-	// ofs << pos.size() << std::endl;
-	// for(auto t: pos) {	
-	// 	ofs << t.second << std::endl;
-	// 	ofs << t.first.transpose() << std::endl;
-	// }
-	// ofs.close();
-
 }
-void ReferenceManager::LoadMotionFromBVH(std::string filename)
+void 
+ReferenceManager::
+LoadMotionFromBVH(std::string filename)
 {
 	mMotions_raw.clear();
 	mMotions_phase.clear();
@@ -388,7 +278,9 @@ GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos)
 	return vel;
 }
 
-void ReferenceManager::RescaleMotion(double w)
+void 
+ReferenceManager::
+RescaleMotion(double w)
 {
 	mMotions_phase.clear();
 
@@ -454,7 +346,9 @@ void ReferenceManager::RescaleMotion(double w)
 
 	}
 }
-void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
+void 
+ReferenceManager::
+GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
 {
 	mLock.lock();
 	while(!p_gen.empty()){
@@ -545,7 +439,9 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 	mLock.unlock();
 
 }
-Eigen::VectorXd ReferenceManager::GetPosition(double t , bool adaptive) 
+Eigen::VectorXd 
+ReferenceManager::
+GetPosition(double t , bool adaptive) 
 {
 	std::vector<Motion*>* p_gen;
 	if(adaptive)
@@ -569,7 +465,9 @@ Eigen::VectorXd ReferenceManager::GetPosition(double t , bool adaptive)
 	else
 		return DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0));	
 }
-Motion* ReferenceManager::GetMotion(double t, bool adaptive)
+Motion*
+ReferenceManager::
+GetMotion(double t, bool adaptive)
 {
 	std::vector<Motion*>* p_gen;
 	if(adaptive)
@@ -596,22 +494,6 @@ Motion* ReferenceManager::GetMotion(double t, bool adaptive)
 				DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
 	}
 }
-Eigen::VectorXd 
-ReferenceManager::
-GetAxisMean(double t) {
-	int k0 = (int) std::floor(t);
-	if(k0 == mPhaseLength)
-		k0 = 0;
-	return mAxis_BVH[k0];
-}
-Eigen::VectorXd 
-ReferenceManager::
-GetAxisDev(double t) {
-	int k0 = (int) std::floor(t);
-	if(k0 == mPhaseLength)
-		k0 = 0;
-	return mDev_BVH[k0];
-}
 void
 ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
@@ -636,12 +518,12 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	// gravity, mass, linear momentum
 	mTargetBase.resize(5);
-	mTargetBase << 1, 1, 0, 155, 0; //, 1.5;
+	mTargetBase << 1, 1, 0, 200, 0; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(5);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  0.5, 1, 0, 200, 0;
+	mTargetGoal <<  0.16666, 0.5, 0, 200, 0;
 
 	mTargetUnit.resize(3);
 	mTargetUnit<< 0.05, 0.05, 0.1; //, 0.05;
@@ -665,6 +547,7 @@ InitOptimization(int nslaves, std::string save_path) {
 	mPrevRewardTrajectory = 0.5;
 	mPrevRewardTarget = 0.0;	
 	mMeanTrackingReward = 0;
+	mMeanTargetReward = 0;
 
 	nET = 0;
 	nT = 0;
@@ -809,15 +692,23 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	nT += 1;
 	mLock_ET.unlock();
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * (rewards.first / mPhaseLength);
+	mMeanTargetReward = 0.99 * mMeanTargetReward + 0.01 * rewards.second;
+
 	std::vector<int> flag;
+	if(mPrevRewardTarget == 0 && (rewards.first / mPhaseLength) < 0.9) {
+		return;
+	}
+
 	if((rewards.first / mPhaseLength)  < 0.88) {
 		flag.push_back(0);
 	}
 	else {
 		flag.push_back(1);
 	}
+	
 	if((rewards.first / mPhaseLength)  < 0.6 || rewards.second < mPrevRewardTarget)
 		return;
+
 	if(rewards.second < mPrevRewardTarget)
 		flag.push_back(0);
 	else
@@ -1081,100 +972,109 @@ Optimize() {
 
 	std::cout << "current avg elite similarity reward: " << rewardTrajectory << ", target reward: " << rewardTarget << ", cutline: " << mPrevRewardTrajectory << std::endl;
 	
-	// if(mPrevRewardTrajectory < rewardTrajectory) {
 
-		for(int i = 0; i < num_knot + 3; i++) {
-		    mean_cps[i] /= weight_sum;
-		    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
-		}
-		for(int i = 0; i < num_knot_t + 3; i++) {
-		    mean_cps_t[i] /= weight_sum;
-		    mPrevCps_t[i] = mPrevCps_t[i] * 0.6 + mean_cps_t[i] * 0.4;
-		}
+	for(int i = 0; i < num_knot + 3; i++) {
+	    mean_cps[i] /= weight_sum;
+	    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
+	}
+	for(int i = 0; i < num_knot_t + 3; i++) {
+	    mean_cps_t[i] /= weight_sum;
+		mPrevCps_t[i] = mPrevCps_t[i] * 0.6 + mean_cps_t[i] * 0.4;
+	}
 
-		mPrevRewardTrajectory = rewardTrajectory;
-		mPrevRewardTarget = rewardTarget;
+	mPrevRewardTrajectory = rewardTrajectory;
+	mPrevRewardTarget = rewardTarget;
 
-		mean_spline->SetControlPoints(0, mPrevCps);
-		std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
-		std::vector<Eigen::VectorXd> newpos;
-		this->AddDisplacementToBVH(new_displacement, newpos);
+	mean_spline->SetControlPoints(0, mPrevCps);
+	std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
+	std::vector<Eigen::VectorXd> newpos;
+	this->AddDisplacementToBVH(new_displacement, newpos);
 
-		mean_spline_t->SetControlPoints(0, mPrevCps_t);
-		std::vector<Eigen::VectorXd> new_displacement_t = mean_spline_t->ConvertSplineToMotion();
+	mean_spline_t->SetControlPoints(0, mPrevCps_t);
+	std::vector<Eigen::VectorXd> new_displacement_t = mean_spline_t->ConvertSplineToMotion();
 
-		for(int i = 0; i < mPhaseLength; i++) {
-			mTimeStep_adaptive[i] = 1 + new_displacement_t[i](0);
-		}
+	for(int i = 0; i < mPhaseLength; i++) {
+		mTimeStep_adaptive[i] = 1 + new_displacement_t[i](0);
+	}
 
-		std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
-		for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
-			mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
-			mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
-		}
+	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
+		mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
+		mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
+	}
 	
-		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
-		this->SaveAdaptiveMotion();
-		this->SaveAdaptiveMotion(std::to_string(nOp));
+	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->SaveAdaptiveMotion();
+	this->SaveAdaptiveMotion(std::to_string(nOp));
 
-		//save motion
-		path =  mPath + std::string("motion") + std::to_string(nOp);
-		ofs.open(path);
+	//save motion
+	path =  mPath + std::string("motion") + std::to_string(nOp);
+	ofs.open(path);
 
-		for(auto t: newpos) {	
-			ofs << t.transpose() << std::endl;
-		}
-		ofs.close();
+	for(auto t: newpos) {	
+		ofs << t.transpose() << std::endl;
+	}
+	ofs.close();
 
-		nOp += 1;
+	nOp += 1;
 			
-		while(!mSamples.empty()){
-			MultilevelSpline* s = std::get<0>(mSamples.back()).first;
-			MultilevelSpline* st = std::get<0>(mSamples.back()).second;
+	while(!mSamples.empty()){
+		MultilevelSpline* s = std::get<0>(mSamples.back()).first;
+		MultilevelSpline* st = std::get<0>(mSamples.back()).second;
 
-			mSamples.pop_back();
+		mSamples.pop_back();
 
-			delete s;
-			delete st;
+		delete s;
+		delete st;
 
-		}	
+	}	
 
-		for(int i = 0; i < nRejectedSamples.size(); i++) {
-			std::cout << i << " " << nRejectedSamples[i] << std::endl;
-			nRejectedSamples[i] = 0;
-		}
+	for(int i = 0; i < nRejectedSamples.size(); i++) {
+		std::cout << i << " " << nRejectedSamples[i] << std::endl;
+		nRejectedSamples[i] = 0;
+	}
 
-		mTargetCurMean.setZero();
-		for(int i = 0; i < mSampleTargets.size(); i++) {
-			mTargetCurMean += mSampleTargets[i];
-		}
-		mTargetCurMean /= mSampleTargets.size();
-		mSampleTargets.clear();
+	mTargetCurMean.setZero();
+	for(int i = 0; i < mSampleTargets.size(); i++) {
+		mTargetCurMean += mSampleTargets[i];
+	}
+	mTargetCurMean /= mSampleTargets.size();
+	mSampleTargets.clear();
 		
-		return true;
-	// } else {
-	// 	while(mSamples.size() > 100){
-	// 		MultilevelSpline* s = mSamples.back().first;
-	// 		mSamples.pop_back();
-
-	// 		delete s;
-	// 	}
-	// }
-	// return false;
+	return true;
 }
 bool
-ReferenceManager::UpgradeExternalTarget() {
+ReferenceManager::
+UpdateExternalTarget() {
 
 	double survival_ratio = (double)nT / (nET + nT);
 	std::cout << "current mean tracking reward :" << mMeanTrackingReward  << ", survival ratio: " << survival_ratio << std::endl;
 	nT = 0;
 	nET = 0;
 	if(survival_ratio > 0.8 && mMeanTrackingReward > 0.8) {
-		mMeanTrackingReward = 0;
 		return true;
 	}
 	return false;
 }
+int 
+ReferenceManager::
+NeedUpdateSigTarget() {
+	std::cout << "current mean target reward : " << mMeanTargetReward << std::endl;
+	if(mMeanTargetReward < 0.05 && mMeanTrackingReward > 0.8) {
+		return 1;
+	} else if (mMeanTargetReward > 0.9 && mMeanTrackingReward > 0.8) {
+		return -1;
+	}
+	return 0;
+}
+void 
+ReferenceManager::
+UpdateTargetReward(double old_sig, double new_sig) {
+	mPrevRewardTarget = exp(log(mPrevRewardTarget) / old_sig * new_sig);
+	std::cout << "updated mean elite target reward: " << mPrevRewardTarget << std::endl;
+
+}
+
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> 
 ReferenceManager::
 GetRegressionSamples() {
