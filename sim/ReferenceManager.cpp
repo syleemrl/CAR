@@ -499,10 +499,11 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	mKnots.push_back(5);
+	// mKnots.push_back(5);
 	mKnots.push_back(10);
-	mKnots.push_back(15);
-	mKnots.push_back(20);
+	// mKnots.push_back(15);
+//	mKnots.push_back(20);
+	mKnots.push_back(18);
 	mKnots.push_back(24);
 	mKnots.push_back(29);
 	mKnots.push_back(33);
@@ -518,12 +519,12 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	// gravity, mass, linear momentum
 	mTargetBase.resize(5);
-	mTargetBase << 1, 1, 0, 200, 0; //, 1.5;
+	mTargetBase << 1, 1, 0, 230, 0; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(5);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  0.16666, 0.5, 0, 200, 0;
+	mTargetGoal <<  0.5, 0.5, 0, 230, 0;
 
 	mTargetUnit.resize(3);
 	mTargetUnit<< 0.05, 0.05, 0.1; //, 0.05;
@@ -686,14 +687,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		mLock_ET.unlock();
 		return;
 	}
-
 	
 	mLock_ET.lock();
 	nT += 1;
 	mLock_ET.unlock();
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * (rewards.first / mPhaseLength);
 	mMeanTargetReward = 0.99 * mMeanTargetReward + 0.01 * rewards.second;
-
 	std::vector<int> flag;
 	if(mPrevRewardTarget == 0 && (rewards.first / mPhaseLength) < 0.9) {
 		return;
@@ -803,7 +802,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory =0.6 * (rewards.first / mPhaseLength) + 0.2 * r_slide + 0.2 * r_regul; // r_regul * r_slide;
+	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide) * (rewards.first / mPhaseLength); // r_regul * r_slide;
 	mLock.lock();
 	// if(reward_trajectory > 0.4) {
 	// 	mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
@@ -1062,7 +1061,7 @@ NeedUpdateSigTarget() {
 	std::cout << "current mean target reward : " << mMeanTargetReward << std::endl;
 	if(mMeanTargetReward < 0.05 && mMeanTrackingReward > 0.8) {
 		return 1;
-	} else if (mMeanTargetReward > 0.9 && mMeanTrackingReward > 0.8) {
+	} else if (mMeanTargetReward > 0.8 && mMeanTrackingReward > 0.8) {
 		return -1;
 	}
 	return 0;
@@ -1071,7 +1070,7 @@ void
 ReferenceManager::
 UpdateTargetReward(double old_sig, double new_sig) {
 	mPrevRewardTarget = exp(log(mPrevRewardTarget) / old_sig * new_sig);
-	std::cout << "updated mean elite target reward: " << mPrevRewardTarget << std::endl;
+	std::cout << "updated mean elite target reward: " << mPrevRewardTarget << " new sig: " << new_sig << std::endl;
 
 }
 

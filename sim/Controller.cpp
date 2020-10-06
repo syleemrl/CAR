@@ -39,7 +39,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mCharacter = new DPhy::Character(path);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
-
+//	SetSkeletonWeight(0.65);
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
 
 	kp.setZero();
@@ -143,7 +143,7 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.995, 0.995);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -513,7 +513,7 @@ UpdateAdaptiveReward()
 	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
-	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
+	double r_tot = 0.7 * accum_bvh + 0.2 * r_con + 0.1 * r_time;
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot) || dart::math::isNan(r_t)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);

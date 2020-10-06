@@ -310,9 +310,12 @@ Optimize()
 	
 	bool flag_et = mReferenceManager->UpdateExternalTarget();
 	if(flag_et) {
+		Eigen::VectorXd targetGoal = mReferenceManager->GetTargetGoal();
 		Eigen::Vector3d g = mSlaves[0]->GetGravity();
-		if(g(1) < - 0.16666 * 9.81) {
+		if(g(1) < - targetGoal(0) * 9.81) {
 			g(1) = g(1) + 9.81 * 0.05;
+			if(g(1) / (- 9.81) < targetGoal(0))
+				g(1) = targetGoal(0) * (- 9.81);
 			std::cout << "gravity updated: " << g.transpose() << std::endl;
 			for(int id = 0; id < mNumSlaves; ++id) {
 				mSlaves[id]->SetGravity(g);
@@ -320,8 +323,17 @@ Optimize()
 			mReferenceManager->ClearTargetReward();
 		} 
 		double w = mSlaves[0]->GetSkeletonWeight();
-		if(w > 0.5) {
+		if(targetGoal(1) < 1 && w > targetGoal(1)) {
 			w -= 0.05;
+			if(w < targetGoal(1))
+				w = targetGoal(1);
+			for(int id = 0; id < mNumSlaves; ++id) {
+				mSlaves[id]->SetSkeletonWeight(w);
+			}
+		} else if(targetGoal(1) > 1 && w < targetGoal(1)) {
+			w += 0.05;
+			if(w > targetGoal(1))
+				w = targetGoal(1);
 			for(int id = 0; id < mNumSlaves; ++id) {
 				mSlaves[id]->SetSkeletonWeight(w);
 			}
