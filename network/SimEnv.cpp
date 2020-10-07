@@ -330,6 +330,8 @@ Optimize()
 			for(int id = 0; id < mNumSlaves; ++id) {
 				mSlaves[id]->SetSkeletonWeight(w);
 			}
+			mReferenceManager->ClearTargetReward();
+
 		} else if(targetGoal(1) > 1 && w < targetGoal(1)) {
 			w += 0.05;
 			if(w > targetGoal(1))
@@ -337,6 +339,8 @@ Optimize()
 			for(int id = 0; id < mNumSlaves; ++id) {
 				mSlaves[id]->SetSkeletonWeight(w);
 			}
+			mReferenceManager->ClearTargetReward();
+
 		}
 	}
 	

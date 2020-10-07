@@ -25,7 +25,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mWorld = std::make_shared<dart::simulation::World>();
 
 	this->mWeight = 1.0;
-	this->mGravity = Eigen::Vector3d(0,-9.81,0);
+	this->mGravity = Eigen::Vector3d(0,-9.81, 0);
 	this->mWorld->setGravity(this->mGravity);
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
@@ -39,13 +39,12 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mCharacter = new DPhy::Character(path);
 
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
-//	SetSkeletonWeight(0.65);
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
 
 	kp.setZero();
 	kv.setZero();
 	this->mCharacter->SetPDParameters(kp,kv);
-
+	// this->SetSkeletonWeight(0.7);
 	mContacts.clear();
 	mContacts.push_back("RightToe");
 	mContacts.push_back("RightFoot");
@@ -142,9 +141,9 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3-2) - exp(-2)) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.995, 0.995);
+	double st = mActions[mInterestedDof];
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*5-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.9, 0.9);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -234,7 +233,7 @@ Step()
 			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
 			if(mVelocity < c_vel(1)) {
 				mVelocity = c_vel(1);
-				mEnergy = 0.5 * mCharacter->GetSkeleton()->getMass() * c_vel.cwiseProduct(c_vel);
+				mEnergy = mCharacter->GetSkeleton()->getMass() * c_vel;
 			}
 			mPrevVelocity = 0;
 		}
@@ -362,6 +361,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	Eigen::VectorXd p_diff_reward;
 	
 	p_diff_reward = p_diff;
+	if(isAdaptive)
+		p_diff_reward.segment<3>(3) *= 5;
 	Eigen::VectorXd v_diff, v_diff_reward;
 
 	if(useVelocity) {
@@ -494,7 +495,11 @@ UpdateAdaptiveReward()
 {
 
 	auto& skel = this->mCharacter->GetSkeleton();
-
+	// Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrameOnPhase, false);
+	// Eigen::VectorXd p_temp = p_v_target->GetPosition();
+	// Eigen::VectorXd v_temp = p_v_target->GetVelocity();
+	// delete p_v_target;
+	
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
@@ -513,7 +518,29 @@ UpdateAdaptiveReward()
 	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
-	double r_tot = 0.7 * accum_bvh + 0.2 * r_con + 0.1 * r_time;
+	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
+
+	// if(mCurrentFrameOnPhase >= 30 && mCurrentFrameOnPhase <= 45) {
+	// 	double r_max = 0;
+	// 	double p_max = 0;
+	// 	for(int i = 0; i <= 20; i++) {
+	// 		double p = mCurrentFrame - 2 + 0.2 * i;
+	// 		Motion* p_v_target = mReferenceManager->GetMotion(p, isAdaptive);
+	// 		Eigen::VectorXd p_temp = p_v_target->GetPosition();
+	// 		Eigen::VectorXd v_temp = p_v_target->GetVelocity();
+	// 		delete p_v_target;
+
+	// 		std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), p_temp,
+	// 									 skel->getVelocities(), v_temp, mRewardBodies, false);
+	// 		double accum = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
+	// 		if(accum > r_max) {
+	// 			p_max = p;
+	// 			r_max = accum;
+	// 		}
+	// 	}
+	// 	std::cout << mCurrentFrameOnPhase << " " << accum_bvh << ", " << p_max << " " << r_max << std::endl;
+	// }
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot) || dart::math::isNan(r_t)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);

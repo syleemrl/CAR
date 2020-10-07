@@ -138,11 +138,22 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 					trajectory.push_back(std::pair<Eigen::VectorXd,double>(pos[i], step[i]));
 				}
 				referenceManager->GetDisplacementWithBVH(trajectory, displacement);
+				if(mMemoryRef.size() == 0) {
+					for(int i = 0; i < trajectory.size(); i++) {
+						std::cout << trajectory[i].second << " "<< trajectory[i].first.segment<3>(3).transpose() << " "<< displacement[i].first.segment<3>(3).transpose() << std::endl;
+					}
+				}
+
 				s->ConvertMotionToSpline(displacement);
 
 				std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
 				std::vector<Eigen::VectorXd> new_pos;
 				referenceManager->AddDisplacementToBVH(new_displacement, new_pos);
+				if(mMemoryRef.size() == 0) {
+					for(int i = 0; i < new_displacement.size(); i++) {
+						std::cout << i  << " "<< new_pos[i].segment<3>(3).transpose() << " "<< new_displacement[i].segment<3>(3).transpose() << std::endl;
+					}
+				}
 
 				cps = s->GetControlPoints(0);
 				for(int i = 0; i < cps.size(); i++) {

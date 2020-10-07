@@ -52,6 +52,18 @@ SaveAdaptiveMotion(std::string postfix) {
 		ofs << t.transpose() << std::endl;
 	}
 	ofs.close();
+
+	path = mPath + std::string("time") + postfix;
+	std::cout << "save results to" << path << std::endl;
+	
+	ofs.open(path);
+	ofs << mPhaseLength << std::endl;
+
+	for(int i = 0; i < mPhaseLength; i++) {
+		ofs << i << " " << i << " " << mTimeStep_adaptive[i] << std::endl;
+	}
+	ofs.close();
+
 }
 void 
 ReferenceManager::
@@ -505,9 +517,9 @@ InitOptimization(int nslaves, std::string save_path) {
 //	mKnots.push_back(20);
 	mKnots.push_back(18);
 	mKnots.push_back(24);
-	mKnots.push_back(29);
-	mKnots.push_back(33);
-	mKnots.push_back(36);
+	// mKnots.push_back(29);
+	mKnots.push_back(34);
+	// mKnots.push_back(36);
 	mKnots.push_back(42);
 	mKnots.push_back(48);
 	mKnots.push_back(58);
@@ -524,7 +536,7 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	mTargetGoal.resize(5);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  0.5, 0.5, 0, 230, 0;
+	mTargetGoal <<  1, 1, 0, 240, 0;
 
 	mTargetUnit.resize(3);
 	mTargetUnit<< 0.05, 0.05, 0.1; //, 0.05;
@@ -680,7 +692,7 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
-
+	// std::cout << (rewards.first / mPhaseLength) << std::endl;
 	if(dart::math::isNan(rewards.first) || dart::math::isNan(rewards.second)) {
 		mLock_ET.lock();
 		nET +=1;
@@ -694,11 +706,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * (rewards.first / mPhaseLength);
 	mMeanTargetReward = 0.99 * mMeanTargetReward + 0.01 * rewards.second;
 	std::vector<int> flag;
-	if(mPrevRewardTarget == 0 && (rewards.first / mPhaseLength) < 0.9) {
+	if(mPrevRewardTarget == 0 && (rewards.first / mPhaseLength) < 0.83) {
 		return;
 	}
 
-	if((rewards.first / mPhaseLength)  < 0.88) {
+	if((rewards.first / mPhaseLength)  < 0.8) {
 		flag.push_back(0);
 	}
 	else {
@@ -1050,7 +1062,7 @@ UpdateExternalTarget() {
 	std::cout << "current mean tracking reward :" << mMeanTrackingReward  << ", survival ratio: " << survival_ratio << std::endl;
 	nT = 0;
 	nET = 0;
-	if(survival_ratio > 0.8 && mMeanTrackingReward > 0.8) {
+	if(survival_ratio > 0.8 && mMeanTrackingReward > 0.75) {
 		return true;
 	}
 	return false;
@@ -1059,9 +1071,9 @@ int
 ReferenceManager::
 NeedUpdateSigTarget() {
 	std::cout << "current mean target reward : " << mMeanTargetReward << std::endl;
-	if(mMeanTargetReward < 0.05 && mMeanTrackingReward > 0.8) {
+	if(mMeanTargetReward < 0.05 && mMeanTrackingReward > 0.75) {
 		return 1;
-	} else if (mMeanTargetReward > 0.8 && mMeanTrackingReward > 0.8) {
+	} else if (mMeanTargetReward > 0.8 && mMeanTrackingReward > 0.75) {
 		return -1;
 	}
 	return 0;
@@ -1069,7 +1081,7 @@ NeedUpdateSigTarget() {
 void 
 ReferenceManager::
 UpdateTargetReward(double old_sig, double new_sig) {
-	mPrevRewardTarget = exp(log(mPrevRewardTarget) / old_sig * new_sig);
+	mPrevRewardTarget = exp(log(mPrevRewardTarget) / pow(new_sig, 2) * pow(old_sig, 2));
 	std::cout << "updated mean elite target reward: " << mPrevRewardTarget << " new sig: " << new_sig << std::endl;
 
 }
