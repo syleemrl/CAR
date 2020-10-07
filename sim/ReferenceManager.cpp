@@ -756,7 +756,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	nc.clear();
 	nc.push_back(0);
-	MultilevelSpline* st = new MultilevelSpline(1, this->GetPhaseLength(), nc);
+	MultilevelSpline* st = new MultilevelSpline(1, this->GetPhaseLength());
 	st->SetKnots(0, mKnots_t);
 
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement_t;
@@ -934,7 +934,7 @@ Optimize() {
 
 	nc.clear();
 	nc.push_back(0);
-	MultilevelSpline* mean_spline_t = new MultilevelSpline(1, this->GetPhaseLength(), nc); 
+	MultilevelSpline* mean_spline_t = new MultilevelSpline(1, this->GetPhaseLength()); 
 	mean_spline_t->SetKnots(0, mKnots_t);
 
 	std::vector<Eigen::VectorXd> mean_cps;   

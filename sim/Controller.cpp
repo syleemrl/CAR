@@ -44,7 +44,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	kp.setZero();
 	kv.setZero();
 	this->mCharacter->SetPDParameters(kp,kv);
-	// this->SetSkeletonWeight(0.7);
 	mContacts.clear();
 	mContacts.push_back("RightToe");
 	mContacts.push_back("RightFoot");
@@ -142,8 +141,8 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 	double st = mActions[mInterestedDof];
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*5-2) - exp(-2)) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.9, 0.9);
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -343,6 +342,8 @@ ClearRecord()
 	mEnergy.setZero();
 	mVelocity = 0;
 	mPrevVelocity = 0;
+	data_spline.clear();
+
 }
 
 std::vector<double> 
