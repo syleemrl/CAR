@@ -159,6 +159,8 @@ LoadMotionFromBVH(std::string filename)
 	contact.push_back("RightFoot");
 	contact.push_back("LeftToe");
 	contact.push_back("LeftFoot");
+	contact.push_back("RightHand");
+	contact.push_back("LeftHand");
 
 	auto& skel = mCharacter->GetSkeleton();
 	int dof = skel->getPositions().rows();
@@ -511,32 +513,25 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	// mKnots.push_back(5);
-	mKnots.push_back(10);
-	// mKnots.push_back(15);
-//	mKnots.push_back(20);
-	mKnots.push_back(18);
-	mKnots.push_back(24);
-	// mKnots.push_back(29);
-	mKnots.push_back(34);
-	// mKnots.push_back(36);
-	mKnots.push_back(42);
-	mKnots.push_back(48);
-	mKnots.push_back(58);
-	mKnots.push_back(64);
+	mKnots.push_back(27);
+	mKnots.push_back(38);
+	mKnots.push_back(46);
+	mKnots.push_back(53);
+	mKnots.push_back(65);
+	mKnots.push_back(80);
 
-	for(int i = 0; i < mPhaseLength; i+= 2) {
+	for(int i = 0; i < mPhaseLength; i+= 4) {
 		mKnots_t.push_back(i);
 	}
 
 	// gravity, mass, linear momentum
-	mTargetBase.resize(5);
-	mTargetBase << 1, 1, 0, 230, 0; //, 1.5;
+	mTargetBase.resize(4);
+	mTargetBase << 1, 2.95, 1.22, -0.54; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
-	mTargetGoal.resize(5);
+	mTargetGoal.resize(4);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal <<  1, 1, 0, 240, 0;
+	mTargetGoal << 4, 2.95, 1.22, -0.54;
 
 	mTargetUnit.resize(3);
 	mTargetUnit<< 0.05, 0.05, 0.1; //, 0.05;
@@ -645,6 +640,8 @@ GetContactInfo(Eigen::VectorXd pos)
 	contact.push_back("RightToe");
 	contact.push_back("LeftFoot");
 	contact.push_back("LeftToe");
+	contact.push_back("RightHand");
+	contact.push_back("LeftHand");
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> result;
 	result.clear();
@@ -692,7 +689,6 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
-	// std::cout << (rewards.first / mPhaseLength) << std::endl;
 	if(dart::math::isNan(rewards.first) || dart::math::isNan(rewards.second)) {
 		mLock_ET.lock();
 		nET +=1;
@@ -706,11 +702,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * (rewards.first / mPhaseLength);
 	mMeanTargetReward = 0.99 * mMeanTargetReward + 0.01 * rewards.second;
 	std::vector<int> flag;
-	if(mPrevRewardTarget == 0 && (rewards.first / mPhaseLength) < 0.83) {
+
+	if(mPrevRewardTarget == 0 && (rewards.first / mPhaseLength) < 0.86) {
 		return;
 	}
 
-	if((rewards.first / mPhaseLength)  < 0.8) {
+	if((rewards.first / mPhaseLength)  < 0.84) {
 		flag.push_back(0);
 	}
 	else {

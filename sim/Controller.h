@@ -195,13 +195,13 @@ protected:
 	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
 	std::vector<Eigen::VectorXd> mHindsightTarget;
 	Eigen::Vector3d mTargetDiff;
-	Eigen::Vector3d mEnergy;
-	Eigen::Vector3d mGravity;
 	double mWeight;
-	double mPrevVelocity;
-	double mVelocity;
 	int mCountTarget;
 	double mSigTarget;
+
+	Eigen::Vector3d mGravity;
+	Eigen::Vector3d mMomentum;
+	Eigen::Vector3d mVelocity;
 };
 }
 #endif
