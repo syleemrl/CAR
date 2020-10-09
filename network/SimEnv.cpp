@@ -308,47 +308,22 @@ Optimize()
 {
 	bool t = mReferenceManager->Optimize();
 	
-	bool flag_et = mReferenceManager->UpdateExternalTarget();
-	if(flag_et) {
-		Eigen::VectorXd targetGoal = mReferenceManager->GetTargetGoal();
-		double w = mSlaves[0]->GetSkeletonWeight();
-		if(targetGoal(0) < 1 && w > targetGoal(0)) {
-			w -= 0.05;
-			if(w < targetGoal(0))
-				w = targetGoal(0);
-			for(int id = 0; id < mNumSlaves; ++id) {
-				mSlaves[id]->SetSkeletonWeight(w);
-			}
-			mReferenceManager->ClearTargetReward();
+	// int flag_sig = mReferenceManager->NeedUpdateSigTarget();
+	// if(flag_sig) {
+	// 	double sig = mSlaves[0]->GetSigTarget();
+	// 	double new_sig = sig;
+	// 	if(flag_sig > 0)
+	// 		new_sig *= 2;
+	// 	else if(flag_sig < 0 && sig > 0.3)
+	// 		new_sig /= 2;
+	// 	if(sig != new_sig) {
+	// 		mReferenceManager->UpdateTargetReward(sig, new_sig);
+	// 		for(int id = 0; id < mNumSlaves; ++id) {
+	// 			mSlaves[id]->SetSigTarget(new_sig);
+	// 		}		
+	// 	}
 
-		} else if(targetGoal(0) > 1 && w < targetGoal(0)) {
-			w += 0.05;
-			if(w > targetGoal(0))
-				w = targetGoal(0);
-			for(int id = 0; id < mNumSlaves; ++id) {
-				mSlaves[id]->SetSkeletonWeight(w);
-			}
-			mReferenceManager->ClearTargetReward();
-
-		}
-	}
-	
-	int flag_sig = mReferenceManager->NeedUpdateSigTarget();
-	if(flag_sig) {
-		double sig = mSlaves[0]->GetSigTarget();
-		double new_sig = sig;
-		if(flag_sig > 0)
-			new_sig *= 2;
-		else if(flag_sig < 0 && sig > 0.3)
-			new_sig /= 2;
-		if(sig != new_sig) {
-			mReferenceManager->UpdateTargetReward(sig, new_sig);
-			for(int id = 0; id < mNumSlaves; ++id) {
-				mSlaves[id]->SetSigTarget(new_sig);
-			}		
-		}
-
-	}
+	// }
 
 	if(t) {
 		// bool b = mReferenceManager->UpgradeTargetGoal();

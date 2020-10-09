@@ -513,31 +513,27 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	mKnots.push_back(5);
-	mKnots.push_back(26);
-	mKnots.push_back(35);
-	mKnots.push_back(42);
-	mKnots.push_back(50);
-	mKnots.push_back(59);
-	mKnots.push_back(69);
-	mKnots.push_back(77);
-	mKnots.push_back(87);
+	mKnots.push_back(8);
+	mKnots.push_back(20);
+	mKnots.push_back(31);
+	mKnots.push_back(40);
+	mKnots.push_back(45);
+	mKnots.push_back(55);
 
 	for(int i = 0; i < mPhaseLength; i+= 4) {
 		mKnots_t.push_back(i);
 	}
 
-	// gravity, mass, linear momentum
-	mTargetBase.resize(4);
-	mTargetBase << 1, 3.3, 1.4, -0.77; //, 1.5;
+	// angular velocity, linear momentum
+	mTargetBase.resize(6);
+	mTargetBase << -7.2, 1.0, -2.2, -48, 9, -10;
 	mTargetCurMean = mTargetBase;
 
-	mTargetGoal.resize(4);
-	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal << 4, 3.3, 1.4, -0.77;
+	mTargetGoal.resize(6);
+	mTargetGoal << -10, 1.0, -2.2, -48, 9, -10;
 
 	mTargetUnit.resize(3);
-	mTargetUnit<< 0.05, 0.05, 0.1; //, 0.05;
+	mTargetUnit<< 0.05, 0.05, 0.1;
 
 	mRefUpdateMode = true;
 
@@ -705,11 +701,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * rewards.first;
 	mMeanTargetReward = 0.99 * mMeanTargetReward + 0.01 * rewards.second;
 	std::vector<int> flag;
-	if(mPrevRewardTarget == 0 && rewards.first < 0.85) {
-		return;
-	}
-
-	if(rewards.first  < 0.83) {
+	// if(mPrevRewardTarget == 0 && rewards.first < 0.82) {
+	// 	return;
+	// }
+	if(rewards.first  < 0.8) {
 		flag.push_back(0);
 	}
 	else {

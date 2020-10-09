@@ -11,7 +11,7 @@ namespace DPhy
 
 Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id)
 	:mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
-	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25), w_srl(0.0),
+	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
@@ -39,7 +39,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
-	// SetSkeletonWeight(3.5);
+
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
 
 	kp.setZero();
@@ -114,7 +114,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	}
 
 	this->mIsHindsight = false;
-	mSigTarget = 1;
+	mSigTarget = 2;
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -142,7 +142,7 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 	double st = mActions[mInterestedDof];
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -219,7 +219,7 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
-	 if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 64) {
+	 if(mCurrentFrameOnPhase >= 19 && mCurrentFrameOnPhase <= 40) {
 		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
 		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 
@@ -240,7 +240,6 @@ Step()
 		mVelocity += V.segment<3>(0);
 		mMomentum += momentum;
 		mCountTarget += 1;
-		std::cout << this->mCurrentFrameOnPhase << " : " << V.segment<3>(0).transpose() << std::endl;
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -439,12 +438,19 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 64 && mControlFlag[0] == 0) {
+	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
 		mVelocity /= mCountTarget;
-		Eigen::Vector3d v_diff = (mVelocity - mInputTargetParameters.segment<3>(1)) * 5;
-		r_target = exp_of_squared(v_diff, mSigTarget);
+		mMomentum /= mCountTarget;
+
+		Eigen::Vector3d v_diff = (mVelocity - mInputTargetParameters.segment<3>(0));
+		Eigen::Vector3d m_diff = (mMomentum - mInputTargetParameters.segment<3>(3));
+
+		r_target = exp_of_squared(v_diff, 1);
+		r_target *= exp_of_squared(m_diff, 3);
+
 		if(mRecord) {
-		 	std::cout << mVelocity.transpose() << " " << v_diff.transpose() << " "<<  r_target << std::endl;
+			std::cout << mVelocity.transpose() << " " << mMomentum.transpose() << std::endl;
+		 	std::cout << v_diff.transpose() << " " << m_diff.transpose() << " " <<  exp_of_squared(v_diff, 1) << " "<< exp_of_squared(m_diff, 3)  << std::endl;
 		}
 		mControlFlag[0] = 1;		
 
@@ -523,26 +529,7 @@ UpdateAdaptiveReward()
 	double r_time = exp(-pow(time_diff, 2)*75);
 
 	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
-	// if(mCurrentFrameOnPhase >= 30 && mCurrentFrameOnPhase <= 45) {
-	// 	double r_max = 0;
-	// 	double p_max = 0;
-	// 	for(int i = 0; i <= 20; i++) {
-	// 		double p = mCurrentFrame - 2 + 0.2 * i;
-	// 		Motion* p_v_target = mReferenceManager->GetMotion(p, isAdaptive);
-	// 		Eigen::VectorXd p_temp = p_v_target->GetPosition();
-	// 		Eigen::VectorXd v_temp = p_v_target->GetVelocity();
-	// 		delete p_v_target;
 
-	// 		std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), p_temp,
-	// 									 skel->getVelocities(), v_temp, mRewardBodies, false);
-	// 		double accum = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
-	// 		if(accum > r_max) {
-	// 			p_max = p;
-	// 			r_max = accum;
-	// 		}
-	// 	}
-	// 	std::cout << mCurrentFrameOnPhase << " " << accum_bvh << ", " << p_max << " " << r_max << std::endl;
-	// }
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -550,15 +537,15 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_t);
+		mRewardParts.push_back(10 * r_con * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
 	if(r_t != 0) {
-		mTargetRewardTrajectory += r_t;
+		mTargetRewardTrajectory += r_con * r_t;
 	}
-	mTrackingRewardTrajectory += r_tot; //(0.4 * tracking_rewards_bvh[0] + 0.4 * tracking_rewards_bvh[1] + 0.2 * r_con);
+	mTrackingRewardTrajectory += r_tot;
 	mCountTracking += 1;
 }
 void

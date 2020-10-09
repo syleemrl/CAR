@@ -102,7 +102,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 protected:
 	dart::simulation::WorldPtr mWorld;
-	double w_p,w_v,w_com,w_ee,w_srl;
+	double w_p,w_v,w_com,w_ee;
 	double mStartFrame;
 	double mCurrentFrame; // for discrete ref motion
 	double mTimeElapsed;
