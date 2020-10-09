@@ -39,7 +39,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
-
+	// SetSkeletonWeight(3.5);
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
 
 	kp.setZero();
@@ -151,8 +151,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	if(mRecord)
-		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	// if(mRecord)
+	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -219,7 +219,7 @@ Step()
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
-	 if(mCurrentFrameOnPhase >= 14 && mCurrentFrameOnPhase <= 64) {
+	 if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 64) {
 		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
 		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 
@@ -240,6 +240,7 @@ Step()
 		mVelocity += V.segment<3>(0);
 		mMomentum += momentum;
 		mCountTarget += 1;
+		std::cout << this->mCurrentFrameOnPhase << " : " << V.segment<3>(0).transpose() << std::endl;
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -250,6 +251,7 @@ Step()
 		mHeadRoot = mReferenceManager->GetPosition(f, true).segment<6>(0);
 
 		if(isAdaptive) {
+			mTrackingRewardTrajectory /= mCountTracking;
 			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory), targetParameters);
 			data_spline.clear();
 			mTrackingRewardTrajectory = 0;
@@ -259,7 +261,8 @@ Step()
 			mVelocity.setZero();
 			mMomentum.setZero();
 			mCountTarget = 0;
-
+			mCountTracking = 0;
+			
 			if(mIsHindsight) {
 				// to get V(t+1)
 				mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
@@ -343,6 +346,7 @@ ClearRecord()
 	this->mControlFlag.setZero();
 
 	mCountTarget = 0;
+	mCountTracking = 0;
 	mVelocity.setZero();
 	mMomentum.setZero();
 	data_spline.clear();
@@ -552,9 +556,10 @@ UpdateAdaptiveReward()
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
 	if(r_t != 0) {
-		mTargetRewardTrajectory += r_con * r_t;
+		mTargetRewardTrajectory += r_t;
 	}
 	mTrackingRewardTrajectory += r_tot; //(0.4 * tracking_rewards_bvh[0] + 0.4 * tracking_rewards_bvh[1] + 0.2 * r_con);
+	mCountTracking += 1;
 }
 void
 Controller::

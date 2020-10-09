@@ -513,12 +513,15 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	mKnots.push_back(27);
-	mKnots.push_back(38);
-	mKnots.push_back(46);
-	mKnots.push_back(53);
-	mKnots.push_back(65);
-	mKnots.push_back(80);
+	mKnots.push_back(5);
+	mKnots.push_back(26);
+	mKnots.push_back(35);
+	mKnots.push_back(42);
+	mKnots.push_back(50);
+	mKnots.push_back(59);
+	mKnots.push_back(69);
+	mKnots.push_back(77);
+	mKnots.push_back(87);
 
 	for(int i = 0; i < mPhaseLength; i+= 4) {
 		mKnots_t.push_back(i);
@@ -526,12 +529,12 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	// gravity, mass, linear momentum
 	mTargetBase.resize(4);
-	mTargetBase << 1, 2.95, 1.22, -0.54; //, 1.5;
+	mTargetBase << 1, 3.3, 1.4, -0.77; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
 	mTargetGoal.resize(4);
 	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
-	mTargetGoal << 4, 2.95, 1.22, -0.54;
+	mTargetGoal << 4, 3.3, 1.4, -0.77;
 
 	mTargetUnit.resize(3);
 	mTargetUnit<< 0.05, 0.05, 0.1; //, 0.05;
@@ -699,22 +702,20 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mLock_ET.lock();
 	nT += 1;
 	mLock_ET.unlock();
-	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * (rewards.first / mPhaseLength);
+	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * rewards.first;
 	mMeanTargetReward = 0.99 * mMeanTargetReward + 0.01 * rewards.second;
 	std::vector<int> flag;
-
-	if(mPrevRewardTarget == 0 && (rewards.first / mPhaseLength) < 0.86) {
+	if(mPrevRewardTarget == 0 && rewards.first < 0.85) {
 		return;
 	}
 
-	if((rewards.first / mPhaseLength)  < 0.84) {
+	if(rewards.first  < 0.83) {
 		flag.push_back(0);
 	}
 	else {
 		flag.push_back(1);
 	}
-	
-	if((rewards.first / mPhaseLength)  < 0.6 || rewards.second < mPrevRewardTarget)
+	if(rewards.first  < 0.6 || rewards.second < mPrevRewardTarget)
 		return;
 
 	if(rewards.second < mPrevRewardTarget)
@@ -777,22 +778,29 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	}
 	for(int i = 1; i < newpos.size(); i++) {
 		if(i < newpos.size() - 1) {
-			for(int j = 0; j < 4; j++) {
+			for(int j = 0; j < c[i].size(); j++) {
 				if((c[i-1][j].first) && (c[i+1][j].first) && !(c[i][j].first)) 
 					(c[i][j].first) = true;
 			}
 		}
-		for(int j = 0; j < 2; j++) {
-			bool c_prev_j = (c[i-1][2*j].first) && (c[i-1][2*j + 1].first);
-			bool c_cur_j = (c[i][2*j].first) && (c[i][2*j + 1].first);
+		std::vector<bool> flag_slide;
+		double r_slide_frame = 0;
+		for(int j = 0; j < c[i].size(); j++) {
+			bool c_prev_j = c[i-1][j].first;
+			bool c_cur_j = c[i][j].first;
 			if(c_prev_j && c_cur_j) {
-				double d = ((c[i-1][2*j].second + c[i-1][2*j+1].second) - (c[i][2*j].second + c[i][2*j+1].second)).norm()*0.5; 
-				r_slide += pow(d*4, 2);
+				double d = (c[i-1][j].second - c[i][j].second).norm(); 
+				r_slide_frame += pow(d, 2);
+				flag_slide.push_back(true);
 			} 
+			else
+				flag_slide.push_back(false);
 		}
+		if((flag_slide[0] || flag_slide[1]) && ( flag_slide[2]|| flag_slide[3]))
+			r_slide += 10 * r_slide_frame;
+		else r_slide += r_slide_frame;
 	}
 	r_slide = exp(-r_slide);
-
 	auto cps = s->GetControlPoints(0);
 	double r_regul = 0;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
@@ -811,7 +819,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide) * (rewards.first / mPhaseLength); // r_regul * r_slide;
+	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide) * rewards.first; // r_regul * r_slide;
 	mLock.lock();
 	// if(reward_trajectory > 0.4) {
 	// 	mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
@@ -913,7 +921,7 @@ Optimize() {
 	double rewardTrajectory = 0;
     int mu = 60;
     std::cout << "num sample: " << mSamples.size() << std::endl;
-    if(mSamples.size() < 300) {
+    if(mSamples.size() < 500) {
   //   	for(int i = 0; i < nRejectedSamples.size(); i++) {
 		// 	std::cout << i << " " << nRejectedSamples[i] << std::endl;
 		// }

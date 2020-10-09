@@ -197,6 +197,8 @@ protected:
 	Eigen::Vector3d mTargetDiff;
 	double mWeight;
 	int mCountTarget;
+	int mCountTracking;
+
 	double mSigTarget;
 
 	Eigen::Vector3d mGravity;

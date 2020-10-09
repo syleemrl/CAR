@@ -39,7 +39,11 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 
 	std::vector<double> knots = referenceManager->GetKnots();
 
-	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength());
+	std::vector<int> nc;
+	nc.push_back(3);
+	nc.push_back(5);
+
+	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength(), nc);
 	s->SetKnots(0, knots);
 	
 	std::ifstream is(record);
@@ -129,6 +133,7 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 
 			// next phase
 			if(cur_reward != reward) {
+				std::cout << cur_reward << " " << cur_reward2 << std::endl;
 				reward = cur_reward;
 			
 				std::vector<std::pair<Eigen::VectorXd,double>> displacement;
