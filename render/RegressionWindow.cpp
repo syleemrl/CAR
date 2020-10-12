@@ -22,11 +22,10 @@ RegressionWindow(std::string motion, std::string network)
 		std::vector<Eigen::VectorXd> memory;
 		this->mMemoryRef.push_back(memory);
 		DPhy::SetSkeletonColor(this->mRef[i]->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
-
 	}
 	this->mRef_BVH = new DPhy::Character(skel_path);
 
-	int dof = this->mRef[0]->GetSkeleton()->getPositions().rows();
+	int dof = this->mRef[0]->GetSkeleton()->getPositions().rows() + 1;
 
 	DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(this->mRef_BVH);
 	referenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
@@ -51,9 +50,11 @@ RegressionWindow(std::string motion, std::string network)
 	} catch (const p::error_already_set&) {
 		PyErr_Print();
 	}
-	for(int i = 0; i <= 10; i++) {
+	// for(int i = 0; i <= 10; i++) {
 		Eigen::VectorXd tp(referenceManager->GetTargetBase().rows());
-		tp = (1 - i * 0.1 ) * referenceManager->GetTargetBase() +  i * 0.1 * referenceManager->GetTargetGoal();
+		//tp = (1 - i * 0.1 ) * referenceManager->GetTargetBase() +  i * 0.1 * referenceManager->GetTargetFeature();
+		tp(0) = -7.6;
+		tp(1) = -52;
 		for(int j = 0; j < referenceManager->GetNumCPS(); j++) {
 			Eigen::VectorXd input(referenceManager->GetTargetBase().rows() + 1);
 			input << j, tp;
@@ -62,22 +63,17 @@ RegressionWindow(std::string motion, std::string network)
 			np::ndarray na = np::from_object(a);
 			cps[j] = DPhy::toEigenVector(na, dof);
 		}
-		s->SetControlPoints(0, cps);
-		std::vector<Eigen::VectorXd> newpos;
-		std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
-
-		referenceManager->AddDisplacementToBVH(new_displacement, newpos);
-		for(int j = 0; j < newpos.size(); j++) {
-			mMemoryRef[0].push_back(newpos[j]);
+		referenceManager->LoadAdaptiveMotion(cps);
+		for(int j = 0; j < referenceManager->GetPhaseLength(); j++) {
+			mMemoryRef[0].push_back(referenceManager->GetPosition(j, true));
 		}
-
-	}
+	// }
 	mTotalFrame = mMemoryRef[0].size();
-	for(int l = 0; l <= 10; l++) {
+	// for(int l = 0; l <= 10; l++) {
 		for(int j = 0; j < referenceManager->GetPhaseLength(); j++) {
 			mMemoryRefBVH.push_back(referenceManager->GetPosition(j));
 		}
-	}
+	// }
 
 	DPhy::SetSkeletonColor(this->mRef_BVH->GetSkeleton(), Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
 

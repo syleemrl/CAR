@@ -19,6 +19,8 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 
 	if(adaptive) {
 		mReferenceManager->InitOptimization(num_slaves, training_path);
+	} else {
+		mReferenceManager->InitOptimization(num_slaves, "");
 	}
 	
 	for(int i =0;i<num_slaves;i++)
@@ -39,7 +41,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		nCapacity = 30;
 
 		mParamGoalIdx.resize(nDim);
-		Eigen::VectorXd p = mReferenceManager->GetTargetGoal();
+		Eigen::VectorXd p = mReferenceManager->GetTargetFeature();
 		for(int j = 0; j < nDim; j++) {
 			mParamGoalIdx(j) = std::floor((p(j) - mParamBase(j)) / mParamUnit(j));
 		}	
@@ -49,7 +51,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		try{
 			p::object regression = p::import("regression");
 			this->mRegression = regression.attr("Regression")();
-			this->mRegression.attr("initTrain")(training_path, nDim + 1, mReferenceManager->GetDOF());
+			this->mRegression.attr("initTrain")(training_path, nDim + 1, mReferenceManager->GetDOF() + 1);
 			this->LoadParamBins();
 		}
 		catch (const p::error_already_set&)
@@ -65,44 +67,17 @@ void
 SimEnv::
 LoadParamBins()
 {
-	std::string path = mPath + std::string("boundary");
+	
+	std::string path = mPath + std::string("regression_data");
 	char buffer[256];
 
 	std::ifstream is;
-	is.open(path);
-	if(is.fail())
-		return;
-	while(!is.eof()) {
-		Eigen::VectorXd tp(mParamBase.rows());
-		Eigen::VectorXd idx(mParamBase.rows());
-		for(int j = 0; j < mParamBase.rows(); j++) {
-			is >> buffer;
-			tp[j] = atof(buffer);
-			idx[j] = std::floor((tp[j] - mParamBase[j]) / mParamUnit[j]);
-		}
-		//comma
-		is >> buffer;
-
-		Eigen::VectorXd tp2(mParamBase.rows());
-		for(int j = 0; j < mParamBase.rows(); j++) {
-			is >> buffer;
-			tp2[j] = atof(buffer);
-		}
-
-		if((tp - tp2).norm() < mParamUnit.norm() * 0.5) {
-			break;
-		}
-		mParamBins.push_back(ParamBin(idx));
-	}
-	is.close();
-	
-	path = mPath + std::string("regression_data");
 	is.open(path);
 
 	if(is.fail())
 		return;
 	std::vector<Eigen::VectorXd> cps;
-	int dof = mReferenceManager->GetDOF();
+	int dof = mReferenceManager->GetDOF() + 1;
 	while(!is.eof()) {
 			// cps number
 		is >> buffer;
@@ -335,7 +310,7 @@ Optimize()
 		// 	}
 		// }
 
-		Eigen::VectorXd g = mReferenceManager->GetTargetGoal();
+		Eigen::VectorXd g = mReferenceManager->GetTargetFeature();
 		Eigen::VectorXd c = mReferenceManager->GetTargetCurMean();
 
 		if((g-c).norm() < 1e-2) {
@@ -353,7 +328,6 @@ AssignParamsToBins(bool limit)
 
 	Eigen::VectorXd p_cur = mReferenceManager->GetTargetCurMean();
 	Eigen::VectorXd idx_cur(nDim);
-
 	bool mFlag_new = false;
 	for(int j = 0; j < nDim; j++) {
 		idx_cur(j) = std::floor((p_cur(j) - mParamBase(j)) / mParamUnit(j));
@@ -379,7 +353,7 @@ AssignParamsToBins(bool limit)
 			if(!assigned[i]) {
 				double dist_cur = (idx_cur - idx).norm();
 
-				if(limit && dist_cur > 5)
+				if(limit && dist_cur > 1.5)
 					continue;
 				std::vector<int> p_temp;
 				p_temp.push_back(i);
@@ -418,8 +392,9 @@ AssignParamsToBins(bool limit)
 
 		for(auto p: mParamBins) {	
 			Eigen::VectorXd idx = p.GetIdx();
-			Eigen::VectorXd p0 = mParamBase + mParamUnit * idx;
-			Eigen::VectorXd p1 = mParamBase + mParamUnit * (idx + Eigen::VectorXd::Ones(nDim));
+
+			Eigen::VectorXd p0 = mParamBase + mParamUnit.cwiseProduct(idx);
+			Eigen::VectorXd p1 = mParamBase + mParamUnit.cwiseProduct(idx + Eigen::VectorXd::Ones(nDim));
 			ofs << p0.transpose() << " , " <<  p1.transpose() << std::endl;
 		}
 		ofs.close();
@@ -584,7 +559,7 @@ np::ndarray
 SimEnv::
 GetTargetGoal()
 {
-	return DPhy::toNumPyArray(mReferenceManager->GetTargetGoal());
+	return DPhy::toNumPyArray(mReferenceManager->GetTargetFull());
 }
 p::list
 SimEnv::
@@ -592,7 +567,7 @@ GetHindsightTuples()
 {
 
 	int nCps = mReferenceManager->GetNumCPS();
-	int dof = mReferenceManager->GetDOF();
+	int dof = mReferenceManager->GetDOF() + 1;
 	p::list input_li;
 	p::list result_li;
 	std::vector<std::vector<Eigen::VectorXd>> targetParameters;
@@ -676,9 +651,11 @@ SetRefUpdateMode(bool t) {
 	if(t) {
 		// load cps
 		mReferenceManager->LoadAdaptiveMotion("updated");
-		Eigen::VectorXd tp = mReferenceManager->GetTargetGoal();		
+		Eigen::VectorXd tp_feature = mReferenceManager->GetTargetFeature();		
+		Eigen::VectorXd tp = mReferenceManager->GetTargetFull();		
+		std::cout << tp_feature.transpose() << " "<< tp.transpose() << std::endl;
 		for(int id = 0; id < mNumSlaves; ++id) {
-			mSlaves[id]->SetTargetParameters(tp);
+			mSlaves[id]->SetTargetParameters(tp, tp_feature);
 		}
 	} else {
 		mReferenceManager->SaveAdaptiveMotion("updated");
@@ -696,7 +673,7 @@ SimEnv::
 SetTargetParameters(np::ndarray np_array) {
 
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, nDim);
-	int dof = mReferenceManager->GetDOF();
+	int dof = mReferenceManager->GetDOF() + 1;
 
 	std::vector<Eigen::VectorXd> cps;
 	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
@@ -706,10 +683,18 @@ SetTargetParameters(np::ndarray np_array) {
 		np::ndarray na = np::from_object(a);
 		cps.push_back(DPhy::toEigenVector(na, dof));
 	}
+	
+	Eigen::VectorXd tp_full = mReferenceManager->GetTargetFull();		
+	Eigen::VectorXd tp_idx = mReferenceManager->GetTargetFeatureIdx();		
 
+	for(int i = 0; i < tp_idx.size(); i++) {
+		tp_full(tp_idx(i)) = tp(i);
+	}
 	mReferenceManager->LoadAdaptiveMotion(cps);
+	std::cout << tp.transpose() << " "<< tp_full.transpose() << std::endl;
+
 	for(int id = 0; id < mNumSlaves; ++id) {
-		mSlaves[id]->SetTargetParameters(tp);
+		mSlaves[id]->SetTargetParameters(tp_full, tp);
 	}
 }
 p::list  

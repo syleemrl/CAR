@@ -312,7 +312,6 @@ class PPO(object):
 				if len(self.target_x_batch) > 2500:
 					self.target_x_batch = self.target_x_batch[1000:]
 					self.target_y_batch = self.target_y_batch[1000:]
-
 			for _ in range(50):
 				ind = np.arange(len(self.target_x_batch))
 				np.random.shuffle(ind)
@@ -394,8 +393,6 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + pow(self.gamma_sparse, timestep) * TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					if self.env.mode:
-						embed()
 					state_target_batch.append(param[i])
 					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
 
@@ -610,9 +607,9 @@ class PPO(object):
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
 					self.env.sim_env.Optimize()
-			#		self.env.sim_env.TrainRegressionNetwork()
+					self.env.sim_env.TrainRegressionNetwork()
 
-#					self.env.updateMode(self.critic_target, self.v_target)
+			#		self.env.updateMode(self.critic_target, self.v_target)
 					if self.env.mode == 0:
 						self.target_x_batch = []
 						self.target_y_batch = [] 

@@ -19,7 +19,8 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 	this->mRecord = record;
 	this->mReferenceManager = ref;
 	this->id = id;
-	this->mInputTargetParameters = mReferenceManager->GetTargetGoal();
+	this->mTargetFullParams = mReferenceManager->GetTargetFull();
+	this->mTargetFeatureParams = mReferenceManager->GetTargetFeature();
 
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
@@ -87,7 +88,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id
 
 	//temp
 	this->mRewardParts.resize(7, 0.0);
-	targetParameters.resize(mReferenceManager->GetTargetBase().rows());
+	mCurFeatureParams.resize(mReferenceManager->GetTargetFeature().rows());
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
 
@@ -145,14 +146,15 @@ Step()
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
+
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	// if(mRecord)
-	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	if(mRecord)
+		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -251,7 +253,7 @@ Step()
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
-			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory), targetParameters);
+			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory), mCurFeatureParams, mCurParamReward);
 			data_spline.clear();
 			mTrackingRewardTrajectory = 0;
 			mTargetRewardTrajectory = 0;
@@ -259,8 +261,10 @@ Step()
 			mControlFlag.setZero();
 			mVelocity.setZero();
 			mMomentum.setZero();
+
 			mCountTarget = 0;
 			mCountTracking = 0;
+			mCurParamReward = 0;
 			
 			if(mIsHindsight) {
 				// to get V(t+1)
@@ -270,7 +274,7 @@ Step()
 
 				mHindsightCharacter.push_back(mHindsightPhase);
 				mHindsightSA.push_back(mHindsightSAPhase);
-				mHindsightTarget.push_back(targetParameters);
+				mHindsightTarget.push_back(mCurFeatureParams);
 				
 				mHindsightPhase.clear();
 				mHindsightSAPhase.clear();
@@ -349,6 +353,8 @@ ClearRecord()
 	mVelocity.setZero();
 	mMomentum.setZero();
 	data_spline.clear();
+
+	mCurParamReward = 0;
 
 }
 
@@ -442,16 +448,27 @@ GetTargetReward()
 		mVelocity /= mCountTarget;
 		mMomentum /= mCountTarget;
 
-		Eigen::Vector3d v_diff = (mVelocity - mInputTargetParameters.segment<3>(0));
-		Eigen::Vector3d m_diff = (mMomentum - mInputTargetParameters.segment<3>(3));
+		Eigen::Vector3d v_diff = (mVelocity - mTargetFullParams.segment<3>(0));
+		Eigen::Vector3d m_diff = (mMomentum - mTargetFullParams.segment<3>(3));
 
-		r_target = exp_of_squared(v_diff, 1);
-		r_target *= exp_of_squared(m_diff, 3);
+		v_diff.segment<2>(1) *= 0.05;
+		m_diff.segment<2>(1) *= 0.05;
+
+		r_target = 0.5 * exp_of_squared(v_diff, 1) + 0.5 * exp_of_squared(v_diff, 0.3);
+		r_target +=  0.5 * exp_of_squared(m_diff, 3) + 0.5 * exp_of_squared(m_diff, 1);
 
 		if(mRecord) {
 			std::cout << mVelocity.transpose() << " " << mMomentum.transpose() << std::endl;
-		 	std::cout << v_diff.transpose() << " " << m_diff.transpose() << " " <<  exp_of_squared(v_diff, 1) << " "<< exp_of_squared(m_diff, 3)  << std::endl;
+		 	std::cout << exp_of_squared(v_diff, 1) << " " << exp_of_squared(v_diff, 0.3) << " " << exp_of_squared(m_diff, 3) << " "<<exp_of_squared(m_diff, 1)<< std::endl;
 		}
+
+		mCurFeatureParams(0) = mVelocity(0);
+		mCurFeatureParams(1) = mMomentum(0);
+
+		v_diff(0) = 0;
+		m_diff(0) = 0;
+		mCurParamReward = exp_of_squared(v_diff, 1) * exp_of_squared(m_diff, 3);
+
 		mControlFlag[0] = 1;		
 
 	} 
@@ -526,7 +543,7 @@ UpdateAdaptiveReward()
 	}
 	double r_con = exp(-con_diff);
 	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
-	double r_time = exp(-pow(time_diff, 2)*75);
+	double r_time = exp(-pow(time_diff, 2)*50);
 
 	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
 
@@ -537,7 +554,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_con * r_t);
+		mRewardParts.push_back(6 * r_con * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
@@ -559,7 +576,7 @@ UpdateReward()
 
 	double r_time = exp(-pow(mActions[mInterestedDof],2)*50);
 	mRewardParts.clear();
-	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ); // + 0.1 * r_time;
+	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -624,7 +641,7 @@ GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 		mReferenceManager->GenerateMotionsFromSinglePhase(len, false, motions_phase_cps, motions_cps);
 
 		std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>> sar_epi;
-		mInputTargetParameters = mHindsightTarget[i];
+		mTargetFeatureParams = mHindsightTarget[i];
 		
 		mControlFlag[0] = 0;
 
@@ -648,7 +665,7 @@ GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
 			Eigen::VectorXd rewards(2);
 			rewards << mRewardParts[0], mRewardParts[1];
 
-			(mHindsightSA[i][j].first).tail(mInputTargetParameters.rows()) = mInputTargetParameters;
+			(mHindsightSA[i][j].first).tail(mTargetFeatureParams.rows()) = mTargetFeatureParams;
 			sar_epi.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>
 				(mHindsightSA[i][j].first, mHindsightSA[i][j].second, rewards, mCurrentFrameOnPhase));
 		}
@@ -812,14 +829,14 @@ Reset(bool RSI)
 	skel->clearInternalForces();
 	skel->clearExternalForces();
 	//RSI
-	if(RSI && !isAdaptive) {
-		this->mCurrentFrame = (int) dart::math::Random::uniform(0.0, mReferenceManager->GetPhaseLength()-5.0);
-	}
-	else {
+	// if(RSI && !isAdaptive) {
+	// 	this->mCurrentFrame = (int) dart::math::Random::uniform(0.0, mReferenceManager->GetPhaseLength()-5.0);
+	// }
+//	else {
 		this->mCurrentFrame = 0; // 0;
 		this->mTargetRewardTrajectory = 0;
 		this->mTrackingRewardTrajectory = 0;
-	}
+//	}
 
 	this->mCurrentFrameOnPhase = this->mCurrentFrame;
 	this->mStartFrame = this->mCurrentFrame;
@@ -1002,8 +1019,8 @@ GetState()
 	double com_diff = 0;
 
 	if(isAdaptive) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1); //+mInputTargetParameters.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase; //, mInputTargetParameters;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mTargetFeatureParams.rows());
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mTargetFeatureParams;
 	}
 	else {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);

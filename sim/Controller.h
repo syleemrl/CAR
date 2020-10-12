@@ -91,7 +91,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 	std::vector<Eigen::VectorXd> GetHindsightTarget() {return mHindsightTarget; }
 	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
 
-	void SetTargetParameters(Eigen::VectorXd tp) {mInputTargetParameters = tp; }
+	void SetTargetParameters(Eigen::VectorXd tp, Eigen::VectorXd tp_feature) {mTargetFullParams = tp; mTargetFeatureParams = tp_feature;}
 	void SetSigTarget(double s) { mSigTarget = s;}
 	double GetSigTarget() {return mSigTarget; }
 
@@ -179,8 +179,10 @@ protected:
 	//target
 	Eigen::Vector6d mHeadRoot;
 
-	Eigen::VectorXd mInputTargetParameters;
-	Eigen::VectorXd targetParameters;
+	Eigen::VectorXd mTargetFullParams;
+	Eigen::VectorXd mTargetFeatureParams;
+	Eigen::VectorXd mCurFeatureParams;
+	double mCurParamReward;
 
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 

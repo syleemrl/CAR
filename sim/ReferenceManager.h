@@ -63,7 +63,7 @@ public:
 	Eigen::VectorXd GetAxisDev(double t);
 	double GetTimeStep(double t, bool adaptive);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters);
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters, double paramReward);
 	void InitOptimization(int nslaves, std::string save_path);
 	bool Optimize();
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
@@ -76,9 +76,12 @@ public:
 	std::vector<double> GetKnots() {return mKnots;}
 	void SetRefUpdateMode(bool on) { mRefUpdateMode = on; }
 	Eigen::VectorXd GetTargetBase() {return mTargetBase; }
-	Eigen::VectorXd GetTargetGoal() {return mTargetGoal; }
+	Eigen::VectorXd GetTargetFull() {return mTargetFull; }
+	Eigen::VectorXd GetTargetFeature() {return mTargetFeature; }
 	Eigen::VectorXd GetTargetUnit() {return mTargetUnit; }
 	Eigen::VectorXd GetTargetCurMean() {return mTargetCurMean; }
+	Eigen::VectorXd GetTargetFeatureIdx() {return mTargetFeatureIdx; }
+
 	bool UpdateExternalTarget();
 	void ReportEarlyTermination();
 	void ClearTargetReward() { mPrevRewardTarget = 0.0; }
@@ -130,7 +133,9 @@ protected:
 	int mDOF;
 	int nOp;
 	Eigen::VectorXd mTargetBase;
-	Eigen::VectorXd mTargetGoal;
+	Eigen::VectorXd mTargetFull;
+	Eigen::VectorXd mTargetFeature;
+	Eigen::VectorXd mTargetFeatureIdx;
 	Eigen::VectorXd mTargetUnit;
 	Eigen::VectorXd mTargetCurMean;
 	
