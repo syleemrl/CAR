@@ -59,8 +59,6 @@ class Monitor(object):
 		self.mode_counter = 0
 		self.flag_updated = False
 
-		self.terminated_nan_count = 0
-
 		if self.plot:
 			plt.ion()
 
@@ -108,13 +106,7 @@ class Monitor(object):
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
-				if self.terminated[i] and frames[i] <= 10:
-					self.terminated_nan_count += 1
-				else:
-					self.terminated_nan_count = 0
-				if self.terminated_nan_count >= 50:
-					embed()
-
+		
 				if not self.terminated[i] and rewards[i][0] is not None:
 					self.rewards_per_iteration += rewards[i][0]
 					self.rewards_by_part_per_iteration.append(rewards[i])

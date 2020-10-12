@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 2.8.6)
-# add_subdirectory( boost )
 project(simEnv)
 
 add_compile_options(-fPIC)

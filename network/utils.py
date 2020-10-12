@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
-
+from IPython import embed
+ 
 class RunningMeanStd(object):
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
     def __init__(self, shape=()):
@@ -14,14 +15,24 @@ class RunningMeanStd(object):
         batch_mean = np.mean(x, axis=0)
         batch_var = np.var(x, axis=0)
         batch_count = x.shape[0]
+
         self.update_from_moments(batch_mean, batch_var, batch_count)
 
     def update_from_moments(self, batch_mean, batch_var, batch_count):
-        self.mean, self.var, self.count = update_mean_var_count_from_moments(
+        mean, var, count = update_mean_var_count_from_moments(
             self.mean, self.var, self.count, batch_mean, batch_var, batch_count)
+
+        if np.isnan(np.sum(mean)) or np.isnan(np.sum(var)) or np.isnan(np.sum(count)):
+            embed()
+        else:
+            self.mean = mean
+            self.var = var
+            self.count = count
+
 
     def apply(self, x):
         self.update(x)
+
         x = np.clip((x - self.mean) / np.sqrt(self.var + self.epsilon), -self.clip, self.clip)
         return x
 
@@ -36,8 +47,6 @@ class RunningMeanStd(object):
                 self.mean = data['mean']
                 self.var = data['var']
                 self.count = data['count']
-        # print('mean', self.mean)
-        # print('var', self.var)
         
     def setNumStates(self, size):
         if size != self.mean.shape[0]:

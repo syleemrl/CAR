@@ -121,9 +121,6 @@ LoadParamBins()
 	is.close();
 	
 	this->AssignParamsToBins(false);
-	for(int i = 0; i < mParamBins.size(); i++) {
-		std::cout << i << " " << mParamBins[i].GetParams().size() << std::endl;
-	}
 }
 //For general properties
 int
@@ -353,7 +350,7 @@ AssignParamsToBins(bool limit)
 			if(!assigned[i]) {
 				double dist_cur = (idx_cur - idx).norm();
 
-				if(limit && dist_cur > 1.5)
+				if(limit && dist_cur > 1.5 && mNeedRefUpdate)
 					continue;
 				std::vector<int> p_temp;
 				p_temp.push_back(i);
