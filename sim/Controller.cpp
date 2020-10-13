@@ -434,10 +434,10 @@ GetTargetReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 20 && mControlFlag[1] == 0) {
 		double v_diff = (mLinearVelocity(1) - mTargetFullParams(1));
-		r_target = 0.75 * exp(-pow(v_diff, 2)*10) + 0.25 * exp(-pow(v_diff, 2)*30);
+		r_target = 0.75 * exp(-pow(v_diff, 2)*2) + 0.25 * exp(-pow(v_diff, 2)*10);
 
 		if(mRecord) {
-		 	std::cout << mLinearVelocity(1) << " " << mTargetFullParams(1) << " " << exp(-pow(v_diff, 2)*10) << " " << exp(-pow(v_diff, 2)*30) << std::endl;
+		 	std::cout << mLinearVelocity(1) << " " << mTargetFullParams(1) << " " << exp(-pow(v_diff, 2)*2) << " " << exp(-pow(v_diff, 2)*10) << std::endl;
 		}
 		mCurFeatureParams(1) = mLinearVelocity(1);
 		mControlFlag[1] = 1;
@@ -539,16 +539,16 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_t);
+		mRewardParts.push_back(6 * r_con * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
 	if(r_t != 0) {
 		if(mTargetRewardTrajectory == 0)
-			mTargetRewardTrajectory = r_t;
+			mTargetRewardTrajectory = 6 * r_con * r_t;
 		else
-			mTargetRewardTrajectory *= r_t;
+			mTargetRewardTrajectory *= 6 * r_con * r_t;
 	}
 	mTrackingRewardTrajectory += r_tot;
 	mCountTracking += 1;

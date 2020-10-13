@@ -79,7 +79,7 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 			// Eigen::VectorXd tp(2);
 
-			// tp << -9, -48;
+			// tp << -8, 3;
 			// Eigen::VectorXd tp_full = mReferenceManager->GetTargetFull();		
 			// Eigen::VectorXd tp_idx = mReferenceManager->GetTargetFeatureIdx();		
 

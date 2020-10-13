@@ -160,7 +160,7 @@ DrawShape(const Eigen::Isometry3d& T,
 {
 	glEnable(GL_LIGHTING);
 	// glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-	glEnable(GL_COLOR_MATERIAL);
+	//glEnable(GL_COLOR_MATERIAL);
 	glColor3f(color[0],color[1],color[2]);
 	glPushMatrix();
 	// glMultMatrixd(T.data());
@@ -212,7 +212,7 @@ DrawShape(const Eigen::Isometry3d& T,
 {
 	glEnable(GL_LIGHTING);
 	// glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-	glEnable(GL_COLOR_MATERIAL);
+	// glEnable(GL_COLOR_MATERIAL);
     float ground_mat_shininess[] = {128.0};
     float ground_mat_specular[]  = {0.01, 0.01, 0.01, 0.35};
     float ground_mat_diffuse[]   = {0.05, 0.05, 0.05, 0.35};
@@ -223,12 +223,12 @@ DrawShape(const Eigen::Isometry3d& T,
     	ground_mat_ambient[i] = color[i];
     }
 
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient);
 
-	// glColor4f(color[0],color[1],color[2],color[3]);
+	glColor4f(color[0],color[1],color[2],color[3]);
 	glPushMatrix();
 	// glMultMatrixd(T.data());
 	Eigen::Vector3d translation = T.translation();
@@ -300,7 +300,7 @@ DrawShape(const Eigen::Isometry3d& T,
 {
 	glEnable(GL_LIGHTING);
 	// glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-	glEnable(GL_COLOR_MATERIAL);
+	// glEnable(GL_COLOR_MATERIAL);
     float ground_mat_shininess[] = {128.0};
     float ground_mat_specular[]  = {0.01, 0.01, 0.01, 0.35};
     float ground_mat_diffuse[]   = {0.05, 0.05, 0.05, 0.35};
@@ -311,12 +311,12 @@ DrawShape(const Eigen::Isometry3d& T,
     	ground_mat_ambient[i] = color[i];
     }
 
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient);
 
-	// glColor4f(color[0],color[1],color[2],color[3]);
+	glColor4f(color[0],color[1],color[2],color[3]);
 	glPushMatrix();
 	// glMultMatrixd(T.data());
 	Eigen::Vector3d translation = T.translation();

@@ -16,7 +16,7 @@ public:
 	void Zoom(int x,int y,int prev_x,int prev_y);
 	void Rotate(int x,int y,int prev_x,int prev_y);
 	void Translate(int x,int y,int prev_x,int prev_y);
-
+	void SetCenter(Eigen::Vector3d c);
 	void SetLookAt(const Eigen::Vector3d& lookAt);
 	Eigen::Vector3d GetDeltaPosition(int x,int y,int prev_x,int prev_y);
 private:

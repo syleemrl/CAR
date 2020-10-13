@@ -5,7 +5,7 @@
 #include <chrono>
 MotionWidget::
 MotionWidget()
-  :mCamera(new Camera(50, 50)),mMotionLoaded(false),mCurFrame(0),mPlay(false),mTrackCamera(false)
+  :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),mTrackCamera(false)
 {
 	this->startTimer(30);
 }
@@ -16,8 +16,14 @@ MotionWidget(dart::dynamics::SkeletonPtr skel_bvh, dart::dynamics::SkeletonPtr s
 	mSkel_bvh = skel_bvh;
 	mSkel_reg = skel_reg;
 	mSkel_sim = skel_sim;
+	
+	mMotionLoaded_bvh = false;
+	mMotionLoaded_sim = false;
+	mMotionLoaded_reg = false;
 
-	DPhy::SetSkeletonColor(mSkel, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
+	mCurFrame = 0;
 
 }
 
@@ -35,29 +41,47 @@ MotionWidget::
 resizeGL(int w,int h)
 {
 	glViewport(0, 0, w, h);
-	// mCamera->SetSize(w,h);
-
-	// mCamera->SetCemera(w,h);
+	mCamera->SetSize(w, h);
+	mCamera->Apply();
 }
 void
 MotionWidget::
 SetFrame(int n)
 {
-    mSkel->setPositions(mMotion[n]);
+	if(mMotionLoaded_bvh) {
+		int n_bvh = n % mMotion_bvh.size();
+    	mSkel_bvh->setPositions(mMotion_bvh[n_bvh]);
+	}
+	if(mMotionLoaded_sim) {
+		int n_sim = n % mMotion_sim.size();
+    	mSkel_sim->setPositions(mMotion_sim[n_sim]);
+	}
+	if(mMotionLoaded_reg) {
+ 		int n_reg = n % mMotion_reg.size();
+    	mSkel_reg->setPositions(mMotion_reg[n_reg]);
+	}
 
 }
 void
 MotionWidget::
 DrawSkeletons()
 {
-	GUI::DrawSkeleton(this->mSkel, 0);
+	if(mMotionLoaded_bvh)
+		GUI::DrawSkeleton(this->mSkel_bvh, 0);
+	if(mMotionLoaded_sim)
+		GUI::DrawSkeleton(this->mSkel_sim, 0);
+	if(mMotionLoaded_reg)
+		GUI::DrawSkeleton(this->mSkel_reg, 0);
 }
 void
 MotionWidget::
 DrawGround()
 {
 	Eigen::Vector3d com_root;
-	com_root = this->mSkel->getRootBodyNode()->getCOM();
+	com_root = this->mSkel_bvh->getRootBodyNode()->getCOM();
+	if(mMotionLoaded_reg) {
+		com_root = 0.5 * com_root + 0.5 * this->mSkel_reg->getRootBodyNode()->getCOM();
+	}
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
 void
@@ -68,7 +92,7 @@ paintGL()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	initLights(0, 0, 0, 0);
+	initLights();
 	glEnable(GL_LIGHTING);
 
 	mCamera->Apply();
@@ -93,11 +117,10 @@ paintGL()
 
 	DrawGround();
 	DrawSkeletons();
-
 }
 void
 MotionWidget::
-initLights(double x, double z, double fx, double fz)
+initLights()
 {
 
 	static float ambient[]           	 = {0.4, 0.4, 0.4, 1.0};
@@ -146,14 +169,10 @@ void
 MotionWidget::
 timerEvent(QTimerEvent* event)
 {
-	if(mMotionLoaded) {
-		mCurFrame+=1;
-		if(mCurFrame >= mMotion.size()) {
-			mCurFrame = 0;
-		}
-		SetFrame(this->mCurFrame);
-	} else
-		mCurFrame = 0;
+	if(mPlay && (mMotionLoaded_bvh || mMotionLoaded_reg || mMotionLoaded_sim)) {
+		mCurFrame += 1;
+	} 
+	SetFrame(this->mCurFrame);
 	update();
 }
 void
@@ -209,15 +228,57 @@ MotionWidget::
 wheelEvent(QWheelEvent *event)
 {
 	if(event->angleDelta().y()>0)
-	mCamera->Pan(0,5,0,0);
-	else
 	mCamera->Pan(0,-5,0,0);
+	else
+	mCamera->Pan(0,5,0,0);
 	update();
 }
 void 
 MotionWidget::
-UpdateMotion(std::vector<Eigen::VectorXd> motion)
+UpdateMotion(std::vector<Eigen::VectorXd> motion, int type)
 {
-	mMotionLoaded = true;
-	mMotion = motion;
+	if(type == 0) {
+		mMotion_bvh = motion;	
+		mMotionLoaded_bvh = true;
+	}
+	else if(type == 1) {
+		mMotion_sim = motion;		
+		mMotionLoaded_sim = true;
+	}
+	else if(type == 2) {
+		mMotion_reg = motion;	
+		mMotionLoaded_reg = true;
+	}
+	mCurFrame = 0;
+
+}
+void
+MotionWidget::
+NextFrame()
+{ 
+	if(!mPlay) {
+		this->mCurFrame += 1;
+		this->SetFrame(this->mCurFrame);
+	}
+}
+void
+MotionWidget::
+PrevFrame()
+{
+	if(!mPlay && mCurFrame > 0) {
+		this->mCurFrame -= 1;
+		this->SetFrame(this->mCurFrame);
+	}
+}
+void
+MotionWidget::
+Reset()
+{
+	this->mCurFrame = 0;
+	this->SetFrame(this->mCurFrame);
+}
+void 
+MotionWidget::
+togglePlay() {
+	mPlay = !mPlay;
 }

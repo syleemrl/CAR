@@ -5,43 +5,6 @@
 #include <iostream>
 #include <QGLWidget>
 #include <QLabel>
-
-class GLWidget : public QGLWidget{
-    void initializeGL(){
-        glClearColor(0.0, 1.0, 1.0, 1.0);
-    }
-    
-    void qgluPerspective(GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar){
-        const GLdouble ymax = zNear * tan(fovy * M_PI / 360.0);
-        const GLdouble ymin = -ymax;
-        const GLdouble xmin = ymin * aspect;
-        const GLdouble xmax = ymax * aspect;
-        glFrustum(xmin, xmax, ymin, ymax, zNear, zFar);
-    }
-    
-    void resizeGL(int width, int height){
-        if (height==0) height=1;
-        glViewport(0,0,width,height);
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        qgluPerspective(45.0f,(GLfloat)width/(GLfloat)height,0.1f,100.0f);
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-     }
-    
-    void paintGL(){
-        glMatrixMode(GL_MODELVIEW);         
-        glLoadIdentity();
-        glClear(GL_COLOR_BUFFER_BIT);  
-
-        glBegin(GL_POLYGON); 
-            glVertex2f(-0.5, -0.5); 
-            glVertex2f(-0.5, 0.5);
-            glVertex2f(0.5, 0.5); 
-            glVertex2f(0.5, -0.5); 
-        glEnd();
-    }
-};
 MainWindow::
 MainWindow() :QMainWindow()
 {
@@ -52,8 +15,22 @@ MainWindow::
 MainWindow(std::string motion, std::string network)
 {   
     MainWindow();
+    initLayoutSetting();
     initNetworkSetting(motion, network);
 
+}
+bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
+    for(int i = 0; i < p1.rows(); i++) {
+        if(p1(i) < p2(i))
+            return true;
+        else if(p1(i) > p2(i))
+            return false;
+    }
+    return false;
+}
+void
+MainWindow::
+initLayoutSetting() {
     mMainLayout = new QHBoxLayout();
     this->setMaximumSize(1300,750);
     this->setMinimumSize(1300,750);
@@ -69,29 +46,33 @@ MainWindow(std::string motion, std::string network)
     mMotionWidget = new MotionWidget(skel_bvh, skel_reg, skel_sim);
     mMotionWidget->setMinimumSize(1000,650);
     mMotionWidget->setMaximumSize(1000,650);
+
     motionlayout->addWidget(mMotionWidget);
 
-    QSlider* frame = new QSlider(Qt::Horizontal);
-    frame->setMinimum(0);
-    frame->setMaximum(mReferenceManager->GetPhaseLength());
-    frame->setSingleStep(1);
-    motionlayout->addWidget(frame);
+    // QSlider* frame = new QSlider(Qt::Horizontal);
+    // frame->setMinimum(0);
+    // frame->setMaximum(mReferenceManager->GetPhaseLength());
+    // frame->setSingleStep(1);
+    // motionlayout->addWidget(frame);
 
     QHBoxLayout *buttonlayout = new QHBoxLayout();
     buttonlayout->addStretch(1);
 
     QPushButton* button = new QPushButton("reset", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Reset())); 
     buttonlayout->addWidget(button);
     
     button = new QPushButton("prev", this);
-
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(PrevFrame())); 
     buttonlayout->addWidget(button); 
 
-    button = new QPushButton("pause", this);
- 
+    button = new QPushButton("play", this);
+    button->setCheckable(true);
+    connect(button, SIGNAL(toggled(bool)), this, SLOT(togglePlay(const bool&))); 
     buttonlayout->addWidget(button); 
 
     button = new QPushButton("next", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(NextFrame())); 
     buttonlayout->addWidget(button);    
     buttonlayout->addStretch(1);
 
@@ -100,7 +81,7 @@ MainWindow(std::string motion, std::string network)
     QVBoxLayout *mParamlayout = new QVBoxLayout();
     std::vector<std::string> labels;
     labels.push_back("velocity");
-    labels.push_back("momentum");
+    labels.push_back("height");
          
     QFormLayout *mParamFormlayout = new QFormLayout();
     for(int i = 0; i < labels.size(); i++) {
@@ -137,15 +118,7 @@ MainWindow(std::string motion, std::string network)
     mMainLayout->addStretch(1);
     mMainLayout->addLayout(mParamlayout);
     mMainLayout->addStretch(1);
-}
-bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
-    for(int i = 0; i < p1.rows(); i++) {
-        if(p1(i) < p2(i))
-            return true;
-        else if(p1(i) > p2(i))
-            return false;
-    }
-    return false;
+
 }
 void
 MainWindow::
@@ -161,6 +134,19 @@ initNetworkSetting(std::string motion, std::string network) {
     path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
     mReferenceManager->InitOptimization(1, path);
     mReferenceManager->LoadAdaptiveMotion("");
+
+    std::vector<Eigen::VectorXd> pos;
+    double phase = 0;
+    for(int i = 0; i < 500; i++) {
+        Eigen::VectorXd p =mReferenceManager->GetPosition(phase, false);
+        p(3) -= 0.75; 
+        pos.push_back(p);
+        phase += mReferenceManager->GetTimeStep(phase, false);
+        if(phase > mReferenceManager->GetPhaseLength())
+            break;
+    }
+    mMotionWidget->UpdateMotion(pos, 0);
+
     Py_Initialize();
     np::initialize();
     try {
@@ -190,7 +176,6 @@ initNetworkSetting(std::string motion, std::string network) {
                 is >> buffer;
                 tp2[j] = atof(buffer);
             }
-
             if((tp - tp2).norm() < 1e-2) 
                 break;
             Eigen::VectorXd tp_mean = (tp + tp2) * 0.5;
@@ -200,8 +185,6 @@ initNetworkSetting(std::string motion, std::string network) {
         }
         is.close();
         std::stable_sort(mParamRange.begin(), mParamRange.end(), cmp);
-        for(int i = 0 ; i < mParamRange.size(); i++)
-            std::cout << i << " "<< mParamRange[i].transpose() << std::endl;
 
     
     } catch (const p::error_already_set&) {
@@ -221,7 +204,6 @@ setValueY(const int &y){
 void 
 MainWindow::
 UpdateParam(const bool& pressed) {
-    std::cout << v_param.transpose() << std::endl;
 
     Eigen::VectorXd tp(v_param.rows());
     int startIdx = 0, endIdx = mParamRange.size() - 1;
@@ -243,6 +225,7 @@ UpdateParam(const bool& pressed) {
             }
         }
     }
+    std::cout << tp.transpose() << std::endl;
 
     int dof = mReferenceManager->GetDOF() + 1;
 
@@ -262,10 +245,25 @@ UpdateParam(const bool& pressed) {
     std::vector<Eigen::VectorXd> pos;
     double phase = 0;
     for(int i = 0; i < 500; i++) {
-        pos.push_back(mReferenceManager->GetPosition(phase, true));
+        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
+        p(3) += 0.75;
+        pos.push_back(p);
         phase += mReferenceManager->GetTimeStep(phase, true);
         if(phase > mReferenceManager->GetPhaseLength())
             break;
     }
-    mMotionWidget->UpdateMotion(pos);
+    mMotionWidget->UpdateMotion(pos, 2);
+}
+void 
+MainWindow::
+togglePlay(const bool& toggled)
+{
+    auto button = qobject_cast<QPushButton*>(sender());
+    if(toggled) {
+        button->setText("pause");
+    } else {
+        button->setText("play");
+    }
+    mMotionWidget->togglePlay();
+
 }

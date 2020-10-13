@@ -31,6 +31,7 @@ public slots:
 	void setValueX(const int &x);
 	void setValueY(const int &y);
 	void UpdateParam(const bool& pressed);
+	void togglePlay(const bool& toggled);
 public:
     MainWindow();
     MainWindow(std::string motion, std::string network);
@@ -47,5 +48,6 @@ protected:
 	DPhy::ReferenceManager* mReferenceManager;
 	std::vector<Eigen::VectorXd> mParamRange;
  	void initNetworkSetting(std::string motion, std::string network);
+	void initLayoutSetting() ;
 };
 #endif

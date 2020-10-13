@@ -564,6 +564,7 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
+	mKnots.push_back(4);
 	mKnots.push_back(8);
 	mKnots.push_back(20);
 	mKnots.push_back(26);
@@ -580,11 +581,11 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	// angular velocity, linear momentum
 	mTargetBase.resize(2);
-	mTargetBase << -7.3, 2.56;
+	mTargetBase << -7.3, 2.7;
 	mTargetCurMean = mTargetBase;
 
 	mTargetFull.resize(2);
-	mTargetFull << -10, 3;
+	mTargetFull << -10, 4;
 
 	mTargetFeature.resize(2);
 	mTargetFeature << -10, 3;

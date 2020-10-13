@@ -1,8 +1,9 @@
 #include "Camera.h"
 #include <GL/glut.h>
+#include <iostream>
 Camera::
-Camera(int w,int h)
-	:fovy(60.0),lookAt(Eigen::Vector3d(0,1,0)),eye(Eigen::Vector3d(4,2,2)),up(Eigen::Vector3d(0,1,0)),mw(w),mh(h)
+Camera(int w, int h)
+	:fovy(60.0),lookAt(Eigen::Vector3d(0,0.8,0)),eye(Eigen::Vector3d(0,1.5, 3)),up(Eigen::Vector3d(0,1,0)),mw(w),mh(h)
 {
 
 }
@@ -37,9 +38,14 @@ void
 Camera::
 Pan(int x,int y,int prev_x,int prev_y)
 {
-	double delta = (double)prev_y - (double)y;
-	delta = 1 - delta / 200.0;
-	eye = lookAt - (lookAt - eye)*delta;
+	double delta = ((double)prev_y - (double)y)/15.0;
+	Eigen::Vector3d vec = (lookAt - eye);
+	double scale = vec.norm();
+	scale = std::max((scale - delta),1.0);
+	Eigen::Vector3d vd = (scale - delta) * (lookAt - eye).normalized();	
+	// eye = eye + vd;
+	// lookAt = lookAt;// + vd;
+	eye = lookAt - vd;
 }
 void
 Camera::
@@ -52,42 +58,65 @@ void
 Camera::
 Rotate(int x,int y,int prev_x,int prev_y)
 {
-	Eigen::Vector3d prevPoint = GetTrackballPoint(prev_x,prev_y,mw,mh);
-	Eigen::Vector3d curPoint = GetTrackballPoint(x,y,mw,mh);
-	Eigen::Vector3d rotVec = curPoint.cross(prevPoint);
+	GLint w = glutGet(GLUT_WINDOW_WIDTH);
+	GLint h = glutGet(GLUT_WINDOW_HEIGHT);
 
-	if(rotVec.norm()<1E-6)
-		return;
-	rotVec = UnProject(rotVec);
-	double cosT = curPoint.dot(prevPoint) / (curPoint.norm()*prevPoint.norm());
-	double sinT = (curPoint.cross(prevPoint)).norm() / (curPoint.norm()*prevPoint.norm());
+	// Eigen::Vector3d prevPoint = GetTrackballPoint(prev_x,prev_y,w,h);
+	// Eigen::Vector3d curPoint = GetTrackballPoint(x,y,w,h);
+	// Eigen::Vector3d rotVec = curPoint.cross(prevPoint);
 
-	double angle = -atan2(sinT, cosT);
+	// rotVec = UnProject(rotVec);
+	// double cosT = curPoint.dot(prevPoint) / (curPoint.norm()*prevPoint.norm());
+	// double sinT = (curPoint.cross(prevPoint)).norm() / (curPoint.norm()*prevPoint.norm());
+
+	// double angle = -atan2(sinT, cosT);
+
+	double rad = std::min(mw, mh) / 2.0;
+	double dx = (double)x - (double)prev_x;
+	double dy = (double)y - (double)prev_y;
+	double angleY = atan2(dx * 0.5, rad);
+	double angleX = atan2(dy * 0.5, rad);
 
 	Eigen::Vector3d n = this->lookAt - this->eye;
-	// if(rotVec[1]<0.0)
-	// 	rotVec = -Eigen::Vector3d::UnitY();
-	// else
-	// 	rotVec = Eigen::Vector3d::UnitY();
-	n = Rotateq(n, rotVec, angle);
-	this->up = Rotateq(this->up, rotVec, angle);
+	Eigen::Vector3d axisX = Eigen::Vector3d::UnitY().cross(n.normalized());
+	n = Eigen::Quaterniond(Eigen::AngleAxisd(-angleY, Eigen::Vector3d::UnitY()))._transformVector(n);
+	n = Eigen::Quaterniond(Eigen::AngleAxisd(angleX, axisX))._transformVector(n);
+	// n = Rotateq(n, Eigen::Vector3d::UnitY(), angleY);
+	// n = Rotateq(n, Eigen::Vector3d::UnitX(), angleX);
+	// this->up = Rotateq(this->up, rotVec, angle);
 	this->eye = this->lookAt - n;
+}
+void 
+Camera::
+SetCenter(Eigen::Vector3d c){
+	Eigen::Vector3d delta = c - lookAt;
+	lookAt += delta; eye += delta;
 }
 void
 Camera::
 Translate(int x,int y,int prev_x,int prev_y)
 {
 	Eigen::Vector3d delta((double)x - (double)prev_x, (double)y - (double)prev_y, 0);
-	delta = UnProject(delta) / 200.0;
+	// delta = UnProject(delta) / 200.0;
+
+	Eigen::Vector3d yvec = (lookAt - eye);
+	yvec[1] = 0;
+	double scale = yvec.norm()/1000.;
+	yvec.normalize();
+	Eigen::Vector3d xvec = -yvec.cross(up);
+	xvec.normalize();
+
+	delta = delta[0]*xvec*scale + delta[1]*yvec*scale;
+
 	lookAt += delta; eye += delta;
 }
 void
 Camera::
 SetLookAt(const Eigen::Vector3d& lookAt)
 {
-	Eigen::Vector3d diff = lookAt - this->lookAt;
-	this->lookAt =lookAt;
-	this->eye = this->eye + diff;	
+	this->lookAt = lookAt;
+	this->eye = lookAt;
+	eye[2] += 2;
 }
 #include <iostream>
 Eigen::Vector3d

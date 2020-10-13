@@ -849,11 +849,11 @@ DrawGround(int com_x, int com_z, double ground_height){
     for(int x=-radius_b; x<=radius_b; x+=1){
         for(int z=-radius_b; z<=radius_b; z+=1){
             if((x+com_x+z+com_z)%2 == 0){
-                // glColor3f(0.7, 0.7, 0.7);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular1);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse1);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient1);
+                glColor3f(0.6, 0.6, 0.6);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular1);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse1);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient1);
                 glBegin(GL_QUADS);
                     glNormal3f(0.0, 1.0, 0.0);
                     glVertex3f(x+com_x,ground_height,z+com_z);
@@ -883,11 +883,11 @@ DrawGround(int com_x, int com_z, double ground_height){
                 // }
             }
             else{
-                // glColor3f(0.9, 0.9, 0.9);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular2);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse2);
-                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient2);
+                glColor3f(0.8, 0.8, 0.8);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular2);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse2);
+                // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient2);
                 glBegin(GL_QUADS);
                     glNormal3f(0.0, 1.0, 0.0);
                     glVertex3f(x+com_x,ground_height,z+com_z);
@@ -922,9 +922,11 @@ DrawGround(int com_x, int com_z, double ground_height){
     static float ground_mat_specular3[]  = {0.0, 0.0, 0.0, 0.0};
     static float ground_mat_diffuse3[]   = {0.0, 0.0, 0.0, 1.0};
     static float ground_mat_ambient3[]  = {0.0, 0.0, 0.0, 1.0};
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular3);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse3);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient3);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular3);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse3);
+    // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient3);
+    glColor3f(1.0, 1.0, 1.0);
+
     glBegin(GL_QUADS);
         glNormal3f(0.0, 0.0, 1.0);
         glVertex3f(com_x-radius_b,ground_height-wall_height,com_z-radius_b);

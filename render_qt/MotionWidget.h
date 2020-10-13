@@ -23,14 +23,20 @@ class MotionWidget : public QOpenGLWidget
 public:
 	MotionWidget();
 	MotionWidget(dart::dynamics::SkeletonPtr skel_bvh, dart::dynamics::SkeletonPtr skel_reg, dart::dynamics::SkeletonPtr skel_sim);
-	// MotionWidget(p::object module,Preprocess* preprocess,const std::vector<Data*>& data,const std::vector<Category*>& category);
-	void UpdateMotion(std::vector<Eigen::VectorXd> motion);
+	void UpdateMotion(std::vector<Eigen::VectorXd> motion, int type);
 
+	void togglePlay();
+
+public slots:
+	void NextFrame();
+	void PrevFrame();
+	void Reset();
+	
 protected:
 	void initializeGL() override;	
 	void resizeGL(int w,int h) override;
 	void paintGL() override;
-	void initLights(double x, double z, double fx, double fz);
+	void initLights();
 
 	void timerEvent(QTimerEvent* event);
 	void keyPressEvent(QKeyEvent *event);
@@ -52,11 +58,20 @@ protected:
 	bool 							mPlay;
 	int 							mCurFrame;
 
-	std::vector<Eigen::VectorXd> 	mMotion;
+	std::vector<Eigen::VectorXd> 	mMotion_bvh;
+	std::vector<Eigen::VectorXd> 	mMotion_reg;
+	std::vector<Eigen::VectorXd> 	mMotion_sim;
+
+
+
 	dart::dynamics::SkeletonPtr 	mSkel_bvh;
 	dart::dynamics::SkeletonPtr 	mSkel_reg;
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
 	bool							mTrackCamera;
-	bool mMotionLoaded;
+
+	bool mMotionLoaded_bvh;
+	bool mMotionLoaded_reg;
+	bool mMotionLoaded_sim;
+
 };
 #endif
