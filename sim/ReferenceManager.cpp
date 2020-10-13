@@ -580,20 +580,20 @@ InitOptimization(int nslaves, std::string save_path) {
 
 	// angular velocity, linear momentum
 	mTargetBase.resize(2);
-	mTargetBase << -7.2, -48;
+	mTargetBase << -7.3, 2.56;
 	mTargetCurMean = mTargetBase;
 
-	mTargetFull.resize(6);
-	mTargetFull << -10, 1.0, -2.2, -48, 9, -10;
+	mTargetFull.resize(2);
+	mTargetFull << -10, 3;
 
 	mTargetFeature.resize(2);
-	mTargetFeature << -10, -48;
+	mTargetFeature << -10, 3;
 
 	mTargetFeatureIdx.resize(2);
-	mTargetFeatureIdx << 0, 3;
+	mTargetFeatureIdx << 0, 1;
 
 	mTargetUnit.resize(2);
-	mTargetUnit<< 0.3, 3;
+	mTargetUnit<< 0.3, 0.1;
 
 	mRefUpdateMode = true;
 
@@ -747,7 +747,7 @@ void
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
-				 Eigen::VectorXd parameters, double paramReward) {
+				 Eigen::VectorXd parameters) {
 	if(dart::math::isNan(rewards.first) || dart::math::isNan(rewards.second)) {
 		mLock_ET.lock();
 		nET +=1;
@@ -879,7 +879,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	mLock.lock();
 
-	if(flag[0] && reward_trajectory > 0.3 && paramReward > 0.75) {
+	if(flag[0] && reward_trajectory > 0.3) {
 		auto cps_t = st->GetControlPoints(0);
 
 		std::vector<Eigen::VectorXd> cps_tot;

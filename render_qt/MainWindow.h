@@ -45,7 +45,6 @@ protected:
 	p::object mRegression;
 
 	DPhy::ReferenceManager* mReferenceManager;
-	dart::dynamics::SkeletonPtr mSkel;	
 	std::vector<Eigen::VectorXd> mParamRange;
  	void initNetworkSetting(std::string motion, std::string network);
 };

@@ -37,7 +37,7 @@ class SimEnv
 {
 public:
 	
-	SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive);
+	SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive, bool parametric);
 	//For general properties
 	int GetNumState();
 	int GetNumAction();
@@ -93,7 +93,7 @@ private:
 	int mNumAction;
 	bool isAdaptive;
 	bool mNeedRefUpdate;
-
+	bool isParametric;
 	int mParamStack;
 	int nTrainingData;
 	int nCapacity;

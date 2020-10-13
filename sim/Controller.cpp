@@ -9,13 +9,14 @@
 namespace DPhy
 {	
 
-Controller::Controller(ReferenceManager* ref, bool adaptive, bool record, int id)
+Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bool record, int id)
 	:mControlHz(30),mSimulationHz(600),mCurrentFrame(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
 	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 	this->isAdaptive = adaptive;
+	this->isParametric = parametric;
 	this->mRecord = record;
 	this->mReferenceManager = ref;
 	this->id = id;
@@ -220,27 +221,17 @@ Step()
 			mWorld->step(false);
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
+		if(mCurrentFrameOnPhase >= 18 && mControlFlag[1] == 0) {
+			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+			if(mLinearVelocity(1) < c_vel(1)) {
+				mLinearVelocity = c_vel;
+			}
+		}
 	}
 	 if(mCurrentFrameOnPhase >= 19 && mCurrentFrameOnPhase <= 40) {
 		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
 		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
-
-		Eigen::Vector3d momentum;
-		momentum.setZero();
-		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
-			auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
-			Eigen::Matrix3d R = bn->getWorldTransform().linear();
-			double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
-			bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
-			Eigen::Matrix3d I;
-			I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
-			I = R * I * R.transpose();
-			Eigen::AngleAxisd aa(I); 
-			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
-			momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
-		}
-		mVelocity += V.segment<3>(0);
-		mMomentum += momentum;
+		mAngularVelocity += V.segment<3>(0);
 		mCountTarget += 1;
 	}
 
@@ -253,18 +244,17 @@ Step()
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
-			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory), mCurFeatureParams, mCurParamReward);
+			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory), mCurFeatureParams);
 			data_spline.clear();
 			mTrackingRewardTrajectory = 0;
 			mTargetRewardTrajectory = 0;
 
 			mControlFlag.setZero();
-			mVelocity.setZero();
-			mMomentum.setZero();
+			mAngularVelocity.setZero();
+			mLinearVelocity.setZero();
 
 			mCountTarget = 0;
 			mCountTracking = 0;
-			mCurParamReward = 0;
 			
 			if(mIsHindsight) {
 				// to get V(t+1)
@@ -350,11 +340,9 @@ ClearRecord()
 
 	mCountTarget = 0;
 	mCountTracking = 0;
-	mVelocity.setZero();
-	mMomentum.setZero();
+	mAngularVelocity.setZero();
+	mLinearVelocity.setZero();
 	data_spline.clear();
-
-	mCurParamReward = 0;
 
 }
 
@@ -444,31 +432,28 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
-		mVelocity /= mCountTarget;
-		mMomentum /= mCountTarget;
-
-		Eigen::Vector3d v_diff = (mVelocity - mTargetFullParams.segment<3>(0));
-		Eigen::Vector3d m_diff = (mMomentum - mTargetFullParams.segment<3>(3));
-
-		v_diff.segment<2>(1) *= 0.05;
-		m_diff.segment<2>(1) *= 0.05;
-
-		r_target = 0.5 * exp_of_squared(v_diff, 1) + 0.5 * exp_of_squared(v_diff, 0.3);
-		r_target +=  0.5 * exp_of_squared(m_diff, 3) + 0.5 * exp_of_squared(m_diff, 1);
+	if(mCurrentFrameOnPhase >= 20 && mControlFlag[1] == 0) {
+		double v_diff = (mLinearVelocity(1) - mTargetFullParams(1));
+		r_target = 0.75 * exp(-pow(v_diff, 2)*10) + 0.25 * exp(-pow(v_diff, 2)*30);
 
 		if(mRecord) {
-			std::cout << mVelocity.transpose() << " " << mMomentum.transpose() << std::endl;
-		 	std::cout << exp_of_squared(v_diff, 1) << " " << exp_of_squared(v_diff, 0.3) << " " << exp_of_squared(m_diff, 3) << " "<<exp_of_squared(m_diff, 1)<< std::endl;
+		 	std::cout << mLinearVelocity(1) << " " << mTargetFullParams(1) << " " << exp(-pow(v_diff, 2)*10) << " " << exp(-pow(v_diff, 2)*30) << std::endl;
+		}
+		mCurFeatureParams(1) = mLinearVelocity(1);
+		mControlFlag[1] = 1;
+
+	}
+	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
+		mAngularVelocity /= mCountTarget;
+		double v_diff = (mAngularVelocity(0) - mTargetFullParams(0));
+
+		r_target = 0.75 * exp(-pow(v_diff, 2)*0.4) + 0.25 * exp(-pow(v_diff, 2)*2);
+
+		if(mRecord) {
+		 	std::cout << mAngularVelocity(0) << " " << mTargetFullParams(0) << " " << exp(-pow(v_diff, 2)*0.4) << " " << exp(-pow(v_diff, 2)*2) << std::endl;
 		}
 
-		mCurFeatureParams(0) = mVelocity(0);
-		mCurFeatureParams(1) = mMomentum(0);
-
-		v_diff(0) = 0;
-		m_diff(0) = 0;
-		mCurParamReward = exp_of_squared(v_diff, 1) * exp_of_squared(m_diff, 3);
-
+		mCurFeatureParams(0) = mAngularVelocity(0);
 		mControlFlag[0] = 1;		
 
 	} 
@@ -554,13 +539,16 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_con * r_t);
+		mRewardParts.push_back(10 * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
 	if(r_t != 0) {
-		mTargetRewardTrajectory += r_con * r_t;
+		if(mTargetRewardTrajectory == 0)
+			mTargetRewardTrajectory = r_t;
+		else
+			mTargetRewardTrajectory *= r_t;
 	}
 	mTrackingRewardTrajectory += r_tot;
 	mCountTracking += 1;
@@ -1018,7 +1006,7 @@ GetState()
 
 	double com_diff = 0;
 
-	if(isAdaptive) {
+	if(isParametric) {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mTargetFeatureParams.rows());
 		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mTargetFeatureParams;
 	}

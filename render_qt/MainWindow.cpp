@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "SkeletonBuilder.h"
 #include <QtWidgets/QApplication>
 #include <QFormLayout>
 #include <iostream>
@@ -57,12 +58,44 @@ MainWindow(std::string motion, std::string network)
     this->setMaximumSize(1300,750);
     this->setMinimumSize(1300,750);
 
+    std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+
+    auto skel_bvh = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+    auto skel_reg = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+    auto skel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+
     QVBoxLayout *motionlayout = new QVBoxLayout();
-    mMotionWidget = new MotionWidget(mSkel);
-    mMotionWidget->setMinimumSize(1000,720);
-    mMotionWidget->setMaximumSize(1000,720);
+
+    mMotionWidget = new MotionWidget(skel_bvh, skel_reg, skel_sim);
+    mMotionWidget->setMinimumSize(1000,650);
+    mMotionWidget->setMaximumSize(1000,650);
     motionlayout->addWidget(mMotionWidget);
+
+    QSlider* frame = new QSlider(Qt::Horizontal);
+    frame->setMinimum(0);
+    frame->setMaximum(mReferenceManager->GetPhaseLength());
+    frame->setSingleStep(1);
+    motionlayout->addWidget(frame);
+
+    QHBoxLayout *buttonlayout = new QHBoxLayout();
+    buttonlayout->addStretch(1);
+
+    QPushButton* button = new QPushButton("reset", this);
+    buttonlayout->addWidget(button);
+    
+    button = new QPushButton("prev", this);
+
+    buttonlayout->addWidget(button); 
+
+    button = new QPushButton("pause", this);
  
+    buttonlayout->addWidget(button); 
+
+    button = new QPushButton("next", this);
+    buttonlayout->addWidget(button);    
+    buttonlayout->addStretch(1);
+
+    motionlayout->addLayout(buttonlayout);
 
     QVBoxLayout *mParamlayout = new QVBoxLayout();
     std::vector<std::string> labels;
@@ -91,7 +124,9 @@ MainWindow(std::string motion, std::string network)
     mParamlayout->addLayout(mParamFormlayout);
     mParamlayout->addStretch(1);
 
-    mButton = new QPushButton("play", this);
+    mButton = new QPushButton("set", this);
+    mButton->setStyleSheet("margin-bottom: 10px;"
+                           "padding: 5px;");
     mParamlayout->addWidget(mButton);
     connect (mButton, SIGNAL(clicked(bool)), this, SLOT(UpdateParam(const bool&)));
 
@@ -120,7 +155,6 @@ initNetworkSetting(std::string motion, std::string network) {
 
     std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     DPhy::Character* ref = new DPhy::Character(path);
-    mSkel = ref->GetSkeleton();
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
     

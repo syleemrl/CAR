@@ -4,7 +4,7 @@
 #include "Functions.h"
 #include <iostream>
 SimEnv::
-SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive)
+SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive, bool parametric)
 	:mNumSlaves(num_slaves)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
@@ -25,7 +25,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	
 	for(int i =0;i<num_slaves;i++)
 	{
-		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, false, i));
+		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, parametric, false, i));
 	//	mSlaves.push_back(new DPhy::SimpleController());
 
 	}
@@ -60,6 +60,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		}
 	}
 	isAdaptive = adaptive;
+	isParametric = parametric;
 	mNeedRefUpdate = true;
 	nTrainingData = 0;
 }
@@ -350,8 +351,9 @@ AssignParamsToBins(bool limit)
 			if(!assigned[i]) {
 				double dist_cur = (idx_cur - idx).norm();
 
-				if(limit && dist_cur > 1.5 && mNeedRefUpdate)
+				if(isParametric && limit && dist_cur > 1.5 && mNeedRefUpdate)
 					continue;
+
 				std::vector<int> p_temp;
 				p_temp.push_back(i);
 				for(int j = i + 1; j < mParamNotAssigned.size(); j++) {
@@ -716,7 +718,7 @@ BOOST_PYTHON_MODULE(simEnv)
 	Py_Initialize();
 	np::initialize();
 
-	class_<SimEnv>("Env",init<int, std::string, std::string, bool>())
+	class_<SimEnv>("Env",init<int, std::string, std::string, bool, bool>())
 		.def("GetPhaseLength",&SimEnv::GetPhaseLength)
 		.def("GetNumState",&SimEnv::GetNumState)
 		.def("GetNumAction",&SimEnv::GetNumAction)

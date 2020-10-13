@@ -22,7 +22,7 @@ class MotionWidget : public QOpenGLWidget
 
 public:
 	MotionWidget();
-	MotionWidget(dart::dynamics::SkeletonPtr skel);
+	MotionWidget(dart::dynamics::SkeletonPtr skel_bvh, dart::dynamics::SkeletonPtr skel_reg, dart::dynamics::SkeletonPtr skel_sim);
 	// MotionWidget(p::object module,Preprocess* preprocess,const std::vector<Data*>& data,const std::vector<Category*>& category);
 	void UpdateMotion(std::vector<Eigen::VectorXd> motion);
 
@@ -53,7 +53,9 @@ protected:
 	int 							mCurFrame;
 
 	std::vector<Eigen::VectorXd> 	mMotion;
-	dart::dynamics::SkeletonPtr 	mSkel;
+	dart::dynamics::SkeletonPtr 	mSkel_bvh;
+	dart::dynamics::SkeletonPtr 	mSkel_reg;
+	dart::dynamics::SkeletonPtr 	mSkel_sim;
 	bool							mTrackCamera;
 	bool mMotionLoaded;
 };

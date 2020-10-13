@@ -10,10 +10,13 @@ MotionWidget()
 	this->startTimer(30);
 }
 MotionWidget::
-MotionWidget(dart::dynamics::SkeletonPtr skel)
+MotionWidget(dart::dynamics::SkeletonPtr skel_bvh, dart::dynamics::SkeletonPtr skel_reg, dart::dynamics::SkeletonPtr skel_sim)
   :MotionWidget()
 {
-	mSkel = skel;
+	mSkel_bvh = skel_bvh;
+	mSkel_reg = skel_reg;
+	mSkel_sim = skel_sim;
+
 	DPhy::SetSkeletonColor(mSkel, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
 
 }

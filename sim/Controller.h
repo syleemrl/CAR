@@ -19,7 +19,7 @@ namespace DPhy
 class Controller
 {
 public:
-Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=0);
+Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool record=false, int id=0);
 
 	void Step();
 	void UpdateReward();
@@ -112,6 +112,7 @@ protected:
 	double mCurrentFrameOnPhase;
 	int nTotalSteps;
 	bool isAdaptive;
+	bool isParametric;
 	int id;
 	double mPrevFrameOnPhase;
 	double mTargetRewardTrajectory;
@@ -204,8 +205,8 @@ protected:
 	double mSigTarget;
 
 	Eigen::Vector3d mGravity;
-	Eigen::Vector3d mMomentum;
-	Eigen::Vector3d mVelocity;
+	Eigen::Vector3d mAngularVelocity;
+	Eigen::Vector3d mLinearVelocity;
 };
 }
 #endif

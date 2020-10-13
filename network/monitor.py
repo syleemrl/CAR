@@ -10,8 +10,8 @@ from utils import RunningMeanStd
 from IPython import embed
 
 class Monitor(object):
-	def __init__(self, ref, num_slaves, directory, adaptive, plot=True, verbose=True):
-		self.env = Env(ref, directory, adaptive, num_slaves)
+	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
+		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
 		self.num_slaves = self.env.num_slaves
 		self.sim_env = self.env.sim_env
 		
@@ -22,6 +22,7 @@ class Monitor(object):
 		self.plot = plot
 		self.directory = directory
 		self.adaptive = adaptive
+		self.parametric = parametric
 
 		self.start_time = time.time()		
 		self.num_evaluation = 0
@@ -92,11 +93,9 @@ class Monitor(object):
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
 
-		if self.adaptive:
+		if self.adaptive and self.parametric:
 			params = np.array(self.states)[:,-self.dim_target:]
 			curframes = np.array(self.states)[:,-(self.dim_target+1)]
-	#		curframes = np.array(self.states)[:,-1]
-
 		else:
 			params = np.zeros(self.num_slaves)
 			curframes = np.array(self.states)[:,-1]

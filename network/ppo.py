@@ -66,7 +66,7 @@ class PPO(object):
 			self.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 			self.RMS.setNumStates(self.num_state)
 
-	def initTrain(self, name, env, adaptive, pretrain="", evaluation=False, 
+	def initTrain(self, name, env, adaptive, parametric, pretrain="", evaluation=False, 
 		directory=None, batch_size=1024, steps_per_iteration=10000, optim_frequency=5):
 
 		self.name = name
@@ -80,6 +80,7 @@ class PPO(object):
 		self.batch_size_target = 128
 		self.pretrain = pretrain
 		self.adaptive = adaptive
+		self.parametric = parametric
 		self.env = env
 		self.num_slaves = self.env.num_slaves
 		self.num_action = self.env.num_action
@@ -181,14 +182,17 @@ class PPO(object):
 		self.critic, self.critic_train_op, self.loss_critic = self.createCriticNetwork(name, self.state, self.TD)
 
 		if self.adaptive:
-			self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_target], name=name+'_state_target')
+			if self.parametric:
+				self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_target], name=name+'_state_target')
 
 			with tf.variable_scope(name+'_Optimize'):
 				self.TD_sparse = tf.placeholder(tf.float32, shape=[None], name='TD_sparse')
-				self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
+				if self.parametric:
+					self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
 
 			self.critic_sparse, self.critic_sparse_train_op, self.loss_critic_sparse = self.createCriticNetwork(name+'_sparse', self.state, self.TD_sparse)
-			self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
+			if self.parametric:
+				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -606,13 +610,14 @@ class PPO(object):
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
-			#		self.env.sim_env.Optimize()
-			#		self.env.sim_env.TrainRegressionNetwork()
-
-					self.env.updateMode(self.critic_target, self.v_target)
-					if self.env.mode == 0:
-						self.target_x_batch = []
-						self.target_y_batch = [] 
+					if not self.parametric:
+						self.env.sim_env.Optimize()
+						self.env.sim_env.TrainRegressionNetwork()
+					else:
+						self.env.updateMode(self.critic_target, self.v_target)
+						if self.env.mode == 0:
+							self.target_x_batch = []
+							self.target_y_batch = [] 
 					# self.updateAdaptive(epi_info_iter_hind, True)
 					epi_info_iter_hind = []
 
@@ -657,10 +662,12 @@ if __name__=="__main__":
 	parser.add_argument("--evaluation", type=bool, default=False)
 	parser.add_argument("--nslaves", type=int, default=4)
 	parser.add_argument("--adaptive", dest='adaptive', action='store_true')
+	parser.add_argument("--parametric", dest='parametric', action='store_true')
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
 	parser.set_defaults(plot=True)
 	parser.set_defaults(adaptive=False)
+	parser.set_defaults(parametric=False)
 
 	args = parser.parse_args()
 
@@ -674,11 +681,11 @@ if __name__=="__main__":
 			os.mkdir(directory)
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 	else:
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 
 	ppo = PPO()
 	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, 
-		adaptive=args.adaptive)
+		adaptive=args.adaptive, parametric=args.parametric)
 	ppo.train(args.ntimesteps)
