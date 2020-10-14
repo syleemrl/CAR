@@ -34,7 +34,9 @@ SimWindow(std::string motion, std::string network, std::string filename)
 
 	this->mCharacter = new DPhy::Character(path);
 	
-
+	path = std::string(CAR_DIR)+std::string("/character/box.xml");
+	this->mObject = new DPhy::Character(path);
+	
 	mReferenceManager = new DPhy::ReferenceManager(this->mRef);
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 	if(this->mRunPPO) {
@@ -69,35 +71,35 @@ SimWindow(std::string motion, std::string network, std::string filename)
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
 			
-			p::object reg_main = p::import("regression");
-			this->mRegression = reg_main.attr("Regression")();
-			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
-			this->mRegression.attr("initRun")(path, mReferenceManager->GetTargetBase().rows() + 1, mRef->GetSkeleton()->getNumDofs() + 1);
+			// p::object reg_main = p::import("regression");
+			// this->mRegression = reg_main.attr("Regression")();
+			// std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
+			// this->mRegression.attr("initRun")(path, mReferenceManager->GetTargetBase().rows() + 1, mRef->GetSkeleton()->getNumDofs() + 1);
 			
-			mPhaseCounter = 0;
-			mPrevFrame = 0;
+			// mPhaseCounter = 0;
+			// mPrevFrame = 0;
 
-			Eigen::VectorXd tp(2);
+			// Eigen::VectorXd tp(2);
 
-			tp << -9, 3.5;
-			Eigen::VectorXd tp_full = mReferenceManager->GetTargetFull();		
-			Eigen::VectorXd tp_idx = mReferenceManager->GetTargetFeatureIdx();		
+			// tp << -9, 3.5;
+			// Eigen::VectorXd tp_full = mReferenceManager->GetTargetFull();		
+			// Eigen::VectorXd tp_idx = mReferenceManager->GetTargetFeatureIdx();		
 
-			for(int i = 0; i < tp_idx.size(); i++) {
-				tp_full(tp_idx(i)) = tp(i);
-			}
+			// for(int i = 0; i < tp_idx.size(); i++) {
+			// 	tp_full(tp_idx(i)) = tp(i);
+			// }
 
-			std::vector<Eigen::VectorXd> cps;
-			for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-				Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-				input << j, tp;
-				p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-				np::ndarray na = np::from_object(a);
-				cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs() + 1));
-			}
+			// std::vector<Eigen::VectorXd> cps;
+			// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+			// 	Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+			// 	input << j, tp;
+			// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+			// 	np::ndarray na = np::from_object(a);
+			// 	cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs() + 1));
+			// }
 
-			mReferenceManager->LoadAdaptiveMotion(cps);
-			mController->SetTargetParameters(tp_full, tp);
+			// mReferenceManager->LoadAdaptiveMotion(cps);
+			// mController->SetTargetParameters(tp_full, tp);
 
 		}
 		catch (const p::error_already_set&)
@@ -124,7 +126,6 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	this->mRewardTotal = 0;
 
 	this->MemoryClear();
-
 	this->Save(this->mCurFrame);
 	this->SetFrame(this->mCurFrame);
 
@@ -180,6 +181,7 @@ Save(int n) {
     	mMemoryCOMRef2.emplace_back(mRef2->GetSkeleton()->getCOM());
 		mRef->GetSkeleton()->setPositions(this->mController->GetBVHPositions(n));
    	 	position = mRef->GetSkeleton()->getPositions();
+    	mMemoryObj.emplace_back(this->mController->GetObjPositions(n));
 
 		if(mWrap) {
 			position.segment<3>(3).setZero();
@@ -235,6 +237,8 @@ SetFrame(int n)
   		mCharacter->GetSkeleton()->setPositions(mMemory[n]);
   		mFootContact = mMemoryFootContact[n];
   		mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
+    	mObject->GetSkeleton()->setPositions(mMemoryObj[n]);
+
   	}
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
 }
@@ -271,6 +275,9 @@ DrawSkeletons()
 			GUI::DrawForces(grfs, Eigen::Vector3d(1, 0, 0));
 		}
 		GUI::DrawFootContact(this->mCharacter->GetSkeleton(), mFootContact);
+	}
+	if(this->mRunPPO) {
+		GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
 	}
 	if(this->mDrawRef) {
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);

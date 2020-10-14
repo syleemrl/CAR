@@ -567,16 +567,14 @@ void
 ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
-	mKnots.push_back(0);
-	mKnots.push_back(4);
-	mKnots.push_back(8);
-	mKnots.push_back(20);
-	mKnots.push_back(26);
-	mKnots.push_back(31);
+	for(int i = 0; i <= 20; i+=4) {
+		mKnots.push_back(i);
+	} 
+	mKnots.push_back(27);
 	mKnots.push_back(38);
-	mKnots.push_back(41);
-	mKnots.push_back(45);
-	mKnots.push_back(55);
+	mKnots.push_back(44);
+	mKnots.push_back(49);
+	mKnots.push_back(57);
 
 	// for(int i = 0; i < mPhaseLength; i+= 4) {
 	// 	mKnots_t.push_back(i);
@@ -789,7 +787,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	nc.push_back(3);
 	nc.push_back(5);
 
-	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength(), nc);
+	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
 
 	double start_phase = std::fmod(data_spline[0].second, mPhaseLength);
@@ -1008,7 +1006,7 @@ Optimize() {
 	nc.push_back(3);
 	nc.push_back(5);
 
-	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength(), nc); 
+	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength()); 
 	mean_spline->SetKnots(0, mKnots);
 
 	nc.clear();

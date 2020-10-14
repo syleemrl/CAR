@@ -116,7 +116,10 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	}
 
 	this->mIsHindsight = false;
-	mSigTarget = 2;
+
+	path = std::string(CAR_DIR)+std::string("/character/box.xml");
+	this->mObject = new DPhy::Character(path);	
+	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -221,20 +224,55 @@ Step()
 			mWorld->step(false);
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
-		if(mCurrentFrameOnPhase >= 18 && mControlFlag[1] == 0) {
-			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
-			if(mLinearVelocity(1) < c_vel(1)) {
-				mLinearVelocity = c_vel;
+		if(mControlFlag[0] == 2 && i % 2 == 0) {
+			if(mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm() > maxSpeedObj) {
+				maxSpeedObj = mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm();
 			}
 		}
 	}
-	 if(mCurrentFrameOnPhase >= 19 && mCurrentFrameOnPhase <= 40) {
-		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
-		mAngularVelocity += V.segment<3>(0);
-		mCountTarget += 1;
-	}
+	if(isAdaptive && mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
+		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
+		rot = projectToXZ(rot);		
+		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
+		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
+		Eigen::Vector3d delta(0.065 + 0.15 + 0.02, 0 , 0.02);
+		delta = obj_dir * delta;
+		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+		
+		p_obj.setZero();
 
+		for(int i = 0; i < mObject->GetSkeleton()->getNumBodyNodes(); i++) {
+			std::string name = mObject->GetSkeleton()->getBodyNode(i)->getName();
+			if(!name.compare("Sandbag"))
+				continue;
+
+			int idx = mObject->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+			if(!name.compare("Ground")) {
+				p_obj.segment<3>(idx) = obj_dir.angle() * obj_dir.axis();
+				p_obj.segment<3>(idx + 3) = obj_pos - delta;
+				p_obj[idx + 4] = 0;
+			} else if (!name.compare("Base2")) {
+				p_obj[idx] = obj_pos[1] - 0.9;
+			}
+		}
+
+		mObject->GetSkeleton()->setPositions(p_obj);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+		mControlFlag[0] = 2;
+
+	} else if(isAdaptive && mControlFlag[0] == 2) {
+		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+		p_obj.setZero();
+		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
+		mObject->GetSkeleton()->setPositions(p_obj);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+	//	mControlFlag[0] = 3;
+	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		
@@ -250,12 +288,10 @@ Step()
 			mTargetRewardTrajectory = 0;
 
 			mControlFlag.setZero();
-			mAngularVelocity.setZero();
-			mLinearVelocity.setZero();
-
 			mCountTarget = 0;
 			mCountTracking = 0;
-			
+			maxSpeedObj = 0;
+
 			if(mIsHindsight) {
 				// to get V(t+1)
 				mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
@@ -312,7 +348,8 @@ SaveStepInfo()
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	mRecordPhase.push_back(mCurrentFrame);
-	
+	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
+
 	bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
 	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
 
@@ -340,8 +377,7 @@ ClearRecord()
 
 	mCountTarget = 0;
 	mCountTracking = 0;
-	mAngularVelocity.setZero();
-	mLinearVelocity.setZero();
+	maxSpeedObj = 0;
 	data_spline.clear();
 
 }
@@ -432,31 +468,13 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 20 && mControlFlag[1] == 0) {
-		double v_diff = (mLinearVelocity(1) - mTargetFullParams(1));
-		r_target = 0.75 * exp(-pow(v_diff, 2)*2) + 0.25 * exp(-pow(v_diff, 2)*10);
-
+	if(mCurrentFrameOnPhase >= 20 && mControlFlag[0] == 2) {
 		if(mRecord) {
-		 	std::cout << mLinearVelocity(1) << " " << mTargetFullParams(1) << " " << exp(-pow(v_diff, 2)*2) << " " << exp(-pow(v_diff, 2)*10) << std::endl;
+			std::cout << maxSpeedObj << std::endl;
 		}
-		mCurFeatureParams(1) = mLinearVelocity(1);
-		mControlFlag[1] = 1;
+		mControlFlag[0] = 4;
 
 	}
-	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
-		mAngularVelocity /= mCountTarget;
-		double v_diff = (mAngularVelocity(0) - mTargetFullParams(0));
-
-		r_target = 0.75 * exp(-pow(v_diff, 2)*0.4) + 0.25 * exp(-pow(v_diff, 2)*2);
-
-		if(mRecord) {
-		 	std::cout << mAngularVelocity(0) << " " << mTargetFullParams(0) << " " << exp(-pow(v_diff, 2)*0.4) << " " << exp(-pow(v_diff, 2)*2) << std::endl;
-		}
-
-		mCurFeatureParams(0) = mAngularVelocity(0);
-		mControlFlag[0] = 1;		
-
-	} 
 	return r_target;
 }
 std::vector<bool> 
@@ -819,14 +837,14 @@ Reset(bool RSI)
 	skel->clearInternalForces();
 	skel->clearExternalForces();
 	//RSI
-	// if(RSI && !isAdaptive) {
-	// 	this->mCurrentFrame = (int) dart::math::Random::uniform(0.0, mReferenceManager->GetPhaseLength()-5.0);
-	// }
-//	else {
+	if(RSI && !isAdaptive) {
+		this->mCurrentFrame = (int) dart::math::Random::uniform(0.0, mReferenceManager->GetPhaseLength()-5.0);
+	}
+	else {
 		this->mCurrentFrame = 0; // 0;
 		this->mTargetRewardTrajectory = 0;
 		this->mTrackingRewardTrajectory = 0;
-//	}
+	}
 
 	this->mCurrentFrameOnPhase = this->mCurrentFrame;
 	this->mStartFrame = this->mCurrentFrame;
@@ -847,6 +865,16 @@ Reset(bool RSI)
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
+	if(isAdaptive) {
+		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+		p_obj.setZero();
+		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
+		mObject->GetSkeleton()->setPositions(p_obj);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
+	}
+
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
 
@@ -861,6 +889,7 @@ Reset(bool RSI)
 	{
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
 	}
+
 }
 int
 Controller::

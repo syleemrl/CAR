@@ -205,8 +205,7 @@ protected:
 	double mSigTarget;
 
 	Eigen::Vector3d mGravity;
-	Eigen::Vector3d mAngularVelocity;
-	Eigen::Vector3d mLinearVelocity;
+	double maxSpeedObj;
 };
 }
 #endif

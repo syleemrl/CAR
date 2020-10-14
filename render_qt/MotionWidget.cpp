@@ -127,6 +127,9 @@ initNetworkSetting(std::string ppo, std::string reg) {
 	        }
 	        is.close();
 	        std::stable_sort(mParamRange.begin(), mParamRange.end(), cmp);
+	        for(int i =0 ; i < mParamRange.size(); i++) {
+	        	std::cout << mParamRange[i].transpose() << std::endl;
+	        }
     	}
     	if(ppo != "") {
     		this->mController = new DPhy::Controller(mReferenceManager, true, mRunReg, true);
@@ -149,7 +152,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
 void 
 MotionWidget::
 setValueX(const int &x){
-    v_param(0) = x;
+    v_param(0) = 10 - x;
 }
 void 
 MotionWidget::
@@ -159,6 +162,7 @@ setValueY(const int &y){
 void 
 MotionWidget::
 UpdateParam(const bool& pressed) {
+	std::cout << v_param.transpose() << std::endl;
 	if(mRunReg) {
 	    Eigen::VectorXd tp(v_param.rows());
 	    int startIdx = 0, endIdx = mParamRange.size() - 1;
@@ -249,8 +253,8 @@ RunPPO() {
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
 
-		pos_reg.push_back(position);
-		pos_sim.push_back(position_reg);
+		pos_reg.push_back(position_reg);
+		pos_sim.push_back(position);
 	}
 
 	UpdateMotion(pos_sim, 1);
