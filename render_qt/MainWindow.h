@@ -39,5 +39,6 @@ protected:
 	std::vector<QSlider*> mParams;
 
 	void initLayoutSetting(std::string motion, std::string ppo, std::string reg) ;
+
 };
 #endif

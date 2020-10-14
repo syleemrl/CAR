@@ -410,6 +410,38 @@ timerEvent(QTimerEvent* event)
 }
 void
 MotionWidget::
+toggleDrawBvh() {
+	mDrawBvh = !mDrawBvh;
+
+}
+void
+MotionWidget::
+toggleDrawReg() {
+	mDrawReg = !mDrawReg;
+
+}
+void
+MotionWidget::
+toggleDrawSim() {
+	if(mRunSim)
+		mDrawSim = !mDrawSim;
+
+}
+// void
+// MotionWidget::
+// toggleDraw(int type) {
+// 	if(type == 0) {
+// 		mDrawBvh != mDrawBvh;
+// 	}
+// 	if(type == 1) {
+// 		mDrawSim != mDrawSim;
+// 	}
+// 	if(type == 2) {
+// 		mDrawReg != mDrawReg;
+// 	}
+// }
+void
+MotionWidget::
 keyPressEvent(QKeyEvent *event)
 {
 	if(event->key() == Qt::Key_Escape){

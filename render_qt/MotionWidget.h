@@ -14,7 +14,6 @@
 #include "DART_interface.h"
 #include "Controller.h"
 #pragma pop_macro("slots")
-
 namespace p = boost::python;
 namespace np = boost::python::numpy;
 class MotionWidget : public QOpenGLWidget
@@ -28,7 +27,6 @@ public:
 
 	void togglePlay();
 	void RunPPO();
-
 public slots:
 	void NextFrame();
 	void PrevFrame();
@@ -37,6 +35,9 @@ public slots:
 
 	void setValueX(const int &x);
 	void setValueY(const int &y);
+	void toggleDrawBvh();
+	void toggleDrawSim();
+	void toggleDrawReg();
 
 protected:
 	void initializeGL() override;	

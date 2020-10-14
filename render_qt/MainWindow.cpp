@@ -4,6 +4,7 @@
 #include <iostream>
 #include <QGLWidget>
 #include <QLabel>
+#include <QCheckBox>
 MainWindow::
 MainWindow() :QMainWindow()
 {
@@ -30,6 +31,24 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     mMotionWidget->setMinimumSize(1000,650);
     mMotionWidget->setMaximumSize(1000,650);
 
+
+    QHBoxLayout *checkboxlayout = new QHBoxLayout();
+    QCheckBox *checkbox = new QCheckBox("hide bvh", this);
+    connect(checkbox, SIGNAL(clicked(bool)), mMotionWidget, SLOT(toggleDrawBvh())); 
+    checkboxlayout->addWidget(checkbox);
+    
+    checkbox = new QCheckBox("hide ref", this);
+    connect(checkbox, SIGNAL(clicked(bool)), mMotionWidget, SLOT(toggleDrawReg())); 
+    checkboxlayout->addWidget(checkbox);
+
+    checkbox = new QCheckBox("hide sim", this);
+    connect(checkbox, SIGNAL(clicked(bool)), mMotionWidget, SLOT(toggleDrawSim())); 
+    checkboxlayout->addWidget(checkbox);
+    
+
+    checkboxlayout->addStretch(1);
+
+    motionlayout->addLayout(checkboxlayout);
     motionlayout->addWidget(mMotionWidget);
     // QSlider* frame = new QSlider(Qt::Horizontal);
     // frame->setMinimum(0);
