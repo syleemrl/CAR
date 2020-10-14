@@ -1,0 +1,112 @@
+<Skeleton name = "Humanoid">
+	<JOINT type = "FreeJoint" name = "Hips" parent_name = "None" size = "0.2582 0.1373 0.1914 " mass = "5" bvh = "Hips"> 
+		<BodyPosition translation= "0.0 0.0 0.0 " /> 
+		<JointPosition translation= "0.0 0.0 0.0 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "Spine" parent_name = "Hips" size = "0.211 0.0826 0.1511 " mass = "5" bvh = "Spine"> 
+		<BodyPosition translation= "-0.0011 0.1443 -0.0 " /> 
+		<JointPosition translation= "-0.0001 0.1006 -0.0036 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "Spine1" parent_name = "Spine" size = "0.2485 0.1088 0.2015 " mass = "5" bvh = "Spine1"> 
+		<BodyPosition translation= "-0.001 0.2727 -0.0 " /> 
+		<JointPosition translation= "-0.0001 0.2179 -0.0078 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "Spine2" parent_name = "Spine1" size = "0.1129 0.1136 0.1405 " mass = "5" bvh = "Spine2"> 
+		<BodyPosition translation= "-0.0009 0.4138 -0.0 " /> 
+		<JointPosition translation= "-0.0001 0.3521 -0.0125 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "Neck" parent_name = "Spine2" size = "0.0849 0.0557 0.0849 " mass = "1" bvh = "Neck"> 
+		<BodyPosition translation= "-0.0009 0.5262 -0.0056 " /> 
+		<JointPosition translation= "-0.0001 0.5029 -0.0179 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "Head" parent_name = "Neck" size = "0.1777 0.1429 0.126 " mass = "4" bvh = "Head"> 
+		<BodyPosition translation= "-0.0008 0.6711 0.0422 " /> 
+		<JointPosition translation= "-0.0001 0.5838 0.009 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftShoulder" parent_name = "Spine2" size = "0.05 0.12 0.0647 " mass = "2" bvh = "LeftShoulder"> 
+		<BodyPosition translation= "0.0602 0.5445 -0.0155 " /> 
+		<JointPosition translation= "0.0594 0.4844 -0.0179 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftArm" parent_name = "LeftShoulder" size = "0.05 0.23 0.0781 " mass = "1" bvh = "LeftArm"> 
+		<BodyPosition translation= "0.0594 0.73 -0.0155 " /> 
+		<JointPosition translation= "0.0581 0.6091 -0.0179 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftForeArm" parent_name = "LeftArm" size = "0.05 0.23 0.0781 " mass = "1" bvh = "LeftForeArm"> 
+		<BodyPosition translation= "0.0565 0.9695 -0.0155 " /> 
+		<JointPosition translation= "0.0582 0.8473 -0.0179 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftHand" parent_name = "LeftForeArm" size = "0.03 0.17 0.0781 " mass = "0.5" bvh = "LeftHand"> 
+		<BodyPosition translation= "0.0588 1.1794 -0.0155 " /> 
+		<JointPosition translation= "0.0584 1.0929 -0.0179 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightShoulder" parent_name = "Spine2" size = "0.05 0.12 0.0647 " mass = "2" bvh = "RightShoulder"> 
+		<BodyPosition translation= "-0.0599 0.5446 -0.0155 " /> 
+		<JointPosition translation= "-0.0596 0.4844 -0.0179 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightArm" parent_name = "RightShoulder" size = "0.05 0.23 0.0781 " mass = "1" bvh = "RightArm"> 
+		<BodyPosition translation= "-0.0593 0.7309 -0.0155 " /> 
+		<JointPosition translation= "-0.0587 0.6091 -0.018 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightForeArm" parent_name = "RightArm" size = "0.05 0.23 0.0781 " mass = "1" bvh = "RightForeArm"> 
+		<BodyPosition translation= "-0.0605 0.9718 -0.0155 " /> 
+		<JointPosition translation= "-0.0579 0.8473 -0.0185 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightHand" parent_name = "RightForeArm" size = "0.03 0.17 0.0781 " mass = "0.5" bvh = "RightHand"> 
+		<BodyPosition translation= "-0.0572 1.1835 -0.0155 " /> 
+		<JointPosition translation= "-0.057 1.0929 -0.0191 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftUpLeg" parent_name = "Hips" size = "0.14 0.4 0.1191 " mass = "7" bvh = "LeftUpLeg"> 
+		<BodyPosition translation= "0.0951 0.1549 -0.0 " /> 
+		<JointPosition translation= "0.094 -0.0557 -0.0009 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftLeg" parent_name = "LeftUpLeg" size = "0.09 0.36 0.09 " mass = "3" bvh = "LeftLeg"> 
+		<BodyPosition translation= "0.0914 0.5643 0.0043 " /> 
+		<JointPosition translation= "0.091 0.3675 0.0044 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftFoot" parent_name = "LeftLeg" size = "0.07 0.13 0.09 " mass = "1" bvh = "LeftFoot"> 
+		<BodyPosition translation= "0.0905 0.8349 0.0052 " /> 
+		<JointPosition translation= "0.0906 0.7584 -0.0009 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "LeftToe" parent_name = "LeftFoot" size = "0.07 0.04 0.09 " mass = "0.5" bvh = "LeftToe"> 
+		<BodyPosition translation= "0.0906 0.9299 0.0036 " /> 
+		<JointPosition translation= "0.0891 0.9055 0.0004 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightUpLeg" parent_name = "Hips" size = "0.14 0.4 0.1191 " mass = "7" bvh = "RightUpLeg"> 
+		<BodyPosition translation= "-0.0949 0.1551 0.0 " /> 
+		<JointPosition translation= "-0.0939 -0.0558 -0.0002 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightLeg" parent_name = "RightUpLeg" size = "0.09 0.36 0.09 " mass = "3" bvh = "RightLeg"> 
+		<BodyPosition translation= "-0.0906 0.5644 0.0044 " /> 
+		<JointPosition translation= "-0.0909 0.3674 0.0063 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightFoot" parent_name = "RightLeg" size = "0.07 0.13 0.09 " mass = "1" bvh = "RightFoot"> 
+		<BodyPosition translation= "-0.0895 0.8351 0.0052 " /> 
+		<JointPosition translation= "-0.0892 0.7583 -0.0007 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+	<JOINT type = "BallJoint" name = "RightToe" parent_name = "RightFoot" size = "0.07 0.04 0.09 " mass = "0.5" bvh = "RightToe"> 
+		<BodyPosition translation= "-0.0894 0.9301 0.0036 " /> 
+		<JointPosition translation= "-0.0865 0.9042 0.0013 " /> 
+		<TorqueLimit norm= "0" /> 
+	</Joint>
+</Skeleton>
