@@ -138,7 +138,8 @@ class Monitor(object):
 			self.mode_counter += 1
 			if self.sim_env.Optimize():
 				self.flag_updated = True
-			if (self.flag_updated and self.mode_counter >= 4) or not self.sim_env.NeedRefUpdate():
+		#	if (self.flag_updated and self.mode_counter >= 4) or not self.sim_env.NeedRefUpdate():
+			if self.mode_counter >= 1:
 
 				if len(b) != 0:
 					self.mode = 1

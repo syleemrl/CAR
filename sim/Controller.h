@@ -206,6 +206,8 @@ protected:
 
 	Eigen::Vector3d mGravity;
 	double maxSpeedObj;
+	Eigen::Vector3d mHandPosition;
+
 };
 }
 #endif

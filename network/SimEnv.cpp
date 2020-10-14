@@ -38,7 +38,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		mParamBase = mReferenceManager->GetTargetBase();
 		mParamUnit = mReferenceManager->GetTargetUnit();
 		nDim = mParamBase.rows();
-		nCapacity = 15;
+		nCapacity = 5;
 
 		mParamGoalIdx.resize(nDim);
 		Eigen::VectorXd p = mReferenceManager->GetTargetFeature();
@@ -343,7 +343,7 @@ AssignParamsToBins(bool online)
 		if(!visited[i]) {
 			Eigen::VectorXd idx = mParamNotAssigned[i].second;
 			for(int j = 0; j < mParamBins.size(); j++) {
-				if((mParamBins[j].GetIdx() - idx).norm() < 1e-3) {
+				if((mParamBins[j].GetIdx() - idx).norm() < 1e-2) {
 					visited[i] = true;
 					assigned[i] = true;
 
@@ -357,27 +357,26 @@ AssignParamsToBins(bool online)
 			}
 			if(!assigned[i]) {
 				double dist_cur = (idx_cur - idx).norm();
-
-				if(isParametric && online && dist_cur > 1.5 && mNeedRefUpdate)
+				if(isParametric && online && dist_cur > 2.5 && mNeedRefUpdate)
 					continue;
 
 				std::vector<int> p_temp;
 				p_temp.push_back(i);
 				for(int j = i + 1; j < mParamNotAssigned.size(); j++) {
-					if(( mParamNotAssigned[j].second - idx).norm() < 1e-3) {
+					if(( mParamNotAssigned[j].second - idx).norm() < 1e-2) {
 						visited[j] = true;
 						p_temp.push_back(j);
 					}
 				}
 
-				if((online && p_temp.size() >= 2 * nCapacity) || (!online && p_temp.size() >= nCapacity))  {
+				if((online && p_temp.size() >= 4 * nCapacity) || (!online && p_temp.size() >= nCapacity))  {
 					ParamBin pb = ParamBin(idx);
 					for(int j = 0; j < p_temp.size(); j++) {
 						pb.PutParam(mParamNotAssigned[p_temp[j]].first);
 						assigned[p_temp[j]] = true;
 					}
 					mParamBins.push_back(pb);
-					if(mTargetGoalBinIdx == -1 && (mParamGoalIdx - idx).norm() < 1e-3) {
+					if(mTargetGoalBinIdx == -1 && (mParamGoalIdx - idx).norm() < 1e-2) {
 						mTargetGoalBinIdx = mParamBins.size() - 1;
 						std::cout << "target goal bin idx: " << " " << mTargetGoalBinIdx << std::endl;
 					}
@@ -671,7 +670,6 @@ SetRefUpdateMode(bool t) {
 		mReferenceManager->LoadAdaptiveMotion("updated");
 		Eigen::VectorXd tp_feature = mReferenceManager->GetTargetFeature();		
 		Eigen::VectorXd tp = mReferenceManager->GetTargetFull();		
-		std::cout << tp_feature.transpose() << " "<< tp.transpose() << std::endl;
 		for(int id = 0; id < mNumSlaves; ++id) {
 			mSlaves[id]->SetTargetParameters(tp, tp_feature);
 		}

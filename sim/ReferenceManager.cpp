@@ -582,21 +582,21 @@ InitOptimization(int nslaves, std::string save_path) {
 	mKnots_t = mKnots;
 
 	// angular velocity, linear momentum
-	mTargetBase.resize(2);
-	mTargetBase << -7.3, 2.7;
+	mTargetBase.resize(4);
+	mTargetBase << 0.85, 1.3, -0.85, 0.1;
 	mTargetCurMean = mTargetBase;
 
-	mTargetFull.resize(2);
-	mTargetFull << -10, 4;
+	mTargetFull.resize(4);
+	mTargetFull << 0.05, 1.1, -1.2, 0.6;
 
-	mTargetFeature.resize(2);
-	mTargetFeature << -10, 3;
+	mTargetFeature.resize(4);
+	mTargetFeature <<  0.05, 1.1, -1.2, 0.6;
 
-	mTargetFeatureIdx.resize(2);
-	mTargetFeatureIdx << 0, 1;
+	mTargetFeatureIdx.resize(4);
+	mTargetFeatureIdx << 0, 1, 2, 3;
 
-	mTargetUnit.resize(2);
-	mTargetUnit<< 0.3, 0.1;
+	mTargetUnit.resize(4);
+	mTargetUnit<< 0.1, 0.1, 0.1, 0.1;
 
 	mRefUpdateMode = true;
 
@@ -768,7 +768,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	// if(mPrevRewardTarget == 0 && rewards.first < 0.82) {
 	// 	return;
 	// }
-	if(rewards.first  < 0.8) {
+	if(rewards.first  < 0.91) {
 		flag.push_back(0);
 	}
 	else {
@@ -871,7 +871,13 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 				r_regul += 1 * cps[i].segment<3>(idx).norm();
 				r_regul += 1 * cps[i].segment<3>(idx + 3).norm();
 			} else if (dof == 3) {
-				r_regul += 0.5 * cps[i].segment<3>(idx).norm();
+				if(b_name.find("RightShoulder") != std::string::npos || 
+				   b_name.find("RightArm") != std::string::npos ||
+				   b_name.find("RightForeArm") != std::string::npos ||
+				   b_name.find("RightHand") != std::string::npos) {
+					r_regul += 2 * cps[i].segment<3>(idx).norm();
+				} else
+					r_regul += 0.5 * cps[i].segment<3>(idx).norm();
 			} 
 		}
 	}

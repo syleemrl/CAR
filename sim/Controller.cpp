@@ -224,7 +224,7 @@ Step()
 			mWorld->step(false);
 		}
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
-		if(mControlFlag[0] == 2 && i % 2 == 0) {
+		if(mControlFlag[0] >= 1 && mControlFlag[0] < 3 && i % 2 == 0) {
 			if(mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm() > maxSpeedObj) {
 				maxSpeedObj = mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm();
 			}
@@ -235,7 +235,8 @@ Step()
 		rot = projectToXZ(rot);		
 		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
 		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::Vector3d delta(0.065 + 0.15 + 0.02, 0 , 0.02);
+		mHandPosition = obj_pos;
+		Eigen::Vector3d delta(0.065 + 0.15 + 0.01, 0 , 0.01);
 		delta = obj_dir * delta;
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		
@@ -261,9 +262,9 @@ Step()
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 
-		mControlFlag[0] = 2;
+		mControlFlag[0] = 1;
 
-	} else if(isAdaptive && mControlFlag[0] == 2) {
+	} else if(isAdaptive && mControlFlag[0] == 1) {
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		p_obj.setZero();
 		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
@@ -271,7 +272,9 @@ Step()
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-	//	mControlFlag[0] = 3;
+		mControlFlag[0] = 2;
+	} else if(mControlFlag[0] == 2) {
+		mControlFlag[0] = 3;
 	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -291,6 +294,7 @@ Step()
 			mCountTarget = 0;
 			mCountTracking = 0;
 			maxSpeedObj = 0;
+			mHandPosition.setZero();
 
 			if(mIsHindsight) {
 				// to get V(t+1)
@@ -379,7 +383,7 @@ ClearRecord()
 	mCountTracking = 0;
 	maxSpeedObj = 0;
 	data_spline.clear();
-
+	mHandPosition.setZero();
 }
 
 std::vector<double> 
@@ -398,13 +402,20 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	Eigen::VectorXd p_diff_reward;
 	
 	p_diff_reward = p_diff;
-	if(isAdaptive)
-		p_diff_reward.segment<3>(0) *= 5;
 	Eigen::VectorXd v_diff, v_diff_reward;
 
 	if(useVelocity) {
 		v_diff = skel->getVelocityDifferences(velocity, velocity2);
 		v_diff_reward = v_diff;
+		for(int i = 0; i < num_body_nodes; i++) {
+			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
+			int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+
+			if(name.compare("RightHand") == 0 || name.compare("RightForeArm") == 0 || name.compare("RightArm") == 0 || name.compare("RightShoulder") == 0 ) {
+				v_diff_reward.segment<3>(idx) *= 2;
+				p_diff_reward.segment<3>(idx) *= 2;
+			}
+		}
 	}
 
 	skel->setPositions(position);
@@ -468,12 +479,31 @@ GetTargetReward()
 {
 	double r_target = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 20 && mControlFlag[0] == 2) {
-		if(mRecord) {
-			std::cout << maxSpeedObj << std::endl;
-		}
+	if(mControlFlag[0] == 3) {
+		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
+		root_new = projectToXZ(root_new);
+		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+
+		Eigen::Vector3d target_hand = aa * mTargetFullParams.segment<3>(0) + mHeadRoot.segment<3>(3);
+		target_hand(1) = mTargetFullParams(1);
+		Eigen::Vector3d target_diff = target_hand - mHandPosition;
+		double v_diff = mTargetFullParams(3) - maxSpeedObj;
+		r_target = 0.75 * exp_of_squared(target_diff, 0.4) + 0.25 * exp_of_squared(target_diff,0.15);
+		r_target += (0.75 * exp(-pow(v_diff, 2)*5) + 0.25 * exp(-pow(v_diff, 2)*15));
+
+		
+		Eigen::Vector3d hand = mHandPosition;
+		hand = hand - mHeadRoot.segment<3>(3);
+		hand(1) = 0;
+		mCurFeatureParams.segment<3>(0) = aa.inverse() * hand;
+		mCurFeatureParams(1) = mHandPosition(1);
+		mCurFeatureParams(3) = maxSpeedObj;
 		mControlFlag[0] = 4;
 
+		if(mRecord) {
+			std::cout << target_diff.transpose() << " "<< exp_of_squared(target_diff, 0.4)  << " "<< exp_of_squared(target_diff,0.15) << std::endl;
+			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*5)  << " "<< exp(-pow(v_diff, 2)*15) << std::endl;
+		}
 	}
 	return r_target;
 }
