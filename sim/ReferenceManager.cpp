@@ -25,6 +25,10 @@ ReferenceManager::ReferenceManager(Character* character)
 	mTargetFull.resize(1);
 	mTargetFeature.resize(1);
 
+	mTimeStep_adaptive.clear();
+	for(int i = 0; i < mPhaseLength; i++) {
+		mTimeStep_adaptive.push_back(1.0);
+	}
 }
 void 
 ReferenceManager::

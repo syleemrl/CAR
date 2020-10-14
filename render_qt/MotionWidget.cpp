@@ -1,32 +1,262 @@
 #include "MotionWidget.h"
+#include "SkeletonBuilder.h"
+#include "Character.h"
+#include "Functions.h"
 #include <GL/glu.h>
 #include <iostream>
 #include <Eigen/Geometry>
 #include <chrono>
 MotionWidget::
 MotionWidget()
-  :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),mTrackCamera(false)
+  :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),
+  mTrackCamera(false), mDrawBvh(true), mDrawSim(true), mDrawReg(true)
 {
 	this->startTimer(30);
 }
 MotionWidget::
-MotionWidget(dart::dynamics::SkeletonPtr skel_bvh, dart::dynamics::SkeletonPtr skel_reg, dart::dynamics::SkeletonPtr skel_sim)
+MotionWidget(std::string motion, std::string ppo, std::string reg)
   :MotionWidget()
 {
-	mSkel_bvh = skel_bvh;
-	mSkel_reg = skel_reg;
-	mSkel_sim = skel_sim;
+	mCurFrame = 0;
+	mTotalFrame = 0;
+
+	v_param.resize(2);
+    v_param.setZero();
+
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+
+    mSkel_bvh = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+    mSkel_reg = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+    mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	
-	mMotionLoaded_bvh = false;
-	mMotionLoaded_sim = false;
-	mMotionLoaded_reg = false;
+	if(ppo == "") {
+		mRunSim = false;
+		mDrawSim = false;
+	} else {
+		mRunSim = true;
+	}
+	if(reg == "") {
+		mRunReg = false;
+		mDrawReg = false;
+	} else {
+		mRunReg = true;
+	}
+
+    path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+    DPhy::Character* ref = new DPhy::Character(path);
+    mReferenceManager = new DPhy::ReferenceManager(ref);
+    mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
+    
+    if(mRunSim) {
+	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
+	    mReferenceManager->InitOptimization(1, path);
+	    mReferenceManager->LoadAdaptiveMotion("");
+	    mDrawReg = true;
+
+    } else if(mRunReg) {
+    	mReferenceManager->InitOptimization(1, "");
+    }
+
+    std::vector<Eigen::VectorXd> pos;
+    double phase = 0;
+    for(int i = 0; i < 500; i++) {
+        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, false);
+        p(3) -= 0.75; 
+        pos.push_back(p);
+        phase += mReferenceManager->GetTimeStep(phase, false);
+    }
+
+    UpdateMotion(pos, 0);
+	initNetworkSetting(ppo, reg);
+
 
 	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
-	mCurFrame = 0;
+	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 
 }
+bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
+    for(int i = 0; i < p1.rows(); i++) {
+        if(p1(i) < p2(i))
+            return true;
+        else if(p1(i) > p2(i))
+            return false;
+    }
+    return false;
+}
+void
+MotionWidget::
+initNetworkSetting(std::string ppo, std::string reg) {
 
+    Py_Initialize();
+    np::initialize();
+    try {
+    	if(reg != "") {
+			p::object reg_main = p::import("regression");
+	        this->mRegression = reg_main.attr("Regression")();
+	        std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
+	        this->mRegression.attr("initRun")(path, mReferenceManager->GetTargetBase().rows() + 1, mReferenceManager->GetDOF() + 1);
+
+	        path = path + "boundary";
+	        char buffer[256];
+
+	        std::ifstream is;
+	        is.open(path);
+
+	        int param_dof = v_param.rows();
+	        while(!is.eof()) {
+	            Eigen::VectorXd tp(param_dof);
+	            for(int j = 0; j < param_dof; j++) {
+	                is >> buffer;
+	                tp[j] = atof(buffer);
+	            }
+	            //comma
+	            is >> buffer;
+
+	            Eigen::VectorXd tp2(param_dof);
+	            for(int j = 0; j < param_dof; j++) {
+	                is >> buffer;
+	                tp2[j] = atof(buffer);
+	            }
+	            if((tp - tp2).norm() < 1e-2) 
+	                break;
+	            Eigen::VectorXd tp_mean = (tp + tp2) * 0.5;
+
+	            mParamRange.push_back(tp_mean);
+
+	        }
+	        is.close();
+	        std::stable_sort(mParamRange.begin(), mParamRange.end(), cmp);
+    	}
+    	if(ppo != "") {
+    		this->mController = new DPhy::Controller(mReferenceManager, true, mRunReg, true);
+
+    		p::object ppo_main = p::import("ppo");
+			this->mPPO = ppo_main.attr("PPO")();
+			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + ppo;
+			this->mPPO.attr("initRun")(path,
+									   this->mController->GetNumState(), 
+									   this->mController->GetNumAction());
+			if(reg == "")
+				RunPPO();
+			
+    	}
+    
+    } catch (const p::error_already_set&) {
+        PyErr_Print();
+    }    
+}
+void 
+MotionWidget::
+setValueX(const int &x){
+    v_param(0) = x;
+}
+void 
+MotionWidget::
+setValueY(const int &y){
+    v_param(1) = y;
+}
+void 
+MotionWidget::
+UpdateParam(const bool& pressed) {
+	if(mRunReg) {
+	    Eigen::VectorXd tp(v_param.rows());
+	    int startIdx = 0, endIdx = mParamRange.size() - 1;
+	    for(int i = 0 ; i < tp.rows(); i++) {
+	        double min = mParamRange[startIdx](i);
+	        double max = mParamRange[endIdx](i);
+	        tp(i) = (max - min) * 0.1 * v_param(i) + min;
+
+	        for(int j = startIdx; j <= endIdx + 1; j++) {
+	            if(j == endIdx || mParamRange[j][i] > tp(i)) {
+	                endIdx = j-1;
+	                for(int k = endIdx; k >= startIdx; k--) {
+	                    if(mParamRange[endIdx][i] != mParamRange[k][i]) {
+	                        startIdx = k+1;
+	                        break;
+	                    }
+	                }
+	                break;
+	            }
+	        }
+	    }
+	    std::cout << "parameter updated: " << tp.transpose() << std::endl;
+		Eigen::VectorXd tp_full = mReferenceManager->GetTargetFull();		
+		Eigen::VectorXd tp_idx = mReferenceManager->GetTargetFeatureIdx();		
+		for(int i = 0; i < tp_idx.size(); i++) {
+			tp_full(tp_idx(i)) = tp(i);
+		}
+
+	    int dof = mReferenceManager->GetDOF() + 1;
+
+	    std::vector<Eigen::VectorXd> cps;
+	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
+	        cps.push_back(Eigen::VectorXd::Zero(dof));
+	    }
+
+	    for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	        Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+	        input << j, tp;
+	        p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	    
+	        np::ndarray na = np::from_object(a);
+	        cps[j] = DPhy::toEigenVector(na, dof);
+	    }
+
+	    mReferenceManager->LoadAdaptiveMotion(cps);
+	    if(!mRunSim) {
+		    std::vector<Eigen::VectorXd> pos;
+		    double phase = 0;
+		    for(int i = 0; i < 500; i++) {
+		        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
+		        p(3) += 0.75;
+		        pos.push_back(p);
+		        phase += mReferenceManager->GetTimeStep(phase, true);
+		    }
+		    mTotalFrame = 500;
+		    UpdateMotion(pos, 2);
+	    } else {
+	    	mController->SetTargetParameters(tp_full, tp);
+			RunPPO();
+	    }
+	}
+}
+void
+MotionWidget::
+RunPPO() {
+	std::vector<Eigen::VectorXd> pos_reg;
+	std::vector<Eigen::VectorXd> pos_sim;
+
+	int count = 0;
+	mController->Reset(false);
+	while(!this->mController->IsTerminalState()) {
+		Eigen::VectorXd state = this->mController->GetState();
+
+		p::object a = this->mPPO.attr("run")(DPhy::toNumPyArray(state));
+		np::ndarray na = np::from_object(a);
+		Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController->GetNumAction());
+
+		this->mController->SetAction(action);
+		this->mController->Step();
+		count += 1;
+	}
+
+	for(int i = 0; i <= count; i++) {
+
+		Eigen::VectorXd position = this->mController->GetPositions(i);
+		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
+
+		position(3) += 0.75;
+		position_reg(3) += 0.75;
+
+		pos_reg.push_back(position);
+		pos_sim.push_back(position_reg);
+	}
+
+	UpdateMotion(pos_sim, 1);
+	UpdateMotion(pos_reg, 2);
+
+}
 void
 MotionWidget::
 initializeGL()
@@ -48,30 +278,28 @@ void
 MotionWidget::
 SetFrame(int n)
 {
-	if(mMotionLoaded_bvh) {
-		int n_bvh = n % mMotion_bvh.size();
-    	mSkel_bvh->setPositions(mMotion_bvh[n_bvh]);
+	if(mDrawBvh && n < mMotion_bvh.size()) {
+    	mSkel_bvh->setPositions(mMotion_bvh[n]);
 	}
-	if(mMotionLoaded_sim) {
-		int n_sim = n % mMotion_sim.size();
-    	mSkel_sim->setPositions(mMotion_sim[n_sim]);
+	if(mDrawSim && n < mMotion_sim.size()) {
+    	mSkel_sim->setPositions(mMotion_sim[n]);
 	}
-	if(mMotionLoaded_reg) {
- 		int n_reg = n % mMotion_reg.size();
-    	mSkel_reg->setPositions(mMotion_reg[n_reg]);
+	if(mDrawReg && n < mMotion_reg.size()) {
+    	mSkel_reg->setPositions(mMotion_reg[n]);
 	}
-
 }
 void
 MotionWidget::
 DrawSkeletons()
 {
-	if(mMotionLoaded_bvh)
+
+	if(mDrawBvh)
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
-	if(mMotionLoaded_sim)
+	if(mDrawSim)
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
-	if(mMotionLoaded_reg)
+	if(mDrawReg)
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
+
 }
 void
 MotionWidget::
@@ -79,8 +307,10 @@ DrawGround()
 {
 	Eigen::Vector3d com_root;
 	com_root = this->mSkel_bvh->getRootBodyNode()->getCOM();
-	if(mMotionLoaded_reg) {
+	if(mRunReg) {
 		com_root = 0.5 * com_root + 0.5 * this->mSkel_reg->getRootBodyNode()->getCOM();
+	} else if(mRunSim) {
+			com_root = 0.5 * com_root + 0.5 * this->mSkel_sim->getRootBodyNode()->getCOM();	
 	}
 	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
 }
@@ -88,6 +318,7 @@ void
 MotionWidget::
 paintGL()
 {
+
 	glClearColor(1.0, 1.0, 1.0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -117,6 +348,7 @@ paintGL()
 
 	DrawGround();
 	DrawSkeletons();
+
 }
 void
 MotionWidget::
@@ -169,11 +401,12 @@ void
 MotionWidget::
 timerEvent(QTimerEvent* event)
 {
-	if(mPlay && (mMotionLoaded_bvh || mMotionLoaded_reg || mMotionLoaded_sim)) {
+	if(mPlay && mCurFrame < mTotalFrame) {
 		mCurFrame += 1;
 	} 
 	SetFrame(this->mCurFrame);
 	update();
+
 }
 void
 MotionWidget::
@@ -239,18 +472,19 @@ UpdateMotion(std::vector<Eigen::VectorXd> motion, int type)
 {
 	if(type == 0) {
 		mMotion_bvh = motion;	
-		mMotionLoaded_bvh = true;
 	}
 	else if(type == 1) {
 		mMotion_sim = motion;		
-		mMotionLoaded_sim = true;
 	}
 	else if(type == 2) {
 		mMotion_reg = motion;	
-		mMotionLoaded_reg = true;
 	}
 	mCurFrame = 0;
-
+	if(mTotalFrame == 0)
+		mTotalFrame = motion.size();
+	else if(mTotalFrame > motion.size()) {
+		mTotalFrame = motion.size();
+	}
 }
 void
 MotionWidget::

@@ -154,8 +154,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	if(mRecord)
-		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	// if(mRecord)
+	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -539,16 +539,18 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(6 * r_con * r_t);
+		mRewardParts.push_back(6 * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
 	if(r_t != 0) {
-		if(mTargetRewardTrajectory == 0)
-			mTargetRewardTrajectory = 6 * r_con * r_t;
-		else
-			mTargetRewardTrajectory *= 6 * r_con * r_t;
+		if(mTargetRewardTrajectory == 0) {
+			mTargetRewardTrajectory = r_t;
+		}
+		else {
+			mTargetRewardTrajectory *= r_t;
+		}
 	}
 	mTrackingRewardTrajectory += r_tot;
 	mCountTracking += 1;
@@ -738,7 +740,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(!mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}

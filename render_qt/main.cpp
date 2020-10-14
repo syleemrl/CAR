@@ -95,103 +95,29 @@ int main(int argc,char** argv)
 
 	boost::program_options::options_description desc("allowed options");
 	desc.add_options()
-	("type,t",boost::program_options::value<std::string>())
-	("file,f",boost::program_options::value<std::string>())
-	("ref,r",boost::program_options::value<std::string>())
-	("network,n",boost::program_options::value<std::string>())
-	("save,s",boost::program_options::value<std::string>())
+	("reg,r",boost::program_options::value<std::string>())
+	("bvh,b",boost::program_options::value<std::string>())
+	("ppo,p",boost::program_options::value<std::string>())
 	;
 
 	boost::program_options::variables_map vm;
 	boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
-	std::string type, file="", network="", save="", ref="";
+	std::string ppo="", bvh="", reg="";
 
-	if(vm.count("type")) {
-		type = vm["type"].as<std::string>();
+	if(vm.count("ppo")) {
+		ppo = vm["ppo"].as<std::string>();
 	}
-	if(vm.count("file")) {
-		file = vm["file"].as<std::string>();
+	if(vm.count("reg")) {
+		reg = vm["reg"].as<std::string>();
 	}
-	if(vm.count("network")) {
-		network = vm["network"].as<std::string>();
-	}
-	if(vm.count("save")) {
-		save = vm["save"].as<std::string>();
-	}
-	if(vm.count("ref")) {
-		ref = vm["ref"].as<std::string>();
+	if(vm.count("bvh")) {
+		bvh = vm["bvh"].as<std::string>();
 	}
 
-	// if(type.compare("sim")==0) {
-	// 	SimWindow* simwindow = new SimWindow(ref, network, save);
-	// 	glutInit(&argc, argv);
-	// 	simwindow->InitWindow(1600,900,"Render");
-	// 	glutMainLoop();
-	// } else if(type.compare("spl_to_pos")==0) {
-	// 	SplineWindow* swindow = new SplineWindow(ref, std::string(CAR_DIR) + std::string("/") + file, "spline");
-	// 	glutInit(&argc, argv);
-	// 	swindow->InitWindow(1600,900,"Render");
-	// 	glutMainLoop();
-	// } else if(type.compare("pos_to_spl")==0) {
-	// 	SplineWindow* swindow = new SplineWindow(ref, std::string(CAR_DIR) + std::string("/") + file, "position");
-	// 	glutInit(&argc, argv);
-	// 	swindow->InitWindow(1600,900,"Render");
-	// 	glutMainLoop();
-	// } else if(type.compare("rec")==0 || type.compare("srec")==0){
-	// 	std::vector<std::string> raw = DPhy::split(file, ',');
-	// 	std::vector<std::string> motion;
-
-	// 	for(int i = 0; i < raw.size(); i++) {	
-	// 		std::vector<std::string> path;
-	// 		path.push_back(std::string(CAR_DIR));
-	// 		std::vector<std::string> dir = DPhy::split(raw[i], '/');
-	// 		for(int j = 0 ; j < dir.size(); j++) {
-	// 			std::regex re(dir[j]);
-	// 			std::vector<std::string> path_new;
-
-	// 			for(int k = 0; k < path.size(); k++) {
-	// 				std::vector<std::string> path_temp;
-
-	// 				for(auto &p: std::experimental::filesystem::directory_iterator(path[k])) {
-	// 					if(std::regex_match(p.path().filename().string(), re)) {
-	// 						path_temp.push_back(p.path().filename().string());
-
-	// 					}
-	// 				}
-	// 				std::sort(path_temp.begin(), path_temp.end(), compare_string_with_number);
-	// 				for(int l = 0; l < path_temp.size(); l++) {
-	// 					path_temp[l] = path[k] + std::string("/") + path_temp[l];
-	// 					path_new.push_back(path_temp[l]);
-	// 				}
-	// 			}
-	// 			path = path_new;
-	// 		}
-	// 		for(int j = 0; j < path.size(); j++) {
-	// 			motion.push_back(path[j]);
-	// 			std::cout << path[j] << std::endl;
-	// 		}
-	// 	}
-	// 	if(type.compare("rec")==0) {
-	// 		RecordWindow* rwindow = new RecordWindow(motion);
-	// 		glutInit(&argc, argv);
-	// 		rwindow->InitWindow(1600,900,"Render");
-	// 		glutMainLoop();
-	// 	} else {
-	// 		SeqRecordWindow* rwindow = new SeqRecordWindow(motion);
-	// 		glutInit(&argc, argv);
-	// 		rwindow->InitWindow(1600,900,"Render");
-	// 		glutMainLoop();
-	// 	}
-	// } if(type.compare("reg")==0) {
-	// 	RegressionWindow* rgwindow = new RegressionWindow(ref, network);
-	// 	glutInit(&argc, argv);
-	// 	rgwindow->InitWindow(1600,900,"Render");
-	// 	glutMainLoop();
-	// }
 	glutInit(&argc,argv);
 	QApplication a(argc, argv);
     
-    MainWindow* main_window = new MainWindow(ref, network);
+    MainWindow* main_window = new MainWindow(bvh, ppo, reg);
     main_window->resize(2560,1440);
     main_window->show();
     return a.exec();

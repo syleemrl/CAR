@@ -7,7 +7,6 @@
 #include <QSlider>
 #include <QPushButton>
 #include "MotionWidget.h"
-#include "ReferenceManager.h"
 
 #pragma push_macro("slots")
 #undef slots
@@ -28,13 +27,10 @@ class MainWindow : public QMainWindow
 signals:
 	
 public slots:
-	void setValueX(const int &x);
-	void setValueY(const int &y);
-	void UpdateParam(const bool& pressed);
 	void togglePlay(const bool& toggled);
 public:
     MainWindow();
-    MainWindow(std::string motion, std::string network);
+    MainWindow(std::string motion, std::string ppo, std::string reg);
 
 protected:
 	QHBoxLayout* mMainLayout;
@@ -42,12 +38,6 @@ protected:
 	QPushButton* mButton;
 	std::vector<QSlider*> mParams;
 
-	Eigen::VectorXd v_param;
-	p::object mRegression;
-
-	DPhy::ReferenceManager* mReferenceManager;
-	std::vector<Eigen::VectorXd> mParamRange;
- 	void initNetworkSetting(std::string motion, std::string network);
-	void initLayoutSetting() ;
+	void initLayoutSetting(std::string motion, std::string ppo, std::string reg) ;
 };
 #endif

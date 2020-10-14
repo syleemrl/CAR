@@ -99,6 +99,8 @@ private:
 	int nCapacity;
 
 	int nDim;
+	int mTargetGoalBinIdx;
+	int mTargetGoalBinCount;
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamGoalIdx;
 	//point, distance from zero point

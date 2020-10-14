@@ -9,11 +9,12 @@
 #include <boost/python.hpp>
 #include <boost/python/numpy.hpp>
 #include "Camera.h"
+#include "ReferenceManager.h"
 #include "GLfunctions.h"
 #include "DART_interface.h"
-#include "Character.h"
-#include "Functions.h"
+#include "Controller.h"
 #pragma pop_macro("slots")
+
 namespace p = boost::python;
 namespace np = boost::python::numpy;
 class MotionWidget : public QOpenGLWidget
@@ -22,16 +23,21 @@ class MotionWidget : public QOpenGLWidget
 
 public:
 	MotionWidget();
-	MotionWidget(dart::dynamics::SkeletonPtr skel_bvh, dart::dynamics::SkeletonPtr skel_reg, dart::dynamics::SkeletonPtr skel_sim);
+	MotionWidget(std::string motion, std::string ppo, std::string reg);
 	void UpdateMotion(std::vector<Eigen::VectorXd> motion, int type);
 
 	void togglePlay();
+	void RunPPO();
 
 public slots:
 	void NextFrame();
 	void PrevFrame();
 	void Reset();
-	
+	void UpdateParam(const bool& pressed);
+
+	void setValueX(const int &x);
+	void setValueY(const int &y);
+
 protected:
 	void initializeGL() override;	
 	void resizeGL(int w,int h) override;
@@ -49,14 +55,16 @@ protected:
 	void DrawGround();
 	void DrawSkeletons();
 	void SetFrame(int n);
+ 	void initNetworkSetting(std::string motion, std::string network);
 
-	Camera* 					mCamera;
+	Camera* 						mCamera;
 	int								mPrevX,mPrevY;
 	Qt::MouseButton 				mButton;
 	bool 							mIsDrag;
 	
 	bool 							mPlay;
 	int 							mCurFrame;
+	int 							mTotalFrame;
 
 	std::vector<Eigen::VectorXd> 	mMotion_bvh;
 	std::vector<Eigen::VectorXd> 	mMotion_reg;
@@ -69,9 +77,20 @@ protected:
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
 	bool							mTrackCamera;
 
-	bool mMotionLoaded_bvh;
-	bool mMotionLoaded_reg;
-	bool mMotionLoaded_sim;
+	bool 							mRunSim;
+	bool 							mRunReg;
+	bool 							mDrawBvh;
+	bool 							mDrawSim;
+	bool 							mDrawReg;
+
+
+	p::object 						mRegression;
+	p::object 						mPPO;
+	DPhy::ReferenceManager*			mReferenceManager;
+	DPhy::Controller* 				mController;
+
+	Eigen::VectorXd v_param;
+	std::vector<Eigen::VectorXd> mParamRange;
 
 };
 #endif
