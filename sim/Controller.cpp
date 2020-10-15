@@ -393,15 +393,15 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 		// 	count_dof += dof;
 		// }
 	//	v_diff_reward = v_diff.segment<1>(1) / std::max(abs(velocity2(1)), 0.4);
-		for(int i = 0; i < num_body_nodes; i++) {
-			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-		 	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+		// for(int i = 0; i < num_body_nodes; i++) {
+		// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
+		//  	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 
-			if(name.compare("RightHand") == 0 || name.compare("RightForeArm") == 0 || name.compare("RightArm") == 0 || name.compare("RightShoulder") == 0 ) {
-				v_diff_reward.segment<3>(idx) *= 2;
-				p_diff_reward.segment<3>(idx) *= 2;
-			}
-		}
+		// 	if(name.compare("RightHand") == 0 || name.compare("RightForeArm") == 0 || name.compare("RightArm") == 0 || name.compare("RightShoulder") == 0 ) {
+		// 		v_diff_reward.segment<3>(idx) *= 2;
+		// 		p_diff_reward.segment<3>(idx) *= 2;
+		// 	}
+		// }
 	}
 
 	skel->setPositions(position);
