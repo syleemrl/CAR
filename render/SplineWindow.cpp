@@ -17,30 +17,30 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 	this->mTotalFrame = 0;
 
 	std::string skel_path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+	
 	this->mRef = new DPhy::Character(skel_path);
+	this->mRef3 = new DPhy::Character(skel_path); 
+
+	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+	DPhy::SetSkeletonColor(this->mRef3->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
+
 	if(record_type.compare("position") == 0) {
 		mDrawRef2 = true;
 		this->mRef2 = new DPhy::Character(skel_path); 
-		this->mRef3 = new DPhy::Character(skel_path); 
+
+		DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 	}
 
-	int n_bnodes = mRef->GetSkeleton()->getNumBodyNodes();
 	int dof = this->mRef->GetSkeleton()->getPositions().rows();
 
 	DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(this->mRef);
 	referenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
+	referenceManager->InitOptimization(1, "");
 
-	std::vector<double> knots;
-	knots.push_back(0);
-	knots.push_back(9);
-	knots.push_back(20);
-	knots.push_back(27);
-	knots.push_back(35);
+	std::vector<double> knots = referenceManager->GetKnots();
 
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength());
 	s->SetKnots(0, knots);
-
-	int cps_counter = 0;
 	
 	std::ifstream is(record);
 		
@@ -48,57 +48,68 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 
 	int length = 0;
 	double reward = 0;
+
 	std::vector<Eigen::VectorXd> pos;
 	std::vector<double> step;
 
 	int n = 0;
+	std::vector<Eigen::VectorXd> cps_mean;
 	std::vector<Eigen::VectorXd> cps;
+
 	for(int i = 0; i < knots.size() + 3 ; i++) {
-		cps.push_back(Eigen::VectorXd::Zero(dof));
+		cps_mean.push_back(Eigen::VectorXd::Zero(dof));
 	}
+
+	Eigen::VectorXd targetBase = referenceManager->GetTargetBase();
+	Eigen::VectorXd targetUnit = referenceManager->GetTargetUnit();
+	Eigen::VectorXd targetIdx(targetBase.size());
+	targetIdx(0) = 0;
 	while(!is.eof()) {
 		if(record_type.compare("spline") == 0) {
+			// cps number
+			is >> buffer;
+			Eigen::VectorXd tp(targetBase.rows());
+			Eigen::VectorXd idx(targetBase.rows());
+			for(int j = 0; j < targetBase.rows(); j++) 
+			{
+				is >> buffer;
+				tp[j] = atof(buffer);
+				idx[j] = std::floor((tp[j] - targetBase[j]) / targetUnit[j]);
+			}
+			// comma
+			is >> buffer;
+
 			Eigen::VectorXd cp(dof);
 			for(int j = 0; j < dof; j++) 
 			{
 				is >> buffer;
 				cp[j] = atof(buffer);
 			}
+			// comma
 			is >> buffer;
-
+			// reward
+			is >> buffer;
+			if ((targetIdx - idx).norm() > 1e-2) {
+				continue;
+			}
 			cps.push_back(cp);
-			cps_counter++;
+			std::cout << atof(buffer) << std::endl;
 
-			if(cps_counter == 5) {
-
+			if(cps.size() == knots.size() + 3) {
 				s->SetControlPoints(0, cps);
 				std::vector<Eigen::VectorXd> displacement = s->ConvertSplineToMotion();	
-				std::vector<Eigen::VectorXd> position;
+				std::vector<Eigen::VectorXd> new_pos;
+				referenceManager->AddDisplacementToBVH(displacement, new_pos);
 
-				for(int i = 0; i < displacement.size(); i++) {
-					Eigen::VectorXd p = referenceManager->GetPosition(i);
-					for(int j = 0; j < n_bnodes; j++) {
-						int idx = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-						int j_dof = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-						
-						if(j_dof == 6) {
-							p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement[i].segment<3>(idx));
-							p.segment<3>(idx + 3) += displacement[i].segment<3>(idx + 3);
-						} else if (j_dof == 3) {
-							p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement[i].segment<3>(idx));
-						} else {
-							p(idx) += displacement[i](idx);
-						}
-								
-					}
-					position.push_back(p);
-				}
-				for(int i = 0; i < position.size(); i++) {
-					mMemoryRef.push_back(position[i]);
+				for(int i = 0; i < new_pos.size(); i++) {
 					length += 1;
+					mMemoryRef.push_back(new_pos[i]);
 				}	
+				for(int i = 0; i < cps.size(); i++) {
+					cps_mean[i] += cps[i];
+				}
 
-				cps_counter = 0;
+				n += 1;
 				cps.clear();
 			}
 		} else if(record_type.compare("position") == 0) {
@@ -113,66 +124,40 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 			double cur_step = atof(buffer);			
 			is >> buffer;
 			double cur_reward = atof(buffer);
+			is >> buffer;
+			double cur_reward2 = atof(buffer);
 			if(reward == 0)
 				reward = cur_reward;
+
+			// next phase
 			if(cur_reward != reward) {
 				reward = cur_reward;
-				if(reward < 0.85) {
+				std::cout << 0.2 * cur_reward + 0.8 * cur_reward2 << std::endl;
+				if(0.2 * cur_reward + 0.8 * cur_reward2 < 0.4) {
 					pos.clear();
 					step.clear();
 					continue;
 				}
 				std::vector<std::pair<Eigen::VectorXd,double>> displacement;
-
+				pos = DPhy::Align(pos, referenceManager->GetPosition(std::fmod(step[0], referenceManager->GetPhaseLength())).segment<6>(0));
+				std::vector<std::pair<Eigen::VectorXd,double>> trajectory;
 				for(int i = 0; i < pos.size(); i++) {
-					double curFrame = std::fmod(step[i], referenceManager->GetPhaseLength());
-					Eigen::VectorXd p = pos[i];
-					Eigen::VectorXd p_bvh = referenceManager->GetPosition(curFrame);
-					Eigen::VectorXd d(dof);
-					for(int j = 0; j < n_bnodes; j++) {
-						int idx = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-						int dof = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-						
-						if(dof == 6) {
-							d.segment<3>(idx) = DPhy::JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
-							d.segment<3>(idx + 3) = p.segment<3>(idx + 3) -  p_bvh.segment<3>(idx + 3);
-						} else if (dof == 3) {
-							d.segment<3>(idx) = DPhy::JointPositionDifferences(p.segment<3>(idx), p_bvh.segment<3>(idx));
-						} else {
-							d(idx) = p(idx) - p_bvh(idx);
-						}
-					}
-					displacement.push_back(std::pair<Eigen::VectorXd,double>(d, curFrame));
+					trajectory.push_back(std::pair<Eigen::VectorXd,double>(pos[i], step[i]));
 				}
+				referenceManager->GetDisplacementWithBVH(trajectory, displacement);
 				s->ConvertMotionToSpline(displacement);
-				std::vector<Eigen::VectorXd> displacement_s = s->ConvertSplineToMotion();
+
+				std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
 				std::vector<Eigen::VectorXd> new_pos;
-				int l = std::min(pos.size(), displacement_s.size());
-				for(int i = 0; i < l; i++) {
-					Eigen::VectorXd p = referenceManager->GetPosition(i);
-					for(int j = 0; j < n_bnodes; j++) {
-						int idx = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-						int j_dof = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-						
-						if(j_dof == 6) {
-							p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement_s[i].segment<3>(idx));
-							p.segment<3>(idx + 3) += displacement_s[i].segment<3>(idx + 3);
-						} else if (j_dof == 3) {
-							p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement_s[i].segment<3>(idx));
-						} else {
-							p(idx) += displacement_s[i](idx);
-						}
-								
-					}
-					new_pos.push_back(p);
-				}
+				referenceManager->AddDisplacementToBVH(new_displacement, new_pos);
 
-				std::vector<Eigen::VectorXd> cps_cur = s->GetControlPoints(0);
-				for(int i = 0; i < cps_cur.size(); i++) {
-					cps[i] += cps_cur[i];
+				cps = s->GetControlPoints(0);
+				for(int i = 0; i < cps.size(); i++) {
+					cps_mean[i] += cps[i];
 				}
-
 				n += 1;
+
+				int l = std::min(pos.size(), new_pos.size());
 				for(int i = 0; i < l; i++) {
 					length += 1;
 					mMemoryRef.push_back(pos[i]);
@@ -182,48 +167,32 @@ SplineWindow(std::string motion, std::string record, std::string record_type)
 				pos.clear();
 				step.clear();
 			}
+
 			pos.push_back(p);
 			step.push_back(cur_step);
 		}
 	}
-	for(int i = 0; i < cps.size(); i++) {
-		cps[i] /= n;
-	}
-	s->SetControlPoints(0, cps);
-	std::vector<Eigen::VectorXd> displacement_s = s->ConvertSplineToMotion();
-	std::vector<Eigen::VectorXd> new_pos;
-	for(int i = 0; i < referenceManager->GetPhaseLength(); i++) {
-			Eigen::VectorXd p = referenceManager->GetPosition(i);
-			for(int j = 0; j < n_bnodes; j++) {
-				int idx = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-				int j_dof = mRef->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-						
-			if(j_dof == 6) {
-				p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement_s[i].segment<3>(idx));
-				p.segment<3>(idx + 3) += displacement_s[i].segment<3>(idx + 3);
-			} else if (j_dof == 3) {
-				p.segment<3>(idx) = DPhy::Rotate3dVector(p.segment<3>(idx), displacement_s[i].segment<3>(idx));
-			} else {
-				p(idx) += displacement_s[i](idx);
-			}				
-		}
-		p[3] += 3;
-		new_pos.push_back(p);
-	}
+	is.close();
 
+	for(int i = 0; i < cps_mean.size(); i++) {
+		cps_mean[i] /= n;
+	}
+	s->SetControlPoints(0, cps_mean);
+	std::vector<Eigen::VectorXd> displacement = s->ConvertSplineToMotion();
+	std::vector<Eigen::VectorXd> new_pos;
+	referenceManager->AddDisplacementToBVH(displacement, new_pos);
+	for(int i = 0; i < referenceManager->GetPhaseLength(); i++) {
+		new_pos[i][3] += 3;
+	}
 	for(int i = 0; i < n; i++) {
 		for(int j = 0; j < referenceManager->GetPhaseLength(); j++) {
 			mMemoryRef3.push_back(new_pos[j]);
 		}
 	}
-	is.close();
+	
 	if(this->mTotalFrame == 0 || length < mTotalFrame) {
 		mTotalFrame = length;
 	}
-
-	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
-	DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
-	DPhy::SetSkeletonColor(this->mRef3->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
 	this->mCurFrame = 0;
 	this->mDisplayTimeout = 33;
@@ -244,8 +213,8 @@ SetFrame(int n)
     mRef->GetSkeleton()->setPositions(mMemoryRef[n]);
     if(mDrawRef2)  {
     	mRef2->GetSkeleton()->setPositions(mMemoryRef2[n]);
-    	mRef3->GetSkeleton()->setPositions(mMemoryRef3[n]);
     }
+    mRef3->GetSkeleton()->setPositions(mMemoryRef3[n]);
 
 }
 
@@ -276,8 +245,8 @@ DrawSkeletons()
 	GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
 	if(mDrawRef2) {
 		GUI::DrawSkeleton(this->mRef2->GetSkeleton(), 0);
-		GUI::DrawSkeleton(this->mRef3->GetSkeleton(), 0);
 	}
+	GUI::DrawSkeleton(this->mRef3->GetSkeleton(), 0);
 
 }
 void

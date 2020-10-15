@@ -174,20 +174,27 @@ BVH::
 Parse(const std::string& file)
 {
 	std::ifstream is(file);
-
+	std::ifstream ps(file);
 	char buffer[256];
-
+	std::string hierarchy_buffer;
+	const char* ws = " \t\n\r\f\v";
 	if(!is)
 	{
 		std::cout<<"Can't Open File"<<std::endl;
 		return;
 	}
+	while(getline(ps, hierarchy_buffer,'\n')){
+		hierarchy_buffer.erase(hierarchy_buffer.find_last_not_of(ws) + 1);
+		if(hierarchy_buffer.compare("MOTION")==0) break;
+		hierarchy_format.push_back(hierarchy_buffer);
+	}
+	
 	while(is>>buffer)
 	{
 		if(!strcmp(buffer,"HIERARCHY"))
 		{
-			is>>buffer;//Root
-			is>>buffer;//Name
+			is>>buffer; //Root
+			is>>buffer; //Name
 			int c_offset = 0;
 			mRoot = ReadHierarchy(nullptr,buffer,c_offset,is);
 			mNumTotalChannels = c_offset;

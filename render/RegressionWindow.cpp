@@ -30,14 +30,9 @@ RegressionWindow(std::string motion, std::string network)
 
 	DPhy::ReferenceManager* referenceManager = new DPhy::ReferenceManager(this->mRef_BVH);
 	referenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-	referenceManager->InitOptimization(1, "");
-	std::vector<double> knots;
-	knots.push_back(0);
-	knots.push_back(9);
-	knots.push_back(20);
-	knots.push_back(27);
-	knots.push_back(35);
 
+	referenceManager->InitOptimization(1, "");
+	std::vector<double> knots = referenceManager->GetKnots();
 	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, referenceManager->GetPhaseLength());
 	s->SetKnots(0, knots);
 	

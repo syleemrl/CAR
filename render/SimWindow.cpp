@@ -50,10 +50,12 @@ SimWindow(std::string motion, std::string network, std::string filename)
 		mReferenceManager->InitOptimization(1, path);
 		mReferenceManager->LoadAdaptiveMotion("");
 	//	mReferenceManager->GenerateRandomTrajectory(0);
+	} else {
+		mReferenceManager->InitOptimization(1, "");
+
 	}
 
 	this->mController = new DPhy::Controller(mReferenceManager, mRunPPO, true);
-
 	// this->mReferenceManager->SetOptimizationMode(true);
 	// this->mController->SetOptimizationMode(true);
 	//	mReferenceManager->EditMotion(1.5, "b");
@@ -62,8 +64,6 @@ SimWindow(std::string motion, std::string network, std::string filename)
 	DPhy::SetSkeletonColor(this->mCharacter->GetSkeleton(), Eigen::Vector4d(0.73, 0.73, 0.73, 1.0));
 	DPhy::SetSkeletonColor(this->mRef->GetSkeleton(), Eigen::Vector4d(235./255., 87./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(this->mRef2->GetSkeleton(), Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
-
-	this->mController->Reset(false);
 
 	if(this->mRunPPO)
 	{
@@ -77,34 +77,36 @@ SimWindow(std::string motion, std::string network, std::string filename)
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
 			
-			p::object reg_main = p::import("regression");
-			this->mRegression = reg_main.attr("Regression")();
-			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
-			this->mRegression.attr("initRun")(path, mReferenceManager->GetTargetBase().rows() + 1, mRef->GetSkeleton()->getNumDofs());
+			// p::object reg_main = p::import("regression");
+			// this->mRegression = reg_main.attr("Regression")();
+			// std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(network, '/')[0] + std::string("/");
+			// this->mRegression.attr("initRun")(path, mReferenceManager->GetTargetBase().rows() + 1, mRef->GetSkeleton()->getNumDofs());
+			
+			// mPhaseCounter = 0;
+			// mPrevFrame = 0;
+
+			// Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+			// tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+
+			// std::vector<Eigen::VectorXd> cps;
+			// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+			// 	Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+			// 	input << j, tp;
+			// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+			// 	np::ndarray na = np::from_object(a);
+			// 	cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+			// }
+
+			// mReferenceManager->LoadAdaptiveMotion(cps);
+			// mController->SetTargetParameters(tp);
+
 		}
 		catch (const p::error_already_set&)
 		{
 			PyErr_Print();
 		}
 	}
-	mPhaseCounter = 0;
-	mPrevFrame = 0;
-
-	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
-	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
-
-	std::vector<Eigen::VectorXd> cps;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-		input << j, tp;
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-	}
-
-	mReferenceManager->LoadAdaptiveMotion(cps);
-	mController->SetTargetParameters(tp);
-
+	mController->Reset(false);
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 
 	Eigen::VectorXd position = p_v_target->GetPosition();
@@ -265,9 +267,12 @@ SimWindow::
 DrawSkeletons()
 {
 	// GUI::DrawSkeleton(this->mObject->GetSkeleton(), 0);
-	GUI::DrawPoint(mMemoryObj[mCurFrame], Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-
+	// GUI::DrawPoint(mMemoryObj[mCurFrame], Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+	Eigen::VectorXd p = this->mCharacter->GetSkeleton()->getPositions();
+	//p.setZero();
+	//this->mRef->GetSkeleton()->setPositions(p);
 	if(this->mDrawOutput) {
+		//std::cout<<"mDrawOutput"<<std::endl;
 		GUI::DrawSkeleton(this->mCharacter->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOM, this->mCurFrame, Eigen::Vector3d(0.9, 0.9, 0.9));
 		if(this->mMemoryGRF.size() != 0) {
@@ -276,11 +281,14 @@ DrawSkeletons()
 		}
 		GUI::DrawFootContact(this->mCharacter->GetSkeleton(), mFootContact);
 	}
+
 	if(this->mDrawRef) {
+		//std::cout<<"mDrawRef"<<std::endl;
 		GUI::DrawSkeleton(this->mRef->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOMRef, this->mCurFrame);
 	}
 	if(this->mDrawRef2) {
+		//std::cout<<"mDrawRef2"<<std::endl;
 		GUI::DrawSkeleton(this->mRef2->GetSkeleton(), 0);
 		GUI::DrawTrajectory(this->mMemoryCOMRef2, this->mCurFrame);
 	}
@@ -289,9 +297,9 @@ void
 SimWindow::
 DrawGround()
 {	
-	// GUI::DrawPoint(Eigen::Vector3d(0.54, 1.18, 0.73), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+	// GUI::DrawPoint(Eigen::Vector3d(0.0,  1.38,  1.4), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 	// GUI::DrawPoint(Eigen::Vector3d(1.00531,  1.30185, 0.572417), Eigen::Vector3d(0.0, 1.0, 0.0), 10);
-
+	// GUI::DrawArrow3D(Eigen::Vector3d(0.0,  1.38,  1.4), Eigen::Vector3d(0.0872334, 0.0240735,  0.187724).normalized(),0.1,0.1);
 
 	Eigen::Vector3d com_root;
 	if(this->mDrawOutput)
@@ -299,7 +307,7 @@ DrawGround()
 	else 
 		com_root = this->mRef->GetSkeleton()->getRootBodyNode()->getCOM();
 
-	GUI::DrawGround((int)com_root[0], (int)com_root[2], 0);
+	GUI::DrawGround((int)com_root[0], (int)com_root[2], -0.02);
 }
 void
 SimWindow::
@@ -329,8 +337,8 @@ Display()
 
 		mCamera->SetCenter(com);
 	}
-	mCamera->Apply();
 
+	mCamera->Apply();
 	glUseProgram(program);
 	glPushMatrix();
 	glEnable(GL_BLEND);
@@ -341,6 +349,7 @@ Display()
 	glPopMatrix();
 	initLights(com_root[0], com_root[2], com_front[0], com_front[2]);
 	// glColor4f(0.7, 0.0, 0.0, 0.40);  /* 40% dark red floor color */
+
 	DrawGround();
 	DrawSkeletons();
 	glDisable(GL_BLEND);
@@ -354,24 +363,26 @@ SimWindow::
 Reset()
 {
 
+	// if(mRunPPO) {
+	// 	mPhaseCounter = 0;
+		
+	// 	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+	// 	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+
+	// 	std::vector<Eigen::VectorXd> cps;
+	// 	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	// 		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+	// 		input << j, tp;
+	// 		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	// 		np::ndarray na = np::from_object(a);
+	// 		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+	// 	}
+
+	// 	mReferenceManager->LoadAdaptiveMotion(cps);
+	// 	mController->SetTargetParameters(tp);
+	// }
+
 	this->mController->Reset(false);
-
-	mPhaseCounter = 0;
-	
-	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
-	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
-
-	std::vector<Eigen::VectorXd> cps;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-		input << j, tp;
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-	}
-
-	mReferenceManager->LoadAdaptiveMotion(cps);
-	mController->SetTargetParameters(tp);
 
 	DPhy::Motion* p_v_target = mReferenceManager->GetMotion(0);
 	Eigen::VectorXd position = p_v_target->GetPosition();
@@ -416,7 +427,7 @@ Keyboard(unsigned char key,int x,int y)
 			mIsAuto = !mIsAuto;
 			break;
 		case 'R': SaveReferenceData(filename); break;
-		case 'D': this->mController->SaveDisplayedData(filename); break;
+		case 'D': this->mController->SaveDisplayedData(filename, true); break;
 		case 'S': this->mController->SaveStats(filename); break;
 		case 27: exit(0);break;
 		default : break;
@@ -497,32 +508,32 @@ Step()
 			auto state = this->mController->GetState();
 			double curFrame = state(state.rows() - (mReferenceManager->GetTargetBase().rows() + 1));
 
-			if(curFrame < mPrevFrame) {
-				mPhaseCounter += 1;
-				std::cout << "Reference updated "  << mPhaseCounter << std::endl;
-				Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
-				tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
-				for(int j = 0; j < tp.rows(); j++) {
-					double r = (rand() % 5) * 0.01;
-					if(rand() % 2 == 0)
-						r = -r;
-					tp(j) += r;
-				}
-				std::vector<Eigen::VectorXd> cps;
-				for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-					Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-					input << j, tp;
-					p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-					np::ndarray na = np::from_object(a);
-					cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
-				}
+			// if(curFrame < mPrevFrame) {
+			// 	mPhaseCounter += 1;
+			// 	std::cout << "Reference updated "  << mPhaseCounter << std::endl;
+			// 	Eigen::VectorXd tp(mReferenceManager->GetTargetBase().rows());
+			// 	tp = (1 - mPhaseCounter * 0.1 ) * mReferenceManager->GetTargetBase() +  mPhaseCounter * 0.1 * mReferenceManager->GetTargetGoal();
+			// 	// for(int j = 0; j < tp.rows(); j++) {
+			// 	// 	double r = (rand() % 5) * 0.01;
+			// 	// 	if(rand() % 2 == 0)
+			// 	// 		r = -r;
+			// 	// 	tp(j) += r;
+			// 	// }
+			// 	std::vector<Eigen::VectorXd> cps;
+			// 	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+			// 		Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
+			// 		input << j, tp;
+			// 		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+			// 		np::ndarray na = np::from_object(a);
+			// 		cps.push_back(DPhy::toEigenVector(na, mRef->GetSkeleton()->getNumDofs()));
+			// 	}
 
-				mReferenceManager->LoadAdaptiveMotion(cps);
-				mController->SetTargetParameters(tp);
+			// 	mReferenceManager->LoadAdaptiveMotion(cps);
+			// 	mController->SetTargetParameters(tp);
 
-				if(mPhaseCounter == 10)
-					mPhaseCounter = 0;
-			}
+			// 	if(mPhaseCounter == 10)
+			// 		mPhaseCounter = 0;
+			// }
 			mPrevFrame = curFrame;
 
 			state = this->mController->GetState();

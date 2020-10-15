@@ -50,6 +50,7 @@ class BVH
 public:
 	BVH();
 
+	std::vector<std::string> hierarchy_format;
 	void AddMapping(const std::string& body_node,const std::string& bvh_node);
 
 	void SetMotion(double t);
@@ -71,6 +72,7 @@ private:
 	Eigen::Vector3d mRootCOM;
 	Eigen::Vector3d mRootCOMOffset;
 	Eigen::VectorXd mMotionDiff;
+
 
 	int num_interpolate;
 	BVHNode* ReadHierarchy(BVHNode* parent,const std::string& name,int& channel_offset,std::ifstream& is);

@@ -19,6 +19,11 @@ ReferenceManager::ReferenceManager(Character* character)
 
 	auto& skel = mCharacter->GetSkeleton();
 	mDOF = skel->getPositions().rows();
+
+	mTargetBase.resize(1);
+	mTargetUnit.resize(1);
+	mTargetGoal.resize(1);
+
 }
 void
 ReferenceManager::
@@ -240,28 +245,31 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 	BVH* bvh = new BVH();
 	std::string path = std::string(CAR_DIR) + filename;
 	bvh->Parse(path);
-	std::cout << "load trained data from: " << path << std::endl;
 
+	ReferenceManager::joint_hierarchy = bvh->hierarchy_format;
+	
+	std::cout << "load trained data from: " << path << std::endl;
 	std::vector<std::string> contact;
 	contact.clear();
-	contact.push_back("FootEndR");
-	contact.push_back("FootR");
-	contact.push_back("FootEndL");
-	contact.push_back("FootL");
-
+	contact.push_back("RightToe");
+	contact.push_back("RightFoot");
+	contact.push_back("LeftToe");
+	contact.push_back("LeftFoot");
 	auto& skel = mCharacter->GetSkeleton();
 	int dof = skel->getPositions().rows();
 	std::map<std::string,std::string> bvhMap = mCharacter->GetBVHMap(); 
+
 	for(const auto ss :bvhMap){
 		bvh->AddMapping(ss.first,ss.second);
 	}
 
-
 	double t = 0;
+
 	for(int i = 0; i < bvh->GetMaxFrame(); i++)
 	{
 		Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
 		Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
+
 		//Set p
 		bvh->SetMotion(t);
 
@@ -291,8 +299,10 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 			}
 
 		}
+
 		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
 		Eigen::VectorXd v;
+
 		if(t != 0)
 		{
 			v = skel->getPositionDifferences(p, mMotions_raw.back()->GetPosition()) / 0.033;
@@ -310,16 +320,19 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 			}
 			mMotions_raw.back()->SetVelocity(v);
 		}
+
+
 		mMotions_raw.push_back(new Motion(p, Eigen::VectorXd(p.rows())));
 		
 		auto& skel = this->mCharacter->GetSkeleton();
-	
 		skel->setPositions(p);
 		skel->computeForwardKinematics(true,false,false);
-
+		
 		std::vector<bool> c;
 		for(int j = 0; j < contact.size(); j++) {
+			//std::cout<<contact[j]<<std::endl;
 			Eigen::Vector3d p = skel->getBodyNode(contact[j])->getWorldTransform().translation();
+
 			c.push_back(p[1] < 0.04);
 		}
 		mContacts.push_back(c);
@@ -330,7 +343,6 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 
 	mPhaseLength = mMotions_raw.size();
 	mTimeStep = bvh->GetTimeStep();
-
 	for(int i = 0; i < mPhaseLength; i++) {
 		mMotions_phase.push_back(new Motion(mMotions_raw[i]));
 		if(i != 0 && i != mPhaseLength - 1) {
@@ -339,12 +351,15 @@ void ReferenceManager::LoadMotionFromBVH(std::string filename)
 						mContacts[i][j] = true;
 		}
 	 }
-
 	delete bvh;
-	this->ComputeAxisMean();
-	this->ComputeAxisDev();
+	// this->ComputeAxisMean();
+	// this->ComputeAxisDev();
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
 
+	for(int i = 0; i < this->GetPhaseLength(); i++) {
+		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
+	}
+	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -457,8 +472,8 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 	skel->setPositions(p_phase[0]->GetPosition());
 	skel->computeForwardKinematics(true,false,false);
 
-	Eigen::Vector3d p0_footl = skel->getBodyNode("FootL")->getWorldTransform().translation();
-	Eigen::Vector3d p0_footr = skel->getBodyNode("FootR")->getWorldTransform().translation();
+	Eigen::Vector3d p0_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	Eigen::Vector3d p0_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
 
 	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(p_phase[0]->GetPosition().head<6>());
@@ -486,14 +501,14 @@ void ReferenceManager::GenerateMotionsFromSinglePhase(int frames, bool blend, st
 				skel->setPositions(p_gen.back()->GetPosition());
 				skel->computeForwardKinematics(true,false,false);
 
-				Eigen::Vector3d p_footl = skel->getBodyNode("FootL")->getWorldTransform().translation();
-				Eigen::Vector3d p_footr = skel->getBodyNode("FootR")->getWorldTransform().translation();
+				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+				Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
 				p_footl(1) = p0_footl(1);
 				p_footr(1)= p0_footr(1);
 
-				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("FootL", p_footl, Eigen::Vector3d(0, 0, 0)));
-				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("FootR", p_footr, Eigen::Vector3d(0, 0, 0)));
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("LeftFoot", p_footl, Eigen::Vector3d(0, 0, 0)));
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("RightFoot", p_footr, Eigen::Vector3d(0, 0, 0)));
 
 				Eigen::VectorXd p = p_phase[phase]->GetPosition();
 				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
@@ -601,45 +616,40 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path) {
 	
 	mKnots.push_back(0);
-	mKnots.push_back(9);
-	mKnots.push_back(20);
+	mKnots.push_back(5);
+	mKnots.push_back(13);
+	mKnots.push_back(19);
 	mKnots.push_back(27);
-	mKnots.push_back(35);
+	mKnots.push_back(38);
+	mKnots.push_back(44);
+	mKnots.push_back(49);
+	mKnots.push_back(57);
 
-	mTargetBase.resize(3);
-	mTargetBase << 0.28, 0.30, 0.66; //, 1.5;
+	mTargetBase.resize(4);
+	mTargetBase << 0.493169, -0.856197, -0.785988, 0.4; //, 1.5;
 	mTargetCurMean = mTargetBase;
 
-	mTargetGoal.resize(3);
-	mTargetGoal<< 0.65, 0.43, 0.35; //, 2;
+	mTargetGoal.resize(4);
+	// mTargetGoal<< 0.44773, 0.12624, -1.4252, 6; 2
+	mTargetGoal <<  0.492106,  -1.03435, -0.980513 , 4;
 
-	mTargetUnit.resize(3);
-	mTargetUnit<< 0.04, 0.04, 0.04; //, 0.05;
-
+	mTargetUnit.resize(4);
+	mTargetUnit<< 0.1, 0.1, 0.1, 0.3; //, 0.05;
 
 	mRefUpdateMode = true;
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
 	}
-	for(int i = 0; i < this->GetPhaseLength(); i++) {
-		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
-	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
-	for(int i = 0; i < nslaves; i++) {
-		std::vector<Motion*> mlist;
-		mMotions_gen_temp.push_back(mlist);
-	}
 
 	nOp = 0;
 	mPath = save_path;
-	mPrevRewardTrajectory = 0;
-	mPrevRewardTarget = 0.05;	
+	mPrevRewardTrajectory = 0.5;
+	mPrevRewardTarget = 0.0;	
 	
 	// for(int i = 0; i < 3; i++) {
 	// 	nRejectedSamples.push_back(0);
 	// }
-	// mTargetBase << ;
 
 	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
 	// for(int i = 0; i < mPhaseLength; i++) {
@@ -714,10 +724,10 @@ GetContactInfo(Eigen::VectorXd pos)
 
 	std::vector<std::string> contact;
 	contact.clear();
-	contact.push_back("FootEndR");
-	contact.push_back("FootR");
-	contact.push_back("FootEndL");
-	contact.push_back("FootL");
+	contact.push_back("RightFoot");
+	contact.push_back("RightToe");
+	contact.push_back("LeftFoot");
+	contact.push_back("LeftToe");
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> result;
 	result.clear();
@@ -741,30 +751,23 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
 				 std::pair<double, double> rewards,
 				 Eigen::VectorXd parameters) {
-	
 	std::vector<int> flag;
-	if((rewards.first / mPhaseLength)  < 0.9)
+	if((rewards.first / mPhaseLength)  < 0.9) {
 		flag.push_back(0);
-	else
+	}
+	else {
 		flag.push_back(1);
+	}
+	if((rewards.first / mPhaseLength)  < 0.6 || rewards.second < mPrevRewardTarget)
+		return;
 
 	if(rewards.second < mPrevRewardTarget)
 		flag.push_back(0);
 	else
 		flag.push_back(1);
 
-	if(flag[0] == 0)
-		return;
-
-	// if((rewards.first / mPhaseLength)  < 0.9 || rewards.second < mPrevRewardTarget) {
-	// 	nRejectedSamples[0] += 1;
-	// 	if ((rewards.first / mPhaseLength) >= 0.9 && rewards.second < mPrevRewardTarget) {
-	// 		nRejectedSamples[1] += 1;
-	// 	} else if((rewards.first / mPhaseLength) < 0.9 && rewards.second < mPrevRewardTarget) {
-	// 		nRejectedSamples[2] += 1;
-	// 	}
+	// if(flag[0] == 0)
 	// 	return;
-	// }
 
 	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
 	s->SetKnots(0, mKnots);
@@ -780,13 +783,13 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	for(int i = 0; i < data_spline.size(); i++) {
 		data_spline[i].first = trajectory[i];
 	}
+
 	this->GetDisplacementWithBVH(data_spline, displacement);
 	s->ConvertMotionToSpline(displacement);
 
 	std::vector<Eigen::VectorXd> newpos;
 	std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
 	this->AddDisplacementToBVH(new_displacement, newpos);
-
 
 	double r_slide = 0;
 	std::vector<std::vector<std::pair<bool, Eigen::Vector3d>>> c;
@@ -810,18 +813,42 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_slide = exp(-r_slide);
+
 	auto cps = s->GetControlPoints(0);
 	double r_regul = 0;
-	for(int i = 0; i < cps.size(); i++) {
-		r_regul += cps[i].norm();	
-	}
-	double reward_trajectory = 0.4 * exp(-pow(r_regul, 2)*0.01) + 0.6 * r_slide;
-	mLock.lock();
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 
-	if(r_slide > 0.86)
+	for(int i = 0; i < cps.size(); i++) {
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			if(dof == 6) {
+				r_regul += 1 * cps[i].segment<3>(idx).norm();
+				r_regul += 1 * cps[i].segment<3>(idx + 3).norm();
+			} else if (dof == 3) {
+				if(b_name.find("RightShoulder") != std::string::npos || 
+				   b_name.find("RightArm") != std::string::npos ||
+				   b_name.find("RightForeArm") != std::string::npos ||
+				   b_name.find("RightHand") != std::string::npos) {
+					r_regul += 2 * cps[i].segment<3>(idx).norm();
+				} else {
+					r_regul += 0.5 * cps[i].segment<3>(idx).norm();
+
+				}
+			} 
+		}
+	}
+	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
+	double reward_trajectory = 0.5 * r_regul + 0.5 * r_slide;
+
+	mLock.lock();
+	if(reward_trajectory > 0.4) {
 		mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
 									(cps, parameters, reward_trajectory));
-	if(flag[1] && mRefUpdateMode) {
+	}
+
+	if((flag[0] || (!flag[0] && reward_trajectory > mPrevRewardTrajectory)) && flag[1] && mRefUpdateMode) {
 		mSamples.push_back(std::tuple<MultilevelSpline*, std::pair<double, double>,  double>(s, 
 							std::pair<double, double>(reward_trajectory, r_slide), rewards.second));
 		mSampleTargets.push_back(parameters);
@@ -831,7 +858,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		ofs.open(path, std::fstream::out | std::fstream::app);
 
 		for(auto t: data_spline) {	
-			ofs << t.first.transpose() << " " << t.second << " " << r_slide << std::endl;
+			ofs << t.first.transpose() << " " << t.second << " " << r_slide << " " << r_regul << std::endl;
 		}
 		ofs.close();
 	}
@@ -1022,6 +1049,18 @@ Optimize() {
 	// }
 	// return false;
 }
+bool
+ReferenceManager::UpgradeTargetGoal() {
+	// if(mTargetCurMean(0) >= (mTargetGoal(0) - 0.02) && mTargetGoal(0) < 1.6) {
+	// 	mTargetGoal(0) += 0.1;
+
+	// 	double target_diff = mTargetGoal(0) - mTargetCurMean(0);
+	// 	mPrevRewardTarget = 1.5 * exp(-pow(target_diff, 2) * 30) + 0.5 * exp(-pow(target_diff, 2) * 200);
+	// 	std::cout << "target upgrade : " << mTargetGoal.transpose() << " "<< mPrevRewardTarget << std::endl;
+	// 	return true;
+	// }
+	return false;
+}
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> 
 ReferenceManager::
 GetRegressionSamples() {
@@ -1045,5 +1084,4 @@ GetRegressionSamples() {
 
 	return std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>(x, y, r);
 }
-
 };

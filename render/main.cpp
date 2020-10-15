@@ -92,8 +92,13 @@ int main(int argc,char** argv)
 		glutInit(&argc, argv);
 		simwindow->InitWindow(1600,900,"Render");
 		glutMainLoop();
-	} else if(type.compare("spline")==0) {
-		SplineWindow* swindow = new SplineWindow(ref, std::string(CAR_DIR) + std::string("/") + file);
+	} else if(type.compare("spl_to_pos")==0) {
+		SplineWindow* swindow = new SplineWindow(ref, std::string(CAR_DIR) + std::string("/") + file, "spline");
+		glutInit(&argc, argv);
+		swindow->InitWindow(1600,900,"Render");
+		glutMainLoop();
+	} else if(type.compare("pos_to_spl")==0) {
+		SplineWindow* swindow = new SplineWindow(ref, std::string(CAR_DIR) + std::string("/") + file, "position");
 		glutInit(&argc, argv);
 		swindow->InitWindow(1600,900,"Render");
 		glutMainLoop();

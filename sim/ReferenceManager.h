@@ -62,6 +62,8 @@ public:
 	void ComputeAxisMean();
 	Eigen::VectorXd GetAxisMean(double t);
 	Eigen::VectorXd GetAxisDev(double t);
+	
+	std::vector<std::string> joint_hierarchy; 
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters);
 	void InitOptimization(int nslaves, std::string save_path);
@@ -79,6 +81,7 @@ public:
 	Eigen::VectorXd GetTargetGoal() {return mTargetGoal; }
 	Eigen::VectorXd GetTargetUnit() {return mTargetUnit; }
 	Eigen::VectorXd GetTargetCurMean() {return mTargetCurMean; }
+	bool UpgradeTargetGoal();
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -123,7 +126,7 @@ protected:
 	Eigen::VectorXd mTargetGoal;
 	Eigen::VectorXd mTargetUnit;
 	Eigen::VectorXd mTargetCurMean;
-
+	
 	std::vector<int> nRejectedSamples;
 
 };
