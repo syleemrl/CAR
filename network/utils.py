@@ -17,8 +17,15 @@ class RunningMeanStd(object):
         self.update_from_moments(batch_mean, batch_var, batch_count)
 
     def update_from_moments(self, batch_mean, batch_var, batch_count):
-        self.mean, self.var, self.count = update_mean_var_count_from_moments(
+        mean, var, count = update_mean_var_count_from_moments(
             self.mean, self.var, self.count, batch_mean, batch_var, batch_count)
+
+        if np.isnan(np.sum(mean)) or np.isnan(np.sum(var)) or np.isnan(np.sum(count)):
+            print("nan update")
+        else:
+            self.mean = mean
+            self.var = var
+            self.count = count
 
     def apply(self, x):
         self.update(x)
