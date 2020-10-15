@@ -369,7 +369,7 @@ AssignParamsToBins(bool online)
 					}
 				}
 
-				if((online && p_temp.size() >= 4 * nCapacity) || (!online && p_temp.size() >= nCapacity))  {
+				if((online && p_temp.size() >= 2 * nCapacity) || (!online && p_temp.size() >= nCapacity))  {
 					ParamBin pb = ParamBin(idx);
 					for(int j = 0; j < p_temp.size(); j++) {
 						pb.PutParam(mParamNotAssigned[p_temp[j]].first);
@@ -707,7 +707,6 @@ SetTargetParameters(np::ndarray np_array) {
 		tp_full(tp_idx(i)) = tp(i);
 	}
 	mReferenceManager->LoadAdaptiveMotion(cps);
-	std::cout << tp.transpose() << " "<< tp_full.transpose() << std::endl;
 
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetTargetParameters(tp_full, tp);

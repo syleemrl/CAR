@@ -230,13 +230,12 @@ Step()
 			}
 		}
 	}
-	if(isAdaptive && mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
+	if(isAdaptive && mCurrentFrameOnPhase >= 17 && mControlFlag[0] == 0) {
 		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
 		rot = projectToXZ(rot);		
 		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
 		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-		mHandPosition = obj_pos;
-		Eigen::Vector3d delta(0.065 + 0.15 + 0.01, 0 , 0.01);
+		Eigen::Vector3d delta(0.065 + 0.15 + 0.02, 0 , 0.02);
 		delta = obj_dir * delta;
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		
@@ -265,6 +264,7 @@ Step()
 		mControlFlag[0] = 1;
 
 	} else if(isAdaptive && mControlFlag[0] == 1) {
+		mHandPosition = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		p_obj.setZero();
 		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
@@ -488,8 +488,8 @@ GetTargetReward()
 		target_hand(1) = mTargetFullParams(1);
 		Eigen::Vector3d target_diff = target_hand - mHandPosition;
 		double v_diff = mTargetFullParams(3) - maxSpeedObj;
-		r_target = 0.75 * exp_of_squared(target_diff, 0.4) + 0.25 * exp_of_squared(target_diff,0.15);
-		r_target += (0.75 * exp(-pow(v_diff, 2)*5) + 0.25 * exp(-pow(v_diff, 2)*15));
+		r_target = 0.75 * (0.75 * exp_of_squared(target_diff, 0.4) + 0.25 * exp_of_squared(target_diff,0.15));
+		r_target += 1.25 * ((0.75 * exp(-pow(v_diff, 2)*5) + 0.25 * exp(-pow(v_diff, 2)*15)));
 
 		
 		Eigen::Vector3d hand = mHandPosition;
