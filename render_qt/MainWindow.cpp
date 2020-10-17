@@ -81,24 +81,22 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
 
     QVBoxLayout *mParamlayout = new QVBoxLayout();
     std::vector<std::string> labels;
-    labels.push_back("velocity");
-    labels.push_back("height");
-         
+    labels.push_back("pos x");
+    labels.push_back("pos y");
+    labels.push_back("pos z");
+    labels.push_back("force");
+     
     QFormLayout *mParamFormlayout = new QFormLayout();
     for(int i = 0; i < labels.size(); i++) {
         QSlider* param = new QSlider(Qt::Horizontal);
         param->setMinimum(0);
         param->setMaximum(10);
         param->setSingleStep(1);
-
+        param->setProperty("i", i);
         mParams.push_back(param);
         
         mParamFormlayout->addRow(QString::fromStdString(labels[i]), param);
-        if(i == 0)
-            connect (param, SIGNAL(valueChanged(int)), mMotionWidget, SLOT(setValueX(const int&)));
-        else
-            connect (param, SIGNAL(valueChanged(int)), mMotionWidget, SLOT(setValueY(const int&)));
-
+        connect (param, SIGNAL(valueChanged(int)), mMotionWidget, SLOT(setValue(const int&)));
     }
 
     mParamlayout->addStretch(1);

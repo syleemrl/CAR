@@ -15,7 +15,7 @@ class Sampler(object):
 		self.n_samples = 0
 		self.random = True
 
-		self.k = 10
+		self.k = 5
 		self.n_iter = 0
 
 	def updateBound(self, bound):
@@ -102,6 +102,6 @@ class Sampler(object):
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.n_iter < 2 or self.v_mean < 8:
+		if self.n_iter < 3 or self.v_mean < 8.3:
 			return False
 		return True

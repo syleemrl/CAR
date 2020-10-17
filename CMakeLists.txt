@@ -16,5 +16,5 @@ find_package(TinyXML REQUIRED)
 
 add_subdirectory( sim )
 add_subdirectory( network )
-add_subdirectory( render )
-#add_subdirectory( render_qt )
+#add_subdirectory( render )
+add_subdirectory( render_qt )

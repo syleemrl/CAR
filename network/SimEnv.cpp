@@ -369,7 +369,7 @@ AssignParamsToBins(bool online)
 					}
 				}
 
-				if((online && p_temp.size() >= 2 * nCapacity) || (!online && p_temp.size() >= nCapacity))  {
+				if((online && p_temp.size() >= 4 * nCapacity) || (!online && p_temp.size() >= nCapacity))  {
 					ParamBin pb = ParamBin(idx);
 					for(int j = 0; j < p_temp.size(); j++) {
 						pb.PutParam(mParamNotAssigned[p_temp[j]].first);
@@ -672,9 +672,13 @@ SetRefUpdateMode(bool t) {
 		Eigen::VectorXd tp = mReferenceManager->GetTargetFull();		
 		for(int id = 0; id < mNumSlaves; ++id) {
 			mSlaves[id]->SetTargetParameters(tp, tp_feature);
+			mSlaves[id]->SetExplorationMode(true);
 		}
 	} else {
 		mReferenceManager->SaveAdaptiveMotion("updated");
+		for(int id = 0; id < mNumSlaves; ++id) {
+			mSlaves[id]->SetExplorationMode(false);
+		}
 	}
 }
 bool 

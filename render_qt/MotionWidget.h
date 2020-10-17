@@ -33,8 +33,7 @@ public slots:
 	void Reset();
 	void UpdateParam(const bool& pressed);
 
-	void setValueX(const int &x);
-	void setValueY(const int &y);
+	void setValue(const int &x);
 	void toggleDrawBvh();
 	void toggleDrawSim();
 	void toggleDrawReg();

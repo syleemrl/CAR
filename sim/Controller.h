@@ -99,7 +99,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	void SetGravity(Eigen::Vector3d g) { mGravity = g; }
 	void SetSkeletonWeight(double weight);
 	double GetSkeletonWeight() {return mWeight; }
-
+	void SetExplorationMode(bool mode) { isExplorationMode = mode; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -207,7 +207,7 @@ protected:
 	Eigen::Vector3d mGravity;
 	double maxSpeedObj;
 	Eigen::Vector3d mHandPosition;
-
+	bool isExplorationMode;
 };
 }
 #endif

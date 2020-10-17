@@ -120,6 +120,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	path = std::string(CAR_DIR)+std::string("/character/box.xml");
 	this->mObject = new DPhy::Character(path);	
 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	isExplorationMode = true;
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -488,9 +489,13 @@ GetTargetReward()
 		target_hand(1) = mTargetFullParams(1);
 		Eigen::Vector3d target_diff = target_hand - mHandPosition;
 		double v_diff = mTargetFullParams(3) - maxSpeedObj;
-		r_target = 0.75 * (0.75 * exp_of_squared(target_diff, 0.4) + 0.25 * exp_of_squared(target_diff,0.15));
-		r_target += 1.25 * ((0.75 * exp(-pow(v_diff, 2)*5) + 0.25 * exp(-pow(v_diff, 2)*15)));
-
+		if(isExplorationMode) {
+			r_target = exp_of_squared(target_diff, 0.4);
+			r_target += exp(-pow(v_diff, 2)*10);
+		} else {
+			r_target =  exp_of_squared(target_diff,0.08);
+			r_target += exp(-pow(v_diff, 2)*80);
+		}
 		
 		Eigen::Vector3d hand = mHandPosition;
 		hand = hand - mHeadRoot.segment<3>(3);
@@ -501,8 +506,8 @@ GetTargetReward()
 		mControlFlag[0] = 4;
 
 		if(mRecord) {
-			std::cout << target_diff.transpose() << " "<< exp_of_squared(target_diff, 0.4)  << " "<< exp_of_squared(target_diff,0.15) << std::endl;
-			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*5)  << " "<< exp(-pow(v_diff, 2)*15) << std::endl;
+			std::cout << target_diff.transpose() << " "<< exp_of_squared(target_diff, 0.4)  << " "<< exp_of_squared(target_diff,0.08) << std::endl;
+			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*80) << std::endl;
 		}
 	}
 	return r_target;
@@ -587,7 +592,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(6 * r_t);
+		mRewardParts.push_back(10 * r_t);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);

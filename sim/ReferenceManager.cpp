@@ -214,8 +214,6 @@ LoadMotionFromBVH(std::string filename)
 	contact.push_back("RightFoot");
 	contact.push_back("LeftToe");
 	contact.push_back("LeftFoot");
-	contact.push_back("RightHand");
-	contact.push_back("LeftHand");
 
 	auto& skel = mCharacter->GetSkeleton();
 	int dof = skel->getPositions().rows();
@@ -702,8 +700,6 @@ GetContactInfo(Eigen::VectorXd pos)
 	contact.push_back("RightToe");
 	contact.push_back("LeftFoot");
 	contact.push_back("LeftToe");
-	contact.push_back("RightHand");
-	contact.push_back("LeftHand");
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> result;
 	result.clear();
@@ -882,13 +878,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide) * rewards.first; // r_regul * r_slide;
-
+	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide); // r_regul * r_slide;
 	auto cps_t = st->GetControlPoints(0);
 
 	mLock.lock();
 
-	if(flag[0] && reward_trajectory > 0.3) {
+	if(flag[0] && reward_trajectory > 0.25) {
 		auto cps_t = st->GetControlPoints(0);
 
 		std::vector<Eigen::VectorXd> cps_tot;

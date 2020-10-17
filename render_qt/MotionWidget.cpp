@@ -5,6 +5,7 @@
 #include <GL/glu.h>
 #include <iostream>
 #include <Eigen/Geometry>
+#include <QSlider>
 #include <chrono>
 MotionWidget::
 MotionWidget()
@@ -19,9 +20,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 {
 	mCurFrame = 0;
 	mTotalFrame = 0;
-
-	v_param.resize(2);
-    v_param.setZero();
 
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 
@@ -56,6 +54,9 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     } else if(mRunReg) {
     	mReferenceManager->InitOptimization(1, "");
     }
+
+	v_param.resize(mReferenceManager->GetTargetBase().rows());
+    v_param.setZero();
 
     std::vector<Eigen::VectorXd> pos;
     double phase = 0;
@@ -151,13 +152,10 @@ initNetworkSetting(std::string ppo, std::string reg) {
 }
 void 
 MotionWidget::
-setValueX(const int &x){
-    v_param(0) = 10 - x;
-}
-void 
-MotionWidget::
-setValueY(const int &y){
-    v_param(1) = y;
+setValue(const int &x){
+	auto slider = qobject_cast<QSlider*>(sender());
+    auto i = slider->property("i").toInt();
+    v_param(i) =  x;
 }
 void 
 MotionWidget::
@@ -171,17 +169,19 @@ UpdateParam(const bool& pressed) {
 	        double max = mParamRange[endIdx](i);
 	        tp(i) = (max - min) * 0.1 * v_param(i) + min;
 
-	        for(int j = startIdx; j <= endIdx + 1; j++) {
-	            if(j == endIdx || mParamRange[j][i] > tp(i)) {
-	                endIdx = j-1;
-	                for(int k = endIdx; k >= startIdx; k--) {
-	                    if(mParamRange[endIdx][i] != mParamRange[k][i]) {
-	                        startIdx = k+1;
-	                        break;
-	                    }
-	                }
-	                break;
-	            }
+	        if(startIdx != endIdx) {
+	      		for(int j = startIdx; j <= endIdx; j++) {
+		            if(mParamRange[j][i] > tp(i)) {
+		                endIdx = j-1;
+		                for(int k = endIdx; k >= startIdx; k--) {
+		                    if(mParamRange[endIdx][i] != mParamRange[k][i]) {
+		                        startIdx = k+1;
+		                        break;
+		                    }
+		                }
+		                break;
+		            }
+		        }
 	        }
 	    }
 	    std::cout << "parameter updated: " << tp.transpose() << std::endl;
@@ -220,6 +220,7 @@ UpdateParam(const bool& pressed) {
 		    mTotalFrame = 500;
 		    UpdateMotion(pos, 2);
 	    } else {
+	    	mTotalFrame = 0;
 	    	mController->SetTargetParameters(tp_full, tp);
 			RunPPO();
 	    }

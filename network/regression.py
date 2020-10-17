@@ -191,25 +191,33 @@ class Regression(object):
 
 	def train(self):
 		self.lossvals = []
+		lossval_reg = 0
+
 		for it in range(self.steps_per_iteration):
 			if int(len(self.regression_x) // self.batch_size) == 0:
-				return
-
-			ind = np.arange(len(self.regression_x))
-			np.random.shuffle(ind)
-
-			lossval_reg = 0
-
-			for s in range(int(len(ind)//self.batch_size)):
-				selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
 
 				val = self.sess.run([self.regression_train_op, self.loss_regression], 
-					feed_dict={
-						self.input: self.regression_x[selectedIndex], 
-						self.output: self.regression_y[selectedIndex], 
-					}
-				)
+						feed_dict={
+							self.input: self.regression_x, 
+							self.output: self.regression_y, 
+						}
+					)
 				lossval_reg += val[1]
+
+			else:
+				ind = np.arange(len(self.regression_x))
+				np.random.shuffle(ind)
+
+				for s in range(int(len(ind)//self.batch_size)):
+					selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
+
+					val = self.sess.run([self.regression_train_op, self.loss_regression], 
+						feed_dict={
+							self.input: self.regression_x[selectedIndex], 
+							self.output: self.regression_y[selectedIndex], 
+						}
+					)
+					lossval_reg += val[1]
 		self.lossvals.append(['loss regression', lossval_reg / self.steps_per_iteration])
 
 		self.printNetworkSummary()
