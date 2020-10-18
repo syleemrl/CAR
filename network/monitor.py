@@ -30,7 +30,6 @@ class Monitor(object):
 		self.num_transitions = 0
 		self.total_frames_elapsed = 0
 		self.total_rewards = []
-		self.total_rewards_target = []
 		self.max_episode_length = 0
 
 		self.reward_label = self.sim_env.GetRewardLabels()
@@ -50,15 +49,13 @@ class Monitor(object):
 		self.rewards_sparse_phase = [0]*self.num_slaves
 
 		self.phaselength = self.sim_env.GetPhaseLength()
-		target_base = self.sim_env.GetTargetBase()
-		target_unit = self.sim_env.GetTargetUnit()
-
-		self.dim_target = len(target_base)
-		self.sampler = Sampler(target_base, target_unit)
+		self.dim_param = len(self.sim_env.GetParamGoal())
+		self.sampler = Sampler(self.sim_env, self.dim_param)
 
 		self.mode = 0
 		self.mode_counter = 0
 		self.flag_updated = False
+		self.exploration_done = False
 
 		if self.plot:
 			plt.ion()
@@ -94,8 +91,8 @@ class Monitor(object):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
 
 		if self.adaptive and self.parametric:
-			params = np.array(self.states)[:,-self.dim_target:]
-			curframes = np.array(self.states)[:,-(self.dim_target+1)]
+			params = np.array(self.states)[:,-self.dim_param:]
+			curframes = np.array(self.states)[:,-(self.dim_param+1)]
 		else:
 			params = np.zeros(self.num_slaves)
 			curframes = np.array(self.states)[:,-1]
@@ -127,43 +124,31 @@ class Monitor(object):
 
 		return rewards, dones, curframes, params
 
-	def updateMode(self, v_func, results):
-
-		self.sim_env.TrainRegressionNetwork()
-		b = self.sim_env.GetTargetBound()
-		if len(b) != 0:
-			self.sampler.updateBound(b)
-
+	def updateMode(self, v_func, results):	
 		if self.mode == 0:
-			self.mode_counter += 1
-			if self.sim_env.Optimize():
-				self.flag_updated = True
-			if (self.flag_updated and self.mode_counter >= 4) or not self.sim_env.NeedRefUpdate():
-		#	if self.mode_counter >= 1:
-
-				if len(b) != 0:
-					self.mode = 1
-					self.sim_env.SetRefUpdateMode(False)
-					self.sampler.reset()
-					self.updateTarget()
-					self.flag_updated = False
+			self.sim_env.Optimize()
+			# m:0 - no m:1 - yes m:-1 - no more update
+			m = self.sim_env.NeedUpdateGoal()		
+			if m == -1 or self.sim_env.NeedParamTraining():
+				self.sim_env.TrainRegressionNetwork(5)
+				self.mode = 1
+				self.sim_env.SetExplorationMode(False)
+				self.sampler.reset()
+				self.updateGoal()
 		else:
-			if self.sampler.isEnough(results):
-				if self.sim_env.NeedRefUpdate():
-					self.mode_counter = 0
-					self.mode = 0
-					self.sim_env.SetRefUpdateMode(True)
-				else:
-					self.sampler.update(v_func)
+			self.sim_env.TrainRegressionNetwork(1)
+			if not self.exploration_done and self.sampler.isEnough(results):
+				self.mode = 0
+				self.sim_env.SetExplorationMode(True)
 			else:
 				self.sampler.update(v_func)
 
 
-	def updateTarget(self):		
+	def updateGoal(self):		
 		t = self.sampler.adaptiveSample()
 		t = np.array(t, dtype=np.float32) 
 		
-		self.sim_env.SetTargetParameters(t)
+		self.sim_env.SetGoalParameters(t)
 
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
@@ -229,7 +214,7 @@ class Monitor(object):
 			if self.num_transitions_per_iteration is not 0:
 				te_per_t = self.total_frames_elapsed / self.num_transitions_per_iteration;
 			print_list.append('frame elapsed per transition : {:.2f}'.format(te_per_t))
-			print_list.append('target goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetTargetGoal()]))			
+			print_list.append('param goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetParamGoal()]))			
 			if self.num_nan_per_iteration != 0:
 				print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
 			print_list.append('===============================================================')

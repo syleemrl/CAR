@@ -17,8 +17,27 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	mReferenceManager = new DPhy::ReferenceManager(character);
 	mReferenceManager->LoadMotionFromBVH(ref);
 
+	if(parametric) {
+		mRegressionMemory = new DPhy::RegressionMemory();
+		mReferenceManager->SetRegressionMemory(mRegressionMemory);
+		Py_Initialize();
+		np::initialize();
+		try{
+			p::object regression = p::import("regression");
+			this->mRegression = regression.attr("Regression")();
+			this->mRegression.attr("initTrain")(training_path, mRegressionMemory->GetDim() + 1, mReferenceManager->GetDOF() + 1);
+		}
+		catch (const p::error_already_set&)
+		{
+			PyErr_Print();
+		}
+	}
+
 	if(adaptive) {
-		mReferenceManager->InitOptimization(num_slaves, training_path);
+		mReferenceManager->InitOptimization(num_slaves, training_path, parametric);
+		if(parametric)
+			mRegressionMemory->LoadParamSpace(mPath + "param_space");
+
 	} else {
 		mReferenceManager->InitOptimization(num_slaves, "");
 	}
@@ -26,105 +45,15 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	for(int i =0;i<num_slaves;i++)
 	{
 		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, parametric, false, i));
-	//	mSlaves.push_back(new DPhy::SimpleController());
-
 	}
 	
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
-
-	if(adaptive) {
-		mParamStack = 0;
-		mParamBase = mReferenceManager->GetTargetBase();
-		mParamUnit = mReferenceManager->GetTargetUnit();
-		nDim = mParamBase.rows();
-		nCapacity = 5;
-
-		mParamGoalIdx.resize(nDim);
-		Eigen::VectorXd p = mReferenceManager->GetTargetFeature();
-		for(int j = 0; j < nDim; j++) {
-			mParamGoalIdx(j) = std::floor((p(j) - mParamBase(j)) / mParamUnit(j));
-		}	
-		mTargetGoalBinIdx = -1;
-		mTargetGoalBinCount = 0;
-		
-		Py_Initialize();
-		np::initialize();
-		try{
-			p::object regression = p::import("regression");
-			this->mRegression = regression.attr("Regression")();
-			this->mRegression.attr("initTrain")(training_path, nDim + 1, mReferenceManager->GetDOF() + 1);
-			this->LoadParamBins();
-		}
-		catch (const p::error_already_set&)
-		{
-			PyErr_Print();
-		}
-	}
 	isAdaptive = adaptive;
 	isParametric = parametric;
 	mNeedRefUpdate = true;
-	nTrainingData = 0;
 }
-void
-SimEnv::
-LoadParamBins()
-{
-	
-	std::string path = mPath + std::string("regression_data");
-	char buffer[256];
 
-	std::ifstream is;
-	is.open(path);
-
-	if(is.fail())
-		return;
-	std::vector<Eigen::VectorXd> cps;
-	int dof = mReferenceManager->GetDOF() + 1;
-	while(!is.eof()) {
-			// cps number
-		is >> buffer;
-		Eigen::VectorXd tp(mParamBase.rows());
-		Eigen::VectorXd idx(mParamBase.rows());
-		for(int j = 0; j < mParamBase.rows(); j++) 
-		{
-			is >> buffer;
-			tp[j] = atof(buffer);
-			idx[j] = std::floor((tp[j] - mParamBase[j]) / mParamUnit[j]);
-
-		}
-			// comma
-		is >> buffer;
-
-		Eigen::VectorXd cp(dof);
-		for(int j = 0; j < dof; j++) 
-		{
-			is >> buffer;
-			cp[j] = atof(buffer);
-
-		}
-			// comma
-		is >> buffer;
-			// reward
-		is >> buffer;
-		double reward = atof(buffer);
-
-		cps.push_back(cp);
-
-		if(cps.size() == mReferenceManager->GetNumCPS()) {
-			Param p;
-			p.param = tp;
-			p.cps = cps;
-			p.reward = reward;
-
-			mParamNotAssigned.push_back(std::pair<Param, Eigen::VectorXd>(p, idx));
-			cps.clear();
-		}
-	}
-	is.close();
-	
-	this->AssignParamsToBins(false);
-}
 //For general properties
 int
 SimEnv::
@@ -298,248 +227,27 @@ Optimize()
 	// 		}		
 	// 	}
 
-	// }
-
-	// if(t) {
-	// 	// bool b = mReferenceManager->UpgradeTargetGoal();
-	// 	// if(b) {
-	// 	// 	mNeedRefUpdate = true;
-	// 	// 	Eigen::VectorXd tp = mReferenceManager->GetTargetGoal();
-	// 	// 	for(int id = 0; id < mNumSlaves; ++id) {
-	// 	// 		mSlaves[id]->SetTargetParameters(tp);
-	// 	// 	}
-	// 	// }
-
-	// 	Eigen::VectorXd g = mReferenceManager->GetTargetFeature();
-	// 	Eigen::VectorXd c = mReferenceManager->GetTargetCurMean();
-
-	// 	if((g-c).norm() < 1e-2) {
-	// 		mNeedRefUpdate = false;
-	// 	}
-	// }
 	return t;
-}
-void
-SimEnv::
-AssignParamsToBins(bool online) 
-{
-	std::vector<bool> visited;
-	std::vector<bool> assigned;
-
-
-	Eigen::VectorXd p_cur = mReferenceManager->GetTargetCurMean();
-	Eigen::VectorXd idx_cur(nDim);
-	bool mFlag_new = false;
-	for(int j = 0; j < nDim; j++) {
-		idx_cur(j) = std::floor((p_cur(j) - mParamBase(j)) / mParamUnit(j));
-	}	
-
-	for(int i = 0; i < mParamNotAssigned.size(); i++) {
-		visited.push_back(false);
-		assigned.push_back(false);
-	}
-	for(int i = 0; i < mParamNotAssigned.size(); i++) {
-
-		if(!visited[i]) {
-			Eigen::VectorXd idx = mParamNotAssigned[i].second;
-			for(int j = 0; j < mParamBins.size(); j++) {
-				if((mParamBins[j].GetIdx() - idx).norm() < 1e-2) {
-					visited[i] = true;
-					assigned[i] = true;
-
-					mParamBins[j].PutParam(mParamNotAssigned[i].first);
-
-					if(j == mTargetGoalBinIdx) {
-						mTargetGoalBinCount += 1;
-					}
-					break;
-				}
-			}
-			if(!assigned[i]) {
-				double dist_cur = (idx_cur - idx).norm();
-				if(isParametric && online && dist_cur > 2.5 && mNeedRefUpdate)
-					continue;
-
-				std::vector<int> p_temp;
-				p_temp.push_back(i);
-				for(int j = i + 1; j < mParamNotAssigned.size(); j++) {
-					if(( mParamNotAssigned[j].second - idx).norm() < 1e-2) {
-						visited[j] = true;
-						p_temp.push_back(j);
-					}
-				}
-
-				if((online && p_temp.size() >= 4 * nCapacity) || (!online && p_temp.size() >= nCapacity))  {
-					ParamBin pb = ParamBin(idx);
-					for(int j = 0; j < p_temp.size(); j++) {
-						pb.PutParam(mParamNotAssigned[p_temp[j]].first);
-						assigned[p_temp[j]] = true;
-					}
-					mParamBins.push_back(pb);
-					if(mTargetGoalBinIdx == -1 && (mParamGoalIdx - idx).norm() < 1e-2) {
-						mTargetGoalBinIdx = mParamBins.size() - 1;
-						std::cout << "target goal bin idx: " << " " << mTargetGoalBinIdx << std::endl;
-					}
-					
-					mFlag_new = true;
-				}
-			}
-		}
-	}
-
-	std::vector<std::pair<Param, Eigen::VectorXd>> paramNotAssigned_new;
-	for(int i = 0; i < mParamNotAssigned.size(); i++) {
-		if(!assigned[i])
-			paramNotAssigned_new.push_back(mParamNotAssigned[i]);
-	}
-	mParamNotAssigned = paramNotAssigned_new;
-
-	if(mFlag_new) {
-		std::cout << "boundary update "<< std::endl;
-		std::string path = mPath + std::string("boundary");
-
-		std::ofstream ofs;
-		ofs.open(path, std::fstream::out);
-
-		for(auto p: mParamBins) {	
-			Eigen::VectorXd idx = p.GetIdx();
-
-			Eigen::VectorXd p0 = mParamBase + mParamUnit.cwiseProduct(idx);
-			Eigen::VectorXd p1 = mParamBase + mParamUnit.cwiseProduct(idx + Eigen::VectorXd::Ones(nDim));
-			ofs << p0.transpose() << " , " <<  p1.transpose() << std::endl;
-		}
-		ofs.close();
-	}
-}
-bool cmp(const Param &p1, const Param &p2){
-    if(p1.reward > p2.reward){
-        return true;
-    }
-    else{
-        return false;
-    }
-}
-void
-SimEnv::
-RefreshTrainingData()
-{
-	std::vector<Eigen::VectorXd> x;
-	std::vector<Eigen::VectorXd> y;
-	std::vector<double> r;
-
-	int count = 0;
-	for(int i = 0; i < mParamBins.size(); i++) {
-		std::vector<Param> ps = mParamBins[i].GetParams();
-		if(ps.size() < nCapacity) {
-			count += ps.size() * mReferenceManager->GetNumCPS();
-			for(int j = 0; j < ps.size(); j++) {
-				Param p = ps[j];
-				for(int k = 0; k < mReferenceManager->GetNumCPS(); k++) {
-					Eigen::VectorXd input(1 + nDim);
-					input << k, p.param;
-					x.push_back(input);
-					y.push_back(p.cps[k]);
-					r.push_back(p.reward);
-				}
-			}
-		} else {
-			// clear bad samples
-    		std::stable_sort(ps.begin(), ps.end(), cmp);
-			count += nCapacity * mReferenceManager->GetNumCPS();
-			for(int j = 0; j < nCapacity; j++) {
-				Param p = ps[j];
-				for(int k = 0; k < mReferenceManager->GetNumCPS(); k++) {
-					Eigen::VectorXd input(1 + nDim);
-					input << k, p.param;
-					x.push_back(input);
-					y.push_back(p.cps[k]);
-					r.push_back(p.reward);
-				} 
-			}
-			while(ps.size() > nCapacity) {
-				ps.pop_back();
-			}
-			mParamBins[i].PutParams(ps);
-
-			ps = mParamBins[i].GetParams();
-
-		}
-	}
-
-	np::ndarray x_np = DPhy::toNumPyArray(x);
-	np::ndarray y_np = DPhy::toNumPyArray(y);
-	np::ndarray r_np = DPhy::toNumPyArray(r);
-
-	p::list l;
-	l.append(x_np);
-	l.append(y_np);
-	l.append(r_np);
-
-	mParamStack = 0;
-	this->mRegression.attr("saveRegressionData")(l, false);
-	this->mRegression.attr("replaceRegressionData")(l);
-	nTrainingData = x.size() / mReferenceManager->GetNumCPS();
-	std::cout << "cleanup training data: " << nTrainingData << std::endl;
 }
 void 
 SimEnv::
-TrainRegressionNetwork()
+TrainRegressionNetwork(int n)
 {
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
-			   std::vector<double>> x_y_z = mReferenceManager->GetRegressionSamples();
+			   std::vector<double>> x_y_z = mRegressionMemory->GetTrainingData();
 	if(std::get<0>(x_y_z).size() == 0)
 		return;
 
-	for(int i = 0; i < std::get<0>(x_y_z).size(); i += mReferenceManager->GetNumCPS()) {
-		Eigen::VectorXd param = std::get<0>(x_y_z)[i].tail(std::get<0>(x_y_z)[i].rows() - 1);
-		Eigen::VectorXd idx(nDim);
-		for(int j = 0; j < nDim; j++) {
-			idx(j) = std::floor((param(j) - mParamBase(j)) / mParamUnit(j));
-		}
-		std::vector<Eigen::VectorXd> cps;
-		for(int j = i; j < i + mReferenceManager->GetNumCPS(); j++) {
-			cps.push_back(std::get<1>(x_y_z)[j]);
-		}
-		Param p;
-		p.param = param;
-		p.cps = cps;
-		p.reward = std::get<2>(x_y_z)[i];
-
-		mParamNotAssigned.push_back(std::pair<Param, Eigen::VectorXd>(p, idx));
-		mParamStack += 1;
-
-	}
-
 	np::ndarray x = DPhy::toNumPyArray(std::get<0>(x_y_z));
 	np::ndarray y = DPhy::toNumPyArray(std::get<1>(x_y_z));
-	np::ndarray r = DPhy::toNumPyArray(std::get<2>(x_y_z));
 
 	p::list l;
 	l.append(x);
 	l.append(y);
-	l.append(r);
 
-	this->mRegression.attr("saveRegressionData")(l);
-	this->mRegression.attr("updateRegressionData")(l);
-	
-	if(mParamStack > 10) {
-		nTrainingData += mParamStack;
-	    this->AssignParamsToBins();
-
-	    if(mParamBins.size() > 0) {
-	    	this->RefreshTrainingData();
-			this->mRegression.attr("train")();
-	    }
-	    mParamStack = 0;
-	    if(mTargetGoalBinCount != 0) {
-	    	std::cout << "goal bin count: " << mTargetGoalBinCount << std::endl;
-	    }
-	    if(mTargetGoalBinCount > 300) {
-	    	std::cout << "No more ref update" << std::endl;
-	    	mNeedRefUpdate = false;
-	    }
-	}
+	this->mRegression.attr("setRegressionData")(l);
+	this->mRegression.attr("train")(n);
 
 }
 void
@@ -560,118 +268,17 @@ GetDOF()
 {
 	return mReferenceManager->GetDOF();
 }
-np::ndarray
-SimEnv::
-GetTargetBase()
-{
-	return DPhy::toNumPyArray(mParamBase);
-}
-np::ndarray
-SimEnv::
-GetTargetUnit()
-{
-	return DPhy::toNumPyArray(mParamUnit);
-}
-np::ndarray
-SimEnv::
-GetTargetGoal()
-{
-	return DPhy::toNumPyArray(mReferenceManager->GetTargetFull());
-}
-p::list
-SimEnv::
-GetHindsightTuples()
-{
-
-	int nCps = mReferenceManager->GetNumCPS();
-	int dof = mReferenceManager->GetDOF() + 1;
-	p::list input_li;
-	p::list result_li;
-	std::vector<std::vector<Eigen::VectorXd>> targetParameters;
-	for (int id = 0; id < mNumSlaves; ++id)
-	{
-		targetParameters.push_back(mSlaves[id]->GetHindsightTarget());
-		int nInput = targetParameters[id].size()*nCps;
-
-		p::tuple shape = p::make_tuple(nInput, targetParameters[id][0].rows() + 1);
-		np::dtype dtype = np::dtype::get_builtin<float>();
-		np::ndarray input = np::empty(shape, dtype);
-
-		float* data = reinterpret_cast<float*>(input.get_data());
-		
-		int idx = 0;
-		for(int i = 0; i < targetParameters[id].size(); i++)
-		{
-			for(int j = 0; j < nCps; j++) {
-				data[idx++] = (float)j;
-				for(int k = 0; k < targetParameters[id][i].rows(); k++)
-					data[idx++] = (float)targetParameters[id][i][k];
-			}
-		}
-		input_li.append(input);
-	}
-
-	p::object output_li = this->mRegression.attr("runBatch")(input_li);
-	std::vector<std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>>> ss;
-	std::vector<std::vector<std::vector<Eigen::VectorXd>>> cps_;
-
-	for (int id = 0; id < mNumSlaves; ++id)
-	{
-		int nInput = targetParameters[id].size()*nCps;
-
-		np::ndarray na = np::from_object(output_li[id]);
-		Eigen::VectorXd output = DPhy::toEigenVector(na, mNumSlaves*dof*nInput);
-		std::vector<std::vector<Eigen::VectorXd>> cps;
-		for(int i = 0; i < targetParameters[id].size(); i++)
-		{
-			std::vector<Eigen::VectorXd> cps_phase;
-			for(int j = 0; j < nCps; j++) {
-				cps_phase.push_back(output.block(i*nCps*dof + j*dof, 0, dof, 1));
-			}
-			cps.push_back(cps_phase);
-		}
-		cps_.push_back(cps);
-	}
-#pragma omp parallel for
-	for (int id = 0; id < mNumSlaves; ++id)
-	{
-		std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> sar = mSlaves[id]->GetHindsightSAR(cps_[id]);
-		ss.push_back(sar);
-	}
-	for (int id = 0; id < mNumSlaves; ++id)
-	{
-		auto sar = ss[id];
-		for(int l = 0; l < sar.size(); l++) {
-			p::list sar_episodes;
-
-			for(int i = 0; i < sar[l].size(); i++) {
-				p::list sar_tuples;
-
-				sar_tuples.append(DPhy::toNumPyArray(std::get<0>(sar[l][i])));
-				sar_tuples.append(DPhy::toNumPyArray(std::get<1>(sar[l][i])));
-				sar_tuples.append(DPhy::toNumPyArray(std::get<2>(sar[l][i])));
-				sar_tuples.append(std::get<3>(sar[l][i]));
-				
-				sar_episodes.append(sar_tuples);
-			}
-			result_li.append(sar_episodes);
-		}
-	}
-
-	return result_li;
-}
 void 
 SimEnv::
-SetRefUpdateMode(bool t) {
+SetExplorationMode(bool t) {
 
-	mReferenceManager->SetRefUpdateMode(t);
+	mReferenceManager->SetExplorationMode(t);
 	if(t) {
 		// load cps
 		mReferenceManager->LoadAdaptiveMotion("updated");
-		Eigen::VectorXd tp_feature = mReferenceManager->GetTargetFeature();		
-		Eigen::VectorXd tp = mReferenceManager->GetTargetFull();		
+		Eigen::VectorXd tp = mReferenceManager->GetParamGoal();		
 		for(int id = 0; id < mNumSlaves; ++id) {
-			mSlaves[id]->SetTargetParameters(tp, tp_feature);
+			mSlaves[id]->SetGoalParameters(tp);
 			mSlaves[id]->SetExplorationMode(true);
 		}
 	} else {
@@ -681,56 +288,49 @@ SetRefUpdateMode(bool t) {
 		}
 	}
 }
+int 
+SimEnv::
+NeedUpdateGoal() {
+	if(mRegressionMemory->IsSpaceFullyExplored())
+		return -1;
+	if(mReferenceManager->CheckExplorationProgress())
+		return 1;
+
+	Eigen::VectorXd goal_new = mRegressionMemory->SelectNewParamGoal();
+	for(int id = 0; id < mNumSlaves; ++id) {
+		mSlaves[id]->SetGoalParameters(goal_new);
+	}
+	return 1;
+}
 bool 
 SimEnv::
-NeedRefUpdate() {
-	if(!mNeedRefUpdate)
-		std::cout << "not need ref update" << std::endl;
-	return mNeedRefUpdate;
+NeedParamTraining() {
+	return mRegressionMemory->IsSpaceExpanded();
 }
 void 
 SimEnv::
-SetTargetParameters(np::ndarray np_array) {
+SetGoalParameters(np::ndarray np_array) {
 
-	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, nDim);
+	int dim = mRegressionMemory->GetDim();
+	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
+	Eigen::VectorXd tp_normalized = mRegressionMemory->Normalize(tp);
 	int dof = mReferenceManager->GetDOF() + 1;
-
+	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
 	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(1 + nDim);
-		input << j, tp;
+		Eigen::VectorXd input(dof_input);
+		input << j, tp_normalized;
 		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 		np::ndarray na = np::from_object(a);
 		cps.push_back(DPhy::toEigenVector(na, dof));
 	}
-	
-	Eigen::VectorXd tp_full = mReferenceManager->GetTargetFull();		
-	Eigen::VectorXd tp_idx = mReferenceManager->GetTargetFeatureIdx();		
 
-	for(int i = 0; i < tp_idx.size(); i++) {
-		tp_full(tp_idx(i)) = tp(i);
-	}
 	mReferenceManager->LoadAdaptiveMotion(cps);
 
 	for(int id = 0; id < mNumSlaves; ++id) {
-		mSlaves[id]->SetTargetParameters(tp_full, tp);
+		mSlaves[id]->SetGoalParameters(tp);
 	}
 }
-p::list  
-SimEnv::
-GetTargetBound() {
-	p::list bound;
-
-	if(mParamBins.size() != 0) 
-	{
-		for(int i = 0; i < mParamBins.size(); i++) {
-			bound.append(DPhy::toNumPyArray(mParamBins[i].GetIdx()));
-		}
-	}
-
-	return bound;
-}
-
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -755,18 +355,14 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetStates",&SimEnv::GetStates)
 		.def("SetActions",&SimEnv::SetActions)
 		.def("GetRewards",&SimEnv::GetRewards)
-		.def("GetHindsightTuples",&SimEnv::GetHindsightTuples)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
 		.def("Optimize",&SimEnv::Optimize)
 		.def("GetDOF",&SimEnv::GetDOF)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
-		.def("SetTargetParameters",&SimEnv::SetTargetParameters)
-		.def("SetRefUpdateMode",&SimEnv::SetRefUpdateMode)
-		.def("GetTargetBound",&SimEnv::GetTargetBound)
-		.def("NeedRefUpdate",&SimEnv::NeedRefUpdate)
-		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts)
-		.def("GetTargetBase",&SimEnv::GetTargetBase)
-		.def("GetTargetGoal",&SimEnv::GetTargetGoal)
-		.def("GetTargetUnit",&SimEnv::GetTargetUnit);
+		.def("SetGoalParameters",&SimEnv::SetGoalParameters)
+		.def("SetExplorationMode",&SimEnv::SetExplorationMode)
+		.def("NeedUpdateGoal",&SimEnv::NeedUpdateGoal)
+		.def("NeedParamTraining",&SimEnv::NeedParamTraining)
+		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 
 }

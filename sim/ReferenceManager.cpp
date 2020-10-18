@@ -16,19 +16,9 @@ ReferenceManager::ReferenceManager(Character* character)
 	mMotions_raw.clear();
 	mMotions_phase.clear();
 
-
 	auto& skel = mCharacter->GetSkeleton();
 	mDOF = skel->getPositions().rows();
 
-	mTargetBase.resize(1);
-	mTargetUnit.resize(1);
-	mTargetFull.resize(1);
-	mTargetFeature.resize(1);
-
-	mTimeStep_adaptive.clear();
-	for(int i = 0; i < mPhaseLength; i++) {
-		mTimeStep_adaptive.push_back(1.0);
-	}
 }
 void 
 ReferenceManager::
@@ -344,75 +334,6 @@ GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos)
 
 	return vel;
 }
-
-void 
-ReferenceManager::
-RescaleMotion(double w)
-{
-	mMotions_phase.clear();
-
-	auto& skel = mCharacter->GetSkeleton();
-	Eigen::VectorXd p_save = mCharacter->GetSkeleton()->getPositions();
-	Eigen::VectorXd v_save = mCharacter->GetSkeleton()->getVelocities();
-
-	skel->setPositions(mMotions_raw[0]->GetPosition());
-	skel->setVelocities(mMotions_raw[0]->GetVelocity());
-	skel->computeForwardKinematics(true,true,false);
-
-	double minheight = 0.0;
-	std::vector<std::string> contactList;
-	contactList.push_back("FootR");
-	contactList.push_back("FootL");
-	contactList.push_back("FootEndR");
-	contactList.push_back("FootEndL");
-	contactList.push_back("HandR");
-	contactList.push_back("HandL");
-	
-	for(int i = 0; i < contactList.size(); i++) 
-	{
-		double height = skel->getBodyNode(contactList[i])->getWorldTransform().translation()[1];
-		if(i == 0 || height < minheight) minheight = height;
-	}
-
-	skel->setPositions(p_save);
-	skel->setVelocities(v_save);
-	skel->computeForwardKinematics(true,true,false);
-
-	for(int i = 0; i < mPhaseLength; i++)
-	{
-		Eigen::VectorXd p = mMotions_raw[i]->GetPosition();
-		p[4] -= minheight - 0.02;
-		mMotions_phase[i]->SetPosition(p);
-	}
-
-//calculate contact infomation
-	double heightLimit = 0.05;
-	double velocityLimit = 6;
-	Eigen::VectorXd prev_p;
-	Eigen::VectorXd prev_v;
-	for(int i = 0; i < mPhaseLength; i++)
-	{
-		if(i != 0) {
-			Eigen::VectorXd cur_p = mMotions_raw[i]->GetPosition();
-			Eigen::Vector3d d_p = cur_p.segment<3>(3) - prev_p.segment<3>(3);
-			d_p *= w;
-			prev_p = cur_p;
-			cur_p.segment<3>(3) = mMotions_raw[i-1]->GetPosition().segment<3>(3) + d_p;
-			mMotions_phase[i]->SetPosition(cur_p);
-
-			Eigen::VectorXd cur_v = mMotions_raw[i]->GetVelocity();
-			cur_v.segment<3>(3) = w * cur_v.segment<3>(3);
-
-			mMotions_phase[i]->SetVelocity(cur_v);
-
-		} else {
-			prev_p = mMotions_raw[i]->GetPosition();
-			mMotions_phase[i]->SetPosition(mMotions_raw[i]->GetPosition());
-			mMotions_phase[i]->SetVelocity(mMotions_raw[i]->GetVelocity());
-		}
-
-	}
-}
 void 
 ReferenceManager::
 GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
@@ -563,8 +484,8 @@ GetMotion(double t, bool adaptive)
 }
 void
 ReferenceManager::
-InitOptimization(int nslaves, std::string save_path) {
-	
+InitOptimization(int nslaves, std::string save_path, bool parametric) {
+	isParametric = parametric;
 	for(int i = 0; i <= 20; i+=4) {
 		mKnots.push_back(i);
 	} 
@@ -579,24 +500,28 @@ InitOptimization(int nslaves, std::string save_path) {
 	// }
 	mKnots_t = mKnots;
 
-	// angular velocity, linear momentum
-	mTargetBase.resize(4);
-	mTargetBase << 0.85, 1.3, -0.85, 0.1;
-	mTargetCurMean = mTargetBase;
+	mParamCur.resize(4);
+	mParamCur << 0.85, 1.3, -0.85, 0.1;
 
-	mTargetFull.resize(4);
-	mTargetFull << 0.05, 1.1, -1.2, 0.6;
+	mParamGoal.resize(4);
+	mParamGoal << 0.05, 1.1, -1.2, 0.6;
 
-	mTargetFeature.resize(4);
-	mTargetFeature <<  0.05, 1.1, -1.2, 0.6;
+	if(isParametric) {
+		Eigen::VectorXd paramUnit(4);
+		paramUnit<< 0.1, 0.1, 0.1, 0.1;
 
-	mTargetFeatureIdx.resize(4);
-	mTargetFeatureIdx << 0, 1, 2, 3;
+		Eigen::VectorXd paramBase(4);
+		paramBase = mParamCur;
 
-	mTargetUnit.resize(4);
-	mTargetUnit<< 0.1, 0.1, 0.1, 0.1;
+		Eigen::VectorXd paramEnd(4);
+		paramEnd = mParamGoal;
 
-	mRefUpdateMode = true;
+		mRegressionMemory->InitParamSpace(paramBase, std::pair<Eigen::VectorXd, Eigen::VectorXd> (paramBase, paramEnd), 
+										  paramUnit, mDOF, mKnots.size() + 3);
+		mParamGoal = mRegressionMemory->SelectNewParamGoal();
+	}
+
+	mExplorationMode = true;
 
 	for(int i = 0; i < this->mKnots.size() + 3; i++) {
 		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
@@ -610,49 +535,23 @@ InitOptimization(int nslaves, std::string save_path) {
 	for(int i = 0; i < mPhaseLength; i++) {
 		mTimeStep_adaptive.push_back(1.0);
 	}
+
 	nOp = 0;
 	mPath = save_path;
+	
 	mPrevRewardTrajectory = 0.5;
-	mPrevRewardTarget = 0.0;	
+	mPrevRewardParam = 0.0;	
 	mMeanTrackingReward = 0;
-	mMeanTargetReward = 0;
+	mMeanParamReward = 0;
+	mPrevMeanParamReward = 0;
 
+	mThresholdTracking = 0.91;
+	mThresholdSurvival = 0.8;
+	mThresholdProgress = 10;
+	
 	nET = 0;
 	nT = 0;
-	// for(int i = 0; i < 3; i++) {
-	// 	nRejectedSamples.push_back(0);
-	// }
-
-	// std::vector<std::pair<Eigen::VectorXd,double>> pos;
-	// for(int i = 0; i < mPhaseLength; i++) {
-	// 	pos.push_back(std::pair<Eigen::VectorXd,double>(mMotions_phase[i]->GetPosition(), i));
-	// }
-	// MultilevelSpline* s = new MultilevelSpline(1, mPhaseLength);
-	// s->SetKnots(0, mKnots);
-
-	// s->ConvertMotionToSpline(pos);
-	// std::string path = std::string(CAR_DIR) + std::string("/result/walk_base");
-	
-	// std::vector<Eigen::VectorXd> cps = s->GetControlPoints(0);
-
-	// std::ofstream ofs(path);
-
-	// ofs << mKnots.size() << std::endl;
-	// for(auto t: mKnots) {	
-	// 	ofs << t << std::endl;
-	// }
-	// for(int i = 0; i < cps.size(); i++) {
-	// 	if(i >= 1 && i <= cps.size() - 3)	
-	// 		ofs << cps[i].transpose() << std::endl;
-	// }
-
-	// ofs << pos.size() << std::endl;
-	// for(auto t: pos) {	
-	// 	ofs << t.second << std::endl;
-	// 	ofs << t.first.transpose() << std::endl;
-	// }
-	// ofs.close();
-
+	nProgress = 0;
 }
 std::vector<double> 
 ReferenceManager::
@@ -758,20 +657,17 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	nT += 1;
 	mLock_ET.unlock();
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * rewards.first;
-	mMeanTargetReward = 0.99 * mMeanTargetReward + 0.01 * rewards.second;
+	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * rewards.second;
 	std::vector<int> flag;
 
-	// if(mPrevRewardTarget == 0 && rewards.first < 0.82) {
-	// 	return;
-	// }
-	if(rewards.first  < 0.91) {
+	if(rewards.first < mThresholdTracking) {
 		flag.push_back(0);
 	}
 	else {
 		flag.push_back(1);
 	}
 
-	if(rewards.second < mPrevRewardTarget)
+	if(rewards.second < mPrevRewardParam)
 		flag.push_back(0);
 	else
 		flag.push_back(1);
@@ -878,12 +774,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide); // r_regul * r_slide;
+	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide);;
 	auto cps_t = st->GetControlPoints(0);
 
 	mLock.lock();
 
-	if(flag[0] && reward_trajectory > 0.25) {
+	if(isParametric && reward_trajectory > 0.3) {
 		auto cps_t = st->GetControlPoints(0);
 
 		std::vector<Eigen::VectorXd> cps_tot;
@@ -892,18 +788,17 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 			cps_temp << cps[i], cps_t[i];
 			cps_tot.push_back(cps_temp);
 		}
-		mRegressionSamples.push_back(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
-									(cps_tot, parameters, reward_trajectory));
+		mRegressionMemory->UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
+											(cps_tot, parameters, reward_trajectory));
 	}
 
-	// if((flag[0] || (!flag[0] && reward_trajectory > mPrevRewardTrajectory)) && flag[1] && mRefUpdateMode) {
-	if(flag[0] && flag[1] && mRefUpdateMode) {
-		mSamples.push_back(std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, 
+	if(flag[1] && mExplorationMode) {
+		mSamples.push_back(std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, 
 							std::pair<double, double>,  
-							double>(std::pair<MultilevelSpline*, MultilevelSpline*>(s, st), 
+							double>(std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>(s->GetControlPoints(0), st->GetControlPoints(0)), 
 									std::pair<double, double>(reward_trajectory, r_slide), 
 									rewards.second));
-		mSampleTargets.push_back(parameters);
+		mSampleParams.push_back(parameters);
 		std::string path = mPath + std::string("samples") + std::to_string(nOp);
 
 		std::ofstream ofs;
@@ -913,16 +808,16 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 			ofs << t.first.transpose() << " " << t.second << " " << r_slide << " " << r_regul << " " << rewards.second << std::endl;
 		}
 		ofs.close();
-	} else {
-		delete s;
-		delete st;
-	}
+	} 	
+	delete s;
+	delete st;
 
 	mLock.unlock();
 
 
 }
-bool cmp(const std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, std::pair<double, double>, double> &p1, const std::tuple<std::pair<MultilevelSpline*, MultilevelSpline*>, std::pair<double, double>, double> &p2){
+bool cmp(const std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, std::pair<double, double>, double> &p1, 
+		 const std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, std::pair<double, double>, double> &p2){
     if(std::get<1>(p1).first > std::get<1>(p2).first){
         return true;
     }
@@ -987,17 +882,14 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 bool 
 ReferenceManager::
 Optimize() {
-	if(!mRefUpdateMode)
+	if(!mExplorationMode)
 		return false;
 
-	double rewardTarget = 0;
+	double rewardParam = 0;
 	double rewardTrajectory = 0;
     int mu = 60;
     std::cout << "num sample: " << mSamples.size() << std::endl;
     if(mSamples.size() < 500) {
-  //   	for(int i = 0; i < nRejectedSamples.size(); i++) {
-		// 	std::cout << i << " " << nRejectedSamples[i] << std::endl;
-		// }
     	return false;
     }
 
@@ -1040,16 +932,16 @@ Optimize() {
 	for(int i = 0; i < mu; i++) {
 		double w = log(mu + 1) - log(i + 1);
 	    weight_sum += w;
-	    std::vector<Eigen::VectorXd> cps = std::get<0>(mSamples[i]).first->GetControlPoints(0);
+	    std::vector<Eigen::VectorXd> cps = std::get<0>(mSamples[i]).first;
 	    for(int j = 0; j < num_knot + 3; j++) {
 			mean_cps[j] += w * cps[j];
 	    }
-	    std::vector<Eigen::VectorXd> cps_t = std::get<0>(mSamples[i]).second->GetControlPoints(0);
+	    std::vector<Eigen::VectorXd> cps_t = std::get<0>(mSamples[i]).second;
 	    for(int j = 0; j < num_knot_t + 3; j++) {
 			mean_cps_t[j] += w * cps_t[j];
 	    }
 	    rewardTrajectory += w * std::get<1>(mSamples[i]).first;
-	    rewardTarget += std::get<2>(mSamples[i]);
+	    rewardParam += std::get<2>(mSamples[i]);
 	    ofs << std::get<1>(mSamples[i]).second << " ";
 
 	}
@@ -1057,9 +949,9 @@ Optimize() {
 	ofs.close();
 
 	rewardTrajectory /= weight_sum;
-	rewardTarget /= (double)mu;
+	rewardParam /= (double)mu;
 
-	std::cout << "current avg elite similarity reward: " << rewardTrajectory << ", target reward: " << rewardTarget << ", cutline: " << mPrevRewardTrajectory << std::endl;
+	std::cout << "current avg elite similarity reward: " << rewardTrajectory << ", Param reward: " << rewardParam << ", cutline: " << mPrevRewardTrajectory << std::endl;
 	
 
 	for(int i = 0; i < num_knot + 3; i++) {
@@ -1072,7 +964,7 @@ Optimize() {
 	}
 
 	mPrevRewardTrajectory = rewardTrajectory;
-	mPrevRewardTarget = rewardTarget;
+	mPrevRewardParam = rewardParam;
 
 	mean_spline->SetControlPoints(0, mPrevCps);
 	std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
@@ -1106,86 +998,50 @@ Optimize() {
 	ofs.close();
 
 	nOp += 1;
-			
-	while(!mSamples.empty()){
-		MultilevelSpline* s = std::get<0>(mSamples.back()).first;
-		MultilevelSpline* st = std::get<0>(mSamples.back()).second;
+				
 
-		mSamples.pop_back();
-
-		delete s;
-		delete st;
-
-	}	
-
-	for(int i = 0; i < nRejectedSamples.size(); i++) {
-		std::cout << i << " " << nRejectedSamples[i] << std::endl;
-		nRejectedSamples[i] = 0;
+	mParamCur.setZero();
+	for(int i = 0; i < mSampleParams.size(); i++) {
+		mParamCur += mSampleParams[i];
 	}
-
-	mTargetCurMean.setZero();
-	for(int i = 0; i < mSampleTargets.size(); i++) {
-		mTargetCurMean += mSampleTargets[i];
-	}
-	mTargetCurMean /= mSampleTargets.size();
-	std::cout << "currrent elite target mean: " << mTargetCurMean.transpose() << std::endl;
- 	mSampleTargets.clear();
-		
+	mParamCur /= mSampleParams.size();
+	std::cout << "currrent elite param mean: " << mParamCur.transpose() << std::endl;
+ 	
+ 	mSampleParams.clear();
+	delete mean_spline;
+	delete mean_spline_t;
+	
 	return true;
 }
 bool
 ReferenceManager::
-UpdateExternalTarget() {
+UpdateParamManually() {
 
 	double survival_ratio = (double)nT / (nET + nT);
 	std::cout << "current mean tracking reward :" << mMeanTrackingReward  << ", survival ratio: " << survival_ratio << std::endl;
-	nT = 0;
-	nET = 0;
-	if(survival_ratio > 0.8 && mMeanTrackingReward > 0.75) {
+
+	if(survival_ratio > mThresholdSurvival && mMeanTrackingReward > mThresholdTracking - 0.05) {
 		return true;
 	}
 	return false;
 }
-int 
+bool 
 ReferenceManager::
-NeedUpdateSigTarget() {
-	std::cout << "current mean target reward : " << mMeanTargetReward << std::endl;
-	if(mMeanTargetReward < 0.05 && mMeanTrackingReward > 0.75) {
-		return 1;
-	} else if (mMeanTargetReward > 0.8 && mMeanTrackingReward > 0.75) {
-		return -1;
+CheckExplorationProgress() {
+	double survival_ratio = (double)nT / (nET + nT);
+	nT = 0;
+	nET = 0;
+
+	if(survival_ratio > mThresholdSurvival && (mMeanParamReward - mPrevMeanParamReward) < 1e-4) {
+		nProgress += 1;
+	} else {
+		nProgress = 0;
 	}
-	return 0;
-}
-void 
-ReferenceManager::
-UpdateTargetReward(double old_sig, double new_sig) {
-	mPrevRewardTarget = exp(log(mPrevRewardTarget) / pow(new_sig, 2) * pow(old_sig, 2));
-	std::cout << "updated mean elite target reward: " << mPrevRewardTarget << " new sig: " << new_sig << std::endl;
-
-}
-
-std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> 
-ReferenceManager::
-GetRegressionSamples() {
-	std::vector<Eigen::VectorXd> x;
-	std::vector<Eigen::VectorXd> y;
-	std::vector<double> r;
-
-	for(int i = 0; i < mRegressionSamples.size(); i++) {
-		std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> s = mRegressionSamples[i];
-		for(int j = 0; j < mKnots.size() + 3; j++) {
-			Eigen::VectorXd knot_and_target;
-			
-			knot_and_target.resize(1 + std::get<1>(s).rows());
-			knot_and_target << j, std::get<1>(s);
-			x.push_back(knot_and_target);
-			y.push_back(std::get<0>(s)[j]);
-			r.push_back(std::get<2>(s));
-		}
+	mPrevMeanParamReward = mMeanParamReward;
+	if(nProgress >= mThresholdProgress) {
+		return false;
 	}
-	mRegressionSamples.clear();
-
-	return std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>(x, y, r);
+	return true;
 }
+
 };

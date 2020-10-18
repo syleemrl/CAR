@@ -86,55 +86,12 @@ class Regression(object):
 
 		self.sess.run(tf.global_variables_initializer())
 
-	def loadRegressionData(self):
-		x_data = []
-		y_data = []
-		try:
-			f = open(self.directory+"regression_data", "r")
-			for l in f.readlines():
-				l = l[:-1].split(",")
-				x = l[0].split(" ")[:-1]
-				y = l[1].split(" ")[1:-1]
-				
-				x = [float(x_i) for x_i in x]
-				y = [float(y_i) for y_i in y]
-	
-				x_data.append(x)
-				y_data.append(y)
 
-			self.updateRegressionData([x_data, y_data])
-			
-			f.close()
-		except:
-			print("Nothing to load")
-
-	def saveRegressionData(self, tuples, append=True):
-		if len(tuples[0]) == 0:
-			return
-
-		if append:
-			out = open(self.directory+"regression_data", "a")
-		else:
-			out = open(self.directory+"regression_data", "w")
-		
-		for i in range(len(tuples[0])):
-			for sx in tuples[0][i]:
-				out.write(str(sx)+' ')
-			out.write(', ')
-			for sy in tuples[1][i]:
-				out.write(str(sy)+' ')
-			out.write(', ')
-			out.write(str(tuples[2][i]))
-			out.write('\n')
-		out.close()
-
-		print("save data to "+self.directory+"regression_data")
-
-	def replaceRegressionData(self, tuples):
+	def setRegressionData(self, tuples):
 		self.regression_x = tuples[0]
 		self.regression_y = tuples[1]
 
-	def updateRegressionData(self, tuples):
+	def appendRegressionData(self, tuples):
 		if len(tuples[0]) == 0:
 			return
 		self.regression_x = np.concatenate((self.regression_x, tuples[0]), axis=0)
@@ -189,11 +146,11 @@ class Regression(object):
 			print(s)
 
 
-	def train(self):
+	def train(self, n):
 		self.lossvals = []
 		lossval_reg = 0
 
-		for it in range(self.steps_per_iteration):
+		for it in range(self.steps_per_iteration * n):
 			if int(len(self.regression_x) // self.batch_size) == 0:
 
 				val = self.sess.run([self.regression_train_op, self.loss_regression], 
@@ -218,7 +175,7 @@ class Regression(object):
 						}
 					)
 					lossval_reg += val[1]
-		self.lossvals.append(['loss regression', lossval_reg / self.steps_per_iteration])
+		self.lossvals.append(['loss regression', lossval_reg / (self.steps_per_iteration * n)])
 
 		self.printNetworkSummary()
 		self.save()

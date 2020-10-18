@@ -81,25 +81,19 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	
 	void UpdateAdaptiveReward();
 	void UpdateRewardTrajectory();
-	double  GetTargetReward();
+	double GetParamReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
 	
 	std::vector<bool> GetContacts();
 	std::vector<bool> GetContacts(Eigen::VectorXd pos);
 
-
-	std::vector<Eigen::VectorXd> GetHindsightTarget() {return mHindsightTarget; }
-	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
-
-	void SetTargetParameters(Eigen::VectorXd tp, Eigen::VectorXd tp_feature) {mTargetFullParams = tp; mTargetFeatureParams = tp_feature;}
-	void SetSigTarget(double s) { mSigTarget = s;}
-	double GetSigTarget() {return mSigTarget; }
+	void SetExplorationMode(bool mode) { isExplorationMode = mode; }
+	void SetGoalParameters(Eigen::VectorXd tp) {mParamGoal = tp;}
 
 	Eigen::Vector3d GetGravity() { return mGravity; }
 	void SetGravity(Eigen::Vector3d g) { mGravity = g; }
 	void SetSkeletonWeight(double weight);
 	double GetSkeletonWeight() {return mWeight; }
-	void SetExplorationMode(bool mode) { isExplorationMode = mode; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -115,7 +109,7 @@ protected:
 	bool isParametric;
 	int id;
 	double mPrevFrameOnPhase;
-	double mTargetRewardTrajectory;
+	double mParamRewardTrajectory;
 	double mTrackingRewardTrajectory;
 	
 	Character* mCharacter;
@@ -129,14 +123,11 @@ protected:
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;
 
-	Eigen::VectorXd mRewardTargetPositions;
-
 	Eigen::VectorXd mActions;
 
 	Eigen::Vector3d mTargetCOMvelocity;
 	double mAdaptiveCOM;
 	double mAdaptiveStep;
-	double meanTargetReward;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
@@ -162,7 +153,6 @@ protected:
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
 	bool mRecord;
-	bool mIsHindsight;
 	std::tuple<double, double, double> mRescaleParameter;
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
@@ -180,29 +170,18 @@ protected:
 	//target
 	Eigen::Vector6d mHeadRoot;
 
-	Eigen::VectorXd mTargetFullParams;
-	Eigen::VectorXd mTargetFeatureParams;
-	Eigen::VectorXd mCurFeatureParams;
+	Eigen::VectorXd mParamGoal;
+	Eigen::VectorXd mParamCur;
+
 	double mCurParamReward;
 
 	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
 
-	//pos, vel, curFrame
-	std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>> mHindsightPhase;
-	std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> mHindsightSAPhase;
-
-	//state, pos, vel, curFrame, target each phase
-	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>>> mHindsightCharacter;
-	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
-	std::vector<Eigen::VectorXd> mHindsightTarget;
-	Eigen::Vector3d mTargetDiff;
 	double mWeight;
-	int mCountTarget;
+	int mCountParam;
 	int mCountTracking;
-
-	double mSigTarget;
 
 	Eigen::Vector3d mGravity;
 	double maxSpeedObj;

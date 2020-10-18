@@ -3,6 +3,7 @@
 #include "Controller.h"
 // #include "SimpleController.h"
 #include "ReferenceManager.h"
+#include "RegressionMemory.h"
 #include <vector>
 #include <string>
 #include <boost/python.hpp>
@@ -14,25 +15,6 @@ namespace DPhy
 }
 namespace p = boost::python;
 namespace np = boost::python::numpy;
-struct Param
-{
-	Eigen::VectorXd param;
-	std::vector<Eigen::VectorXd> cps;
-	double reward;
-};
-class ParamBin
-{
-public:
-	ParamBin(Eigen::VectorXd i) { idx = i; }
-	Eigen::VectorXd GetIdx(){ return idx; }
-	void PutParam(Param p) { param.push_back(p); }
-	int GetNumParams() { return param.size(); }
-	std::vector<Param> GetParams() {return param;}
-	void PutParams(std::vector<Param> ps) { param = ps;}
-private:
-	Eigen::VectorXd idx;
-	std::vector<Param> param;
-};
 class SimEnv
 {
 public:
@@ -67,48 +49,28 @@ public:
 	void SaveAdaptiveMotion();
 	void LoadAdaptiveMotion();
 	
-	void TrainRegressionNetwork();
-	p::list GetHindsightTuples();
+	void TrainRegressionNetwork(int n);
 
 	double GetPhaseLength();
 	int GetDOF();
 	
-	void SetTargetParameters(np::ndarray np_array);
+	void SetGoalParameters(np::ndarray np_array);
 
-	bool NeedRefUpdate();
-	void SetRefUpdateMode(bool t);
-	p::list GetTargetBound();
-	np::ndarray GetTargetBase();
-	np::ndarray GetTargetUnit();
-	np::ndarray GetTargetGoal();
+	int NeedUpdateGoal();
+	bool NeedParamTraining();
+	void SetExplorationMode(bool t);
 
-	void AssignParamsToBins(bool limit=true);
-	void RefreshTrainingData();
-	void LoadParamBins();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
+	DPhy::RegressionMemory* mRegressionMemory;
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
 	bool isAdaptive;
 	bool mNeedRefUpdate;
 	bool isParametric;
-	int mParamStack;
-	int nTrainingData;
-	int nCapacity;
 
-	int nDim;
-	int mTargetGoalBinIdx;
-	int mTargetGoalBinCount;
-	Eigen::VectorXd mParamBase;
-	Eigen::VectorXd mParamGoalIdx;
-	//point, distance from zero point
-	Eigen::VectorXd mParamUnit;
-
-	std::vector<std::pair<Param, Eigen::VectorXd>> mParamNotAssigned;
-	std::vector<ParamBin> mParamBins;
-	
 	p::object mRegression;
 
 	std::string mPath;

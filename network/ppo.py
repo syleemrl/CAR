@@ -422,66 +422,6 @@ class PPO(object):
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
 			   np.array(TD_batch), np.array(TD_sparse_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
-	
-	def computeTDandGAEHindsight(self, tuples):
-		state_batch = []
-		action_batch = []
-		TD_batch = []
-		TD_sparse_batch = []
-		neglogp_batch = []
-		GAE_batch = []
-	
-		for data in tuples:
-			size = len(data)-1	
-			# get values
-
-			states, actions, rewards, times = zip(*data)
-			states = np.array(states)
-			actions = np.array(actions)
-			states_raw = states
-			states = self.env.RMS.apply(states)
-			values_dense =  self.critic.getValue(states)
-			values_sparse =  self.critic_sparse.getValue(states)
-
-			neglogprobs = self.sess.run(self.cur_neglogp, feed_dict={self.state:states, self.action:actions})
-
-			advantages_dense = np.zeros(size)
-			advantages_sparse = np.zeros(size)
-			ad_t_sparse = 0
-			ad_t_dense = 0
-
-			timesteps = []
-			for i in reversed(range(size)):
-
-				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
-				ad_t_dense = delta_dense + self.lambd * self.gamma * ad_t_dense
-				advantages_dense[i] = ad_t_dense
-			
-				if i == len(data) - 1:
-					timestep = 0
-					delta_sparse = rewards[i][1] - values_sparse[i]
-				elif times[i] > times[i+1]:
-					timestep = self.env.phaselength - times[i]
-					delta_sparse = rewards[i][1] - values_sparse[i]
-				else:
-					timestep = times[i+1]  - times[i]
-					delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma, timestep) - values_sparse[i]
-				ad_t_sparse = delta_sparse + pow(self.gamma, timestep) * pow(self.lambd, timestep) * ad_t_sparse
-
-				advantages_sparse[i] = ad_t_sparse
-
-			TD = values_dense[:size] + advantages_dense
-			TD_sparse = values_sparse[:size] + advantages_sparse
-
-			for i in range(size):
-				state_batch.append(states[i])
-				action_batch.append(actions[i])
-				TD_batch.append(TD[i])
-				TD_sparse_batch.append(TD_sparse[i])
-				neglogp_batch.append(neglogprobs[i])
-				GAE_batch.append(advantages_dense[i]+advantages_sparse[i])
-
-		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(TD_sparse_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
@@ -551,8 +491,6 @@ class PPO(object):
 		epi_info_iter = []
 		epi_info_iter_hind = []
 		for it in range(num_iteration):
-			# if self.adaptive and it % 5 == 0:	
-			# 	self.optimizeReference(100)
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 
@@ -602,18 +540,13 @@ class PPO(object):
 			print('')
 
 			if self.adaptive and self.env.mode:
-				self.env.updateTarget()
-
-			# if self.adaptive:
-			# 	info_hind = self.env.sim_env.GetHindsightTuples()
-			# 	epi_info_iter_hind += info_hind			
+				self.env.updateGoal()
 
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
 					if not self.parametric:
 						self.env.sim_env.Optimize()
-						self.env.sim_env.TrainRegressionNetwork()
 					else:
 						self.env.updateMode(self.critic_target, self.v_target)
 						if self.env.mode == 0:

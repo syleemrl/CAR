@@ -20,8 +20,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mRecord = record;
 	this->mReferenceManager = ref;
 	this->id = id;
-	this->mTargetFullParams = mReferenceManager->GetTargetFull();
-	this->mTargetFeatureParams = mReferenceManager->GetTargetFeature();
+	this->mParamGoal = mReferenceManager->GetParamGoal();
 
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
@@ -89,16 +88,12 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 	//temp
 	this->mRewardParts.resize(7, 0.0);
-	mCurFeatureParams.resize(mReferenceManager->GetTargetFeature().rows());
+	mParamCur.resize(mReferenceManager->GetParamGoal().rows());
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
 
 	ClearRecord();
 	
-	this->mHindsightCharacter.clear();
-	this->mHindsightTarget.clear();
-	this->mHindsightPhase.clear();
-
 	mRewardLabels.clear();
 	if(isAdaptive) {
 		mRewardLabels.push_back("total_d");
@@ -115,11 +110,12 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("time");
 	}
 
-	this->mIsHindsight = false;
+	if(isAdaptive) {
+		path = std::string(CAR_DIR)+std::string("/character/box.xml");
+		this->mObject = new DPhy::Character(path);	
+		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	}
 
-	path = std::string(CAR_DIR)+std::string("/character/box.xml");
-	this->mObject = new DPhy::Character(path);	
-	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	isExplorationMode = true;
 }
 const dart::dynamics::SkeletonPtr& 
@@ -286,30 +282,17 @@ Step()
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
-			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mTargetRewardTrajectory), mCurFeatureParams);
+			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mParamRewardTrajectory), mParamCur);
 			data_spline.clear();
 			mTrackingRewardTrajectory = 0;
-			mTargetRewardTrajectory = 0;
+			mParamRewardTrajectory = 0;
 
 			mControlFlag.setZero();
-			mCountTarget = 0;
+			mCountParam = 0;
 			mCountTracking = 0;
 			maxSpeedObj = 0;
 			mHandPosition.setZero();
 
-			if(mIsHindsight) {
-				// to get V(t+1)
-				mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
-									(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
-				mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
-
-				mHindsightCharacter.push_back(mHindsightPhase);
-				mHindsightSA.push_back(mHindsightSAPhase);
-				mHindsightTarget.push_back(mCurFeatureParams);
-				
-				mHindsightPhase.clear();
-				mHindsightSAPhase.clear();
-			}
 		}
 	}
 	if(isAdaptive) {
@@ -329,11 +312,6 @@ Step()
 	if(isAdaptive)
 	{
 		data_spline.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
-		if(mIsHindsight) {
-			mHindsightPhase.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>
-										(mCharacter->GetSkeleton()->getPositions(), mCharacter->GetSkeleton()->getVelocities(), mCurrentFrame));
-			mHindsightSAPhase.push_back(std::pair<Eigen::VectorXd, Eigen::VectorXd>(s, a));
-		}
 	}
 
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
@@ -374,13 +352,10 @@ ClearRecord()
 	this->mRecordFootContact.clear();
 	this->mRecordTorqueNorm.clear();
 
-	this->mHindsightPhase.clear();
-	this->mHindsightSAPhase.clear();
-
 	this->mControlFlag.resize(4);
 	this->mControlFlag.setZero();
 
-	mCountTarget = 0;
+	mCountParam = 0;
 	mCountTracking = 0;
 	maxSpeedObj = 0;
 	data_spline.clear();
@@ -476,41 +451,41 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 }
 double 
 Controller::
-GetTargetReward()
+GetParamReward()
 {
-	double r_target = 0;
+	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mControlFlag[0] == 3) {
 		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
 		root_new = projectToXZ(root_new);
 		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
 
-		Eigen::Vector3d target_hand = aa * mTargetFullParams.segment<3>(0) + mHeadRoot.segment<3>(3);
-		target_hand(1) = mTargetFullParams(1);
-		Eigen::Vector3d target_diff = target_hand - mHandPosition;
-		double v_diff = mTargetFullParams(3) - maxSpeedObj;
+		Eigen::Vector3d goal_hand = aa * mParamGoal.segment<3>(0) + mHeadRoot.segment<3>(3);
+		goal_hand(1) = mParamGoal(1);
+		Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
+		double v_diff = mParamGoal(3) - maxSpeedObj;
 		if(isExplorationMode) {
-			r_target = exp_of_squared(target_diff, 0.4);
-			r_target += exp(-pow(v_diff, 2)*10);
+			r_param = exp_of_squared(hand_diff, 0.4);
+			r_param += exp(-pow(v_diff, 2)*10);
 		} else {
-			r_target =  exp_of_squared(target_diff,0.08);
-			r_target += exp(-pow(v_diff, 2)*80);
+			r_param =  exp_of_squared(hand_diff,0.08);
+			r_param += exp(-pow(v_diff, 2)*80);
 		}
 		
 		Eigen::Vector3d hand = mHandPosition;
 		hand = hand - mHeadRoot.segment<3>(3);
 		hand(1) = 0;
-		mCurFeatureParams.segment<3>(0) = aa.inverse() * hand;
-		mCurFeatureParams(1) = mHandPosition(1);
-		mCurFeatureParams(3) = maxSpeedObj;
+		mParamCur.segment<3>(0) = aa.inverse() * hand;
+		mParamCur(1) = mHandPosition(1);
+		mParamCur(3) = maxSpeedObj;
 		mControlFlag[0] = 4;
 
 		if(mRecord) {
-			std::cout << target_diff.transpose() << " "<< exp_of_squared(target_diff, 0.4)  << " "<< exp_of_squared(target_diff,0.08) << std::endl;
+			std::cout << hand_diff.transpose() << " "<< exp_of_squared(hand_diff, 0.4)  << " "<< exp_of_squared(hand_diff,0.08) << std::endl;
 			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*80) << std::endl;
 		}
 	}
-	return r_target;
+	return r_param;
 }
 std::vector<bool> 
 Controller::
@@ -568,7 +543,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
-	double r_t = this->GetTargetReward();
+	double r_param = this->GetParamReward();
 	
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = mReferenceManager->GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = mReferenceManager->GetContactInfo(skel->getPositions());
@@ -592,17 +567,17 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_t);
+		mRewardParts.push_back(10 * r_param);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 	}
-	if(r_t != 0) {
-		if(mTargetRewardTrajectory == 0) {
-			mTargetRewardTrajectory = r_t;
+	if(r_param != 0) {
+		if(mParamRewardTrajectory == 0) {
+			mParamRewardTrajectory = r_param;
 		}
 		else {
-			mTargetRewardTrajectory *= r_t;
+			mParamRewardTrajectory *= r_param;
 		}
 	}
 	mTrackingRewardTrajectory += r_tot;
@@ -640,108 +615,6 @@ UpdateRewardTrajectory() {
 
 	// mTrackingRewardTrajectory += (0.5 * tracking_rewards_bvh[0] + 0.5 * tracking_rewards_bvh[2]);
 
-}
-std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> 
-Controller::
-GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps)
-{
-	std::cout << "hindsight" << std::endl;
-	std::vector<double> count;
-	for(int i = 0; i < cps.size(); i++) {
-		count.push_back(mHindsightCharacter[i].size());
-	}
-	// std::cout << count.size() << " ";
-	// for(int i = 0; i < count.size(); i++) {
-	// 	std::cout << count[i] << " ";
-	// }
-	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, mReferenceManager->GetPhaseLength());
-	s->SetKnots(0, mReferenceManager->GetKnots());
-
-	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> sar;
-
-	std::vector<Motion*> motions_cps;
-	std::vector<Motion*> motions_phase_cps;
-	for(int i = 0; i < cps.size(); i++) {
-
-		auto cps_phase = cps[i]; 
-		s->SetControlPoints(0, cps_phase);
-
-		std::vector<Eigen::VectorXd> newpos;
-		std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
-		mReferenceManager->AddDisplacementToBVH(new_displacement, newpos);
-		std::vector<Eigen::VectorXd> newvel = mReferenceManager->GetVelocityFromPositions(newpos);
-
-		for(int j = 0; j < newpos.size(); j++) {
-			if(motions_phase_cps.size() <= j)
-				motions_phase_cps.push_back(new Motion(newpos[j], newvel[j]));
-			else {
-				motions_phase_cps[j]->SetPosition(newpos[j]);
-				motions_phase_cps[j]->SetVelocity(newvel[j]);
-			}
-		}
-		
-		int len = std::ceil(std::get<2>(mHindsightCharacter[i].back())) + 10;
-		mReferenceManager->GenerateMotionsFromSinglePhase(len, false, motions_phase_cps, motions_cps);
-
-		std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>> sar_epi;
-		mTargetFeatureParams = mHindsightTarget[i];
-		
-		mControlFlag[0] = 0;
-
-		auto skel = mCharacter->GetSkeleton();
-		for(int j = 0; j < mHindsightCharacter[i].size() - 1; j++) {
-			mCurrentFrame = std::get<2>(mHindsightCharacter[i][j]);
-			mCurrentFrameOnPhase = std::fmod(mCurrentFrame, mReferenceManager->GetPhaseLength());
-			
-			skel->setPositions(std::get<0>(mHindsightCharacter[i][j]));
-			skel->setVelocities(std::get<1>(mHindsightCharacter[i][j]));
-			skel->computeForwardKinematics(true,true,false);
-			
-			int k0 = (int) std::floor(mCurrentFrame);
-			int k1 = (int) std::ceil(mCurrentFrame);	
-
-			mTargetPositions = DPhy::BlendPosition(motions_cps[k1]->GetPosition(), motions_cps[k0]->GetPosition(), 1 - (mCurrentFrame-k0));
-			mTargetVelocities = DPhy::BlendPosition(motions_cps[k1]->GetVelocity(), motions_cps[k0]->GetVelocity(), 1 - (mCurrentFrame-k0));
-			
-			this->UpdateAdaptiveReward();
-
-			Eigen::VectorXd rewards(2);
-			rewards << mRewardParts[0], mRewardParts[1];
-
-			(mHindsightSA[i][j].first).tail(mTargetFeatureParams.rows()) = mTargetFeatureParams;
-			sar_epi.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>
-				(mHindsightSA[i][j].first, mHindsightSA[i][j].second, rewards, mCurrentFrameOnPhase));
-		}
-	
-		sar_epi.push_back(std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>
-				(mHindsightSA[i][mHindsightCharacter[i].size() - 1].first, mHindsightSA[i][mHindsightCharacter[i].size() - 1].second,
-				 Eigen::Vector2d(0, 0), 0));
-		sar.push_back(sar_epi);
-	}
-	// std::cout << count.size() << " ";
-	// for(int i = 0; i < count.size(); i++) {
-	// 	std::cout << count[i] << " ";
-	// }
-	while(!motions_cps.empty()){
-		Motion* m = motions_cps.back();
-		motions_cps.pop_back();
-
-		delete m;
-	}	
-	while(!motions_phase_cps.empty()){
-		Motion* m = motions_phase_cps.back();
-		motions_phase_cps.pop_back();
-
-		delete m;
-	}		
-
-	delete s;
-	
-	mHindsightSA.clear();
-	mHindsightTarget.clear();
-	mHindsightCharacter.clear();
-
-	return sar;
 }
 void
 Controller::
@@ -877,7 +750,7 @@ Reset(bool RSI)
 	}
 	else {
 		this->mCurrentFrame = 0; // 0;
-		this->mTargetRewardTrajectory = 0;
+		this->mParamRewardTrajectory = 0;
 		this->mTrackingRewardTrajectory = 0;
 	}
 
@@ -1073,8 +946,8 @@ GetState()
 	double com_diff = 0;
 
 	if(isParametric) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mTargetFeatureParams.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mTargetFeatureParams;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mParamGoal.rows());
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
 	}
 	else {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
