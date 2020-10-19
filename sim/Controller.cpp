@@ -1108,7 +1108,7 @@ GetState()
 }
 void
 Controller::SaveDisplayedData(std::string directory, bool bvh) {
-	std::string path = std::string(CAR_DIR) + std::string("/learned_motion/") +  directory;
+	std::string path = std::string(CAR_DIR) + std::string("/learned_motion/")+ directory;
 	std::cout << "load hierarchy from " << path << std::endl;
 	std::cout << "save results to" << path << std::endl;
 

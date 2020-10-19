@@ -1,0 +1,12 @@
+2020-10-16 15:20:18
+test_name : cartwheel_mixamo
+num_slaves : 4
+num state : 207
+num action : 64
+learning_rate : 0.0002
+gamma : 0.95
+lambd : 0.95
+batch_size : 1024
+steps_per_iteration : [10000, 2500.0]
+clip ratio : 0.2
+pretrain : output/cartwheel_mixamo/network-0
