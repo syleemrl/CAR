@@ -16,10 +16,23 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	DPhy::Character* character = new DPhy::Character(path);
 	mReferenceManager = new DPhy::ReferenceManager(character);
 	mReferenceManager->LoadMotionFromBVH(ref);
+	
+	if(adaptive) {
+		if(parametric) {
+			mRegressionMemory = new DPhy::RegressionMemory();
+			mReferenceManager->SetRegressionMemory(mRegressionMemory);
+		}
+		mReferenceManager->InitOptimization(num_slaves, training_path, parametric);
+		if(parametric) {
+			mRegressionMemory->LoadParamSpace(mPath + "param_space");
+			mReferenceManager->SetParamGoal(mRegressionMemory->GetParamGoal());
+		}
+
+	} else {
+		mReferenceManager->InitOptimization(num_slaves, "");
+	}
 
 	if(parametric) {
-		mRegressionMemory = new DPhy::RegressionMemory();
-		mReferenceManager->SetRegressionMemory(mRegressionMemory);
 		Py_Initialize();
 		np::initialize();
 		try{
@@ -31,15 +44,6 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		{
 			PyErr_Print();
 		}
-	}
-
-	if(adaptive) {
-		mReferenceManager->InitOptimization(num_slaves, training_path, parametric);
-		if(parametric)
-			mRegressionMemory->LoadParamSpace(mPath + "param_space");
-
-	} else {
-		mReferenceManager->InitOptimization(num_slaves, "");
 	}
 	
 	for(int i =0;i<num_slaves;i++)
@@ -211,7 +215,6 @@ SimEnv::
 Optimize()
 {
 	bool t = mReferenceManager->Optimize();
-	
 	// int flag_sig = mReferenceManager->NeedUpdateSigTarget();
 	// if(flag_sig) {
 	// 	double sig = mSlaves[0]->GetSigTarget();
@@ -293,10 +296,12 @@ SimEnv::
 NeedUpdateGoal() {
 	if(mRegressionMemory->IsSpaceFullyExplored())
 		return -1;
+
 	if(mReferenceManager->CheckExplorationProgress())
 		return 1;
 
 	Eigen::VectorXd goal_new = mRegressionMemory->SelectNewParamGoal();
+	mReferenceManager->SetParamGoal(goal_new);
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(goal_new);
 	}
@@ -331,6 +336,22 @@ SetGoalParameters(np::ndarray np_array) {
 		mSlaves[id]->SetGoalParameters(tp);
 	}
 }
+np::ndarray 
+SimEnv::
+GetParamGoal() {
+	return DPhy::toNumPyArray(mReferenceManager->GetParamGoal());
+}
+np::ndarray 
+SimEnv::
+UniformSampleParam() {
+	return DPhy::toNumPyArray(mRegressionMemory->UniformSample());
+}
+void
+SimEnv::
+SaveParamSpace() {
+	mRegressionMemory->SaveParamSpace(mPath + "param_space");
+
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -363,6 +384,9 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetExplorationMode",&SimEnv::SetExplorationMode)
 		.def("NeedUpdateGoal",&SimEnv::NeedUpdateGoal)
 		.def("NeedParamTraining",&SimEnv::NeedParamTraining)
+		.def("GetParamGoal",&SimEnv::GetParamGoal)
+		.def("UniformSampleParam",&SimEnv::UniformSampleParam)
+		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 
 }

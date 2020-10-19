@@ -510,14 +510,13 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 		Eigen::VectorXd paramUnit(4);
 		paramUnit<< 0.1, 0.1, 0.1, 0.1;
 
-		Eigen::VectorXd paramBase(4);
-		paramBase = mParamCur;
+		mParamBase.resize(4);
+		mParamBase << 0.0, 1.1, -1.2, 0.0;
 
-		Eigen::VectorXd paramEnd(4);
-		paramEnd = mParamGoal;
-
-		mRegressionMemory->InitParamSpace(paramBase, std::pair<Eigen::VectorXd, Eigen::VectorXd> (paramBase, paramEnd), 
-										  paramUnit, mDOF, mKnots.size() + 3);
+		mParamEnd.resize(4);
+		mParamEnd << 1.0, 1.5, -0.8, 0.6;
+		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+										  paramUnit, mDOF + 1, mKnots.size() + 3);
 		mParamGoal = mRegressionMemory->SelectNewParamGoal();
 	}
 

@@ -24,7 +24,7 @@ class Regression(object):
 		self.learning_rate_decay = learning_rate_decay
 		self.learning_rate = learning_rate	
 
-	def initRun(self, directory, num_input, num_output, postfix="reg"):
+	def initRun(self, directory, num_input, num_output, postfix=""):
 		self.directory = directory
 
 		self.num_input = num_input
@@ -39,7 +39,7 @@ class Regression(object):
 
 		self.load()
 
-	def initTrain(self, directory, num_input, num_output, postfix="reg",
+	def initTrain(self, directory, num_input, num_output, postfix="",
 		batch_size=128, steps_per_iteration=50):
 		name = directory.split("/")[-2]
 		self.name = name + postfix
@@ -61,7 +61,6 @@ class Regression(object):
 		self.regression_y = np.empty(shape=[0, num_output])
 
 		self.load()
-		self.loadRegressionData()	
 
 		print("init regression network done")
 

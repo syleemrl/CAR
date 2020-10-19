@@ -65,6 +65,9 @@ public:
 	void SetExplorationMode(bool on) { mExplorationMode = on; }
 	Eigen::VectorXd GetParamGoal() {return mParamGoal; }
 	Eigen::VectorXd GetParamCur() {return mParamCur; }
+	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetParamRange() {return std::pair<Eigen::VectorXd, Eigen::VectorXd>(mParamBase, mParamEnd); }
+
+	void SetParamGoal(Eigen::VectorXd g) { mParamGoal = g; }
 
 	bool UpdateParamManually();
 	bool CheckExplorationProgress();
@@ -117,6 +120,9 @@ protected:
 
 	Eigen::VectorXd mParamGoal;
 	Eigen::VectorXd mParamCur;
+	Eigen::VectorXd mParamBase;
+	Eigen::VectorXd mParamEnd;
+
 	RegressionMemory* mRegressionMemory;
 	
 	double mMeanTrackingReward;

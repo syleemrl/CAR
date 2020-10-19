@@ -183,7 +183,7 @@ class PPO(object):
 
 		if self.adaptive:
 			if self.parametric:
-				self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_target], name=name+'_state_target')
+				self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_param], name=name+'_state_target')
 
 			with tf.variable_scope(name+'_Optimize'):
 				self.TD_sparse = tf.placeholder(tf.float32, shape=[None], name='TD_sparse')

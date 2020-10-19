@@ -44,15 +44,22 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     DPhy::Character* ref = new DPhy::Character(path);
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-    
+    if(mRunReg) {
+    	mRegressionMemory = new DPhy::RegressionMemory();
+		mReferenceManager->SetRegressionMemory(mRegressionMemory);
+    }
+
     if(mRunSim) {
 	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
-	    mReferenceManager->InitOptimization(1, path);
+	    if(mRunReg)
+	    	mReferenceManager->InitOptimization(1, path, true);
+	    else
+	    	mReferenceManager->InitOptimization(1, path);
 	    mReferenceManager->LoadAdaptiveMotion("");
 	    mDrawReg = true;
 
     } else if(mRunReg) {
-    	mReferenceManager->InitOptimization(1, "");
+    	mReferenceManager->InitOptimization(1, "", true);
     }
 
 	v_param.resize(mReferenceManager->GetParamGoal().rows());
@@ -97,40 +104,8 @@ initNetworkSetting(std::string ppo, std::string reg) {
 	        this->mRegression = reg_main.attr("Regression")();
 	        std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
 	        this->mRegression.attr("initRun")(path, mReferenceManager->GetParamGoal().rows() + 1, mReferenceManager->GetDOF() + 1);
-
-	        path = path + "boundary";
-	        char buffer[256];
-
-	        std::ifstream is;
-	        is.open(path);
-
-	        int param_dof = v_param.rows();
-	        while(!is.eof()) {
-	            Eigen::VectorXd tp(param_dof);
-	            for(int j = 0; j < param_dof; j++) {
-	                is >> buffer;
-	                tp[j] = atof(buffer);
-	            }
-	            //comma
-	            is >> buffer;
-
-	            Eigen::VectorXd tp2(param_dof);
-	            for(int j = 0; j < param_dof; j++) {
-	                is >> buffer;
-	                tp2[j] = atof(buffer);
-	            }
-	            if((tp - tp2).norm() < 1e-2) 
-	                break;
-	            Eigen::VectorXd tp_mean = (tp + tp2) * 0.5;
-
-	            mParamRange.push_back(tp_mean);
-
-	        }
-	        is.close();
-	        std::stable_sort(mParamRange.begin(), mParamRange.end(), cmp);
-	        for(int i =0 ; i < mParamRange.size(); i++) {
-	        	std::cout << mParamRange[i].transpose() << std::endl;
-	        }
+			mRegressionMemory->LoadParamSpace(path + "param_space");
+	        mParamRange = mReferenceManager->GetParamRange();
     	}
     	if(ppo != "") {
     		this->mController = new DPhy::Controller(mReferenceManager, true, mRunReg, true);
@@ -160,71 +135,71 @@ setValue(const int &x){
 void 
 MotionWidget::
 UpdateParam(const bool& pressed) {
-	// std::cout << v_param.transpose() << std::endl;
-	// if(mRunReg) {
-	//     Eigen::VectorXd tp(v_param.rows());
-	//     int startIdx = 0, endIdx = mParamRange.size() - 1;
-	//     for(int i = 0 ; i < tp.rows(); i++) {
-	//         double min = mParamRange[startIdx](i);
-	//         double max = mParamRange[endIdx](i);
-	//         tp(i) = (max - min) * 0.1 * v_param(i) + min;
+	std::cout << v_param.transpose() << std::endl;
+	if(mRunReg) {
+	    Eigen::VectorXd tp = v_param * 0.1;
+	    tp = mRegressionMemory->GetNearestActivatedParam(tp);
+	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
+	    std::cout << "update param: " << tp_denorm.transpose() << std::endl;
 
-	//         if(startIdx != endIdx) {
-	//       		for(int j = startIdx; j <= endIdx; j++) {
-	// 	            if(mParamRange[j][i] > tp(i)) {
-	// 	                endIdx = j-1;
-	// 	                for(int k = endIdx; k >= startIdx; k--) {
-	// 	                    if(mParamRange[endIdx][i] != mParamRange[k][i]) {
-	// 	                        startIdx = k+1;
-	// 	                        break;
-	// 	                    }
-	// 	                }
-	// 	                break;
-	// 	            }
-	// 	        }
-	//         }
-	//     }
-	//     std::cout << "parameter updated: " << tp.transpose() << std::endl;
-	// 	Eigen::VectorXd tp_full = mReferenceManager->GetTargetFull();		
-	// 	Eigen::VectorXd tp_idx = mReferenceManager->GetTargetFeatureIdx();		
-	// 	for(int i = 0; i < tp_idx.size(); i++) {
-	// 		tp_full(tp_idx(i)) = tp(i);
-	// 	}
+	    int dof = mReferenceManager->GetDOF() + 1;
 
-	//     int dof = mReferenceManager->GetDOF() + 1;
+	    std::vector<Eigen::VectorXd> cps;
+	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
+	        cps.push_back(Eigen::VectorXd::Zero(dof));
+	    }
 
-	//     std::vector<Eigen::VectorXd> cps;
-	//     for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
-	//         cps.push_back(Eigen::VectorXd::Zero(dof));
-	//     }
-
-	//     for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	//         Eigen::VectorXd input(mReferenceManager->GetTargetBase().rows() + 1);
-	//         input << j, tp;
-	//         p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	    for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	        Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
+	        input << j, tp;
+	        p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 	    
-	//         np::ndarray na = np::from_object(a);
-	//         cps[j] = DPhy::toEigenVector(na, dof);
-	//     }
+	        np::ndarray na = np::from_object(a);
+	        cps[j] = DPhy::toEigenVector(na, dof);
+	    }
 
-	//     mReferenceManager->LoadAdaptiveMotion(cps);
-	//     if(!mRunSim) {
-	// 	    std::vector<Eigen::VectorXd> pos;
-	// 	    double phase = 0;
-	// 	    for(int i = 0; i < 500; i++) {
-	// 	        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
-	// 	        p(3) += 0.75;
-	// 	        pos.push_back(p);
-	// 	        phase += mReferenceManager->GetTimeStep(phase, true);
-	// 	    }
-	// 	    mTotalFrame = 500;
-	// 	    UpdateMotion(pos, 2);
-	//     } else {
-	//     	mTotalFrame = 0;
-	//     	mController->SetTargetParameters(tp_full, tp);
-	// 		RunPPO();
-	//     }
-	// }
+	    mReferenceManager->LoadAdaptiveMotion(cps);
+	    if(!mRunSim) {
+		    std::vector<Eigen::VectorXd> pos;
+		    double phase = 0;
+
+		    Eigen::VectorXd headRoot(6);
+		    bool flag_test = false;
+		    for(int i = 0; i < 500; i++) {
+
+		        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
+		        
+		        if(phase == 0) {
+			    	mSkel_reg->setPositions(p);
+					mSkel_reg->computeForwardKinematics(true,false,false);
+					headRoot = mSkel_reg->getPositions().segment<6>(0);
+		        } else if(phase >= 18 && !flag_test) {
+		       		flag_test = true;
+		      		mSkel_reg->setPositions(p);
+					mSkel_reg->computeForwardKinematics(true,false,false);
+		       		Eigen::Vector3d hand = mSkel_reg->getBodyNode("RightHand")->getWorldTransform().translation();
+
+					Eigen::Vector3d root_new = headRoot.segment<3>(0);
+					root_new = DPhy::projectToXZ(root_new);
+					Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+					Eigen::Vector3d goal_hand = aa * tp_denorm.segment<3>(0) + headRoot.segment<3>(3);
+					goal_hand(1) = tp_denorm(1);
+					Eigen::Vector3d hand_diff = goal_hand - hand;
+					std::cout << goal_hand.transpose() << " " << hand.transpose() << std::endl;
+				}
+
+		        p(3) += 0.75;
+		        pos.push_back(p);
+		        phase += mReferenceManager->GetTimeStep(phase, true);
+		    }
+		    mTotalFrame = 500;
+		    UpdateMotion(pos, 2);
+	    } else {
+	    	mTotalFrame = 0;
+	    	mController->SetGoalParameters(tp_denorm);
+			RunPPO();
+	    }
+	}
 }
 void
 MotionWidget::

@@ -11,7 +11,7 @@ struct std::less<Eigen::VectorXd>
 { 
 	bool operator()(Eigen::VectorXd const& a, Eigen::VectorXd const& b) const {
 	    assert(a.size() == b.size());
-	    for(size_t i=0; i < a.size(); i++)
+	    for(size_t i = 0; i < a.size(); i++)
 	    {
 	        if(a[i] < b[i]) 
 	        	return true;
@@ -51,7 +51,7 @@ class RegressionMemory
 public:
 	
 	RegressionMemory();
-	void InitParamSpace(Eigen::VectorXd paramBase, std::pair<Eigen::VectorXd, Eigen::VectorXd> paramSpace , Eigen::VectorXd paramUnit, 
+	void InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::VectorXd> paramSpace , Eigen::VectorXd paramUnit, 
 						double nDOF, double nknots);
 	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
@@ -66,14 +66,16 @@ public:
 
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
+	Eigen::VectorXd GetNearestActivatedParam(Eigen::VectorXd p);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radius);
 	Eigen::VectorXd Normalize(Eigen::VectorXd p);
+	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
 	bool IsSpaceExpanded();
 	bool IsSpaceFullyExplored();
 
-	Eigen::VectorXd GetParamGoalCur() {return mParamGoalCur; }
-	void SetCurrentGoal(Eigen::VectorXd paramGoal) { mParamGoalCur = paramGoal; }
+	Eigen::VectorXd GetParamGoal() {return mParamGoalCur; }
+	void SetParamGoal(Eigen::VectorXd paramGoal) { mParamGoalCur = paramGoal; }
 	void SetRadius(double rn) { mRadiusNeighbor = rn; }
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
@@ -83,9 +85,11 @@ private:
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
 
 	Eigen::VectorXd mParamScale;
+	Eigen::VectorXd mParamScaleInv;
 	Eigen::VectorXd mParamGoalCur;
 	Eigen::VectorXd mParamMin;
 	Eigen::VectorXd mParamMax;
+	Eigen::VectorXd mParamBVHNormalized;
 	Eigen::VectorXd mParamGridUnit;
 
 	std::map< Eigen::VectorXd, ParamCube* > mGridMap;

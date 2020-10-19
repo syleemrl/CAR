@@ -43,7 +43,9 @@ public:
 	p::list GetRewardLabels();
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
-	
+	np::ndarray GetParamGoal();
+	np::ndarray UniformSampleParam();
+
 	bool Optimize();
 
 	void SaveAdaptiveMotion();
@@ -59,6 +61,7 @@ public:
 	int NeedUpdateGoal();
 	bool NeedParamTraining();
 	void SetExplorationMode(bool t);
+	void SaveParamSpace();
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;

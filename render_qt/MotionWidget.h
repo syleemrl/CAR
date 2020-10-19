@@ -10,6 +10,7 @@
 #include <boost/python/numpy.hpp>
 #include "Camera.h"
 #include "ReferenceManager.h"
+#include "RegressionMemory.h"
 #include "GLfunctions.h"
 #include "DART_interface.h"
 #include "Controller.h"
@@ -88,9 +89,10 @@ protected:
 	p::object 						mPPO;
 	DPhy::ReferenceManager*			mReferenceManager;
 	DPhy::Controller* 				mController;
+	DPhy::RegressionMemory* 		mRegressionMemory;
 
 	Eigen::VectorXd v_param;
-	std::vector<Eigen::VectorXd> mParamRange;
+	std::pair<Eigen::VectorXd, Eigen::VectorXd> mParamRange;
 
 };
 #endif
