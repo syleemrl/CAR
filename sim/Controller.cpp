@@ -115,6 +115,11 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		this->mObject = new DPhy::Character(path);	
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	}
+	// } else if(isAdaptive && mRecord) {
+	// 	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
+	// 	this->mObject = new DPhy::Character(path);	
+	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	// }
 
 	isExplorationMode = true;
 }
@@ -226,59 +231,74 @@ Step()
 				maxSpeedObj = mObject->GetSkeleton()->getBodyNode("Base1")->getCOMLinearVelocity().norm();
 			}
 		}
+		// } else if(mRecord && mControlFlag[0] >= 1 && mControlFlag[0] < 3 && i % 2 == 0) {
+		// 	if(mObject->GetSkeleton()->getBodyNode("Sandbag")->getCOMLinearVelocity().norm() > maxSpeedObj) {
+		// 		maxSpeedObj = mObject->GetSkeleton()->getBodyNode("Sandbag")->getCOMLinearVelocity().norm();
+		// 	}
+		// }
 	}
 	if(isAdaptive && mCurrentFrameOnPhase >= 17 && mControlFlag[0] == 0) {
-		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
-		rot = projectToXZ(rot);		
-		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
-		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::Vector3d delta(0.065 + 0.15 + 0.02, 0 , 0.02);
-		delta = obj_dir * delta;
-		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
-		
-		p_obj.setZero();
+		// if(!mRecord) {
+			Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
+			rot = projectToXZ(rot);		
+			Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
+			Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
+			Eigen::Vector3d delta(0.065 + 0.15 + 0.02, 0 , 0.02);
+			delta = obj_dir * delta;
+			Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+			
+			p_obj.setZero();
 
-		for(int i = 0; i < mObject->GetSkeleton()->getNumBodyNodes(); i++) {
-			std::string name = mObject->GetSkeleton()->getBodyNode(i)->getName();
-			if(!name.compare("Sandbag"))
-				continue;
+			for(int i = 0; i < mObject->GetSkeleton()->getNumBodyNodes(); i++) {
+				std::string name = mObject->GetSkeleton()->getBodyNode(i)->getName();
+				if(!name.compare("Sandbag"))
+					continue;
 
-			int idx = mObject->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-			if(!name.compare("Ground")) {
-				p_obj.segment<3>(idx) = obj_dir.angle() * obj_dir.axis();
-				p_obj.segment<3>(idx + 3) = obj_pos - delta;
-				p_obj[idx + 4] = 0;
-			} else if (!name.compare("Base2")) {
-				p_obj[idx] = obj_pos[1] - 0.9;
+				int idx = mObject->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+				if(!name.compare("Ground")) {
+					p_obj.segment<3>(idx) = obj_dir.angle() * obj_dir.axis();
+					p_obj.segment<3>(idx + 3) = obj_pos - delta;
+					p_obj[idx + 4] = 0;
+				} else if (!name.compare("Base2")) {
+					p_obj[idx] = obj_pos[1] - 0.9;
+				}
 			}
-		}
 
-		mObject->GetSkeleton()->setPositions(p_obj);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+			mObject->GetSkeleton()->setPositions(p_obj);
+			mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		// }
 
 		mControlFlag[0] = 1;
 
 	} else if(isAdaptive && mControlFlag[0] == 1) {
-		mHandPosition = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
-		p_obj.setZero();
-		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
-		mObject->GetSkeleton()->setPositions(p_obj);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		// if(!mRecord) {
+			mHandPosition = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
+			Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+			p_obj.setZero();
+			p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
+			mObject->GetSkeleton()->setPositions(p_obj);
+			mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		// }
 		mControlFlag[0] = 2;
 	} else if(mControlFlag[0] == 2) {
 		mControlFlag[0] = 3;
 	}
+
+	if(mCountHead < 5) {
+		mHeadRoot += mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+		mCountHead += 1;
+		if(mCountHead == 5) {
+			mHeadRoot /= 5;
+		}
+	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-		
-		double weight = mCurrentFrameOnPhase / (1 + mAdaptiveStep);
-		double f = mCurrentFrame - std::fmod(mCurrentFrame, mReferenceManager->GetPhaseLength());
-		mHeadRoot = mReferenceManager->GetPosition(f, true).segment<6>(0);
+		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+		mCountHead = 1;
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
@@ -357,6 +377,7 @@ ClearRecord()
 
 	mCountParam = 0;
 	mCountTracking = 0;
+	mCountHead = 0;
 	maxSpeedObj = 0;
 	data_spline.clear();
 	mHandPosition.setZero();
@@ -456,33 +477,37 @@ GetParamReward()
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mControlFlag[0] == 3) {
+
 		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
 		root_new = projectToXZ(root_new);
 		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-
-		Eigen::Vector3d goal_hand = aa * mParamGoal.segment<3>(0) + mHeadRoot.segment<3>(3);
+		Eigen::Vector3d dir = Eigen::Vector3d(mParamGoal(0), 0, - sqrt(1 - mParamGoal(0)*mParamGoal(0)));
+		dir.normalize();
+		dir *= mParamGoal(2);
+		Eigen::Vector3d goal_hand = aa * dir + mHeadRoot.segment<3>(3);
 		goal_hand(1) = mParamGoal(1);
 		Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
 		double v_diff = mParamGoal(3) - maxSpeedObj;
 		if(isExplorationMode) {
-			r_param = exp_of_squared(hand_diff, 0.4);
-			r_param += exp(-pow(v_diff, 2)*10);
+			r_param = 0.7 * exp_of_squared(hand_diff, 0.4);
+			r_param += 1.3 * exp(-pow(v_diff, 2)*10);
 		} else {
-			r_param =  exp_of_squared(hand_diff,0.08);
-			r_param += exp(-pow(v_diff, 2)*80);
+			r_param = 0.7 * exp_of_squared(hand_diff,0.1);
+			r_param += 1.3 * exp(-pow(v_diff, 2)*150);
 		}
 		
 		Eigen::Vector3d hand = mHandPosition;
 		hand = hand - mHeadRoot.segment<3>(3);
 		hand(1) = 0;
-		mParamCur.segment<3>(0) = aa.inverse() * hand;
-		mParamCur(1) = mHandPosition(1);
-		mParamCur(3) = maxSpeedObj;
+		dir = aa.inverse() * hand;
+		double norm = dir.norm();
+		dir.normalize();
+		mParamCur << dir(0), mHandPosition(1), norm, maxSpeedObj;
 		mControlFlag[0] = 4;
 
 		if(mRecord) {
-			std::cout << hand_diff.transpose() << " "<< exp_of_squared(hand_diff, 0.4)  << " "<< exp_of_squared(hand_diff,0.08) << std::endl;
-			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*80) << std::endl;
+			std::cout << hand_diff.transpose() << " "<< exp_of_squared(hand_diff, 0.4)  << " "<< exp_of_squared(hand_diff,0.1) << std::endl;
+			std::cout << maxSpeedObj << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*150) << std::endl;
 		}
 	}
 	return r_param;
@@ -670,6 +695,10 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
+	else if(mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+		mIsTerminal = true;
+		terminationReason =  8;
+	}
 	if(mRecord) {
 		if(mIsTerminal) std::cout << terminationReason << std::endl;
 	}
@@ -782,6 +811,24 @@ Reset(bool RSI)
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
 	}
+	// } else if(isAdaptive && mRecord) {
+	// 	mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+	// 	Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
+	// 	root_new = DPhy::projectToXZ(root_new);
+	// 	Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+	// 	Eigen::Vector3d goal_hand = aa * mParamGoal.segment<3>(0) + mHeadRoot.segment<3>(3);
+	// 	goal_hand(1) = mParamGoal(1);
+
+	// 	Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+	// 	p_obj.setZero();
+	// 	p_obj(1) = M_PI;
+	// 	p_obj.segment<3>(3) = Eigen::Vector3d(goal_hand(0), 0.0, goal_hand(2) + 0.4);
+
+	// 	mObject->GetSkeleton()->setPositions(p_obj);
+	// 	mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	// 	mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	// 	mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
+	// }
 
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
@@ -790,6 +837,8 @@ Reset(bool RSI)
 	SaveStepInfo();
 
 	mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+	mCountHead += 1;
+
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 	

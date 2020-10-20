@@ -23,6 +23,8 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 			mReferenceManager->SetRegressionMemory(mRegressionMemory);
 		}
 		mReferenceManager->InitOptimization(num_slaves, training_path, parametric);
+		mReferenceManager->LoadAdaptiveMotion();
+
 		if(parametric) {
 			mRegressionMemory->LoadParamSpace(mPath + "param_space");
 			mReferenceManager->SetParamGoal(mRegressionMemory->GetParamGoal());
@@ -284,6 +286,7 @@ SetExplorationMode(bool t) {
 			mSlaves[id]->SetGoalParameters(tp);
 			mSlaves[id]->SetExplorationMode(true);
 		}
+		mRegressionMemory->ResetPrevSpace();
 	} else {
 		mReferenceManager->SaveAdaptiveMotion("updated");
 		for(int id = 0; id < mNumSlaves; ++id) {

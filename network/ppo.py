@@ -105,7 +105,6 @@ class PPO(object):
 			suffix = li[-1]
 			self.env.RMS.load(li[0]+'rms'+suffix)
 			self.env.RMS.setNumStates(self.num_state)
-			self.env.sim_env.LoadAdaptiveMotion()
 		
 		self.printSetting()
 		
@@ -581,8 +580,8 @@ class PPO(object):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 
-		#action, _ = self.actor.getAction(state)
-		action = self.actor.getMeanAction(state)
+		action, _ = self.actor.getAction(state)
+		#action = self.actor.getMeanAction(state)
 
 		return action
 

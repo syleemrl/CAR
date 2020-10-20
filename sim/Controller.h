@@ -169,6 +169,7 @@ protected:
 
 	//target
 	Eigen::Vector6d mHeadRoot;
+	int mCountHead;
 
 	Eigen::VectorXd mParamGoal;
 	Eigen::VectorXd mParamCur;

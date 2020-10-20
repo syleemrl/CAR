@@ -70,12 +70,16 @@ protected:
 	std::vector<Eigen::VectorXd> 	mMotion_bvh;
 	std::vector<Eigen::VectorXd> 	mMotion_reg;
 	std::vector<Eigen::VectorXd> 	mMotion_sim;
+	std::vector<Eigen::VectorXd> 	mMotion_obj;
+	std::vector<Eigen::VectorXd> 	mMotion_points;
 
 
 
 	dart::dynamics::SkeletonPtr 	mSkel_bvh;
 	dart::dynamics::SkeletonPtr 	mSkel_reg;
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
+	dart::dynamics::SkeletonPtr 	mSkel_obj;
+
 	bool							mTrackCamera;
 
 	bool 							mRunSim;
@@ -94,5 +98,6 @@ protected:
 	Eigen::VectorXd v_param;
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> mParamRange;
 
+	Eigen::Vector3d 				mPoints;
 };
 #endif

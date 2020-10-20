@@ -484,8 +484,56 @@ GetMotion(double t, bool adaptive)
 }
 void
 ReferenceManager::
+ResetOptimizationParameters() {
+	mExplorationMode = true;
+
+	mPrevCps.clear();
+	for(int i = 0; i < this->mKnots.size() + 3; i++) {
+		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
+	}
+	
+	mPrevCps_t.clear();
+	for(int i = 0; i < this->mKnots_t.size() + 3; i++) {
+		mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
+	}
+
+	mTimeStep_adaptive.clear();
+	for(int i = 0; i < mPhaseLength; i++) {
+		mTimeStep_adaptive.push_back(1.0);
+	}
+
+	mMotions_phase_adaptive.clear();
+	for(int i = 0; i < this->GetPhaseLength(); i++) {
+		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
+	}
+	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+
+	nOp = 0;
+	
+	mPrevRewardTrajectory = 0.5;
+	mPrevRewardParam = 0.0;	
+	mMeanTrackingReward = 0;
+	mMeanParamReward = 0;
+	mPrevMeanParamReward = 0;
+
+	mSamples.clear();
+	mSampleParams.clear();
+
+	nET = 0;
+	nT = 0;
+	nProgress = 0;
+}
+void
+ReferenceManager::
 InitOptimization(int nslaves, std::string save_path, bool parametric) {
 	isParametric = parametric;
+	mPath = save_path;
+	
+
+	mThresholdTracking = 0.91;
+	mThresholdSurvival = 0.8;
+	mThresholdProgress = 10;
+
 	for(int i = 0; i <= 20; i+=4) {
 		mKnots.push_back(i);
 	} 
@@ -501,56 +549,27 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 	mKnots_t = mKnots;
 
 	mParamCur.resize(4);
-	mParamCur << 0.85, 1.3, -0.85, 0.1;
+	mParamCur << 0.707107, 1.3, 1.2, 0.1;
 
 	mParamGoal.resize(4);
-	mParamGoal << 0.05, 1.1, -1.2, 0.6;
+	mParamGoal << 0.707107, 1.3, 1.2, 0.1;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(4);
 		paramUnit<< 0.1, 0.1, 0.1, 0.1;
 
 		mParamBase.resize(4);
-		mParamBase << 0.0, 1.1, -1.2, 0.0;
+		mParamBase << 0, 1.0, 0.8, 0.0;
 
 		mParamEnd.resize(4);
-		mParamEnd << 1.0, 1.5, -0.8, 0.6;
+		mParamEnd << 0.8, 1.5, 1.4, 0.6;
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mKnots.size() + 3);
 		mParamGoal = mRegressionMemory->SelectNewParamGoal();
 	}
 
-	mExplorationMode = true;
+	ResetOptimizationParameters();
 
-	for(int i = 0; i < this->mKnots.size() + 3; i++) {
-		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
-	}
-	
-	for(int i = 0; i < this->mKnots_t.size() + 3; i++) {
-		mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
-	}
-
-	mTimeStep_adaptive.clear();
-	for(int i = 0; i < mPhaseLength; i++) {
-		mTimeStep_adaptive.push_back(1.0);
-	}
-
-	nOp = 0;
-	mPath = save_path;
-	
-	mPrevRewardTrajectory = 0.5;
-	mPrevRewardParam = 0.0;	
-	mMeanTrackingReward = 0;
-	mMeanParamReward = 0;
-	mPrevMeanParamReward = 0;
-
-	mThresholdTracking = 0.91;
-	mThresholdSurvival = 0.8;
-	mThresholdProgress = 10;
-	
-	nET = 0;
-	nT = 0;
-	nProgress = 0;
 }
 std::vector<double> 
 ReferenceManager::
@@ -1007,6 +1026,7 @@ Optimize() {
 	std::cout << "currrent elite param mean: " << mParamCur.transpose() << std::endl;
  	
  	mSampleParams.clear();
+ 	mSamples.clear();
 	delete mean_spline;
 	delete mean_spline_t;
 	
@@ -1030,14 +1050,18 @@ CheckExplorationProgress() {
 	double survival_ratio = (double)nT / (nET + nT);
 	nT = 0;
 	nET = 0;
-
-	if(survival_ratio > mThresholdSurvival && (mMeanParamReward - mPrevMeanParamReward) < 1e-4) {
+	std::cout << survival_ratio << " " << (mMeanParamReward - mPrevMeanParamReward) <<std::endl;
+	if(survival_ratio > mThresholdSurvival && (mMeanParamReward - mPrevMeanParamReward) < 2 * 1e-2) {
 		nProgress += 1;
 	} else {
 		nProgress = 0;
 	}
 	mPrevMeanParamReward = mMeanParamReward;
-	if(nProgress >= mThresholdProgress) {
+	if((nProgress >= mThresholdProgress && mRegressionMemory->GetTimeFromLastUpdate() > mThresholdProgress) || 
+	   (mRegressionMemory->GetTimeFromLastUpdate() > 2 * mThresholdProgress)) {
+		mRegressionMemory->ResetPrevSpace();
+		ResetOptimizationParameters();
+
 		return false;
 	}
 	return true;

@@ -134,7 +134,7 @@ class Monitor(object):
 				if m == -1:
 					self.exploration_done = True
 			if self.exploration_done or self.sim_env.NeedParamTraining():
-				self.sim_env.TrainRegressionNetwork(5)
+				self.sim_env.TrainRegressionNetwork(10)
 				self.mode = 1
 				self.sim_env.SetExplorationMode(False)
 				self.sampler.reset()

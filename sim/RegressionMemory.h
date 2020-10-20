@@ -69,8 +69,11 @@ public:
 	Eigen::VectorXd GetNearestActivatedParam(Eigen::VectorXd p);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radius);
+	std::vector<Param> GetNeighborParams(Eigen::VectorXd p);
 	Eigen::VectorXd Normalize(Eigen::VectorXd p);
 	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
+	void SaveContinuousParamSpace(std::string path);
+
 	bool IsSpaceExpanded();
 	bool IsSpaceFullyExplored();
 
@@ -79,7 +82,9 @@ public:
 	void SetRadius(double rn) { mRadiusNeighbor = rn; }
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
+	void ResetPrevSpace();
 	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> GetTrainingData();
+	int GetTimeFromLastUpdate() { return mTimeFromLastUpdate; }
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -101,6 +106,7 @@ private:
 	int mNumActivatedPrev;
 	int mThresholdUpdate;
 	int mThresholdActivate;
+	int mTimeFromLastUpdate;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

@@ -1,6 +1,7 @@
 #include "RegressionMemory.h"
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 namespace DPhy
 {
 bool
@@ -45,9 +46,9 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamMin = paramSpace.first;
 	mParamMax = paramSpace.second;
 
-	mRadiusNeighbor = 0.5;
+	mRadiusNeighbor = 0.35;
 	mThresholdActivate = 5;
-	mThresholdUpdate = mDim;
+	mThresholdUpdate = 1.5 * mDim;
 	mParamBVHNormalized = Normalize(paramBvh);
 	Eigen::VectorXd base(mDim);
 	base.setZero();
@@ -144,6 +145,15 @@ SaveParamSpace(std::string path) {
 	ofs.close();
 
 }
+bool cmp(const std::pair<int, Eigen::VectorXd> &p1, 
+		 const std::pair<int, Eigen::VectorXd> &p2){
+    if(p1.first > p2.first){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
 void
 RegressionMemory::
 LoadParamSpace(std::string path) {
@@ -227,7 +237,7 @@ LoadParamSpace(std::string path) {
 	}
 
 	is.close();
-	mNumActivatedPrev = mParamActivated.size();
+//	mNumActivatedPrev = mParamActivated.size();
 
 	std::cout << "Regression memory load done: " << std::endl;
 	std::cout << "Param min: " << mParamMin.transpose() << std::endl;
@@ -238,6 +248,18 @@ LoadParamSpace(std::string path) {
 	std::cout << "Param Goal: " << mParamGoalCur.transpose() << std::endl;
 	std::cout << "param activated size: " << mParamActivated.size() << std::endl;
 	std::cout << "param deactivated size: " << mParamDeactivated.size() << std::endl;
+
+	// std::vector<std::pair<int, Eigen::VectorXd>> stats;
+	// auto iter = mParamActivated.begin();
+	// while(iter != mParamActivated.end()) {
+	// 	auto it = mGridMap.find(iter->first);
+	// 	stats.push_back(std::pair<int, Eigen::VectorXd>(it->second->GetNumParams(), iter->first));
+	// 	iter++;
+	// }
+	// std::stable_sort(stats.begin(), stats.end(), cmp);
+	// for(int i = 0; i < stats.size(); i++) {
+	// 	std::cout << stats[i].first << " " << stats[i].second.cwiseProduct(mParamGridUnit).transpose() << std::endl;
+	// }
 }
 Eigen::VectorXd
 RegressionMemory::
@@ -308,6 +330,23 @@ GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radiu
 
 	return neighborlist;
 }
+std::vector<Param> 
+RegressionMemory::
+GetNeighborParams(Eigen::VectorXd p) {
+	std::vector<Param> result;
+	std::vector<Eigen::VectorXd> points = GetNeighborPointsOnGrid(p, mRadiusNeighbor * 1.5);
+	for(int i = 0; i < points.size(); i++) {
+		auto iter = mGridMap.find(points[i]);
+		if(iter != mGridMap.end()) {
+			std::vector<Param> ps = iter->second->GetParams();
+			for(int j = 0; j < ps.size(); j++) {
+				result.push_back(ps[j]);
+			}
+		}
+	}
+	return result;
+}
+
 void 
 RegressionMemory::
 AddMapping(Param p) {
@@ -339,8 +378,9 @@ RegressionMemory::
 GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1) {
 	double r = 0;
 	for(int i = 0; i < mDim; i++) {
-		if(mParamGridUnit(i) != 0)
+		if(mParamGridUnit(i) != 0) {
 			r += pow((p0(i) - p1(i)), 2) / pow(mParamGridUnit(i), 2);
+		}
 	}
 	return std::sqrt(r);
 }
@@ -386,36 +426,55 @@ Eigen::VectorXd
 RegressionMemory::
 UniformSample() {
 	while(1) {
-		double r = mUniform(mMT);
-		r = std::floor(r * mParamActivated.size());
-		auto it = std::next(mParamActivated.begin(),(int)r);
-		Eigen::VectorXd idx = it->first; 
 		Eigen::VectorXd p(mDim);
-
-		Eigen::VectorXd range(mDim);
-		range.setZero();
-
-		for(int i = 0; i < mDim; i++) {
-			double x = mUniform(mMT) - 0.5;
-			p(i) = (idx(i) + x) * mParamGridUnit(i);
-			if(p(i) > 1 || p(i) < 0) {
-				p(i) = std::min(1.0, std::max(0.0, p(i)));
-			}
-
+		for(int j =0 ; j < mDim; j++) {
+				p(j) = mUniform(mMT);
 		}
-		std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(p, idx, 1.5 * mRadiusNeighbor);
-		
-		for(int i = 0; i < checklist.size(); i++) {
-			auto iter = mGridMap.find(checklist[i]);
-			if (iter != mGridMap.end()) {
-				std::vector<Param> ps = iter->second->GetParams();
-				for(int j = 0; j < ps.size(); j++) {
-					if(GetDistanceNorm(ps[j].param_normalized, p) < 1.5 * mRadiusNeighbor) {
+
+		std::vector<Eigen::VectorXd> neighborlist = GetNeighborPointsOnGrid(p, 1.5 * mRadiusNeighbor);
+		for(int j = 0; j < neighborlist.size(); j++) {
+			auto iter = mGridMap.find(neighborlist[j]);
+			if(iter != mGridMap.end()) {
+				std::vector<DPhy::Param> ps = iter->second->GetParams();
+				for(int k = 0; k < ps.size(); k++) {
+					if(GetDistanceNorm(p, ps[k].param_normalized) < mRadiusNeighbor * 1.5) {
+						std::cout << Denormalize(p).transpose() << std::endl;
 						return Denormalize(p);
 					}
 				}
 			}
 		}
+
+		// double r = mUniform(mMT);
+		// r = std::floor(r * mParamActivated.size());
+		// auto it = std::next(mParamActivated.begin(),(int)r);
+		// Eigen::VectorXd idx = it->first; 
+		// Eigen::VectorXd p(mDim);
+
+		// Eigen::VectorXd range(mDim);
+		// range.setZero();
+
+		// for(int i = 0; i < mDim; i++) {
+		// 	double x = mUniform(mMT) - 0.5;
+		// 	p(i) = (idx(i) + x) * mParamGridUnit(i);
+		// 	if(p(i) > 1 || p(i) < 0) {
+		// 		p(i) = std::min(1.0, std::max(0.0, p(i)));
+		// 	}
+
+		// }
+		// std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(p, idx, 1.5 * mRadiusNeighbor);
+		
+		// for(int i = 0; i < checklist.size(); i++) {
+		// 	auto iter = mGridMap.find(checklist[i]);
+		// 	if (iter != mGridMap.end()) {
+		// 		std::vector<Param> ps = iter->second->GetParams();
+		// 		for(int j = 0; j < ps.size(); j++) {
+		// 			if(GetDistanceNorm(ps[j].param_normalized, p) < 1.5 * mRadiusNeighbor) {
+		// 				return Denormalize(p);
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 }
 
@@ -423,6 +482,7 @@ bool
 RegressionMemory::
 UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate) {
 	Eigen::VectorXd candidate_param = std::get<1>(candidate);
+	// std::cout << "candidate" << " " << candidate_param.transpose() << std::endl;
 
 	for(int i = 0; i < mDim; i++) {
 		if(candidate_param(i) > mParamMax(i) || candidate_param(i) < mParamMin(i)) {
@@ -486,7 +546,7 @@ Eigen::VectorXd
 RegressionMemory::
 SelectNewParamGoal() { 
 	std::vector<std::pair<Eigen::VectorXd, double>> candidate;
-	while(candidate.size() < 10) {
+	while(candidate.size() < 50) {
 		double r = mUniform(mMT);
 		r = std::floor(r * mParamDeactivated.size());
 
@@ -528,7 +588,7 @@ SelectNewParamGoal() {
 
 			auto it_a = mParamActivated.begin();
 			while (it_a != mParamActivated.end()) {
-				double d = GetDistanceNorm(it_a->first, p);
+				double d = GetDistanceNorm((it_a->first).cwiseProduct(mParamGridUnit), p);
 				if(d < dist || dist == dist_bvh) {
 					dist = d;
 				}
@@ -552,16 +612,25 @@ SelectNewParamGoal() {
 	return mParamGoalCur;
 
 }
+void
+RegressionMemory::
+ResetPrevSpace() {
+	mNumActivatedPrev = mParamActivated.size();
+	mTimeFromLastUpdate = 0;
 
+}
 bool 
 RegressionMemory::
 IsSpaceExpanded() { 
 	std::cout << "ac: " << mParamActivated.size() <<", prev ac:" << mNumActivatedPrev << std::endl;
-
-	if((mParamActivated.size() - mNumActivatedPrev) > mThresholdUpdate) {
+	int size = mParamActivated.size();
+	if((size - mNumActivatedPrev) > mThresholdUpdate && size > mDim * 5) {
+		std::cout << "space expanded by " << mParamActivated.size() - mNumActivatedPrev << std::endl;
 		mNumActivatedPrev = mParamActivated.size();
+		mTimeFromLastUpdate = 0;
 		return true;
 	} 
+	mTimeFromLastUpdate += 1;
 	return false;
 }
 bool
@@ -572,5 +641,37 @@ IsSpaceFullyExplored() {
 		return true;
 	}
 	return false;
+}
+void
+RegressionMemory::
+SaveContinuousParamSpace(std::string path) {
+	int N = 30000;
+	std::ofstream ofs(path);
+
+	for(int i = 0; i < N; i++) {
+		Eigen::VectorXd point(mDim);
+		for(int j =0 ; j < mDim; j++) {
+			point(j) = mUniform(mMT);
+		}
+		int count = 0;
+		std::vector<Eigen::VectorXd> neighborlist = GetNeighborPointsOnGrid(point, 1.5 * mRadiusNeighbor);
+		for(int j = 0; j < neighborlist.size(); j++) {
+			auto iter = mGridMap.find(neighborlist[j]);
+			if(iter != mGridMap.end()) {
+				std::vector<DPhy::Param> ps = iter->second->GetParams();
+				for(int k = 0; k < ps.size(); k++) {
+					if(GetDistanceNorm(point, ps[k].param_normalized) < mRadiusNeighbor * 1.5) {
+						count++;
+						break;
+					}
+				}
+			}
+			if(count) 
+				break;
+		}
+		if(count)
+			ofs << point.transpose() << std::endl;
+	}
+	ofs.close();
 }
 };
