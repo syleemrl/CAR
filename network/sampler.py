@@ -62,6 +62,42 @@ class Sampler(object):
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.n_iter < 3 or self.v_mean < 8:
+		if self.n_iter < 3 or self.v_mean < 7.7:
 			return False
 		return True
+
+	def probEx(self, v, v_mean):
+		return math.exp(-self.k*(v-v_mean)/v_mean)
+
+	def selectExGoalParameter(self, li, v_func, m=10, N=1000):
+
+		#uniform
+		# t = np.random.randint(len(li))
+		# return li[t][0]
+
+		#adaptive
+		v_li = []
+		for i in range(len(li)):
+			v = np.mean(v_func.getValue(li[i][1]))
+			v_li.append(v)
+		v_mean = np.mean(v_li)
+
+		pool_ex = []
+		for i in range(m):
+			t = np.random.randint(len(li))
+			x_cur = li[t][0]
+			v_cur = v_li[t]
+			for j in range(int(N/m)):
+				pool_ex.append(x_cur)
+				t = np.random.randint(len(li))
+				x_new = li[t][0]	
+				v_new = v_li[t]			
+				alpha = min(1.0, self.probEx(v_new, v_mean)/self.probEx(v_cur, v_mean))
+				if np.random.rand() <= alpha:          
+					x_cur = x_new
+					v_cur = v_new
+
+		t = np.random.randint(len(pool_ex))
+		target = pool_ex[t] 
+
+		return target

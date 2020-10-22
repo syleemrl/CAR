@@ -56,9 +56,10 @@ public:
 	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
-	Eigen::VectorXd UniformSample();
+	Eigen::VectorXd UniformSample(int n=2);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
 	Eigen::VectorXd SelectNewParamGoal();
+	std::vector<std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>> SelectNewParamGoalCandidate();
 
 	void AddMapping(Param p);
 	void AddMapping(Eigen::VectorXd nearest, Param p);
@@ -69,7 +70,9 @@ public:
 	Eigen::VectorXd GetNearestActivatedParam(Eigen::VectorXd p);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radius);
-	std::vector<Param> GetNeighborParams(Eigen::VectorXd p);
+	std::vector<Eigen::VectorXd> GetNeighborParams(Eigen::VectorXd p);
+	std::vector<std::pair<double, Param>> GetNearestParams(Eigen::VectorXd p, int n);
+
 	Eigen::VectorXd Normalize(Eigen::VectorXd p);
 	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
 	void SaveContinuousParamSpace(std::string path);
@@ -85,6 +88,10 @@ public:
 	void ResetPrevSpace();
 	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> GetTrainingData();
 	int GetTimeFromLastUpdate() { return mTimeFromLastUpdate; }
+
+	double GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal);
+	std::vector<Eigen::VectorXd> GetCPSFromNearestParams(Eigen::VectorXd p_goal);
+
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -94,10 +101,10 @@ private:
 	Eigen::VectorXd mParamGoalCur;
 	Eigen::VectorXd mParamMin;
 	Eigen::VectorXd mParamMax;
-	Eigen::VectorXd mParamBVHNormalized;
 	Eigen::VectorXd mParamGridUnit;
 
 	std::map< Eigen::VectorXd, ParamCube* > mGridMap;
+	Param mParamBVH;
 
 	double mRadiusNeighbor;
 	int mDim;
@@ -107,6 +114,7 @@ private:
 	int mThresholdUpdate;
 	int mThresholdActivate;
 	int mTimeFromLastUpdate;
+	int mNumElite;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

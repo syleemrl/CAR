@@ -125,29 +125,40 @@ class Monitor(object):
 		return rewards, dones, curframes, params
 
 	def updateMode(self, v_func, results):	
-		self.sim_env.SaveParamSpace()
 		if self.mode == 0:
 			self.sim_env.Optimize()
+
 			if not self.exploration_done:
 				# m:0 -> no m:1 -> yes m:-1 -> no more exploration
 				m = self.sim_env.NeedUpdateGoal()
 				if m == -1:
 					self.exploration_done = True
+				elif m == 1:
+					self.updateExGoal(v_func)
 			if self.exploration_done or self.sim_env.NeedParamTraining():
+				self.sim_env.SaveParamSpace()
 				self.sim_env.TrainRegressionNetwork(10)
 				self.mode = 1
 				self.sim_env.SetExplorationMode(False)
 				self.sampler.reset()
+	
 				self.updateGoal()
 		else:
 			self.sim_env.TrainRegressionNetwork(1)
-			self.sim_env.NeedParamTraining()
+			if self.sim_env.NeedParamTraining():
+				self.sim_env.SaveParamSpace()
 			if not self.exploration_done and self.sampler.isEnough(results):
 				self.mode = 0
 				self.sim_env.SetExplorationMode(True)
+				self.updateExGoal(v_func)
 			else:
 				self.sampler.update(v_func)
 
+	def updateExGoal(self, v_func):
+		li = self.sim_env.GetParamGoalCandidate()
+		goal = self.sampler.selectExGoalParameter(li, v_func)
+		self.sim_env.SetExGoalParameters(goal)
+		print(goal)
 
 	def updateGoal(self):		
 		t = self.sampler.adaptiveSample()

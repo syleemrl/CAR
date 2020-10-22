@@ -68,7 +68,7 @@ public:
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetParamRange() {return std::pair<Eigen::VectorXd, Eigen::VectorXd>(mParamBase, mParamEnd); }
 
 	void SetParamGoal(Eigen::VectorXd g) { mParamGoal = g; }
-	void ResetOptimizationParameters();
+	void ResetOptimizationParameters(bool reset_cps=true);
 	bool UpdateParamManually();
 	bool CheckExplorationProgress();
 	void ReportEarlyTermination();
@@ -120,6 +120,7 @@ protected:
 
 	Eigen::VectorXd mParamGoal;
 	Eigen::VectorXd mParamCur;
+	Eigen::VectorXd mParamBVH;
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamEnd;
 

@@ -55,6 +55,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
+	mExUpdate = 0;
 	isAdaptive = adaptive;
 	isParametric = parametric;
 	mNeedRefUpdate = true;
@@ -301,13 +302,13 @@ NeedUpdateGoal() {
 		return -1;
 
 	if(mReferenceManager->CheckExplorationProgress())
-		return 1;
+		return 0;
 
-	Eigen::VectorXd goal_new = mRegressionMemory->SelectNewParamGoal();
-	mReferenceManager->SetParamGoal(goal_new);
-	for(int id = 0; id < mNumSlaves; ++id) {
-		mSlaves[id]->SetGoalParameters(goal_new);
-	}
+	// Eigen::VectorXd goal_new = mRegressionMemory->SelectNewParamGoal();
+	// mReferenceManager->SetParamGoal(goal_new);
+	// for(int id = 0; id < mNumSlaves; ++id) {
+	// 	mSlaves[id]->SetGoalParameters(goal_new);
+	// }
 	return 1;
 }
 bool 
@@ -339,6 +340,28 @@ SetGoalParameters(np::ndarray np_array) {
 		mSlaves[id]->SetGoalParameters(tp);
 	}
 }
+void
+SimEnv::
+SetExGoalParameters(np::ndarray np_array) {
+	int dim = mRegressionMemory->GetDim();
+	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
+	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+
+	mReferenceManager->LoadAdaptiveMotion(cps);
+	mReferenceManager->SaveAdaptiveMotion("ex_"+std::to_string(mExUpdate));
+
+	for(int id = 0; id < mNumSlaves; ++id) {
+		mSlaves[id]->SetGoalParameters(tp);
+	}
+	mReferenceManager->SetParamGoal(tp);
+	mReferenceManager->ResetOptimizationParameters(false);
+	mExUpdate += 1;
+	std::ofstream ofs;
+	ofs.open(mPath + "goal_ex", std::fstream::out | std::fstream::app);
+
+	ofs << mExUpdate << " " << tp.transpose() << std::endl;
+	ofs.close();
+}
 np::ndarray 
 SimEnv::
 GetParamGoal() {
@@ -354,6 +377,23 @@ SimEnv::
 SaveParamSpace() {
 	mRegressionMemory->SaveParamSpace(mPath + "param_space");
 
+}
+p::list
+SimEnv::
+GetParamGoalCandidate() {
+	std::vector<std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>> ps = mRegressionMemory->SelectNewParamGoalCandidate();
+	p::list li;
+	for(int i = 0; i < ps.size(); i++) {
+		p::list p;
+		p.append(DPhy::toNumPyArray(ps[i].first));
+		p::list p_near;
+		for(int j = 0 ; j < ps[i].second.size(); j++) {
+			p_near.append(DPhy::toNumPyArray((ps[i].second)[j]));
+		}
+		p.append(p_near);
+		li.append(p);
+	}
+	return li;
 }
 using namespace boost::python;
 
@@ -389,7 +429,9 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("NeedParamTraining",&SimEnv::NeedParamTraining)
 		.def("GetParamGoal",&SimEnv::GetParamGoal)
 		.def("UniformSampleParam",&SimEnv::UniformSampleParam)
+		.def("SetExGoalParameters",&SimEnv::SetExGoalParameters)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
+		.def("GetParamGoalCandidate",&SimEnv::GetParamGoalCandidate)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 
 }

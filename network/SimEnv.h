@@ -57,16 +57,17 @@ public:
 	int GetDOF();
 	
 	void SetGoalParameters(np::ndarray np_array);
-
+	void SetExGoalParameters(np::ndarray np_array);
 	int NeedUpdateGoal();
 	bool NeedParamTraining();
 	void SetExplorationMode(bool t);
 	void SaveParamSpace();
-
+	p::list GetParamGoalCandidate();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
 	DPhy::RegressionMemory* mRegressionMemory;
+	int mExUpdate;
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;

@@ -25,7 +25,6 @@ public:
 	MotionWidget();
 	MotionWidget(std::string motion, std::string ppo, std::string reg);
 	void UpdateMotion(std::vector<Eigen::VectorXd> motion, int type);
-
 	void togglePlay();
 	void RunPPO();
 public slots:
@@ -33,6 +32,7 @@ public slots:
 	void PrevFrame();
 	void Reset();
 	void UpdateParam(const bool& pressed);
+	void UpdateRandomParam(const bool& pressed);
 
 	void setValue(const int &x);
 	void toggleDrawBvh();

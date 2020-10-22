@@ -484,34 +484,41 @@ GetMotion(double t, bool adaptive)
 }
 void
 ReferenceManager::
-ResetOptimizationParameters() {
+ResetOptimizationParameters(bool reset_cps) {
 	mExplorationMode = true;
+	if(reset_cps) {
+		mPrevCps.clear();
+		for(int i = 0; i < this->mKnots.size() + 3; i++) {
+			mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
+		}
+		
+		mPrevCps_t.clear();
+		for(int i = 0; i < this->mKnots_t.size() + 3; i++) {
+			mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
+		}
 
-	mPrevCps.clear();
-	for(int i = 0; i < this->mKnots.size() + 3; i++) {
-		mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
-	}
-	
-	mPrevCps_t.clear();
-	for(int i = 0; i < this->mKnots_t.size() + 3; i++) {
-		mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
-	}
+		mTimeStep_adaptive.clear();
+		for(int i = 0; i < mPhaseLength; i++) {
+			mTimeStep_adaptive.push_back(1.0);
+		}
 
-	mTimeStep_adaptive.clear();
-	for(int i = 0; i < mPhaseLength; i++) {
-		mTimeStep_adaptive.push_back(1.0);
-	}
+		mMotions_phase_adaptive.clear();
+		for(int i = 0; i < this->GetPhaseLength(); i++) {
+			mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
+		}
+		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
-	mMotions_phase_adaptive.clear();
-	for(int i = 0; i < this->GetPhaseLength(); i++) {
-		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 	nOp = 0;
 	
-	mPrevRewardTrajectory = 0.5;
-	mPrevRewardParam = 0.0;	
+	mPrevRewardTrajectory = 0.0;
+	if(isParametric) {
+		mRegressionMemory->ResetPrevSpace();
+		mPrevRewardParam = mRegressionMemory->GetParamReward(mParamBVH, mParamGoal);	
+	}
+	else 
+		mPrevRewardParam = 0;
 	mMeanTrackingReward = 0;
 	mMeanParamReward = 0;
 	mPrevMeanParamReward = 0;
@@ -548,6 +555,9 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 	// }
 	mKnots_t = mKnots;
 
+	mParamBVH.resize(4);
+	mParamBVH << 0.707107, 1.3, 1.2, 0.1;
+
 	mParamCur.resize(4);
 	mParamCur << 0.707107, 1.3, 1.2, 0.1;
 
@@ -563,6 +573,14 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 
 		mParamEnd.resize(4);
 		mParamEnd << 0.8, 1.5, 1.4, 0.6;
+		// Eigen::VectorXd paramUnit(4);
+		// paramUnit<< 0.1, 0.1, 0.1, 0.1;
+
+		// mParamBase.resize(4);
+		// mParamBase << 0.0, 1.1, -1.2, 0.0;
+
+		// mParamEnd.resize(4);
+		// mParamEnd << 1.0, 1.5, -0.8, 0.6;
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mKnots.size() + 3);
 		mParamGoal = mRegressionMemory->SelectNewParamGoal();
@@ -1047,6 +1065,8 @@ UpdateParamManually() {
 bool 
 ReferenceManager::
 CheckExplorationProgress() {
+	if(nET + nT == 0)
+		return true;
 	double survival_ratio = (double)nT / (nET + nT);
 	nT = 0;
 	nET = 0;
@@ -1059,9 +1079,6 @@ CheckExplorationProgress() {
 	mPrevMeanParamReward = mMeanParamReward;
 	if((nProgress >= mThresholdProgress && mRegressionMemory->GetTimeFromLastUpdate() > mThresholdProgress) || 
 	   (mRegressionMemory->GetTimeFromLastUpdate() > 2 * mThresholdProgress)) {
-		mRegressionMemory->ResetPrevSpace();
-		ResetOptimizationParameters();
-
 		return false;
 	}
 	return true;
