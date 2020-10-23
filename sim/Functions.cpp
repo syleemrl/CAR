@@ -313,6 +313,15 @@ Eigen::VectorXd string_to_vectorXd(const std::string& input){
 
 	return res;
 }
+std::string vectorXd_to_string(const Eigen::VectorXd& vec) {
+	std::string str= "";
+	for(int i = 0; i < vec.rows(); i++) {
+		str += std::to_string(vec(i));
+		if(i != vec.rows() - 1)
+			str += " ";
+	}
+	return str;
+}
 
 double RadianClamp(double input){
 	return std::fmod(input+M_PI, 2*M_PI)-M_PI;

@@ -91,7 +91,7 @@ public:
 
 	double GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal);
 	std::vector<Eigen::VectorXd> GetCPSFromNearestParams(Eigen::VectorXd p_goal);
-
+	void SaveLog(std::string path);
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -115,10 +115,13 @@ private:
 	int mThresholdActivate;
 	int mTimeFromLastUpdate;
 	int mNumElite;
+	int mNumSamples;
 
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+
+	std::vector<std::string> mRecordLog;
 };
 }
 #endif

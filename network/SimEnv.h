@@ -62,6 +62,7 @@ public:
 	bool NeedParamTraining();
 	void SetExplorationMode(bool t);
 	void SaveParamSpace();
+	void SaveParamSpaceLog(int n);
 	p::list GetParamGoalCandidate();
 private:
 	std::vector<DPhy::Controller*> mSlaves;

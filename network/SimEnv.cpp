@@ -285,7 +285,7 @@ SetExplorationMode(bool t) {
 		Eigen::VectorXd tp = mReferenceManager->GetParamGoal();		
 		for(int id = 0; id < mNumSlaves; ++id) {
 			mSlaves[id]->SetGoalParameters(tp);
-			mSlaves[id]->SetExplorationMode(true);
+			// mSlaves[id]->SetExplorationMode(true);
 		}
 		mRegressionMemory->ResetPrevSpace();
 	} else {
@@ -378,6 +378,12 @@ SaveParamSpace() {
 	mRegressionMemory->SaveParamSpace(mPath + "param_space");
 
 }
+void
+SimEnv::
+SaveParamSpaceLog(int n) {
+	mRegressionMemory->SaveLog(mPath + "log" + std::to_string(n));
+
+}
 p::list
 SimEnv::
 GetParamGoalCandidate() {
@@ -431,6 +437,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UniformSampleParam",&SimEnv::UniformSampleParam)
 		.def("SetExGoalParameters",&SimEnv::SetExGoalParameters)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
+		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("GetParamGoalCandidate",&SimEnv::GetParamGoalCandidate)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts);
 

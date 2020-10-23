@@ -127,6 +127,8 @@ class Monitor(object):
 	def updateMode(self, v_func, results):	
 		if self.mode == 0:
 			self.sim_env.Optimize()
+			if self.num_evaluation == 0:
+				self.updateExGoal(v_func)
 
 			if not self.exploration_done:
 				# m:0 -> no m:1 -> yes m:-1 -> no more exploration
@@ -263,7 +265,7 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.total_frames_elapsed = 0
-
+		self.sim_env.SaveParamSpaceLog(self.num_evaluation);
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['rp_per_i'] = rp_per_i

@@ -26,6 +26,8 @@ void
 RegressionMemory::
 InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::VectorXd> paramSpace, Eigen::VectorXd paramUnit, 
 	double nDOF, double nknots) {
+	mRecordLog.clear();
+	mNumSamples = 0;
 	mDim = paramBvh.rows();
 	mDimDOF = nDOF;
 	mNumKnots = nknots;
@@ -116,6 +118,7 @@ GetTrainingData() {
 		} 
 		iter++;
 	}
+	mRecordLog.push_back("save training data: " + std::to_string(r.size()));
 	return std::tuple<std::vector<Eigen::VectorXd>, 
 					  std::vector<Eigen::VectorXd>, 
 					  std::vector<double>> (x, y, r);
@@ -176,6 +179,9 @@ bool cmp_pair_param(const std::pair<double, Param> &p1,
 void
 RegressionMemory::
 LoadParamSpace(std::string path) {
+	mNumSamples = 0;
+	mRecordLog.clear();
+
 	char buffer[256];
 
 	std::ifstream is;
@@ -253,6 +259,8 @@ LoadParamSpace(std::string path) {
 		p.cps = cps;
 		p.reward = reward;
 		AddMapping(p);
+		mNumSamples += 1;
+
 	}
 
 	is.close();
@@ -267,7 +275,6 @@ LoadParamSpace(std::string path) {
 	std::cout << "Param Goal: " << mParamGoalCur.transpose() << std::endl;
 	std::cout << "param activated size: " << mParamActivated.size() << std::endl;
 	std::cout << "param deactivated size: " << mParamDeactivated.size() << std::endl;
-
 	// std::vector<std::pair<int, Eigen::VectorXd>> stats;
 	// auto iter = mParamActivated.begin();
 	// while(iter != mParamActivated.end()) {
@@ -412,6 +419,7 @@ AddMapping(Eigen::VectorXd nearest, Param p) {
 		pcube->PutParam(p);
 		mGridMap.insert(std::pair<Eigen::VectorXd, ParamCube* >(nearest, pcube));
 	}
+	mNumSamples += 1;
 }
 double 
 RegressionMemory::
@@ -447,6 +455,7 @@ DeleteMappings(Eigen::VectorXd nearest, std::vector<Param> ps) {
 		int count = 0;
 		for(int i = 0; i < ps_old.size(); i++) {
 			if(count < ps.size() && IsEqualParam(ps_old[i], ps[count])) {
+				mNumSamples -= 1;
 				count += 1;
 			} else {
 				ps_new.push_back(ps_old[i]);
@@ -466,23 +475,23 @@ Eigen::VectorXd
 RegressionMemory::
 UniformSample(int n) {
 	while(1) {
-		Eigen::VectorXd p(mDim);
-		for(int j =0 ; j < mDim; j++) {
-				p(j) = mUniform(mMT);
-		}
-		if(n == 0)
-			return Denormalize(p);
+		// Eigen::VectorXd p(mDim);
+		// for(int j =0 ; j < mDim; j++) {
+		// 		p(j) = mUniform(mMT);
+		// }
+		// if(n == 0)
+		// 	return Denormalize(p);
 		
-		auto pairs = GetNearestParams(p, 5);
-		double mean = 0;
-		for(int i = 0; i < pairs.size(); i++) {
-			mean += pairs[i].first;
-		}
-		mean /= pairs.size();
-		if(mean > 0.6)
-			continue;
-		else
-			return Denormalize(p);
+		// auto pairs = GetNearestParams(p, 5);
+		// double mean = 0;
+		// for(int i = 0; i < pairs.size(); i++) {
+		// 	mean += pairs[i].first;
+		// }
+		// mean /= pairs.size();
+		// if(mean > 0.6)
+		// 	continue;
+		// else
+		// 	return Denormalize(p);
 
 
 		// int count = 0;
@@ -501,6 +510,38 @@ UniformSample(int n) {
 		// 	}
 
 		// }
+		double r = mUniform(mMT);
+		r = std::floor(r * mParamActivated.size());
+		if(r == mParamActivated.size())
+			r -= 1;
+
+		auto it = std::next(mParamActivated.begin(),(int)r);
+		Eigen::VectorXd idx = it->first; 
+		Eigen::VectorXd p(mDim);
+
+		Eigen::VectorXd range(mDim);
+		range.setZero();
+
+		for(int i = 0; i < mDim; i++) {
+			double x = mUniform(mMT) - 0.5;
+			p(i) = (idx(i) + x) * mParamGridUnit(i);
+			if(p(i) > 1 || p(i) < 0) {
+				p(i) = std::min(1.0, std::max(0.0, p(i)));
+			}
+
+		}
+
+		auto pairs = GetNearestParams(p, 5);
+		double mean = 0;
+		for(int i = 0; i < pairs.size(); i++) {
+			mean += pairs[i].first;
+		}
+		mean /= pairs.size();
+		if(mean > 0.6)
+			continue;
+		else
+			return Denormalize(p);
+
 	}
 }
 
@@ -509,7 +550,7 @@ RegressionMemory::
 UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate) {
 	Eigen::VectorXd candidate_param = std::get<1>(candidate);
 	// std::cout << "candidate" << " " << candidate_param.transpose() << std::endl;
-
+	mRecordLog.push_back("new parameter candidate: " + vectorXd_to_string(candidate_param) + ", " + std::to_string(std::get<2>(candidate)));
 	for(int i = 0; i < mDim; i++) {
 		if(candidate_param(i) > mParamMax(i) || candidate_param(i) < mParamMin(i)) {
 			return false;
@@ -523,6 +564,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 
 
 	std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(candidate_scaled, nearest, mRadiusNeighbor);
+	mRecordLog.push_back("nearest idx: " + vectorXd_to_string(nearest));
 
 	bool flag = true;
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Param>>> to_be_deleted;
@@ -533,8 +575,11 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 			std::vector<Param> ps = pcube->GetParams();
 			std::vector<Param> p_delete;
 			for(int j =0; j < ps.size(); j++) {
+				double dist = GetDistanceNorm(candidate_scaled, ps[j].param_normalized);
 				// std::cout << GetDistanceNorm(candidate_scaled, ps[j].param_normalized) << " ";
-				if(GetDistanceNorm(candidate_scaled, ps[j].param_normalized) < mRadiusNeighbor) {
+				if(dist < mRadiusNeighbor) {
+					mRecordLog.push_back("neighbor param: " + std::to_string(dist) + ", " + std::to_string(ps[j].reward));
+
 					//  std::cout << ps[j].param_normalized.transpose() << " " << candidate_scaled.transpose() << " " << ps[j].reward << " " << std::get<2>(candidate) << std::endl;
 					if(ps[j].reward < std::get<2>(candidate)) {
 						p_delete.push_back(ps[j]);
@@ -646,9 +691,10 @@ SelectNewParamGoalCandidate() {
 		r = std::floor(r * mGridMap.size());
 		if(r == mGridMap.size())
 			r -= 1;
-
 		auto it_grid = std::next(mGridMap.begin(), (int)r);
 		std::vector<Param> params = it_grid->second->GetParams(); 
+		if(params.size() == 0)
+			continue;
 
 		r = mUniform(mMT);
 		r = std::floor(r * params.size());
@@ -678,6 +724,7 @@ SelectNewParamGoalCandidate() {
 			param_denormalized.push_back(Denormalize(pairs[i].second.param_normalized));
 		}
 		mean /= pairs.size();
+
 		if(mean > 1.0) {
 			result.push_back(std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>(Denormalize(p), param_denormalized));
 		}
@@ -773,7 +820,7 @@ GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 std::vector<Eigen::VectorXd> 
 RegressionMemory::
 GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
-
+	mRecordLog.push_back("new goal" + vectorXd_to_string(p_goal));
 	if(mGridMap.size() == 0) {
 		return mParamBVH.cps;
 	}
@@ -820,5 +867,15 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	}
 	return mean_cps;
 }
-
+void 
+RegressionMemory::
+SaveLog(std::string path) {
+	std::ofstream ofs(path);
+	ofs << std::to_string(mNumSamples) << std::endl;
+	for(int i = 0; i < mRecordLog.size(); i++) {
+		ofs << mRecordLog[i] << std::endl;
+	}
+	ofs.close();
+	mRecordLog.clear();
+}
 };

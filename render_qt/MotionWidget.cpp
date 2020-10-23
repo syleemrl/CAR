@@ -59,7 +59,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
 	    	mReferenceManager->InitOptimization(1, path);
-	    mReferenceManager->LoadAdaptiveMotion("ex_0");
+	    mReferenceManager->LoadAdaptiveMotion("ex_11");
 	    mDrawReg = true;
 
     } else if(mRunReg) {
@@ -326,7 +326,7 @@ UpdateParam(const bool& pressed) {
 	std::cout << v_param.transpose() << std::endl;
 	if(mRunReg) {
 		Eigen::VectorXd tp = v_param * 0.1;
-	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second.param_normalized;
+	   //tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second.param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
