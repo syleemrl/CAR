@@ -381,7 +381,7 @@ SaveParamSpace() {
 void
 SimEnv::
 SaveParamSpaceLog(int n) {
-	mRegressionMemory->SaveLog(mPath + "log" + std::to_string(n));
+	mRegressionMemory->SaveLog(mPath + "log");
 
 }
 p::list

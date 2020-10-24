@@ -1078,7 +1078,7 @@ CheckExplorationProgress() {
 	}
 	mPrevMeanParamReward = mMeanParamReward;
 	if((nProgress >= mThresholdProgress && mRegressionMemory->GetTimeFromLastUpdate() > mThresholdProgress) || 
-	   (mRegressionMemory->GetTimeFromLastUpdate() > 2 * mThresholdProgress)) {
+	   (mRegressionMemory->GetTimeFromLastUpdate() > mThresholdProgress)) {
 		return false;
 	}
 	return true;

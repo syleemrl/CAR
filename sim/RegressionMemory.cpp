@@ -259,8 +259,6 @@ LoadParamSpace(std::string path) {
 		p.cps = cps;
 		p.reward = reward;
 		AddMapping(p);
-		mNumSamples += 1;
-
 	}
 
 	is.close();
@@ -412,6 +410,7 @@ AddMapping(Eigen::VectorXd nearest, Param p) {
 			pcube->SetActivated(true);
 			mParamActivated.insert(std::pair<Eigen::VectorXd, int>(nearest, 1));
 			mParamDeactivated.erase(nearest);
+			mRecordLog.push_back("activated: " + vectorXd_to_string(nearest));
 		}
 
 	} else {
@@ -467,6 +466,7 @@ DeleteMappings(Eigen::VectorXd nearest, std::vector<Param> ps) {
 			pcube->SetActivated(false);
 			mParamActivated.erase(nearest);
 			mParamDeactivated.insert(std::pair<Eigen::VectorXd, int>(nearest, 1));
+			mRecordLog.push_back("deactivated: " + vectorXd_to_string(nearest));
 		}
 
 	} 
@@ -550,7 +550,6 @@ RegressionMemory::
 UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate) {
 	Eigen::VectorXd candidate_param = std::get<1>(candidate);
 	// std::cout << "candidate" << " " << candidate_param.transpose() << std::endl;
-	mRecordLog.push_back("new parameter candidate: " + vectorXd_to_string(candidate_param) + ", " + std::to_string(std::get<2>(candidate)));
 	for(int i = 0; i < mDim; i++) {
 		if(candidate_param(i) > mParamMax(i) || candidate_param(i) < mParamMin(i)) {
 			return false;
@@ -564,8 +563,8 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 
 
 	std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(candidate_scaled, nearest, mRadiusNeighbor);
-	mRecordLog.push_back("nearest idx: " + vectorXd_to_string(nearest));
 
+	int n_compare = 0;
 	bool flag = true;
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Param>>> to_be_deleted;
 	for(int i = 0 ; i < checklist.size(); i++) {
@@ -578,7 +577,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 				double dist = GetDistanceNorm(candidate_scaled, ps[j].param_normalized);
 				// std::cout << GetDistanceNorm(candidate_scaled, ps[j].param_normalized) << " ";
 				if(dist < mRadiusNeighbor) {
-					mRecordLog.push_back("neighbor param: " + std::to_string(dist) + ", " + std::to_string(ps[j].reward));
+					n_compare += 1;
 
 					//  std::cout << ps[j].param_normalized.transpose() << " " << candidate_scaled.transpose() << " " << ps[j].reward << " " << std::get<2>(candidate) << std::endl;
 					if(ps[j].reward < std::get<2>(candidate)) {
@@ -596,6 +595,10 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 				to_be_deleted.push_back(std::pair<Eigen::VectorXd, std::vector<Param>>(checklist[i], p_delete));
 			}
 		}
+	}
+	if(n_compare == 0) {
+		mRecordLog.push_back("new parameter: " + vectorXd_to_string(nearest) + ", " + std::to_string(std::get<2>(candidate)));
+
 	}
 	if(flag) {
 		for(int i = 0; i < to_be_deleted.size(); i++) {
@@ -686,7 +689,7 @@ std::vector<std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>>
 RegressionMemory::
 SelectNewParamGoalCandidate() {
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>> result;
-	while(result.size() < 100) {
+	while(result.size() < 10) {
 		double r = mUniform(mMT);
 		r = std::floor(r * mGridMap.size());
 		if(r == mGridMap.size())
@@ -725,7 +728,7 @@ SelectNewParamGoalCandidate() {
 		}
 		mean /= pairs.size();
 
-		if(mean > 1.0) {
+		if(mean > 0.6 && mean < 1.2) {
 			result.push_back(std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>(Denormalize(p), param_denormalized));
 		}
 	}
@@ -870,7 +873,8 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 void 
 RegressionMemory::
 SaveLog(std::string path) {
-	std::ofstream ofs(path);
+	std::ofstream ofs;
+	ofs.open(path, std::fstream::out | std::fstream::app);
 	ofs << std::to_string(mNumSamples) << std::endl;
 	for(int i = 0; i < mRecordLog.size(); i++) {
 		ofs << mRecordLog[i] << std::endl;

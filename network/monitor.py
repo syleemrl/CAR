@@ -125,10 +125,12 @@ class Monitor(object):
 		return rewards, dones, curframes, params
 
 	def updateMode(self, v_func, results):	
+		self.mode_counter += 1
+
 		if self.mode == 0:
 			self.sim_env.Optimize()
-			if self.num_evaluation == 0:
-				self.updateExGoal(v_func)
+			# if self.num_evaluation == 0:
+			# 	self.updateExGoal(v_func)
 
 			if not self.exploration_done:
 				# m:0 -> no m:1 -> yes m:-1 -> no more exploration
@@ -137,10 +139,11 @@ class Monitor(object):
 					self.exploration_done = True
 				elif m == 1:
 					self.updateExGoal(v_func)
-			if self.exploration_done or self.sim_env.NeedParamTraining():
+			if self.exploration_done or self.sim_env.NeedParamTraining() or self.mode_counter >= 10:
 				self.sim_env.SaveParamSpace()
 				self.sim_env.TrainRegressionNetwork(10)
 				self.mode = 1
+				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(False)
 				self.sampler.reset()
 	
@@ -149,8 +152,9 @@ class Monitor(object):
 			self.sim_env.TrainRegressionNetwork(1)
 			if self.sim_env.NeedParamTraining():
 				self.sim_env.SaveParamSpace()
-			if not self.exploration_done and self.sampler.isEnough(results):
+			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 10):
 				self.mode = 0
+				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(True)
 				self.updateExGoal(v_func)
 			else:

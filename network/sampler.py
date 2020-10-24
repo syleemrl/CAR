@@ -68,6 +68,9 @@ class Sampler(object):
 
 	def probEx(self, v, v_mean):
 		return math.exp(-self.k*(v-v_mean)/v_mean)
+	
+	def probExEasy(self, v, v_max):
+		return math.exp(-self.k*abs(v/v_max - 0.8))
 
 	def selectExGoalParameter(self, li, v_func, m=10, N=1000):
 
@@ -77,11 +80,14 @@ class Sampler(object):
 
 		#adaptive
 		v_li = []
+		v_max = 1e-8
+
 		for i in range(len(li)):
 			v = np.mean(v_func.getValue(li[i][1]))
+			if v > v_max:
+				v_max = v
 			v_li.append(v)
 		v_mean = np.mean(v_li)
-
 		pool_ex = []
 		for i in range(m):
 			t = np.random.randint(len(li))
@@ -92,11 +98,11 @@ class Sampler(object):
 				t = np.random.randint(len(li))
 				x_new = li[t][0]	
 				v_new = v_li[t]			
-				alpha = min(1.0, self.probEx(v_new, v_mean)/self.probEx(v_cur, v_mean))
+				alpha = min(1.0, self.probExEasy(v_new, v_max)/self.probExEasy(v_cur, v_max))
+	#			alpha = min(1.0, self.probEx(v_new, v_mean)/self.probEx(v_cur, v_mean))
 				if np.random.rand() <= alpha:          
 					x_cur = x_new
 					v_cur = v_new
-
 		t = np.random.randint(len(pool_ex))
 		target = pool_ex[t] 
 
