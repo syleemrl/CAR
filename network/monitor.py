@@ -129,8 +129,6 @@ class Monitor(object):
 
 		if self.mode == 0:
 			self.sim_env.Optimize()
-			# if self.num_evaluation == 0:
-			# 	self.updateExGoal(v_func)
 
 			if not self.exploration_done:
 				# m:0 -> no m:1 -> yes m:-1 -> no more exploration

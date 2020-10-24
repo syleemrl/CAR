@@ -489,6 +489,8 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
+		self.env.updateExGoal(self.critic_target)
+
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)

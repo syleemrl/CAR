@@ -810,12 +810,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide);;
+	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide);
 	auto cps_t = st->GetControlPoints(0);
 
 	mLock.lock();
 
-	if(isParametric && reward_trajectory > 0.3) {
+	if(isParametric && r_slide > 0.3) {
 		auto cps_t = st->GetControlPoints(0);
 
 		std::vector<Eigen::VectorXd> cps_tot;
@@ -832,7 +832,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		mSamples.push_back(std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, 
 							std::pair<double, double>,  
 							double>(std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>(s->GetControlPoints(0), st->GetControlPoints(0)), 
-									std::pair<double, double>(reward_trajectory, r_slide), 
+									std::pair<double, double>(reward_trajectory*rewards.second, r_slide), 
 									rewards.second));
 		mSampleParams.push_back(parameters);
 		std::string path = mPath + std::string("samples") + std::to_string(nOp);

@@ -489,22 +489,14 @@ GetParamReward()
 		goal_hand(1) = mParamGoal(1);
 		Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
 		double v_diff = mParamGoal(3) - maxSpeedObj;
-		// Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
-		// root_new = projectToXZ(root_new);
-		// Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-
-		// Eigen::Vector3d goal_hand = aa * mParamGoal.segment<3>(0) + mHeadRoot.segment<3>(3);
-		// goal_hand(1) = mParamGoal(1);
-		// Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
-		// double v_diff = mParamGoal(3) - maxSpeedObj;
-
-		if(isExplorationMode) {
-			r_param = 0.8 * exp_of_squared(hand_diff, 0.4);
-			r_param += 1.2 * exp(-pow(v_diff, 2)*10);
-		} else {
-			r_param = 0.8 * exp_of_squared(hand_diff,0.1);
-			r_param += 1.2 * exp(-pow(v_diff, 2)*150);
-		}
+		// if(isExplorationMode) {
+		// 	r_param = 0.8 * exp_of_squared(hand_diff, 0.4);
+		// 	r_param += 1.2 * exp(-pow(v_diff, 2)*10);
+		// } else {
+			// r_param = 0.8 * exp_of_squared(hand_diff,0.1);
+			// r_param += 1.2 * exp(-pow(v_diff, 2)*150);
+		//}
+		r_param = exp_of_squared(hand_diff,0.1) * exp(-pow(v_diff, 2)*150);
 		
 		Eigen::Vector3d hand = mHandPosition;
 		hand = hand - mHeadRoot.segment<3>(3);

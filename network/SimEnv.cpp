@@ -217,7 +217,11 @@ bool
 SimEnv::
 Optimize()
 {
-	bool t = mReferenceManager->Optimize();
+	Eigen::VectorXd tp = mRegressionMemory->GetParamGoal();
+	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+
+	mReferenceManager->LoadAdaptiveMotion(cps);
+
 	// int flag_sig = mReferenceManager->NeedUpdateSigTarget();
 	// if(flag_sig) {
 	// 	double sig = mSlaves[0]->GetSigTarget();
@@ -233,7 +237,7 @@ Optimize()
 	// 		}		
 	// 	}
 
-	return t;
+	return true;
 }
 void 
 SimEnv::
@@ -354,6 +358,7 @@ SetExGoalParameters(np::ndarray np_array) {
 		mSlaves[id]->SetGoalParameters(tp);
 	}
 	mReferenceManager->SetParamGoal(tp);
+	mRegressionMemory->SetParamGoal(tp);
 	mReferenceManager->ResetOptimizationParameters(false);
 	mExUpdate += 1;
 	std::ofstream ofs;

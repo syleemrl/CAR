@@ -102,9 +102,14 @@ private:
 	Eigen::VectorXd mParamMin;
 	Eigen::VectorXd mParamMax;
 	Eigen::VectorXd mParamGridUnit;
+	Param mParamBVH;
 
 	std::map< Eigen::VectorXd, ParamCube* > mGridMap;
-	Param mParamBVH;
+
+	std::vector<std::pair<double, Param>> mPrevElite;
+	std::vector<Eigen::VectorXd> mPrevCPS;   
+	double mPrevReward;
+
 
 	double mRadiusNeighbor;
 	int mDim;

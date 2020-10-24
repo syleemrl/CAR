@@ -59,7 +59,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
 	    	mReferenceManager->InitOptimization(1, path);
-	    mReferenceManager->LoadAdaptiveMotion("ex_20");
+	    mReferenceManager->LoadAdaptiveMotion("ex_1");
 	    mDrawReg = true;
 
     } else if(mRunReg) {
@@ -116,6 +116,9 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	}
     	if(ppo != "") {
     		this->mController = new DPhy::Controller(mReferenceManager, true, mRunReg, true);
+			Eigen::VectorXd tp(4);
+			tp<< 0.5, 1.5, 1.2, 0;
+			mController->SetGoalParameters(tp);
 
     		p::object ppo_main = p::import("ppo");
 			this->mPPO = ppo_main.attr("PPO")();

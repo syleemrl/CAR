@@ -739,7 +739,9 @@ RegressionMemory::
 ResetPrevSpace() {
 	mNumActivatedPrev = mParamActivated.size();
 	mTimeFromLastUpdate = 0;
-
+	mPrevReward = 0;
+	mPrevElite.clear();
+	mPrevCPS.clear();
 }
 bool 
 RegressionMemory::
@@ -815,8 +817,7 @@ GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::Vector3d hand_diff = goal_hand - p_hand;
 	double v_diff = p_goal(3) - p(3);
 	
-	double r_param = exp_of_squared(hand_diff, 0.4);
-	r_param *= exp(-pow(v_diff, 2)*10);
+	double 	r_param = exp_of_squared(hand_diff,0.1) * exp(-pow(v_diff, 2)*150);
 	
 	return r_param;
 }
@@ -839,16 +840,27 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	std::stable_sort(ps_preward.begin(), ps_preward.end(), cmp_pair_int);
 	std::vector<std::pair<double, Param>> ps_elite;
-
+	
+	double r = 0;
 	for(int i = 0; i < mNumElite; i++) {
+		r += ps_preward[i].first;
 		int idx = ps_preward[i].second;
+
 		if(r_baseline < ps_preward[i].first) {
 			ps_elite.push_back(std::pair<double, Param>(ps[idx].second.reward, ps[idx].second));
 		} else {
 			ps_elite.push_back(std::pair<double, Param>(mParamBVH.reward, mParamBVH));
 		}
 	}
+	double currentReward = r / mNumElite;
+	std::cout << "current reward: " << currentReward << std::endl;
 	std::stable_sort(ps_elite.begin(), ps_elite.end(), cmp_pair_param);
+	
+	if(mPrevReward >= currentReward) {
+		return mPrevCPS;
+	}
+	mPrevReward = currentReward;
+	std::cout << "Elite Set Updated" <<std::endl;
 
 	std::vector<Eigen::VectorXd> mean_cps;   
    	mean_cps.clear();
@@ -868,6 +880,22 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
 	}
+	if(mPrevElite.size() == 0) {
+		for(int i = 0; i < mNumElite; i++) {
+			mPrevElite.push_back(ps_elite[i]);
+		}
+		for(int i = 0; i < mNumKnots; i++) {
+		    mPrevCPS.push_back(mean_cps[i]);
+		}
+	} else {
+		for(int i = 0; i < mNumElite; i++) {
+			mPrevElite[i] = ps_elite[i];
+		}
+		for(int i = 0; i < mNumKnots; i++) {
+		    mPrevCPS[i] = mean_cps[i];
+		}
+	}
+
 	return mean_cps;
 }
 void 

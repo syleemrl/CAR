@@ -12,6 +12,7 @@ class Sampler(object):
 		self.random = True
 
 		self.k = 5
+		self.k_ex = 10
 		self.n_iter = 0
 
 	def randomSample(self):
@@ -67,10 +68,10 @@ class Sampler(object):
 		return True
 
 	def probEx(self, v, v_mean):
-		return math.exp(-self.k*(v-v_mean)/v_mean)
+		return math.exp(-self.k_ex*(v-v_mean)/v_mean)
 	
 	def probExEasy(self, v, v_max):
-		return math.exp(-self.k*abs(v/v_max - 0.8))
+		return math.exp(-self.k_ex*abs(v/v_max - 0.9))
 
 	def selectExGoalParameter(self, li, v_func, m=10, N=1000):
 
