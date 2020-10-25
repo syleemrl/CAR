@@ -500,7 +500,8 @@ class PPO(object):
 			last_print = 0
 			
 			epi_info = [[] for _ in range(self.num_slaves)]	
-
+			if self.adaptive and self.env.mode == 0:
+				self.env.sim_env.SelectNewReference()
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)

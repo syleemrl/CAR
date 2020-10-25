@@ -7,7 +7,8 @@
 using namespace dart::dynamics;
 namespace DPhy
 {
-ReferenceManager::ReferenceManager(Character* character)
+ReferenceManager::ReferenceManager(Character* character) 
+:mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	mCharacter = character;
 	mBlendingInterval = 10;
@@ -485,11 +486,12 @@ GetMotion(double t, bool adaptive)
 void
 ReferenceManager::
 ResetOptimizationParameters(bool reset_cps) {
-	mExplorationMode = true;
 	if(reset_cps) {
 		mPrevCps.clear();
 		for(int i = 0; i < this->mKnots.size() + 3; i++) {
 			mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
+	
+			mCPS_exp.push_back(Eigen::VectorXd::Zero(mDOF+1));
 		}
 		
 		mPrevCps_t.clear();
@@ -512,19 +514,13 @@ ResetOptimizationParameters(bool reset_cps) {
 
 	nOp = 0;
 	
-	mPrevRewardTrajectory = 0.0;
 	if(isParametric) {
 		mRegressionMemory->ResetPrevSpace();
-		mPrevRewardParam = mRegressionMemory->GetParamReward(mParamBVH, mParamGoal);	
 	}
-	else 
-		mPrevRewardParam = 0;
+
 	mMeanTrackingReward = 0;
 	mMeanParamReward = 0;
 	mPrevMeanParamReward = 0;
-
-	mSamples.clear();
-	mSampleParams.clear();
 
 	nET = 0;
 	nT = 0;
@@ -583,7 +579,15 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 		// mParamEnd << 1.0, 1.5, -0.8, 0.6;
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mKnots.size() + 3);
-		mParamGoal = mRegressionMemory->SelectNewParamGoal();
+		for(int i = 0; i < mParamGoal.size(); i++) {
+			double p = mUniform(mMT) - 0.5;
+			mParamGoal(i) += p * paramUnit(i) * 2;
+			if(mParamGoal(i) > mParamEnd(i))
+				mParamGoal(i) = mParamEnd(i);
+			else if(mParamGoal(i) < mParamBase(i))
+				mParamGoal(i) = mParamBase(i);
+		}
+		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 	}
 
 	ResetOptimizationParameters();
@@ -702,11 +706,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	else {
 		flag.push_back(1);
 	}
-
-	if(rewards.second < mPrevRewardParam)
-		flag.push_back(0);
-	else
-		flag.push_back(1);
 
 	if(flag[0] == 0)
 		return;
@@ -827,39 +826,13 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		mRegressionMemory->UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
 											(cps_tot, parameters, reward_trajectory));
 	}
-
-	if(flag[1] && mExplorationMode) {
-		mSamples.push_back(std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, 
-							std::pair<double, double>,  
-							double>(std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>(s->GetControlPoints(0), st->GetControlPoints(0)), 
-									std::pair<double, double>(reward_trajectory*rewards.second, r_slide), 
-									rewards.second));
-		mSampleParams.push_back(parameters);
-		std::string path = mPath + std::string("samples") + std::to_string(nOp);
-
-		std::ofstream ofs;
-		ofs.open(path, std::fstream::out | std::fstream::app);
-
-		for(auto t: data_spline) {	
-			ofs << t.first.transpose() << " " << t.second << " " << r_slide << " " << r_regul << " " << rewards.second << std::endl;
-		}
-		ofs.close();
-	} 	
+	
 	delete s;
 	delete st;
 
 	mLock.unlock();
 
 
-}
-bool cmp(const std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, std::pair<double, double>, double> &p1, 
-		 const std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, std::pair<double, double>, double> &p2){
-    if(std::get<1>(p1).first > std::get<1>(p2).first){
-        return true;
-    }
-    else{
-        return false;
-    }
 }
 void 
 ReferenceManager::
@@ -915,140 +888,26 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, phase));
 	}
 }
-bool 
+void
 ReferenceManager::
-Optimize() {
-	if(!mExplorationMode)
-		return false;
-
-	double rewardParam = 0;
-	double rewardTrajectory = 0;
-    int mu = 60;
-    std::cout << "num sample: " << mSamples.size() << std::endl;
-    if(mSamples.size() < 500) {
-    	return false;
-    }
-
-    std::stable_sort(mSamples.begin(), mSamples.end(), cmp);
-
-	std::vector<int> nc;
-	nc.push_back(3);
-	nc.push_back(5);
-
-	MultilevelSpline* mean_spline = new MultilevelSpline(1, this->GetPhaseLength()); 
-	mean_spline->SetKnots(0, mKnots);
-
-	nc.clear();
-	nc.push_back(0);
-	MultilevelSpline* mean_spline_t = new MultilevelSpline(1, this->GetPhaseLength()); 
-	mean_spline_t->SetKnots(0, mKnots_t);
-
-	std::vector<Eigen::VectorXd> mean_cps;   
-   	mean_cps.clear();
-
-   	std::vector<Eigen::VectorXd> mean_cps_t;
-   	mean_cps_t.clear();
-
-   	int num_knot = mean_spline->GetKnots(0).size();
-   	for(int i = 0; i < num_knot + 3; i++) {
-		mean_cps.push_back(Eigen::VectorXd::Zero(mDOF));
+OptimizeExReference(){
+	mRegressionMemory->SetParamGoal(mParamGoal);
+	mCPS_exp = mRegressionMemory->GetCPSFromNearestParams(mParamGoal);
+}
+void 
+ReferenceManager::
+SelectReference(){
+	double r = mRegressionMemory->GetTrainedRatio();
+	if(r < 0.05) {
+		LoadAdaptiveMotion(mCPS_exp);
+	} else {
+		r = std::min(r * 2, 0.8);
+		if(mUniform(mMT) < r) {
+			LoadAdaptiveMotion(mCPS_reg);
+		} else {
+			LoadAdaptiveMotion(mCPS_exp);
+		}
 	}
-   	
-   	int num_knot_t = mean_spline_t->GetKnots(0).size();
-	for(int i = 0;i < num_knot_t + 3; i++) {
-		mean_cps_t.push_back(Eigen::VectorXd::Zero(1));
-	}
-
-	double weight_sum = 0;
-
-	std::string path = mPath + std::string("rewards");
-	std::ofstream ofs;
-	ofs.open(path, std::fstream::out | std::fstream::app);
-
-	for(int i = 0; i < mu; i++) {
-		double w = log(mu + 1) - log(i + 1);
-	    weight_sum += w;
-	    std::vector<Eigen::VectorXd> cps = std::get<0>(mSamples[i]).first;
-	    for(int j = 0; j < num_knot + 3; j++) {
-			mean_cps[j] += w * cps[j];
-	    }
-	    std::vector<Eigen::VectorXd> cps_t = std::get<0>(mSamples[i]).second;
-	    for(int j = 0; j < num_knot_t + 3; j++) {
-			mean_cps_t[j] += w * cps_t[j];
-	    }
-	    rewardTrajectory += w * std::get<1>(mSamples[i]).first;
-	    rewardParam += std::get<2>(mSamples[i]);
-	    ofs << std::get<1>(mSamples[i]).second << " ";
-
-	}
-	ofs << std::endl;
-	ofs.close();
-
-	rewardTrajectory /= weight_sum;
-	rewardParam /= (double)mu;
-
-	std::cout << "current avg elite similarity reward: " << rewardTrajectory << ", Param reward: " << rewardParam << ", cutline: " << mPrevRewardTrajectory << std::endl;
-	
-
-	for(int i = 0; i < num_knot + 3; i++) {
-	    mean_cps[i] /= weight_sum;
-	    mPrevCps[i] = mPrevCps[i] * 0.6 + mean_cps[i] * 0.4;
-	}
-	for(int i = 0; i < num_knot_t + 3; i++) {
-	    mean_cps_t[i] /= weight_sum;
-		mPrevCps_t[i] = mPrevCps_t[i] * 0.6 + mean_cps_t[i] * 0.4;
-	}
-
-	mPrevRewardTrajectory = rewardTrajectory;
-	mPrevRewardParam = rewardParam;
-
-	mean_spline->SetControlPoints(0, mPrevCps);
-	std::vector<Eigen::VectorXd> new_displacement = mean_spline->ConvertSplineToMotion();
-	std::vector<Eigen::VectorXd> newpos;
-	this->AddDisplacementToBVH(new_displacement, newpos);
-
-	mean_spline_t->SetControlPoints(0, mPrevCps_t);
-	std::vector<Eigen::VectorXd> new_displacement_t = mean_spline_t->ConvertSplineToMotion();
-
-	for(int i = 0; i < mPhaseLength; i++) {
-		mTimeStep_adaptive[i] = 1 + new_displacement_t[i](0);
-	}
-
-	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
-	for(int i = 0; i < mMotions_phase_adaptive.size(); i++) {
-		mMotions_phase_adaptive[i]->SetPosition(newpos[i]);
-		mMotions_phase_adaptive[i]->SetVelocity(newvel[i]);
-	}
-	
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
-	this->SaveAdaptiveMotion();
-	this->SaveAdaptiveMotion(std::to_string(nOp));
-
-	//save motion
-	path =  mPath + std::string("motion") + std::to_string(nOp);
-	ofs.open(path);
-
-	for(auto t: newpos) {	
-		ofs << t.transpose() << std::endl;
-	}
-	ofs.close();
-
-	nOp += 1;
-				
-
-	mParamCur.setZero();
-	for(int i = 0; i < mSampleParams.size(); i++) {
-		mParamCur += mSampleParams[i];
-	}
-	mParamCur /= mSampleParams.size();
-	std::cout << "currrent elite param mean: " << mParamCur.transpose() << std::endl;
- 	
- 	mSampleParams.clear();
- 	mSamples.clear();
-	delete mean_spline;
-	delete mean_spline_t;
-	
-	return true;
 }
 bool
 ReferenceManager::

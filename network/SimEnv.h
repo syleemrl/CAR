@@ -47,11 +47,9 @@ public:
 	np::ndarray UniformSampleParam();
 
 	bool Optimize();
-
-	void SaveAdaptiveMotion();
 	void LoadAdaptiveMotion();
 	
-	void TrainRegressionNetwork(int n);
+	void TrainRegressionNetwork(int n, bool update=false);
 
 	double GetPhaseLength();
 	int GetDOF();
@@ -63,11 +61,14 @@ public:
 	void SetExplorationMode(bool t);
 	void SaveParamSpace();
 	void SaveParamSpaceLog(int n);
+	void SelectNewReference();
+
 	p::list GetParamGoalCandidate();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
 	DPhy::RegressionMemory* mRegressionMemory;
+
 	int mExUpdate;
 	int mNumSlaves;
 	int mNumState;

@@ -29,21 +29,22 @@ struct Param
 	Eigen::VectorXd param_normalized;
 	std::vector<Eigen::VectorXd> cps;
 	double reward;
+	bool update;
 };
 class ParamCube
 {
 public:
 	ParamCube(Eigen::VectorXd i) { idx = i; activated = false; }
 	Eigen::VectorXd GetIdx(){ return idx; }
-	void PutParam(Param p) { param.push_back(p); }
+	void PutParam(Param* p) { param.push_back(p); }
 	int GetNumParams() { return param.size(); }
-	std::vector<Param> GetParams() {return param;}
-	void PutParams(std::vector<Param> ps) { param = ps;}
+	std::vector<Param*> GetParams() {return param;}
+	void PutParams(std::vector<Param*> ps);
 	void SetActivated(bool ac) { activated = ac; }
 	bool GetActivated() { return activated;}
 private:
 	Eigen::VectorXd idx;
-	std::vector<Param> param;
+	std::vector<Param*> param;
 	bool activated;
 };
 class RegressionMemory
@@ -58,12 +59,11 @@ public:
 
 	Eigen::VectorXd UniformSample(int n=2);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
-	Eigen::VectorXd SelectNewParamGoal();
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>> SelectNewParamGoalCandidate();
 
-	void AddMapping(Param p);
-	void AddMapping(Eigen::VectorXd nearest, Param p);
-	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param> ps);
+	void AddMapping(Param* p);
+	void AddMapping(Eigen::VectorXd nearest, Param* p);
+	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps);
 
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
@@ -71,7 +71,7 @@ public:
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborParams(Eigen::VectorXd p);
-	std::vector<std::pair<double, Param>> GetNearestParams(Eigen::VectorXd p, int n);
+	std::vector<std::pair<double, Param*>> GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor=false);
 
 	Eigen::VectorXd Normalize(Eigen::VectorXd p);
 	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
@@ -81,20 +81,24 @@ public:
 	bool IsSpaceFullyExplored();
 
 	Eigen::VectorXd GetParamGoal() {return mParamGoalCur; }
-	void SetParamGoal(Eigen::VectorXd paramGoal) { mParamGoalCur = paramGoal; }
+	void SetParamGoal(Eigen::VectorXd paramGoal);
 	void SetRadius(double rn) { mRadiusNeighbor = rn; }
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
 	void ResetPrevSpace();
-	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> GetTrainingData();
+	std::tuple<std::vector<Eigen::VectorXd>, 
+			   std::vector<Eigen::VectorXd>, 
+			   std::vector<double>> GetTrainingData(bool update=false);
 	int GetTimeFromLastUpdate() { return mTimeFromLastUpdate; }
 
 	double GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal);
 	std::vector<Eigen::VectorXd> GetCPSFromNearestParams(Eigen::VectorXd p_goal);
 	void SaveLog(std::string path);
+	double GetTrainedRatio() {return (double)mParamActivated.size() / (mParamDeactivated.size() + mParamActivated.size()); }
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
+	std::map<Eigen::VectorXd, Param*> mParamNew;
 
 	Eigen::VectorXd mParamScale;
 	Eigen::VectorXd mParamScaleInv;
@@ -102,11 +106,11 @@ private:
 	Eigen::VectorXd mParamMin;
 	Eigen::VectorXd mParamMax;
 	Eigen::VectorXd mParamGridUnit;
-	Param mParamBVH;
+	Param* mParamBVH;
 
 	std::map< Eigen::VectorXd, ParamCube* > mGridMap;
 
-	std::vector<std::pair<double, Param>> mPrevElite;
+	std::vector<std::pair<double, Param*>> mPrevElite;
 	std::vector<Eigen::VectorXd> mPrevCPS;   
 	double mPrevReward;
 

@@ -128,6 +128,7 @@ class Monitor(object):
 		self.mode_counter += 1
 
 		if self.mode == 0:
+			self.sim_env.TrainRegressionNetwork(10, True)
 			self.sim_env.Optimize()
 
 			if not self.exploration_done:
@@ -137,24 +138,22 @@ class Monitor(object):
 					self.exploration_done = True
 				elif m == 1:
 					self.updateExGoal(v_func)
-			if self.exploration_done or self.sim_env.NeedParamTraining() or self.mode_counter >= 10:
+			if self.exploration_done or self.mode_counter >= 10:
 				self.sim_env.SaveParamSpace()
-				self.sim_env.TrainRegressionNetwork(10)
+				self.sim_env.TrainRegressionNetwork(10, False)
 				self.mode = 1
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(False)
 				self.sampler.reset()
-	
 				self.updateGoal()
 		else:
-			self.sim_env.TrainRegressionNetwork(1)
-			if self.sim_env.NeedParamTraining():
-				self.sim_env.SaveParamSpace()
+			self.sim_env.TrainRegressionNetwork(10, True)
 			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 10):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(True)
 				self.updateExGoal(v_func)
+				self.sim_env.SaveParamSpace()
 			else:
 				self.sampler.update(v_func)
 

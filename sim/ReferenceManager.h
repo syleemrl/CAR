@@ -73,6 +73,12 @@ public:
 	bool CheckExplorationProgress();
 	void ReportEarlyTermination();
 	void SetRegressionMemory(RegressionMemory* r) {mRegressionMemory = r; }
+	void OptimizeExReference();
+	void SetCPSreg(std::vector<Eigen::VectorXd> cps) {mCPS_reg = cps; }
+	void SetCPSexp(std::vector<Eigen::VectorXd> cps) {mCPS_exp = cps; }
+	std::vector<Eigen::VectorXd> GetCPSreg() { return mCPS_reg; }
+	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
+	void SelectReference();
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -88,8 +94,8 @@ protected:
 	std::vector<std::vector<Motion*>> mMotions_gen_temp;
 	std::vector<double> mTimeStep_adaptive;
 	
-	std::vector<Eigen::VectorXd> mAxis_BVH;
-	std::vector<Eigen::VectorXd> mDev_BVH;
+	std::vector<Eigen::VectorXd> mCPS_reg;
+	std::vector<Eigen::VectorXd> mCPS_exp;
 
 	//cps, target, similarity
 	std::vector<std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, 
@@ -137,6 +143,10 @@ protected:
 	int nET;
 	int nT;
 	int nProgress;
+
+	std::random_device mRD;
+	std::mt19937 mMT;
+	std::uniform_real_distribution<double> mUniform;
 };
 }
 
