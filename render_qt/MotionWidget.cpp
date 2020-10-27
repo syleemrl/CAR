@@ -332,11 +332,12 @@ UpdateParam(const bool& pressed) {
 	   //tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second.param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
-	    auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
-	    for(int i = 0; i < pairs.size(); i++) {
-	    	std::cout << pairs[i].first<< " " ;
-	    }
-	    std::cout << std::endl;
+	    mRegressionMemory->GetDensity(tp);
+	    // auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
+	    // for(int i = 0; i < pairs.size(); i++) {
+	    // 	std::cout << pairs[i].first<< " " ;
+	    // }
+	    // std::cout << std::endl;
 	    std::vector<Eigen::VectorXd> cps;
 	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
 	        cps.push_back(Eigen::VectorXd::Zero(dof));

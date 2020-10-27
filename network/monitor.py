@@ -128,7 +128,6 @@ class Monitor(object):
 		self.mode_counter += 1
 
 		if self.mode == 0:
-			self.sim_env.TrainRegressionNetwork(10, True)
 			self.sim_env.Optimize()
 
 			if not self.exploration_done:
@@ -147,7 +146,6 @@ class Monitor(object):
 				self.sampler.reset()
 				self.updateGoal()
 		else:
-			self.sim_env.TrainRegressionNetwork(10, True)
 			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 10):
 				self.mode = 0
 				self.mode_counter = 0
@@ -160,8 +158,8 @@ class Monitor(object):
 	def updateExGoal(self, v_func):
 		li = self.sim_env.GetParamGoalCandidate()
 		goal = self.sampler.selectExGoalParameter(li, v_func)
-		self.sim_env.SetExGoalParameters(goal)
 		print(goal)
+		self.sim_env.SetExGoalParameters(goal)
 
 	def updateGoal(self):		
 		t = self.sampler.adaptiveSample()

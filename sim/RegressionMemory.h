@@ -24,6 +24,14 @@ struct std::less<Eigen::VectorXd>
 
 namespace DPhy
 {
+struct GoalInfo
+{
+	Eigen::VectorXd param;
+	int numSamples;
+	double rewards;
+	double density;
+	double value;
+};
 struct Param
 {
 	Eigen::VectorXd param_normalized;
@@ -66,6 +74,7 @@ public:
 	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps);
 
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
+	double GetDensity(Eigen::VectorXd p);
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
 	Eigen::VectorXd GetNearestActivatedParam(Eigen::VectorXd p);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
@@ -82,6 +91,7 @@ public:
 
 	Eigen::VectorXd GetParamGoal() {return mParamGoalCur; }
 	void SetParamGoal(Eigen::VectorXd paramGoal);
+	void SetGoalInfo(double v);
 	void SetRadius(double rn) { mRadiusNeighbor = rn; }
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
@@ -95,6 +105,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSFromNearestParams(Eigen::VectorXd p_goal);
 	void SaveLog(std::string path);
 	double GetTrainedRatio() {return (double)mParamActivated.size() / (mParamDeactivated.size() + mParamActivated.size()); }
+	void SaveGoalInfo(std::string path);
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -114,7 +125,6 @@ private:
 	std::vector<Eigen::VectorXd> mPrevCPS;   
 	double mPrevReward;
 
-
 	double mRadiusNeighbor;
 	int mDim;
 	int mDimDOF;
@@ -131,6 +141,8 @@ private:
 	std::uniform_real_distribution<double> mUniform;
 
 	std::vector<std::string> mRecordLog;
+
+	GoalInfo mGoalInfo; 
 };
 }
 #endif

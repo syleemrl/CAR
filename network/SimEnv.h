@@ -55,7 +55,7 @@ public:
 	int GetDOF();
 	
 	void SetGoalParameters(np::ndarray np_array);
-	void SetExGoalParameters(np::ndarray np_array);
+	void SetExGoalParameters(p::list p);
 	int NeedUpdateGoal();
 	bool NeedParamTraining();
 	void SetExplorationMode(bool t);

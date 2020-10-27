@@ -891,7 +891,6 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 void
 ReferenceManager::
 OptimizeExReference(){
-	mRegressionMemory->SetParamGoal(mParamGoal);
 	mCPS_exp = mRegressionMemory->GetCPSFromNearestParams(mParamGoal);
 }
 void 

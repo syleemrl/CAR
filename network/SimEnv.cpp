@@ -217,21 +217,23 @@ Optimize()
 {
 	mReferenceManager->OptimizeExReference();
 
-	Eigen::VectorXd tp = mRegressionMemory->GetParamGoal();
-	Eigen::VectorXd tp_normalized = mRegressionMemory->Normalize(tp);
+	// Eigen::VectorXd tp = mRegressionMemory->GetParamGoal();
+	// Eigen::VectorXd tp_normalized = mRegressionMemory->Normalize(tp);
 	
-	int dof = mReferenceManager->GetDOF() + 1;
-	int dof_input = 1 + mRegressionMemory->GetDim();
+	// int dof = mReferenceManager->GetDOF() + 1;
+	// int dof_input = 1 + mRegressionMemory->GetDim();
 	
-	std::vector<Eigen::VectorXd> cps_reg;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(dof_input);
-		input << j, tp_normalized;
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps_reg.push_back(DPhy::toEigenVector(na, dof));
-	}
-	mReferenceManager->SetCPSreg(cps_reg);
+	// std::vector<Eigen::VectorXd> cps_reg;
+	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	// 	Eigen::VectorXd input(dof_input);
+	// 	input << j, tp_normalized;
+	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	// 	np::ndarray na = np::from_object(a);
+	// 	cps_reg.push_back(DPhy::toEigenVector(na, dof));
+	// }
+	// mReferenceManager->SetCPSreg(cps_reg);
+
+
 	// int flag_sig = mReferenceManager->NeedUpdateSigTarget();
 	// if(flag_sig) {
 	// 	double sig = mSlaves[0]->GetSigTarget();
@@ -310,6 +312,8 @@ SetExplorationMode(bool t) {
 		mRegressionMemory->ResetPrevSpace();
 	} else {
 		mReferenceManager->SaveAdaptiveMotion("updated");
+		mRegressionMemory->SaveGoalInfo(mPath + "goal_log");
+
 		for(int id = 0; id < mNumSlaves; ++id) {
 			mSlaves[id]->SetExplorationMode(false);
 		}
@@ -362,12 +366,19 @@ SetGoalParameters(np::ndarray np_array) {
 }
 void
 SimEnv::
-SetExGoalParameters(np::ndarray np_array) {
+SetExGoalParameters(p::list p) {
+	p::object o = p.pop();
+	double v = static_cast<double>(p::extract<float>(o));
+	o = p.pop();
+	np::ndarray np_array = np::from_object(o);
 	int dim = mRegressionMemory->GetDim();
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
-
 	mReferenceManager->ResetOptimizationParameters(false);
 	mReferenceManager->SetParamGoal(tp);
+
+	mRegressionMemory->SetParamGoal(tp);
+	mRegressionMemory->SetGoalInfo(v);
+
 	mReferenceManager->OptimizeExReference();
 
 	Eigen::VectorXd tp_normalized = mRegressionMemory->Normalize(tp);

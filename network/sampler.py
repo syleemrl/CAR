@@ -63,7 +63,7 @@ class Sampler(object):
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.n_iter < 3 or self.v_mean < 4.5:
+		if self.n_iter < 3 or self.v_mean < 6.0:
 			return False
 		return True
 
@@ -71,7 +71,7 @@ class Sampler(object):
 		return math.exp(-self.k_ex*(v-v_mean)/v_mean)
 	
 	def probExEasy(self, v, v_max):
-		return math.exp(-self.k_ex*abs(v/v_max - 0.1))
+		return math.exp(-self.k_ex*abs(v/v_max - 0.9))
 
 	def selectExGoalParameter(self, li, v_func, m=10, N=200):
 
@@ -99,14 +99,15 @@ class Sampler(object):
 				t = np.random.randint(len(li))
 				x_new = li[t][0]	
 				v_new = v_li[t]			
-				alpha = min(1.0, self.probExEasy(v_new, v_max)/self.probExEasy(v_cur, v_max))
-	#			alpha = min(1.0, self.probEx(v_new, v_mean)/self.probEx(v_cur, v_mean))
+	#			alpha = min(1.0, self.probExEasy(v_new, v_max)/self.probExEasy(v_cur, v_max))
+				alpha = min(1.0, self.probEx(v_new, v_mean)/self.probEx(v_cur, v_mean))
 				if np.random.rand() <= alpha:          
 					x_cur = x_new
 					v_cur = v_new
 		t = np.random.randint(len(pool_ex))
 		target = pool_ex[t] 
+		
 		for i in range(len(li)):
 			if np.linalg.norm(li[i][0] - target) < 1e-5:
-				print(v_li[i])
-		return target
+				v = v_li[i]
+		return [target, v]
