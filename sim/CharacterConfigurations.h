@@ -13,6 +13,6 @@
 #define JOINT_DAMPING (0.05)
 #define FOOT_CONTACT_THERESHOLD (0.3)
 
-#define CHARACTER_TYPE "humanoid_ue_punch"
-#define REF_CHARACTER_TYPE "humanoid_ue_punch"
+#define CHARACTER_TYPE "humanoid_ue"
+#define REF_CHARACTER_TYPE "humanoid_ue"
 #endif

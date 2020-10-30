@@ -38,6 +38,7 @@ public slots:
 	void toggleDrawBvh();
 	void toggleDrawSim();
 	void toggleDrawReg();
+	void toggleDrawExp();
 
 protected:
 	void initializeGL() override;	
@@ -70,6 +71,7 @@ protected:
 	std::vector<Eigen::VectorXd> 	mMotion_bvh;
 	std::vector<Eigen::VectorXd> 	mMotion_reg;
 	std::vector<Eigen::VectorXd> 	mMotion_sim;
+	std::vector<Eigen::VectorXd> 	mMotion_exp;
 	std::vector<Eigen::VectorXd> 	mMotion_obj;
 	std::vector<Eigen::VectorXd> 	mMotion_points;
 
@@ -78,6 +80,7 @@ protected:
 	dart::dynamics::SkeletonPtr 	mSkel_bvh;
 	dart::dynamics::SkeletonPtr 	mSkel_reg;
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
+	dart::dynamics::SkeletonPtr 	mSkel_exp;
 	dart::dynamics::SkeletonPtr 	mSkel_obj;
 
 	bool							mTrackCamera;
@@ -87,6 +90,7 @@ protected:
 	bool 							mDrawBvh;
 	bool 							mDrawSim;
 	bool 							mDrawReg;
+	bool 							mDrawExp;
 
 
 	p::object 						mRegression;
@@ -99,5 +103,7 @@ protected:
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> mParamRange;
 
 	Eigen::Vector3d 				mPoints;
+	Eigen::Vector3d 				mPoints_exp;
+
 };
 #endif

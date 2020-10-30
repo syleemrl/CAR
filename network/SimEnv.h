@@ -61,7 +61,7 @@ public:
 	void SetExplorationMode(bool t);
 	void SaveParamSpace();
 	void SaveParamSpaceLog(int n);
-	void SelectNewReference();
+	void SelectNewGoal();
 
 	p::list GetParamGoalCandidate();
 private:

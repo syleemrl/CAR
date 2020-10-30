@@ -67,7 +67,7 @@ public:
 
 	Eigen::VectorXd UniformSample(int n=2);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
-	std::vector<std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>> SelectNewParamGoalCandidate();
+	void SelectNewParamGoalCandidate();
 
 	void AddMapping(Param* p);
 	void AddMapping(Eigen::VectorXd nearest, Param* p);
@@ -95,7 +95,7 @@ public:
 	void SetRadius(double rn) { mRadiusNeighbor = rn; }
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
-	void ResetPrevSpace();
+	void ResetExploration();
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
 			   std::vector<double>> GetTrainingData(bool update=false);
@@ -106,6 +106,9 @@ public:
 	void SaveLog(std::string path);
 	double GetTrainedRatio() {return (double)mParamActivated.size() / (mParamDeactivated.size() + mParamActivated.size()); }
 	void SaveGoalInfo(std::string path);
+	void EvalExplorationStep();
+	bool SetNextCandidate();
+
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -135,6 +138,14 @@ private:
 	int mTimeFromLastUpdate;
 	int mNumElite;
 	int mNumSamples;
+
+	int mExplorationStep;
+	int mNumGoalCandidate;
+	int mIdxCandidate;
+	std::vector<Eigen::VectorXd> mGoalCandidate;
+	std::vector<bool> mGoalExplored;
+	std::vector<double> mGoalProgress;
+	std::vector<double> mGoalReward;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

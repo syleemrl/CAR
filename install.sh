@@ -26,7 +26,8 @@ sudo apt-get install -y libtinyxml2-dev
 sudo apt-get install -y liburdfdom-dev
 sudo apt-get install -y libxi-dev libxmu-dev freeglut3-dev
 sudo apt-get install -y libopenscenegraph-dev
-
+sudo apt-get install -y libxi-dev libxmu-dev freeglut3-dev
+sudo apt-get install -y qtbase5-dev libqt5chart5-dev 
 cd ..
 echo "downloading boost 1.66.0"
 wget https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.gz

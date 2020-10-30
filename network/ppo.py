@@ -489,7 +489,8 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		self.env.updateExGoal(self.critic_target)
+		#self.env.updateExGoal(self.critic_target)
+		#self.env.sim_env.SetExplorationMode(True)
 
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
@@ -498,10 +499,11 @@ class PPO(object):
 			states = self.env.getStates()
 			local_step = 0
 			last_print = 0
-			
+	
 			epi_info = [[] for _ in range(self.num_slaves)]	
 			if self.adaptive and self.env.mode == 0:
-				self.env.sim_env.SelectNewReference()
+				self.env.sim_env.SelectNewGoal()
+
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -510,7 +512,7 @@ class PPO(object):
 					values = self.critic.getValue(states)
 				else:
 					values = [self.critic.getValue(states), self.critic_sparse.getValue(states)]
-					values = np.array(values).transpose()				
+					values = np.array(values).transpose()	
 				rewards, dones, times, params = self.env.step(actions)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
@@ -564,7 +566,6 @@ class PPO(object):
 
 				summary = self.env.printSummary()
 				self.printNetworkSummary()
-
 				if self.directory is not None:
 					self.save()
 
@@ -621,6 +622,8 @@ if __name__=="__main__":
 		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 
 	ppo = PPO()
+
 	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, 
 		adaptive=args.adaptive, parametric=args.parametric)
+
 	ppo.train(args.ntimesteps)

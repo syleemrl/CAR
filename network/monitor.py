@@ -135,22 +135,23 @@ class Monitor(object):
 				m = self.sim_env.NeedUpdateGoal()
 				if m == -1:
 					self.exploration_done = True
-				elif m == 1:
-					self.updateExGoal(v_func)
+		
 			if self.exploration_done or self.mode_counter >= 10:
 				self.sim_env.SaveParamSpace()
-				self.sim_env.TrainRegressionNetwork(10, False)
+				self.sim_env.TrainRegressionNetwork(30, False)
 				self.mode = 1
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(False)
 				self.sampler.reset()
 				self.updateGoal()
 		else:
-			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 10):
+			if self.mode_counter % 3 == 0:
+				self.sim_env.TrainRegressionNetwork(10, False)
+
+			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 20):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(True)
-				self.updateExGoal(v_func)
 				self.sim_env.SaveParamSpace()
 			else:
 				self.sampler.update(v_func)
@@ -158,7 +159,6 @@ class Monitor(object):
 	def updateExGoal(self, v_func):
 		li = self.sim_env.GetParamGoalCandidate()
 		goal = self.sampler.selectExGoalParameter(li, v_func)
-		print(goal)
 		self.sim_env.SetExGoalParameters(goal)
 
 	def updateGoal(self):		
@@ -264,7 +264,8 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.total_frames_elapsed = 0
-		self.sim_env.SaveParamSpaceLog(self.num_evaluation);
+		if self.parametric:
+			self.sim_env.SaveParamSpaceLog(self.num_evaluation)
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['rp_per_i'] = rp_per_i

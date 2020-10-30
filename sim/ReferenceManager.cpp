@@ -515,7 +515,7 @@ ResetOptimizationParameters(bool reset_cps) {
 	nOp = 0;
 	
 	if(isParametric) {
-		mRegressionMemory->ResetPrevSpace();
+		mRegressionMemory->ResetExploration();
 	}
 
 	mMeanTrackingReward = 0;
@@ -537,14 +537,14 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-	for(int i = 0; i <= 20; i+=4) {
+	for(int i = 0; i <= mPhaseLength; i+=2) {
 		mKnots.push_back(i);
 	} 
-	mKnots.push_back(27);
-	mKnots.push_back(38);
-	mKnots.push_back(44);
-	mKnots.push_back(49);
-	mKnots.push_back(57);
+	// mKnots.push_back(27);
+	// mKnots.push_back(38);
+	// mKnots.push_back(44);
+	// mKnots.push_back(49);
+	// mKnots.push_back(57);
 
 	// for(int i = 0; i < mPhaseLength; i+= 4) {
 	// 	mKnots_t.push_back(i);
@@ -552,23 +552,23 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 	mKnots_t = mKnots;
 
 	mParamBVH.resize(4);
-	mParamBVH << 0.707107, 1.3, 1.2, 0.1;
+	mParamBVH << 0.707107, 1.3, 1.2, 0.36;
 
 	mParamCur.resize(4);
-	mParamCur << 0.707107, 1.3, 1.2, 0.1;
+	mParamCur << 0.707107, 1.3, 1.2, 0.36;
 
 	mParamGoal.resize(4);
-	mParamGoal << 0.707107, 1.3, 1.2, 0.1;
+	mParamGoal << 0.707107, 1.3, 1.2, 0.36;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(4);
 		paramUnit<< 0.1, 0.1, 0.1, 0.1;
 
 		mParamBase.resize(4);
-		mParamBase << 0, 1.0, 0.8, 0.0;
+		mParamBase << 0, 1.0, 0.8, 0.1;
 
 		mParamEnd.resize(4);
-		mParamEnd << 0.8, 1.5, 1.4, 0.6;
+		mParamEnd << 0.8, 1.5, 1.4, 0.8;
 		// Eigen::VectorXd paramUnit(4);
 		// paramUnit<< 0.1, 0.1, 0.1, 0.1;
 
@@ -579,6 +579,7 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 		// mParamEnd << 1.0, 1.5, -0.8, 0.6;
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mKnots.size() + 3);
+
 		for(int i = 0; i < mParamGoal.size(); i++) {
 			double p = mUniform(mMT) - 0.5;
 			mParamGoal(i) += p * paramUnit(i) * 2;
@@ -699,7 +700,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * rewards.first;
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * rewards.second;
 	std::vector<int> flag;
-
 	if(rewards.first < mThresholdTracking) {
 		flag.push_back(0);
 	}
@@ -709,6 +709,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	if(flag[0] == 0)
 		return;
+	mLock.lock();
 
 	std::vector<int> nc;
 	nc.push_back(3);
@@ -811,9 +812,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
 	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide);
 	auto cps_t = st->GetControlPoints(0);
-
-	mLock.lock();
-
 	if(isParametric && r_slide > 0.3) {
 		auto cps_t = st->GetControlPoints(0);
 
@@ -896,17 +894,17 @@ OptimizeExReference(){
 void 
 ReferenceManager::
 SelectReference(){
-	double r = mRegressionMemory->GetTrainedRatio();
-	if(r < 0.05) {
-		LoadAdaptiveMotion(mCPS_exp);
-	} else {
-		r = std::min(r * 2, 0.8);
-		if(mUniform(mMT) < r) {
-			LoadAdaptiveMotion(mCPS_reg);
-		} else {
+	// double r = mRegressionMemory->GetTrainedRatio();
+	// if(r < 0.1) {
+	// 	LoadAdaptiveMotion(mCPS_exp);
+	// } else {
+	// 	r = std::min(r * 1.5, 0.8);
+	// 	if(mUniform(mMT) < r) {
+	// 		LoadAdaptiveMotion(mCPS_reg);
+	// 	} else {
 			LoadAdaptiveMotion(mCPS_exp);
-		}
-	}
+	// 	}
+	// }
 }
 bool
 ReferenceManager::
