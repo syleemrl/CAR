@@ -83,10 +83,9 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
 
     QVBoxLayout *mParamlayout = new QVBoxLayout();
     std::vector<std::string> labels;
-    labels.push_back("pos x");
-    labels.push_back("pos y");
-    labels.push_back("pos z");
-    labels.push_back("force");
+    labels.push_back("gravity");
+    labels.push_back("mass");
+    labels.push_back("energy");
      
     QFormLayout *mParamFormlayout = new QFormLayout();
     for(int i = 0; i < labels.size(); i++) {

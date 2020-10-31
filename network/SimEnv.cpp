@@ -268,12 +268,13 @@ SelectNewGoal()
 	if(t) {
 		Eigen::VectorXd tp =mRegressionMemory->GetParamGoal();
 		std::cout << tp.transpose() << std::endl;
-
 		for(int i = 0; i < mNumSlaves; i++) {
 			mSlaves[i]->SetGoalParameters(tp);
 		}
+
 		std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps);
+		mReferenceManager->SaveAdaptiveMotion("temp");
 	}
 }
 void 
@@ -335,9 +336,6 @@ SetExplorationMode(bool t) {
 		mReferenceManager->SaveAdaptiveMotion("updated");
 		// mRegressionMemory->SaveGoalInfo(mPath + "goal_log");
 
-		for(int id = 0; id < mNumSlaves; ++id) {
-			mSlaves[id]->SetExplorationMode(false);
-		}
 	}
 }
 int 

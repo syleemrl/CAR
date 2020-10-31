@@ -495,7 +495,6 @@ class PPO(object):
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
-
 			states = self.env.getStates()
 			local_step = 0
 			last_print = 0

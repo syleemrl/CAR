@@ -533,61 +533,51 @@ InitOptimization(int nslaves, std::string save_path, bool parametric) {
 	mPath = save_path;
 	
 
-	mThresholdTracking = 0.91;
+	mThresholdTracking = 0.9;
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-	for(int i = 0; i <= mPhaseLength; i+=2) {
+	for(int i = 0; i < mPhaseLength; i+= 2) {
 		mKnots.push_back(i);
-	} 
-	// mKnots.push_back(27);
-	// mKnots.push_back(38);
-	// mKnots.push_back(44);
-	// mKnots.push_back(49);
-	// mKnots.push_back(57);
+	}
+	// mKnots.push_back(0);
+	// mKnots.push_back(10);
+	// mKnots.push_back(18);
+	// mKnots.push_back(24);
+	// mKnots.push_back(34);
+	// mKnots.push_back(42);
+	// mKnots.push_back(48);
+	// mKnots.push_back(58);
+	// mKnots.push_back(64);
+
 
 	// for(int i = 0; i < mPhaseLength; i+= 4) {
 	// 	mKnots_t.push_back(i);
 	// }
 	mKnots_t = mKnots;
 
-	mParamBVH.resize(4);
-	mParamBVH << 0.707107, 1.3, 1.2, 0.36;
+	mParamBVH.resize(5);
+	mParamBVH << 1, 1, 6.5, 185, -3.5;
 
-	mParamCur.resize(4);
-	mParamCur << 0.707107, 1.3, 1.2, 0.36;
+	mParamCur.resize(5);
+	mParamCur << 1, 1, 6.5, 185, -3.5;
 
-	mParamGoal.resize(4);
-	mParamGoal << 0.707107, 1.3, 1.2, 0.36;
+	mParamGoal.resize(5);
+	mParamGoal << 1, 1, 6.5, 195, -3.5;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.1, 0.1;
+		Eigen::VectorXd paramUnit(5);
+		paramUnit<< 0.1, 0.1, 1, 10, 1;
 
-		mParamBase.resize(4);
-		mParamBase << 0, 1.0, 0.8, 0.1;
+		mParamBase.resize(5);
+		mParamBase << 0.5, 0.5, 6.5, 150, -3.5;
 
-		mParamEnd.resize(4);
-		mParamEnd << 0.8, 1.5, 1.4, 0.8;
-		// Eigen::VectorXd paramUnit(4);
-		// paramUnit<< 0.1, 0.1, 0.1, 0.1;
-
-		// mParamBase.resize(4);
-		// mParamBase << 0.0, 1.1, -1.2, 0.0;
-
-		// mParamEnd.resize(4);
-		// mParamEnd << 1.0, 1.5, -0.8, 0.6;
+		mParamEnd.resize(5);
+		mParamEnd << 1, 1.5, 6.5, 250, -3.5;
+		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mKnots.size() + 3);
 
-		for(int i = 0; i < mParamGoal.size(); i++) {
-			double p = mUniform(mMT) - 0.5;
-			mParamGoal(i) += p * paramUnit(i) * 2;
-			if(mParamGoal(i) > mParamEnd(i))
-				mParamGoal(i) = mParamEnd(i);
-			else if(mParamGoal(i) < mParamBase(i))
-				mParamGoal(i) = mParamBase(i);
-		}
 		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 	}
 

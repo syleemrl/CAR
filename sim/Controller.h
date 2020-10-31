@@ -87,13 +87,9 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	std::vector<bool> GetContacts();
 	std::vector<bool> GetContacts(Eigen::VectorXd pos);
 
-	void SetExplorationMode(bool mode) { isExplorationMode = mode; }
-	void SetGoalParameters(Eigen::VectorXd tp) {mParamGoal = tp;}
+	void SetGoalParameters(Eigen::VectorXd tp);
+	void SetSkeletonWeight(double mass);
 
-	Eigen::Vector3d GetGravity() { return mGravity; }
-	void SetGravity(Eigen::Vector3d g) { mGravity = g; }
-	void SetSkeletonWeight(double weight);
-	double GetSkeletonWeight() {return mWeight; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -180,14 +176,18 @@ protected:
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
 
-	double mWeight;
 	int mCountParam;
 	int mCountTracking;
 
+	Eigen::Vector3d mEnergy;
 	Eigen::Vector3d mGravity;
-	double maxSpeedObj;
-	Eigen::Vector3d mHandPosition;
-	bool isExplorationMode;
+	double mMass;
+	double mPrevVelocity;
+	double mVelocity;
+
+	Eigen::Vector3d mBaseGravity;
+	double mBaseMass;
+
 };
 }
 #endif

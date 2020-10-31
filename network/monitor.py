@@ -145,7 +145,7 @@ class Monitor(object):
 				self.sampler.reset()
 				self.updateGoal()
 		else:
-			if self.mode_counter % 3 == 0:
+			if self.mode_counter % 5 == 0:
 				self.sim_env.TrainRegressionNetwork(10, False)
 
 			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 20):
