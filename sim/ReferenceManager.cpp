@@ -528,52 +528,73 @@ ResetOptimizationParameters(bool reset_cps) {
 }
 void
 ReferenceManager::
-InitOptimization(int nslaves, std::string save_path, bool parametric) {
-	isParametric = parametric;
+InitOptimization(int nslaves, std::string save_path, bool adaptive) {
+	isParametric = adaptive;
 	mPath = save_path;
 	
 
-	mThresholdTracking = 0.9;
+	mThresholdTracking = 0.87;
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-	for(int i = 0; i < mPhaseLength; i+= 2) {
-		mKnots.push_back(i);
-	}
-	// mKnots.push_back(0);
-	// mKnots.push_back(10);
-	// mKnots.push_back(18);
-	// mKnots.push_back(24);
-	// mKnots.push_back(34);
-	// mKnots.push_back(42);
-	// mKnots.push_back(48);
-	// mKnots.push_back(58);
-	// mKnots.push_back(64);
+
+	mKnots.push_back(0);
+	mKnots.push_back(10);
+	mKnots.push_back(18);
+	mKnots.push_back(24);
+	mKnots.push_back(34);
+	mKnots.push_back(38);
+	mKnots.push_back(40);
+	mKnots.push_back(42);
+	mKnots.push_back(44);
+	mKnots.push_back(48);
+	mKnots.push_back(58);
+	mKnots.push_back(64);
 
 
-	// for(int i = 0; i < mPhaseLength; i+= 4) {
-	// 	mKnots_t.push_back(i);
+	// for(int i = 0; i < mPhaseLength; i+= 2) {
+	// 	mKnots.push_back(i);
 	// }
 	mKnots_t = mKnots;
 
-	mParamBVH.resize(5);
-	mParamBVH << 1, 1, 6.5, 185, -3.5;
+	// mParamBVH.resize(5);
+	// mParamBVH << 1, 1, 6.5, 185, -3.5;
 
-	mParamCur.resize(5);
-	mParamCur << 1, 1, 6.5, 185, -3.5;
+	// mParamCur.resize(5);
+	// mParamCur << 1, 1, 6.5, 185, -3.5;
 
-	mParamGoal.resize(5);
-	mParamGoal << 1, 1, 6.5, 195, -3.5;
+	// mParamGoal.resize(5);
+	// mParamGoal << 1, 1, 6.5, 195, -3.5;
 
-	if(isParametric) {
-		Eigen::VectorXd paramUnit(5);
-		paramUnit<< 0.1, 0.1, 1, 10, 1;
 
-		mParamBase.resize(5);
-		mParamBase << 0.5, 0.5, 6.5, 150, -3.5;
+	mParamBVH.resize(1);
+	mParamBVH << 185;
 
-		mParamEnd.resize(5);
-		mParamEnd << 1, 1.5, 6.5, 250, -3.5;
+	mParamCur.resize(1);
+	mParamCur << 185;
+
+	mParamGoal.resize(1);
+	mParamGoal << 250;
+
+	if(adaptive) {
+		// Eigen::VectorXd paramUnit(5);
+		// paramUnit<< 0.1, 0.1, 1, 10, 1;
+
+		// mParamBase.resize(5);
+		// mParamBase << 0.5, 0.5, 6.5, 150, -3.5;
+
+		// mParamEnd.resize(5);
+		// mParamEnd << 1, 1.5, 6.5, 250, -3.5;
+
+		Eigen::VectorXd paramUnit(1);
+		paramUnit<< 10;
+
+		mParamBase.resize(1);
+		mParamBase << 185;
+
+		mParamEnd.resize(1);
+		mParamEnd << 250;
+
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mKnots.size() + 3);
@@ -675,22 +696,21 @@ ReportEarlyTermination() {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
-				 std::pair<double, double> rewards,
+				 std::tuple<double, double, double> rewards,
 				 Eigen::VectorXd parameters) {
-	if(dart::math::isNan(rewards.first) || dart::math::isNan(rewards.second)) {
+	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		mLock_ET.lock();
 		nET +=1;
 		mLock_ET.unlock();
 		return;
 	}
-	
 	mLock_ET.lock();
 	nT += 1;
 	mLock_ET.unlock();
-	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * rewards.first;
-	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * rewards.second;
+	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
+	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 	std::vector<int> flag;
-	if(rewards.first < mThresholdTracking) {
+	if(std::get<0>(rewards) < mThresholdTracking) {
 		flag.push_back(0);
 	}
 	else {
@@ -800,7 +820,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = (0.4 * r_regul + 0.6 * r_slide);
+	double reward_trajectory =  (0.6 * r_slide + 0.4 * r_regul) * std::get<2>(rewards);
 	auto cps_t = st->GetControlPoints(0);
 	if(isParametric && r_slide > 0.3) {
 		auto cps_t = st->GetControlPoints(0);

@@ -123,6 +123,12 @@ class Monitor(object):
 			self.prevframes = curframes
 
 		return rewards, dones, curframes, params
+	def updateAdaptive(self):
+		self.mode_counter += 1
+		if self.mode_counter % 10 == 0:
+			self.env.sim_env.SetExplorationMode(True)
+			self.sim_env.SaveParamSpace()
+			self.sim_env.TrainRegressionNetwork(50, False)
 
 	def updateMode(self, v_func, results):	
 		self.mode_counter += 1

@@ -144,7 +144,7 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*10-2) - exp(-2)) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 
@@ -154,14 +154,14 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	// if(mRecord)
-	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	if(mRecord)
+		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
-	
+
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	this->mPDTargetPositions = p_v_target->GetPosition();
 	this->mPDTargetVelocities = p_v_target->GetVelocity();
@@ -248,8 +248,10 @@ Step()
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
-			mReferenceManager->SaveTrajectories(data_spline, std::pair<double, double>(mTrackingRewardTrajectory, mParamRewardTrajectory), mParamCur);
+			mTWRewardTrajectory /= mCountTracking;
+			mReferenceManager->SaveTrajectories(data_spline, std::tuple<double, double, double>(mTrackingRewardTrajectory, mParamRewardTrajectory, mTWRewardTrajectory), mParamCur);
 			data_spline.clear();
+			mTWRewardTrajectory = 0;
 			mTrackingRewardTrajectory = 0;
 			mParamRewardTrajectory = 0;
 
@@ -425,16 +427,18 @@ GetParamReward()
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
-		Eigen::VectorXd l_diff = mEnergy - mParamGoal.segment<3>(2);
-		l_diff *= 0.1;
-		r_param = exp_of_squared(l_diff, 0.4);
+		Eigen::Vector3d p;
+		p << 6.5, mParamGoal(0), -3.5;
+		Eigen::VectorXd l_diff = mEnergy - p;
+		l_diff *= 0.01;
+		r_param = exp_of_squared(l_diff, 0.8);
 
-		mParamCur.segment<2>(0) = mParamGoal.segment<2>(0);
-		mParamCur.segment<3>(2) = mEnergy;
-		if(abs(mParamGoal(2) - mParamCur(2)) < 10)
-			mParamCur(2) = mParamGoal(2);
-		if(abs(mParamGoal(4) - mParamCur(4)) < 10)
-			mParamCur(4) = mParamGoal(4);
+		mParamCur(0) = mEnergy(1);
+		if(abs(p(2) - p(2)) > 10)
+			mParamCur(0) = -1;
+		else if(abs(p(0) - p(0)) > 10)
+			mParamCur(0) = -1;
+
 		if(mRecord) {
 		 	std::cout << mEnergy.transpose() << " " << r_param  << std::endl;
 		}
@@ -536,6 +540,8 @@ UpdateAdaptiveReward()
 		}
 	}
 	mTrackingRewardTrajectory += r_tot;
+
+	mTWRewardTrajectory += r_con;
 	mCountTracking += 1;
 }
 void
@@ -609,19 +615,19 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
-	if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
 	}
-	if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;
 	}
-	else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
+	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(!mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -669,8 +675,8 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
-	this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
+	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
+	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 
 void
@@ -708,6 +714,7 @@ Reset(bool RSI)
 		this->mCurrentFrame = 0; // 0;
 		this->mParamRewardTrajectory = 0;
 		this->mTrackingRewardTrajectory = 0;
+		this->mTWRewardTrajectory = 0;
 	}
 
 	this->mCurrentFrameOnPhase = this->mCurrentFrame;
@@ -717,7 +724,6 @@ Reset(bool RSI)
 
 	Motion* p_v_target;
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
-
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -799,24 +805,24 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 
 //	Eigen::Isometry3d target_root_inv = root->getWorldTransform().inverse();
 
-//	ret.resize((num_ee)*9+12);
-	ret.resize((num_ee)*10+13);
+	ret.resize((num_ee)*9+12);
+//	ret.resize((num_ee)*10+13);
 
 	for(int i=0;i<num_ee;i++)
 	{		
 		Eigen::Isometry3d transform = cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		Eigen::Quaterniond q(transform.linear());
-	//	Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond(transform.linear()));
-	//	ret.segment<6>(6*i) << rot, transform.translation();
-		ret.segment<7>(7*i) << q.w(), q.x(), q.y(), q.z(), transform.translation();
+		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond(transform.linear()));
+		ret.segment<6>(6*i) << rot, transform.translation();
+//		ret.segment<7>(7*i) << q.w(), q.x(), q.y(), q.z(), transform.translation();
 	}
 
 
 	for(int i=0;i<num_ee;i++)
 	{
 	    int idx = skel->getBodyNode(mEndEffectors[i])->getParentJoint()->getIndexInSkeleton(0);
-//		ret.segment<3>(6*num_ee + 3*i) << vel.segment<3>(idx);
-	    ret.segment<3>(7*num_ee + 3*i) << vel.segment<3>(idx);
+		ret.segment<3>(6*num_ee + 3*i) << vel.segment<3>(idx);
+//	    ret.segment<3>(7*num_ee + 3*i) << vel.segment<3>(idx);
 
 	}
 
@@ -824,12 +830,12 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	Eigen::Isometry3d transform = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
 	Eigen::Quaterniond q(transform.linear());
 
-//	Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond(transform.linear()));
+	Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond(transform.linear()));
 	Eigen::Vector3d root_angular_vel_relative = cur_root_inv.linear() * skel->getRootBodyNode()->getAngularVelocity();
 	Eigen::Vector3d root_linear_vel_relative = cur_root_inv.linear() * skel->getRootBodyNode()->getCOMLinearVelocity();
 
-//	ret.tail<12>() << rot, transform.translation(), root_angular_vel_relative, root_linear_vel_relative;
-	ret.tail<13>() << q.w(), q.x(), q.y(), q.z(), transform.translation(), root_angular_vel_relative, root_linear_vel_relative;
+	ret.tail<12>() << rot, transform.translation(), root_angular_vel_relative, root_linear_vel_relative;
+//	ret.tail<13>() << q.w(), q.x(), q.y(), q.z(), transform.translation(), root_angular_vel_relative, root_linear_vel_relative;
 
 	// restore
 	skel->setPositions(p_save);
@@ -889,6 +895,18 @@ GetState()
 	Eigen::VectorXd p,v;
 	p.resize(p_save.rows()-6);
 	p = p_save.tail(p_save.rows()-6);
+
+	// int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+	// int num_p = (n_bnodes - 1) * 4;
+	// p.resize(num_p);
+
+	// for(int i = 1; i < n_bnodes; i++){
+	// 	Eigen::Isometry3d transform = skel->getBodyNode(i)->getRelativeTransform();
+	// 	Eigen::Quaterniond q(transform.linear());
+	// 	//	ret.segment<6>(6*i) << rot, transform.translation();
+
+	// 	p.segment<4>(4*(i-1)) << q.w(), q.x(), q.y(), q.z();
+	// }
 	v = v_save; ///10.0;
 
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();

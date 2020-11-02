@@ -52,8 +52,8 @@ public:
 	int GetPhaseLength() {return mPhaseLength; }
 	double GetTimeStep(double t, bool adaptive);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters);
-	void InitOptimization(int nslaves, std::string save_path, bool isParametric=false);
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::tuple<double, double, double> rewards, Eigen::VectorXd parameters);
+	void InitOptimization(int nslaves, std::string save_path, bool adaptive=false);
 	bool Optimize();
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);

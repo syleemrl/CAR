@@ -62,7 +62,7 @@ public:
 	void SaveParamSpace();
 	void SaveParamSpaceLog(int n);
 	void SelectNewGoal();
-
+	
 	p::list GetParamGoalCandidate();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
@@ -76,7 +76,7 @@ private:
 	bool isAdaptive;
 	bool mNeedRefUpdate;
 	bool isParametric;
-
+	
 	p::object mRegression;
 
 	std::string mPath;

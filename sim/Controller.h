@@ -107,7 +107,8 @@ protected:
 	double mPrevFrameOnPhase;
 	double mParamRewardTrajectory;
 	double mTrackingRewardTrajectory;
-	
+	double mTWRewardTrajectory;
+
 	Character* mCharacter;
 	Character* mObject;
 	ReferenceManager* mReferenceManager;

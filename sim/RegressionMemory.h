@@ -108,6 +108,8 @@ public:
 	void SaveGoalInfo(std::string path);
 	void EvalExplorationStep();
 	bool SetNextCandidate();
+	std::vector<Eigen::VectorXd> GetCurrentCPS();
+
 
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
@@ -146,6 +148,7 @@ private:
 	std::vector<bool> mGoalExplored;
 	std::vector<double> mGoalProgress;
 	std::vector<double> mGoalReward;
+	std::vector<std::vector<Eigen::VectorXd>> mCPSCandidate;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

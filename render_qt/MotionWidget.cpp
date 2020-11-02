@@ -53,18 +53,18 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     DPhy::Character* ref = new DPhy::Character(path);
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-//    if(mRunReg) {
+    if(mRunReg) {
     	mRegressionMemory = new DPhy::RegressionMemory();
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
-    // }
+    }
 
     if(mRunSim) {
 	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
-//	    if(mRunReg)
+	    if(mRunReg)
 	    	mReferenceManager->InitOptimization(1, path, true);
-	    // else
-	    // 	mReferenceManager->InitOptimization(1, path);
-	    mReferenceManager->LoadAdaptiveMotion("temp");
+	    else
+	    	mReferenceManager->InitOptimization(1, path);
+	    mReferenceManager->LoadAdaptiveMotion("ref_6");
 	    mDrawReg = true;
 
     } else if(mRunReg) {
@@ -140,7 +140,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	if(ppo != "") {
     		this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
 			Eigen::VectorXd tp(mReferenceManager->GetParamGoal().rows());
-			tp << 1, 1, 6.5, 220, -3.5;
+			tp << 6.5, 220, -3.5;
 			mController->SetGoalParameters(tp);
 
     		p::object ppo_main = p::import("ppo");
@@ -351,18 +351,18 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	std::cout << v_param.transpose() << std::endl;
 	if(mRunReg) {
-		Eigen::VectorXd tp(5);
-		tp << v_param(0), v_param(1), 0, v_param(2) , 0;
+		Eigen::VectorXd tp(1);
+		tp << v_param(2)*0.1;
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
 	    std::cout << tp.transpose() << " " << d << std::endl;
-	    // auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
-	    // for(int i = 0; i < pairs.size(); i++) {
-	    // 	std::cout << pairs[i].first<< " " ;
-	    // }
-	    // std::cout << std::endl;
+	    auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
+	    for(int i = 0; i < pairs.size(); i++) {
+	    	std::cout << "(" << pairs[i].first<< ", " << pairs[i].second->param_normalized.transpose() << ") " ;
+	    }
+	    std::cout << std::endl;
 	    std::vector<Eigen::VectorXd> cps;
 	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
 	        cps.push_back(Eigen::VectorXd::Zero(dof));
@@ -427,6 +427,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}
@@ -434,6 +436,7 @@ UpdateParam(const bool& pressed) {
 void
 MotionWidget::
 RunPPO() {
+	std::vector<Eigen::VectorXd> pos_bvh;
 	std::vector<Eigen::VectorXd> pos_reg;
 	std::vector<Eigen::VectorXd> pos_sim;
 	// std::vector<Eigen::VectorXd> pos_obj;
@@ -456,21 +459,25 @@ RunPPO() {
 
 		Eigen::VectorXd position = this->mController->GetPositions(i);
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
+		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
+
 		//Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
+		position_bvh(3) -= 0.75;
 		//position_obj(3) += 0.75;
 
 		pos_reg.push_back(position_reg);
 		pos_sim.push_back(position);
+		pos_bvh.push_back(position_bvh);
 		//pos_obj.push_back(position_obj);
 	}
 	Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
 	root_bvh(3) += 0.75;
 	pos_sim =  DPhy::Align(pos_sim, root_bvh);
 	pos_reg =  DPhy::Align(pos_reg, root_bvh);
-
+	UpdateMotion(pos_bvh, 0);
 	UpdateMotion(pos_sim, 1);
 	UpdateMotion(pos_reg, 2);
 	//UpdateMotion(pos_obj, 3);

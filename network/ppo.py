@@ -14,6 +14,7 @@ from IPython import embed
 from copy import deepcopy
 from utils import RunningMeanStd
 from tensorflow.python import pywrap_tensorflow
+import scipy.integrate as integrate
 import types
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -246,10 +247,17 @@ class PPO(object):
 			values = np.concatenate((values, [0]), axis=0)
 			advantages = np.zeros(size)
 			ad_t = 0
-
 			for i in reversed(range(len(data))):
-				delta = rewards[i] + values[i+1] * self.gamma  - values[i]
-				ad_t = delta + self.lambd * self.gamma  * ad_t
+				if i == size - 1:
+					timestep = 0
+				elif times[i] > times[i+1]:
+					timestep = self.env.phaselength - times[i]
+				else:
+					timestep = times[i+1]  - times[i]
+
+				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
+				delta = t * rewards[i] + values[i+1] * pow(self.gamma, timestep)  - values[i]
+				ad_t = delta + pow(self.lambd, timestep)* pow(self.gamma, timestep)  * ad_t
 				advantages[i] = ad_t
 
 			TD = values[:size] + advantages
@@ -500,7 +508,7 @@ class PPO(object):
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
-			if self.adaptive and self.env.mode == 0:
+			if self.parametric and self.env.mode == 0:
 				self.env.sim_env.SelectNewGoal()
 
 			while True:
@@ -549,7 +557,7 @@ class PPO(object):
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter, self.env.mode)
 					if not self.parametric:
-						self.env.sim_env.Optimize()
+						self.env.updateAdaptive()
 					else:
 						self.env.updateMode(self.critic_target, self.v_target)
 						if self.env.mode == 0:

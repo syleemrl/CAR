@@ -18,23 +18,21 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	mReferenceManager->LoadMotionFromBVH(ref);
 	
 	if(adaptive) {
-		if(parametric) {
+		if(adaptive) {
 			mRegressionMemory = new DPhy::RegressionMemory();
 			mReferenceManager->SetRegressionMemory(mRegressionMemory);
 		}
 
-		mReferenceManager->InitOptimization(num_slaves, training_path, parametric);
+		mReferenceManager->InitOptimization(num_slaves, training_path, adaptive);
 		mReferenceManager->LoadAdaptiveMotion();
 
-		if(parametric) {
-			mRegressionMemory->LoadParamSpace(mPath + "param_space");
-		}
-
+		mRegressionMemory->LoadParamSpace(mPath + "param_space");
+		
 	} else {
 		mReferenceManager->InitOptimization(num_slaves, "");
 	}
 
-	if(parametric) {
+	if(adaptive) {
 		Py_Initialize();
 		np::initialize();
 		try{
@@ -51,7 +49,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	for(int i =0;i<num_slaves;i++)
 	{
 		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, parametric, false, i));
-		if(parametric) {
+		if(adaptive) {
 			Eigen::VectorXd tp = mReferenceManager->GetParamGoal();
 			mSlaves[i]->SetGoalParameters(tp);
 		}
@@ -271,10 +269,9 @@ SelectNewGoal()
 		for(int i = 0; i < mNumSlaves; i++) {
 			mSlaves[i]->SetGoalParameters(tp);
 		}
-
-		std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCurrentCPS();
+		//std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps);
-		mReferenceManager->SaveAdaptiveMotion("temp");
 	}
 }
 void 
@@ -329,8 +326,17 @@ SetExplorationMode(bool t) {
 			mSlaves[id]->SetGoalParameters(tp);
 			// mSlaves[id]->SetExplorationMode(true);
 		}
-		mRegressionMemory->SelectNewParamGoalCandidate();
-		mRegressionMemory->ResetExploration();
+		if(isParametric) {
+			mRegressionMemory->SelectNewParamGoalCandidate();
+			mRegressionMemory->ResetExploration();
+		} else if(isAdaptive) {
+			mReferenceManager->OptimizeExReference();
+			mReferenceManager->SelectReference();
+
+			mReferenceManager->SaveAdaptiveMotion("ref_"+std::to_string(mExUpdate));
+			mExUpdate += 1;
+
+		}
 
 	} else {
 		mReferenceManager->SaveAdaptiveMotion("updated");
