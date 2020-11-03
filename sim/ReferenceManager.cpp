@@ -104,7 +104,7 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps) {
 	std::vector<Eigen::VectorXd> new_displacement_t = st->ConvertSplineToMotion();
 
 	for(int i = 0; i < mPhaseLength; i++) {
-		mTimeStep_adaptive[i] = 1 + new_displacement_t[i](0);
+		mTimeStep_adaptive[i] = exp(new_displacement_t[i](0));
 	}
 
 	delete s;
@@ -574,7 +574,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mParamCur << 185;
 
 	mParamGoal.resize(1);
-	mParamGoal << 250;
+	mParamGoal << 300;
 
 	if(adaptive) {
 		// Eigen::VectorXd paramUnit(5);
@@ -593,7 +593,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamBase << 185;
 
 		mParamEnd.resize(1);
-		mParamEnd << 250;
+		mParamEnd << 300;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -757,7 +757,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		double phase = std::fmod(data_spline[i].second, mPhaseLength);
 		if(i < data_spline.size() - 1) {
 			Eigen::VectorXd ts(1);
-			ts << data_spline[i+1].second - data_spline[i].second - 1;
+			ts << log(data_spline[i+1].second - data_spline[i].second);
+		//	ts << data_spline[i+1].second - data_spline[i].second - 1;
 			displacement_t.push_back(std::pair<Eigen::VectorXd,double>(ts, phase));
 		}
 		else
@@ -820,7 +821,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory =  (0.6 * r_slide + 0.4 * r_regul) * std::get<2>(rewards);
+	double reward_trajectory = (0.6 * r_regul + 0.4 * r_slide) * std::get<2>(rewards);
 	auto cps_t = st->GetControlPoints(0);
 	if(isParametric && r_slide > 0.3) {
 		auto cps_t = st->GetControlPoints(0);

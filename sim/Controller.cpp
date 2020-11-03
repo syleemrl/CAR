@@ -144,7 +144,7 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*10-2) - exp(-2)) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 
@@ -518,7 +518,6 @@ UpdateAdaptiveReward()
 	double r_time = exp(-pow(time_diff, 2)*50);
 
 	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
-
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){

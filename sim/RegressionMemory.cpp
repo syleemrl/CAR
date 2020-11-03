@@ -56,7 +56,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamMax = paramSpace.second;
 	mParamGoalCur = paramBvh;
 
-	mNumElite = 3;
+	mNumElite = 5;
 	mRadiusNeighbor = 0.1;
 	mThresholdActivate = 5;
 	mThresholdUpdate = 2 * mDim;
@@ -962,8 +962,9 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		r += ps_preward[i].first;
 		int idx = ps_preward[i].second;
+
 		if(r_baseline < ps_preward[i].first) {
-			ps_elite.push_back(std::pair<double, Param*>(ps[idx].second->reward, ps[idx].second));
+			ps_elite.push_back(std::pair<double, Param*>(ps[idx].second->reward*ps[idx].second->reward, ps[idx].second));
 		} else {
 			ps_elite.push_back(std::pair<double, Param*>(mParamBVH->reward, mParamBVH));
 		}
@@ -994,23 +995,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 			mean_cps[j] += w * cps[j];
 	    }
 	}
-	// std::vector<double> w;
-	// for(int i = 0; i < mNumElite; i++) {
-	// 	int idx = ps_preward[i].second;
-	// 	w.push_back(pow(ps_preward[i].first, 4)* ps[idx].second->reward);
-	// 	if(w.back() < weight_min) {
-	// 		weight_min = w.back();
-	// 	}
-	// }
-	// for(int i = 0; i < mNumElite; i++) {
-	// 	double w_i = w[i] - weight_min;
-	// 	weight_sum += w_i;
-	// 	int idx = ps_preward[i].second;
-	//   	std::vector<Eigen::VectorXd> cps = ps[idx].second->cps;
-	//     for(int j = 0; j < mNumKnots; j++) {
-	// 		mean_cps[j] += w_i * cps[j];
-	//     }
-	// }
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
