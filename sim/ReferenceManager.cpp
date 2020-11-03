@@ -808,22 +808,18 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
 			if(dof == 6) {
 				r_regul += 1 * cps[i].segment<3>(idx).norm();
-				r_regul += 1 * cps[i].segment<3>(idx + 3).norm();
+				r_regul += 5 * cps[i].segment<3>(idx + 3).norm();
 			} else if (dof == 3) {
-				if(b_name.find("RightShoulder") != std::string::npos || 
-				   b_name.find("RightArm") != std::string::npos ||
-				   b_name.find("RightForeArm") != std::string::npos ||
-				   b_name.find("RightHand") != std::string::npos) {
-					r_regul += 2 * cps[i].segment<3>(idx).norm();
-				} else
-					r_regul += 0.5 * cps[i].segment<3>(idx).norm();
-			} 
+				r_regul += 0.5 * cps[i].segment<3>(idx).norm();
+			}
 		}
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
-	double reward_trajectory = (0.6 * r_regul + 0.4 * r_slide) * std::get<2>(rewards);
+
+	double reward_trajectory = (r_regul);
+	// std::cout << r_regul << " " << r_slide << std::endl;
 	auto cps_t = st->GetControlPoints(0);
-	if(isParametric && r_slide > 0.3) {
+	if(isParametric && r_slide > 0.4) {
 		auto cps_t = st->GetControlPoints(0);
 
 		std::vector<Eigen::VectorXd> cps_tot;
