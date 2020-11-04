@@ -186,10 +186,9 @@ class PPO(object):
 				self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_param], name=name+'_state_target')
 
 			with tf.variable_scope(name+'_Optimize'):
-				self.TD_sparse = tf.placeholder(tf.float32, shape=[None], name='TD_sparse')
 				if self.parametric:
 					self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
-			self.critic_sparse, self.critic_sparse_train_op, self.loss_critic_sparse = self.createCriticNetwork(name+'_sparse', self.state, self.TD_sparse)
+
 			if self.parametric:
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 
@@ -271,7 +270,7 @@ class PPO(object):
 
 	def updateAdaptive(self, tuples, param_training=0):
 		state_batch, state_target_batch, action_batch, \
-		TD_batch, TD_sparse_batch, TD_target_batch, \
+		TD_batch, TD_target_batch, \
 		neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
 
 
@@ -284,32 +283,28 @@ class PPO(object):
 
 		lossval_ac = 0
 		lossval_c = 0
-		lossval_cs = 0
 		lossval_ct = 0
 
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
-			val = self.sess.run([self.actor_train_op, self.critic_train_op, self.critic_sparse_train_op,
-							self.loss_actor, self.loss_critic, self.loss_critic_sparse], 
+			val = self.sess.run([self.actor_train_op, self.critic_train_op,
+							self.loss_actor, self.loss_critic], 
 				feed_dict={
 					self.state: state_batch[selectedIndex], 
 					self.TD: TD_batch[selectedIndex], 
-					self.TD_sparse: TD_sparse_batch[selectedIndex], 
 					self.action: action_batch[selectedIndex], 
 					self.old_neglogp: neglogp_batch[selectedIndex], 
 					self.GAE: GAE_batch[selectedIndex],
 					self.learning_rate_ph:self.learning_rate_actor
 				}
 			)
-			lossval_ac += val[3]
-			lossval_c += val[4]
-			lossval_cs += val[5]
+			lossval_ac += val[2]
+			lossval_c += val[3]
 		
 		self.lossvals = []
 
 		self.lossvals.append(['loss actor', lossval_ac])
 		self.lossvals.append(['loss critic', lossval_c])
-		self.lossvals.append(['loss critic sparse', lossval_cs])
 		
 		if param_training:
 			if len(self.target_x_batch) == 0:
@@ -343,12 +338,11 @@ class PPO(object):
 		state_target_batch = []
 		action_batch = []
 		TD_batch = []
-		TD_sparse_batch = []
 		TD_target_batch = []
 		neglogp_batch = []
 		GAE_batch = []
-		self.values_sparse = 0
-		self.values_dense = 0
+	
+
 		for data in tuples:
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param = zip(*data)
@@ -366,40 +360,35 @@ class PPO(object):
 					neglogprobs = neglogprobs[:count+1]
 					times = times[:count+1]
 					param = param[:count+1]
-		
+
 			size = len(times)		
 
 
-			values_dense =  np.concatenate((np.array(values)[:,0], [0]), axis=0)
-			values_sparse =  np.concatenate((np.array(values)[:,1], [0]), axis=0)
-			advantages_dense = np.zeros(size)
-			advantages_sparse = np.zeros(size)
-			ad_t_sparse = 0
-			ad_t_dense = 0
+			values = np.concatenate((np.array(values), [0]), axis=0)
+			advantages = np.zeros(size)
+			ad_t = 0
 
 			TD_t_dense = 0
 			TD_t_sparse = 0
 
 			for i in reversed(range(size)):
-
-				delta_dense = rewards[i][0] + values_dense[i+1] * self.gamma - values_dense[i]
-				ad_t_dense = delta_dense + self.lambd * self.gamma * ad_t_dense
-				advantages_dense[i] = ad_t_dense
-			
-				if i == size - 1:
+				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
-					delta_sparse = rewards[i][1] - values_sparse[i]
 				elif times[i] > times[i+1]:
-					timestep = self.env.phaselength - times[i]
-					delta_sparse = rewards[i][1] - values_sparse[i]
+					timestep = self.env.phaselength - times[i] + times[i+1]
 				else:
 					timestep = times[i+1]  - times[i]
-					delta_sparse = rewards[i][1] + values_sparse[i+1] * pow(self.gamma_sparse, timestep) - values_sparse[i]
-				ad_t_sparse = delta_sparse + pow(self.gamma_sparse, timestep) * pow(self.lambd, timestep) * ad_t_sparse
+				
+				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
+				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
 
-				advantages_sparse[i] = ad_t_sparse
+				if i != size - 1 and rewards[i+1][1] != 0:
+					delta += pow(self.gamma, 30 - times[i]) * rewards[i+1][1]
 
-				TD_t_dense = rewards[i][0] + self.gamma * TD_t_dense
+				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
+				advantages[i] = ad_t
+
+				TD_t_dense = t * rewards[i][0] + pow(self.gamma_sparse, timestep) * TD_t_dense
 				TD_t_sparse = rewards[i][1] + pow(self.gamma_sparse, timestep) * TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
@@ -410,24 +399,19 @@ class PPO(object):
 					# TD_t_dense = 0
 					TD_t_sparse = 0
 
-			TD = values_dense[:size] + advantages_dense
-			TD_sparse = values_sparse[:size] + advantages_sparse
+			TD = values[:size] + advantages
 
-			self.values_sparse += np.mean(values_sparse)
-			self.values_dense += np.mean(values_dense)
 			for i in range(size):
 				state_batch.append(states[i])
 				action_batch.append(actions[i])
 				TD_batch.append(TD[i])
-				TD_sparse_batch.append(TD_sparse[i])
 				neglogp_batch.append(neglogprobs[i])
-				GAE_batch.append(advantages_dense[i]+advantages_sparse[i])
+				GAE_batch.append(advantages[i])
 
-		self.values_sparse /= len(tuples)
-		self.values_dense /= len(tuples)
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
-			   np.array(TD_batch), np.array(TD_sparse_batch), np.array(TD_target_batch), \
+			   np.array(TD_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
+
 
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
@@ -511,11 +495,8 @@ class PPO(object):
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
-				if not self.adaptive:
-					values = self.critic.getValue(states)
-				else:
-					values = [self.critic.getValue(states), self.critic_sparse.getValue(states)]
-					values = np.array(values).transpose()					
+				values = self.critic.getValue(states)
+							
 				rewards, dones, times, params = self.env.step(actions)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
@@ -586,9 +567,11 @@ class PPO(object):
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
-
-		action, _ = self.actor.getAction(state)
-		#action = self.actor.getMeanAction(state)
+		
+		values = self.critic.getValue(state)
+		print(values)
+		#action, _ = self.actor.getAction(state)
+		action = self.actor.getMeanAction(state)
 
 		return action
 

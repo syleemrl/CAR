@@ -291,14 +291,7 @@ UpdateRandomParam(const bool& pressed) {
 
 	    mReferenceManager->LoadAdaptiveMotion(cps);
 	    
-	    double phase = 0;
 
-		for(int k = 0; k < 100; k++) {
-
-		    Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
-			phase += mReferenceManager->GetTimeStep(phase, true);
-
-		}
 	    if(!mRunSim) {
 
 		    std::vector<Eigen::VectorXd> pos;
@@ -394,8 +387,8 @@ UpdateParam(const bool& pressed) {
 		        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
 		        p(3) += 0.75;
 		      	pos.push_back(p);
-		        phase += mReferenceManager->GetTimeStep(phase, true);
-		        
+		        //phase += mReferenceManager->GetTimeStep(phase, true);
+		        phase += 1;
 		    }
 		    mTotalFrame = 500;
 		    Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
@@ -417,8 +410,9 @@ UpdateParam(const bool& pressed) {
 		        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
 		        p(3) += (0.75 + 1.5); 
 		        pos.push_back(p);
-		        phase += mReferenceManager->GetTimeStep(phase, true);
-		        
+		        // phase += mReferenceManager->GetTimeStep(phase, true);
+		       	phase += 1;
+ 
 	    	}
 			root_bvh(3) += 1.5;
 			pos = DPhy::Align(pos, root_bvh);

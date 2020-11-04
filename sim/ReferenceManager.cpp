@@ -538,23 +538,23 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdProgress = 10;
 
 
-	mKnots.push_back(0);
-	mKnots.push_back(10);
-	mKnots.push_back(18);
-	mKnots.push_back(24);
-	mKnots.push_back(34);
-	mKnots.push_back(38);
-	mKnots.push_back(40);
-	mKnots.push_back(42);
-	mKnots.push_back(44);
-	mKnots.push_back(48);
-	mKnots.push_back(58);
-	mKnots.push_back(64);
+	// mKnots.push_back(0);
+	// mKnots.push_back(10);
+	// mKnots.push_back(18);
+	// mKnots.push_back(24);
+	// mKnots.push_back(34);
+	// mKnots.push_back(38);
+	// mKnots.push_back(40);
+	// mKnots.push_back(42);
+	// mKnots.push_back(44);
+	// mKnots.push_back(48);
+	// mKnots.push_back(58);
+	// mKnots.push_back(64);
 
 
-	// for(int i = 0; i < mPhaseLength; i+= 2) {
-	// 	mKnots.push_back(i);
-	// }
+	for(int i = 0; i < mPhaseLength; i+= 2) {
+		mKnots.push_back(i);
+	}
 	mKnots_t = mKnots;
 
 	// mParamBVH.resize(5);
@@ -816,7 +816,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	}
 	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
 
-	double reward_trajectory = (r_regul);
+	double reward_trajectory = (0.7 * r_regul + 0.3 * r_slide);
 	// std::cout << r_regul << " " << r_slide << std::endl;
 	auto cps_t = st->GetControlPoints(0);
 	if(isParametric && r_slide > 0.4) {
