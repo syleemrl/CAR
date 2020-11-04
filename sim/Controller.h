@@ -180,14 +180,14 @@ protected:
 	int mCountParam;
 	int mCountTracking;
 
-	Eigen::Vector3d mEnergy;
 	Eigen::Vector3d mGravity;
 	double mMass;
-	double mPrevVelocity;
-	double mVelocity;
 
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
+
+	double maxSpeedObj;
+	Eigen::Vector3d mHandPosition;
 
 };
 }

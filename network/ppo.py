@@ -189,9 +189,11 @@ class PPO(object):
 				self.TD_sparse = tf.placeholder(tf.float32, shape=[None], name='TD_sparse')
 				if self.parametric:
 					self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
+			
 			self.critic_sparse, self.critic_sparse_train_op, self.loss_critic_sparse = self.createCriticNetwork(name+'_sparse', self.state, self.TD_sparse)
 			if self.parametric:
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
+				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -202,6 +204,16 @@ class PPO(object):
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		self.sess.run(tf.global_variables_initializer())
+
+	def update_critic_target(self):
+		copy_op = []
+
+		cur_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target')
+		prev_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target_prev')
+
+		for cur_var, prev_var in zip(cur_vars, prev_vars):
+			copy_op.append(prev_var.assign(cur_var.value()))
+		self.sess.run(copy_op)
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -257,6 +269,9 @@ class PPO(object):
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i] + values[i+1] * pow(self.gamma, timestep)  - values[i]
 				ad_t = delta + pow(self.lambd, timestep)* pow(self.gamma, timestep)  * ad_t
+				# delta = rewards[i] + values[i+1] * self.gamma  - values[i]
+				# ad_t = delta + self.lambd * self.gamma  * ad_t
+
 				advantages[i] = ad_t
 
 			TD = values[:size] + advantages
@@ -338,6 +353,45 @@ class PPO(object):
 
 		self.v_target = TD_target_batch
 
+	def computeParamValue(self):
+		state_target_batch = []
+		V_target_batch = []		
+		for data in tuples:
+			# get values
+			rewards, times, param = zip(*data)
+
+			if len(times) == self.env.phaselength * 6 + 10 + 1:
+				if times[-1] < self.env.phaselength - 1.8:
+					for i in reversed(range(len(times))):
+						if i != len(times) - 1 and times[i] > times[i + 1]:
+							count = i
+							break
+					rewards = rewards[:count+1]
+					times = times[:count+1]
+					param = param[:count+1]
+		
+			size = len(times)		
+
+			V_t_dense = 0
+			V_t_sparse = 0
+
+			for i in reversed(range(size)):
+
+				V_t_dense = rewards[i][0] + self.gamma * V_t_dense
+				V_t_sparse = rewards[i][1] + pow(self.gamma_sparse, timestep) * V_t_sparse
+
+				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
+					if i == size - 2 and times[i] == 0:
+						continue
+
+					state_target_batch.append(param[i])
+					V_target_batch.append(0.1 * V_t_dense + V_t_sparse)
+
+					# TD_t_dense = 0
+					V_t_sparse = 0
+
+		return state_target_batch, V_target_batch
+
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
 		state_target_batch = []
@@ -386,7 +440,7 @@ class PPO(object):
 				ad_t_dense = delta_dense + self.lambd * self.gamma * ad_t_dense
 				advantages_dense[i] = ad_t_dense
 			
-				if i == size - 1:
+				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
 					delta_sparse = rewards[i][1] - values_sparse[i]
 				elif times[i] > times[i+1]:
@@ -428,6 +482,7 @@ class PPO(object):
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
 			   np.array(TD_batch), np.array(TD_sparse_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
+
 
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
@@ -493,7 +548,6 @@ class PPO(object):
 
 	def train(self, num_iteration):
 		epi_info_iter = []
-		epi_info_iter_hind = []
 		#self.env.updateExGoal(self.critic_target)
 		#self.env.sim_env.SetExplorationMode(True)
 
@@ -555,12 +609,11 @@ class PPO(object):
 					if not self.parametric:
 						self.env.updateAdaptive()
 					else:
-						self.env.updateMode(self.critic_target, self.v_target)
-						if self.env.mode == 0:
+						t = self.env.updateMode(self.critic_target, self.critic_target_prev, self.v_target)
+						if t == 1:
 							self.target_x_batch = []
 							self.target_y_batch = [] 
-					epi_info_iter_hind = []
-
+							self.update_critic_target()
 				else:			
 					self.update(epi_info_iter) 
 
@@ -582,13 +635,12 @@ class PPO(object):
 
 				epi_info_iter = []
 
-
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 
-		action, _ = self.actor.getAction(state)
-		#action = self.actor.getMeanAction(state)
+		#action, _ = self.actor.getAction(state)
+		action = self.actor.getMeanAction(state)
 
 		return action
 

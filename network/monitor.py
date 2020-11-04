@@ -50,7 +50,7 @@ class Monitor(object):
 
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
-		self.sampler = Sampler(self.sim_env, self.dim_param)
+		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
 
 		self.mode = 0
 		self.mode_counter = 0
@@ -130,7 +130,7 @@ class Monitor(object):
 			self.sim_env.SaveParamSpace()
 			self.sim_env.TrainRegressionNetwork(50, False)
 
-	def updateMode(self, v_func, results):	
+	def updateMode(self, v_func, v_func_prev, results):	
 		self.mode_counter += 1
 
 		if self.mode == 0:
@@ -143,24 +143,31 @@ class Monitor(object):
 					self.exploration_done = True
 		
 			if self.exploration_done or self.mode_counter >= 10:
-				self.sim_env.SaveParamSpace()
+				self.sim_env.SaveParamSpace(-1)
 				self.sim_env.TrainRegressionNetwork(30, False)
 				self.mode = 1
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(False)
 				self.sampler.reset()
 				self.updateGoal()
+
+				return 1
 		else:
 			if self.mode_counter % 5 == 0:
 				self.sim_env.TrainRegressionNetwork(10, False)
-
-			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 20):
+			
+			if not self.exploration_done and self.sampler.isEnough(v_func, results):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(True)
-				self.sim_env.SaveParamSpace()
+				self.sim_env.SaveParamSpace(-1)
+
+				return 0
 			else:
-				self.sampler.update(v_func)
+				self.sampler.update(v_func, v_func_prev)
+		if self.num_evaluation % 100 == 0:
+			self.sim_env.SaveParamSpace(self.num_evaluation)
+		return -1
 
 	def updateExGoal(self, v_func):
 		li = self.sim_env.GetParamGoalCandidate()

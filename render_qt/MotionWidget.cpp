@@ -64,7 +64,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
 	    	mReferenceManager->InitOptimization(1, path);
-	    mReferenceManager->LoadAdaptiveMotion("ref_6");
+	    mReferenceManager->LoadAdaptiveMotion("ref_20");
 	    mDrawReg = true;
 
     } else if(mRunReg) {
@@ -139,8 +139,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	}
     	if(ppo != "") {
     		this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
-			Eigen::VectorXd tp(mReferenceManager->GetParamGoal().rows());
-			tp << 6.5, 220, -3.5;
+			Eigen::VectorXd tp = mReferenceManager->GetParamGoal();
 			mController->SetGoalParameters(tp);
 
     		p::object ppo_main = p::import("ppo");
@@ -351,9 +350,8 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	std::cout << v_param.transpose() << std::endl;
 	if(mRunReg) {
-		Eigen::VectorXd tp(1);
-		tp << v_param(2)*0.1;
-	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
+		Eigen::VectorXd tp = v_param * 0.1;
+	    // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);

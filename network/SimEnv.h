@@ -59,7 +59,7 @@ public:
 	int NeedUpdateGoal();
 	bool NeedParamTraining();
 	void SetExplorationMode(bool t);
-	void SaveParamSpace();
+	void SaveParamSpace(int n);
 	void SaveParamSpaceLog(int n);
 	void SelectNewGoal();
 	

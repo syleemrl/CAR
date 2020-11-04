@@ -269,8 +269,8 @@ SelectNewGoal()
 		for(int i = 0; i < mNumSlaves; i++) {
 			mSlaves[i]->SetGoalParameters(tp);
 		}
-		std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCurrentCPS();
-		//std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		//std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCurrentCPS();
+		std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps);
 	}
 }
@@ -340,7 +340,7 @@ SetExplorationMode(bool t) {
 
 	} else {
 		mReferenceManager->SaveAdaptiveMotion("updated");
-		// mRegressionMemory->SaveGoalInfo(mPath + "goal_log");
+		mRegressionMemory->SaveGoalLog(mPath + "goal_log");
 
 	}
 }
@@ -450,9 +450,11 @@ UniformSampleParam() {
 }
 void
 SimEnv::
-SaveParamSpace() {
+SaveParamSpace(int n) {
 	mRegressionMemory->SaveParamSpace(mPath + "param_space");
-
+	if(n != -1) {
+		mRegressionMemory->SaveParamSpace(mPath + "param_space" + std::to_string(n));
+	}
 }
 void
 SimEnv::

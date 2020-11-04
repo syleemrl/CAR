@@ -105,7 +105,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSFromNearestParams(Eigen::VectorXd p_goal);
 	void SaveLog(std::string path);
 	double GetTrainedRatio() {return (double)mParamActivated.size() / (mParamDeactivated.size() + mParamActivated.size()); }
-	void SaveGoalInfo(std::string path);
+	void SaveGoalLog(std::string path);
 	void EvalExplorationStep();
 	bool SetNextCandidate();
 	std::vector<Eigen::VectorXd> GetCurrentCPS();
@@ -148,6 +148,9 @@ private:
 	std::vector<bool> mGoalExplored;
 	std::vector<double> mGoalProgress;
 	std::vector<double> mGoalReward;
+	std::vector<double> mGoalInit;
+	std::vector<int> mGoalCount;
+	std::vector<int> mGoalUpdate;
 	std::vector<std::vector<Eigen::VectorXd>> mCPSCandidate;
 
 	std::random_device mRD;

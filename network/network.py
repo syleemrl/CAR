@@ -81,7 +81,7 @@ class Critic(object):
 		self.value = self.createNetwork(state, False, None)
 
 		self.state = state
-	def createNetwork(self, state, reuse, is_training):	
+	def createNetwork(self, state, reuse, is_training):
 		with tf.variable_scope(self.scope, reuse=reuse):
 			L1 = tf.layers.dense(state,critic_layer_size,activation=activ,name='L1',
 	            kernel_initializer=kernel_initialize_func,
