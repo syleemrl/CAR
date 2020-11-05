@@ -569,7 +569,6 @@ class PPO(object):
 		state = self.RMS.apply(state)
 		
 		values = self.critic.getValue(state)
-		print(values)
 		#action, _ = self.actor.getAction(state)
 		action = self.actor.getMeanAction(state)
 

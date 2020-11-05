@@ -60,7 +60,7 @@ public:
 	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 	std::vector<double> GetContacts(double t);
 	int GetDOF() {return mDOF; }
-	int GetNumCPS() {return (mKnots.size()+3);}
+	int GetNumCPS() {return mPhaseLength;}
 	std::vector<double> GetKnots() {return mKnots;}
 	void SetExplorationMode(bool on) { mExplorationMode = on; }
 	Eigen::VectorXd GetParamGoal() {return mParamGoal; }

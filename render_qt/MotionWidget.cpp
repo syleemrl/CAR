@@ -64,7 +64,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
 	    	mReferenceManager->InitOptimization(1, path);
-	    mReferenceManager->LoadAdaptiveMotion("ref_6");
+	    mReferenceManager->LoadAdaptiveMotion("ref_0");
 	    mDrawReg = true;
 
     } else if(mRunReg) {

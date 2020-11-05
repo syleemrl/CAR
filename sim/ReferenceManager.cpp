@@ -70,30 +70,18 @@ SaveAdaptiveMotion(std::string postfix) {
 }
 void 
 ReferenceManager::
-LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps) {
+LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 
-	std::vector<Eigen::VectorXd> cps_space;
-	std::vector<Eigen::VectorXd> cps_time;
+	std::vector<Eigen::VectorXd> d_space;
+	std::vector<Eigen::VectorXd> d_time;
 
-	for(int i = 0 ; i < cps.size(); i++) {
-		cps_space.push_back(cps[i].head(cps[i].rows()-1));
-		cps_time.push_back(cps[i].tail(1));
+	for(int i = 0 ; i < displacement.size(); i++) {
+		d_space.push_back(displacement[i].head(displacement[i].rows()-1));
+		d_time.push_back(displacement[i].tail(1));
 	}
-	std::vector<int> nc;
-	nc.push_back(3);
-	nc.push_back(5);
-	DPhy::MultilevelSpline* s = new DPhy::MultilevelSpline(1, mPhaseLength, nc);
-
-	s->SetKnots(0, mKnots);
-	s->SetControlPoints(0, cps_space);
-
-	DPhy::MultilevelSpline* st = new DPhy::MultilevelSpline(1, mPhaseLength);
-	st->SetKnots(0, mKnots);
-	st->SetControlPoints(0, cps_time);
 
 	std::vector<Eigen::VectorXd> newpos;
-	std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
-	this->AddDisplacementToBVH(new_displacement, newpos);
+	this->AddDisplacementToBVH(d_space, newpos);
 	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
 
 	for(int j = 0; j < mPhaseLength; j++) {
@@ -101,14 +89,11 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps) {
 		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
 	}
 
-	std::vector<Eigen::VectorXd> new_displacement_t = st->ConvertSplineToMotion();
 
 	for(int i = 0; i < mPhaseLength; i++) {
-		mTimeStep_adaptive[i] = exp(new_displacement_t[i](0));
+		mTimeStep_adaptive[i] = exp(d_time[i](0));
 	}
 
-	delete s;
-	delete st;
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
@@ -141,45 +126,6 @@ LoadAdaptiveMotion(std::string postfix) {
 		is >> buffer;
 		mTimeStep_adaptive[i] = atof(buffer);
 	}
-	is.close();
-	
-	path = mPath + std::string("cp") + postfix;
-	std::cout << "load Motion from: " << path << std::endl;
-
-	is.open(path);
-	mKnots.clear();
-
-	is >> buffer;
-	int knot_size = atoi(buffer);
-	for(int i = 0; i < knot_size; i++) {	
-		is >> buffer;
-		mKnots.push_back(atoi(buffer));
-	}
-	for(int i = 0; i < knot_size + 3; i++) {	
-		Eigen::VectorXd cps(mDOF);	
-		for(int j = 0; j < mDOF; j++) {
-			is >> buffer;
-			cps[j] = atof(buffer);
-		}
-		mPrevCps[i] = cps;
-	}
-
-	mKnots_t.clear();
-
-	is >> buffer;
-	knot_size = atoi(buffer);
-
-	for(int i = 0; i < knot_size; i++) {	
-		is >> buffer;
-		mKnots_t.push_back(atoi(buffer));
-	}
-	for(int i = 0; i < knot_size + 3; i++) {	
-		Eigen::VectorXd cps_t(1);	
-		is >> buffer;
-		cps_t(0) = atof(buffer);
-		mPrevCps_t[i] = cps_t;
-	}
-
 	is.close();
 
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
@@ -487,18 +433,6 @@ void
 ReferenceManager::
 ResetOptimizationParameters(bool reset_cps) {
 	if(reset_cps) {
-		mPrevCps.clear();
-		for(int i = 0; i < this->mKnots.size() + 3; i++) {
-			mPrevCps.push_back(Eigen::VectorXd::Zero(mDOF));
-	
-			mCPS_exp.push_back(Eigen::VectorXd::Zero(mDOF+1));
-		}
-		
-		mPrevCps_t.clear();
-		for(int i = 0; i < this->mKnots_t.size() + 3; i++) {
-			mPrevCps_t.push_back(Eigen::VectorXd::Zero(1));
-		}
-
 		mTimeStep_adaptive.clear();
 		for(int i = 0; i < mPhaseLength; i++) {
 			mTimeStep_adaptive.push_back(1.0);
@@ -537,36 +471,6 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-
-	// mKnots.push_back(0);
-	// mKnots.push_back(10);
-	// mKnots.push_back(18);
-	// mKnots.push_back(24);
-	// mKnots.push_back(34);
-	// mKnots.push_back(38);
-	// mKnots.push_back(40);
-	// mKnots.push_back(42);
-	// mKnots.push_back(44);
-	// mKnots.push_back(48);
-	// mKnots.push_back(58);
-	// mKnots.push_back(64);
-
-
-	for(int i = 0; i < mPhaseLength; i+= 2) {
-		mKnots.push_back(i);
-	}
-	mKnots_t = mKnots;
-
-	// mParamBVH.resize(5);
-	// mParamBVH << 1, 1, 6.5, 185, -3.5;
-
-	// mParamCur.resize(5);
-	// mParamCur << 1, 1, 6.5, 185, -3.5;
-
-	// mParamGoal.resize(5);
-	// mParamGoal << 1, 1, 6.5, 195, -3.5;
-
-
 	mParamBVH.resize(1);
 	mParamBVH << 185;
 
@@ -597,7 +501,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
-										  paramUnit, mDOF + 1, mKnots.size() + 3);
+										  paramUnit, mDOF + 1, mPhaseLength);
 
 		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 	}
@@ -719,14 +623,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	if(flag[0] == 0)
 		return;
-	mLock.lock();
 
-	std::vector<int> nc;
-	nc.push_back(3);
-	nc.push_back(5);
-
-	MultilevelSpline* s = new MultilevelSpline(1, this->GetPhaseLength());
-	s->SetKnots(0, mKnots);
 
 	double start_phase = std::fmod(data_spline[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;
@@ -734,107 +631,133 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		trajectory.push_back(data_spline[i].first);
 	}
 	trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
-
-	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 	for(int i = 0; i < data_spline.size(); i++) {
 		data_spline[i].first = trajectory[i];
 	}
 
-	this->GetDisplacementWithBVH(data_spline, displacement);
-	s->ConvertMotionToSpline(displacement);
-
-	std::vector<Eigen::VectorXd> newpos;
-	std::vector<Eigen::VectorXd> new_displacement = s->ConvertSplineToMotion();
-	this->AddDisplacementToBVH(new_displacement, newpos);
-
-	nc.clear();
-	nc.push_back(0);
-	MultilevelSpline* st = new MultilevelSpline(1, this->GetPhaseLength());
-	st->SetKnots(0, mKnots_t);
-
-	std::vector<std::pair<Eigen::VectorXd,double>> displacement_t;
-	for(int i = 0; i < data_spline.size(); i++) {
-		double phase = std::fmod(data_spline[i].second, mPhaseLength);
-		if(i < data_spline.size() - 1) {
-			Eigen::VectorXd ts(1);
-			ts << log(data_spline[i+1].second - data_spline[i].second);
-		//	ts << data_spline[i+1].second - data_spline[i].second - 1;
-			displacement_t.push_back(std::pair<Eigen::VectorXd,double>(ts, phase));
-		}
-		else
-			displacement_t.push_back(std::pair<Eigen::VectorXd,double>(Eigen::VectorXd::Zero(1), phase));
-	}
-
-	st->ConvertMotionToSpline(displacement_t);
-
-	double r_slide = 0;
-	std::vector<std::vector<std::pair<bool, Eigen::Vector3d>>> c;
-	for(int i = 0; i < newpos.size(); i++) {
-		c.push_back(this->GetContactInfo(newpos[i]));
-	}
-	for(int i = 1; i < newpos.size(); i++) {
-		if(i < newpos.size() - 1) {
-			for(int j = 0; j < c[i].size(); j++) {
-				if((c[i-1][j].first) && (c[i+1][j].first) && !(c[i][j].first)) 
-					(c[i][j].first) = true;
-			}
-		}
-		std::vector<bool> flag_slide;
-		double r_slide_frame = 0;
-		for(int j = 0; j < c[i].size(); j++) {
-			bool c_prev_j = c[i-1][j].first;
-			bool c_cur_j = c[i][j].first;
-			if(c_prev_j && c_cur_j) {
-				double d = (c[i-1][j].second - c[i][j].second).norm(); 
-				r_slide_frame += pow(d, 2);
-				flag_slide.push_back(true);
-			} 
+	std::vector<std::pair<Eigen::VectorXd,double>> data_uniform;
+	int count = 0;
+	for(int i = 0; i < mPhaseLength; i++) {
+		while(count + 1 < data_spline.size() && i >= data_spline[count+1].second)
+			count += 1;
+		Eigen::VectorXd p(mDOF + 1);
+		if(i < data_spline[count].second) {
+			int size = data_spline.size();
+			double t0 = data_spline[size-1].second - data_spline[size-2].second;
+			double weight = 1.0 - (mPhaseLength + i - data_spline[size-1].second) / (mPhaseLength + data_spline[count].second - data_spline[size-1].second);
+			double t1 = data_spline[count+1].second - data_spline[count].second;
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[size-1].first, data_spline[0].first, weight);
+			double t_blend = (1 - weight) * t0 + weight * t1;
+			p << p_blend, log(t_blend);
+		} else if(count == data_spline.size() - 1 && i > data_spline[count].second) {
+			double t0 = data_spline[count].second - data_spline[count-1].second;
+			double weight = 1.0 - (data_spline[0].second + mPhaseLength - i) / (data_spline[0].second + mPhaseLength - data_spline[count].second);
+			double t1 = data_spline[1].second - data_spline[0].second;
+			
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[count].first, data_spline[0].first, weight);
+			double t_blend = (1 - weight) * t0 + weight * t1;
+			p << p_blend, log(t_blend);
+		} else if(i == data_spline[count].second) {
+			if(count < data_spline.size())
+				p << data_spline[count].first, log(data_spline[count+1].second - data_spline[count].second);
 			else
-				flag_slide.push_back(false);
-		}
-		if((flag_slide[0] || flag_slide[1]) && ( flag_slide[2]|| flag_slide[3]))
-			r_slide += 10 * r_slide_frame;
-		else r_slide += r_slide_frame;
-	}
-	r_slide = exp(-r_slide);
-	auto cps = s->GetControlPoints(0);
-	double r_regul = 0;
-	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+				p << data_spline[count].first, log(data_spline[0].second + mPhaseLength - data_spline[count].second);
 
-	for(int i = 0; i < cps.size(); i++) {
+		} else {
+			double weight = 1.0 - (data_spline[count+1].second - i) / (data_spline[count+1].second - data_spline[count].second);
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[count].first, data_spline[count+1].first, weight);
+			double t_blend;
+			if(count + 2 >= data_spline.size()) {
+				double t0 = data_spline[count+1].second - data_spline[count].second;
+				double t1 = data_spline[1].second - data_spline[0].second;
+				t_blend = (1 - weight) * t0 + weight * t1;
+			} else {
+				double t0 = data_spline[count+1].second - data_spline[count].second;
+				double t1 = data_spline[count+2].second - data_spline[count+1].second;
+				t_blend = (1 - weight) * t0 + weight * t1;
+			}
+			p << p_blend, log(t_blend);
+		}
+		data_uniform.push_back(std::pair<Eigen::VectorXd,double>(p, i));
+	}
+
+	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
+	this->GetDisplacementWithBVH(data_uniform, displacement);
+
+	std::vector<Eigen::VectorXd> d;
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+	double r_regul = 0;
+	for(int i = 0; i < mPhaseLength; i++) {
+		Eigen::VectorXd d_t(mDOF + 1);
+		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
+		d.push_back(d_t);
 		for(int j = 0; j < n_bnodes; j++) {
 			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
 			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
 			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
 			if(dof == 6) {
-				r_regul += 1 * cps[i].segment<3>(idx).norm();
-				r_regul += 5 * cps[i].segment<3>(idx + 3).norm();
+				r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
+				r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
 			} else if (dof == 3) {
-				r_regul += 0.5 * cps[i].segment<3>(idx).norm();
+				r_regul += 0.5 * displacement[i].first.segment<3>(idx).norm();
 			}
 		}
 	}
-	r_regul = exp(-pow(r_regul / cps.size(), 2)*0.1);
 
-	double reward_trajectory = (0.7 * r_regul + 0.3 * r_slide);
+	// double r_slide = 0;
+	// std::vector<std::vector<std::pair<bool, Eigen::Vector3d>>> c;
+	// for(int i = 0; i < newpos.size(); i++) {
+	// 	c.push_back(this->GetContactInfo(newpos[i]));
+	// }
+	// for(int i = 1; i < newpos.size(); i++) {
+	// 	if(i < newpos.size() - 1) {
+	// 		for(int j = 0; j < c[i].size(); j++) {
+	// 			if((c[i-1][j].first) && (c[i+1][j].first) && !(c[i][j].first)) 
+	// 				(c[i][j].first) = true;
+	// 		}
+	// 	}
+	// 	std::vector<bool> flag_slide;
+	// 	double r_slide_frame = 0;
+	// 	for(int j = 0; j < c[i].size(); j++) {
+	// 		bool c_prev_j = c[i-1][j].first;
+	// 		bool c_cur_j = c[i][j].first;
+	// 		if(c_prev_j && c_cur_j) {
+	// 			double d = (c[i-1][j].second - c[i][j].second).norm(); 
+	// 			r_slide_frame += pow(d, 2);
+	// 			flag_slide.push_back(true);
+	// 		} 
+	// 		else
+	// 			flag_slide.push_back(false);
+	// 	}
+	// 	if((flag_slide[0] || flag_slide[1]) && ( flag_slide[2]|| flag_slide[3]))
+	// 		r_slide += 10 * r_slide_frame;
+	// 	else r_slide += r_slide_frame;
+	// }
+	// r_slide = exp(-r_slide);
+	// int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+
+	r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
+	double reward_trajectory = r_regul;
 	// std::cout << r_regul << " " << r_slide << std::endl;
-	auto cps_t = st->GetControlPoints(0);
-	if(isParametric && r_slide > 0.4) {
-		auto cps_t = st->GetControlPoints(0);
+	mLock.lock();
 
-		std::vector<Eigen::VectorXd> cps_tot;
-		for(int i = 0; i < cps.size(); i++) {
-			Eigen::VectorXd cps_temp(cps[0].rows() + 1);
-			cps_temp << cps[i], cps_t[i];
-			cps_tot.push_back(cps_temp);
-		}
+	if(isParametric) {
 		mRegressionMemory->UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
-											(cps_tot, parameters, reward_trajectory));
+											(d, parameters, reward_trajectory));
+
+		// std::string path = mPath + std::string("samples") + std::to_string(nOp);
+
+		// std::ofstream ofs;
+		// ofs.open(path, std::fstream::out | std::fstream::app);
+		// for(auto t: data_spline) {	
+		// 	ofs << t.transpose() << std::endl;
+		// }
+		// for(auto t: d) {	
+		// 	ofs << t.transpose() << " " << r_regul << std::endl;
+		// }
+		// ofs.close();
 	}
 	
-	delete s;
-	delete st;
-
 	mLock.unlock();
 
 

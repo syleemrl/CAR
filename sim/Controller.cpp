@@ -215,10 +215,22 @@ Step()
 		
 		// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
 		// }
-		for(int j = 0; j < 2; j++)
-		{
+	
 			//mCharacter->GetSkeleton()->setForces(torque);
-			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
+		for(int j = 0; j < 2; j++) {
+			// mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
+			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			for(int j = 0; j < num_body_nodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+				double torquelim = mCharacter->GetTorqueLimit(name);
+				double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			
+				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			}
+
+			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 		}
 
@@ -281,7 +293,7 @@ Step()
 
 	if(isAdaptive)
 	{
-		data_spline.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
+		data_spline.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrameOnPhase));
 	}
 
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
@@ -631,7 +643,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
-	else if(mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 2 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
