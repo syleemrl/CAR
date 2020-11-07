@@ -408,16 +408,20 @@ GetParamReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
 		Eigen::Vector3d p;
-		p << 6.5, 185, -3.5;
+		p << 6.5, mParamGoal(0), -3.5;
 		Eigen::VectorXd l_diff = mEnergy - p;
 		l_diff *= 0.1;
 		l_diff(1) *= 2;
 		r_param = exp_of_squared(l_diff, 2);
 
 		if(mRecord) {
-		 	std::cout << mEnergy.transpose() << " " << r_param  << std::endl;
+		 	std::cout << mEnergy.transpose() << " " << l_diff.transpose() << " " << r_param  << std::endl;
 		}
-		mParamCur = mParamGoal;
+		if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
+			mParamCur(0) = -1;
+		} else {
+			mParamCur(0) = mEnergy(1);
+		}
 		mControlFlag[0] = 2;		
 	} 
 	return r_param;
@@ -506,7 +510,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(5 * r_param);
+		mRewardParts.push_back(10 * r_param);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
@@ -654,8 +658,8 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
-	this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
+	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
+	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 
 void

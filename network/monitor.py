@@ -129,45 +129,47 @@ class Monitor(object):
 		if self.mode_counter % 10 == 0:
 			self.env.sim_env.SetExplorationMode(True)
 			self.sim_env.SaveParamSpace()
-			self.sim_env.TrainRegressionNetwork(50)
+			self.sim_env.TrainRegressionNetwork()
 
-	def updateMode(self, v_func, v_func_prev, results, idxs):	
+	def updateMode(self, v_func):
+		mode_change = -1
 		self.mode_counter += 1
 		if self.num_evaluation % 50 == 0:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
-
 		if self.mode == 0:
-			self.sim_env.Optimize()
-
-			if not self.exploration_done:
-				# m:0 -> no m:1 -> yes m:-1 -> no more exploration
-				m = self.sim_env.NeedUpdateGoal()
-				if m == -1:
-					self.exploration_done = True
 			if self.mode_counter % 10 == 0:
 				self.sim_env.SaveParamSpace(-1)
-			if self.exploration_done or self.mode_counter >= 30:
-				self.sim_env.TrainRegressionNetwork(50)
+			if self.mode_counter >= 30:
+				self.sim_env.TrainRegressionNetwork()
 				self.mode = 1
 				self.mode_counter = 0
-				self.sim_env.SetExplorationMode(False)
-				self.sampler.reset()
-
+				self.sampler.reset_visit()
+				mode_change = 1
 		else:
 			if self.mode_counter % 10 == 0:
 				self.sim_env.SaveParamSpace(-1)
-				self.sim_env.TrainRegressionNetwork(10)
-
-			if not self.exploration_done and self.sampler.isEnough(v_func):
+				self.sim_env.TrainRegressionNetwork()
+			enough = self.sampler.isEnough(v_func)
+			if enough and self.sim_env.NeedExploration():
 				self.mode = 0
 				self.mode_counter = 0
-				self.sim_env.SetExplorationMode(True)
-
-		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, self.mode, network=True, idxs=idxs)
-		return self.mode
+				self.sampler.reset_explore()
+				mode_change = 0
+			elif enough and not self.sim_env.NeedExploration():
+				mode_change = 999
+		return mode_change
+	
+	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
+		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
+		if self.mode and not self.sim_env.NeedExploration():
+			self.sim_env.TrainRegressionNetwork()
+			self.mode = 1
+			self.mode_counter = 0
+			self.sampler.reset_visit()
+			self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
 
 	def updateGoal(self, v_func, v_func_prev):
-		t, self.sample_idx = self.sampler.adaptiveSample(self.mode)
+		t, idx = self.sampler.adaptiveSample(self.mode)
 		t = np.array(t, dtype=np.float32) 
 
 		self.sim_env.SetGoalParameters(t, self.mode)
@@ -177,7 +179,7 @@ class Monitor(object):
 		v_prev = v_func_prev.getValue(t)[0]
 
 		print(t[0], v, v - v_prev)
-		return t
+		return idx
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:

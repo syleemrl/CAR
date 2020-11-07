@@ -60,7 +60,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	mExUpdate = 0;
 	isAdaptive = adaptive;
 	isParametric = parametric;
-	mNeedRefUpdate = true;
+	mNeedExploration = true;
 }
 
 //For general properties
@@ -276,7 +276,7 @@ SelectNewGoal()
 }
 void 
 SimEnv::
-TrainRegressionNetwork(int n)
+TrainRegressionNetwork()
 {
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
@@ -292,7 +292,7 @@ TrainRegressionNetwork(int n)
 	l.append(y);
 
 	this->mRegression.attr("setRegressionData")(l);
-	this->mRegression.attr("train")(n);
+	this->mRegression.attr("train")();
 
 }
 void
@@ -346,21 +346,10 @@ SetExplorationMode(bool t) {
 
 	}
 }
-int 
+bool 
 SimEnv::
-NeedUpdateGoal() {
-	if(mRegressionMemory->IsSpaceFullyExplored())
-		return -1;
-
-	if(mReferenceManager->CheckExplorationProgress())
-		return 0;
-
-	// Eigen::VectorXd goal_new = mRegressionMemory->SelectNewParamGoal();
-	// mReferenceManager->SetParamGoal(goal_new);
-	// for(int id = 0; id < mNumSlaves; ++id) {
-	// 	mSlaves[id]->SetGoalParameters(goal_new);
-	// }
-	return 1;
+NeedExploration() {
+	return mNeedExploration;
 }
 bool 
 SimEnv::
@@ -452,7 +441,10 @@ GetParamGoal() {
 np::ndarray 
 SimEnv::
 UniformSample(bool visited) {
-	return DPhy::toNumPyArray(mRegressionMemory->UniformSample(visited));
+	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited);
+	if(!pair.second)
+		mNeedExploration = false;
+	return DPhy::toNumPyArray(pair.first);
 }
 void
 SimEnv::
@@ -519,7 +511,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetDOF",&SimEnv::GetDOF)
 		.def("SetGoalParameters",&SimEnv::SetGoalParameters)
 		.def("SetExGoalParameters",&SimEnv::SetExGoalParameters)
-		.def("NeedUpdateGoal",&SimEnv::NeedUpdateGoal)
+		.def("NeedExploration",&SimEnv::NeedExploration)
 		.def("NeedParamTraining",&SimEnv::NeedParamTraining)
 		.def("SetExplorationMode",&SimEnv::SetExplorationMode)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)

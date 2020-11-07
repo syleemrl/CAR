@@ -34,7 +34,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mRecordLog.clear();
 	mParamNew.clear();
 
-	mNumSamples = 0;
+	mNumSamples = 1;
 	mDim = paramBvh.rows();
 	mDimDOF = nDOF;
 	mNumKnots = nknots;
@@ -57,7 +57,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.2;
+	mRadiusNeighbor = 0.05;
 	mThresholdActivate = 3;
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
@@ -118,6 +118,8 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>
 RegressionMemory::
 GetTrainingData(bool old) {
+	if(old)
+		mNumSamples = 0;
 	std::vector<Eigen::VectorXd> x;
 	std::vector<Eigen::VectorXd> y;
 	std::vector<double> r;
@@ -127,7 +129,6 @@ GetTrainingData(bool old) {
 		for(int i = 0; i < p.size(); i++) {
 			if(old && p[i]->update ) {
 				p[i]->update = false;
-				continue;
 			}
 			for(int j = 0; j < mNumKnots; j++) {
 				Eigen::VectorXd x_elem(mDim + 1);
@@ -136,6 +137,8 @@ GetTrainingData(bool old) {
 				y.push_back((p[i]->cps)[j]);
 			}
 			r.push_back(p[i]->reward);
+			if(old)
+				mNumSamples += 1;
 		} 
 		iter++;
 	}
@@ -202,7 +205,7 @@ bool cmp_pair_param(const std::pair<double, Param*> &p1,
 void
 RegressionMemory::
 LoadParamSpace(std::string path) {
-	mNumSamples = 0;
+	mNumSamples = 1;
 	mRecordLog.clear();
 
 	char buffer[256];
@@ -283,6 +286,7 @@ LoadParamSpace(std::string path) {
 		p->reward = reward;
 		p->update = false;
 		AddMapping(p);
+		mNumSamples += 1;
 	}
 
 	is.close();
@@ -355,10 +359,10 @@ GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radiu
 	range.setZero();
 	Eigen::VectorXd p_n = p - nearest.cwiseProduct(mParamGridUnit);
 	for(int i = 0; i < mDim; i++) { 
-		if(p_n(i) + radius * mParamGridUnit(i) > 0.5 * mParamGridUnit(i) &&
-			p_n(i) - radius * mParamGridUnit(i) < -0.5 * mParamGridUnit(i)) {
+		if((p_n(i) + radius * mParamGridUnit(i) > 0.5 * mParamGridUnit(i)) &&
+			(p_n(i) - radius * mParamGridUnit(i) < -0.5 * mParamGridUnit(i))) {
 			range(i) = 2;
-		} if(p_n(i) + radius * mParamGridUnit(i) > 0.5 * mParamGridUnit(i)) {
+		} else if(p_n(i) + radius * mParamGridUnit(i) > 0.5 * mParamGridUnit(i)) {
 			range(i) = 1;
 		} else if(p_n(i) - radius * mParamGridUnit(i) < -0.5 * mParamGridUnit(i)) {
 			range(i) = -1;
@@ -377,9 +381,9 @@ GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radiu
 				} else {
 					n(i) += 1;
 					vecs.push_back(n);
-
-					n(i) += -1;
+					n(i) += -2;
 					vecs.push_back(n);
+
 				}
 			}
 			for(int j = 0; j < vecs.size(); j++) {
@@ -478,7 +482,6 @@ AddMapping(Eigen::VectorXd nearest, Param* p) {
 		pcube->PutParam(p);
 		mGridMap.insert(std::pair<Eigen::VectorXd, ParamCube* >(nearest, pcube));
 	}
-	mNumSamples += 1;
 }
 double 
 RegressionMemory::
@@ -515,7 +518,6 @@ DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps) {
 		for(int i = 0; i < ps_old.size(); i++) {
 			if(count < ps.size() && IsEqualParam(ps_old[i], ps[count])) {
 				delete ps_old[i];
-				mNumSamples -= 1;
 				count += 1;
 			} else {
 				ps_new.push_back(ps_old[i]);
@@ -537,8 +539,8 @@ RegressionMemory::
 GetDensity(Eigen::VectorXd p, bool old) {
 	double density = 0;
 	double density_gaussian = 0;
-
 	std::vector<Eigen::VectorXd> neighborlist = GetNeighborPointsOnGrid(p, 1);
+
 	for(int j = 0; j < neighborlist.size(); j++) {
 		auto iter = mGridMap.find(neighborlist[j]);
 		if(iter != mGridMap.end()) {
@@ -547,18 +549,19 @@ GetDensity(Eigen::VectorXd p, bool old) {
 				if(old && ps[k]->update) 
 					continue;
 				double d = GetDistanceNorm(p, ps[k]->param_normalized);
+
 				density += 0.1 * std::max(0.0, 1 - d);
-				density_gaussian += 0.1 * exp( - pow(d, 2) * 5);
-	
+				density_gaussian += 0.1 * exp( - pow(d, 2) * 5);	
 			}
 		}
 	}
 	return density_gaussian;
 
 }
-Eigen::VectorXd 
+std::pair<Eigen::VectorXd , bool>
 RegressionMemory::
 UniformSample(bool visited) {
+	int count = 0;
 	while(1) {
 		double r = mUniform(mMT);
 		r = std::floor(r * mGridMap.size());
@@ -573,8 +576,10 @@ UniformSample(bool visited) {
 		r = std::floor(r * params.size());
 		if(r == params.size())
 			r -= 1;
-
+		if(params[r]->update)
+			continue;
 		Eigen::VectorXd p = params[r]->param_normalized;
+
 		Eigen::VectorXd dir(mDim);
 
 		for(int i = 0; i < mDim; i++) {
@@ -590,14 +595,19 @@ UniformSample(bool visited) {
 			} 
 		}
 		double d = GetDensity(p, true);
-
-		if(!visited && d < 0.3 && d >= 0.05) {
-			return Denormalize(p);
+		if(!visited) {
+			if (mNumSamples < 10 && d < 0.3)
+				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
+			else if (mNumSamples >= 10 && d < 0.3 && d >= 0.1)
+				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.35) {
-			return Denormalize(p);
+		if(visited && d > 0.4) {
+			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-
+		count += 1;
+		if(count > 1000) {
+			return std::pair<Eigen::VectorXd, bool>(p, false);
+		}
 	}
 }
 
@@ -903,8 +913,11 @@ SaveContinuousParamSpace(std::string path) {
 double 
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
-	double d = GetDistanceNorm(p, p_goal);
-	return exp(-pow(d, 2)*0.3);
+	Eigen::VectorXd l_diff = p_goal - p;
+	l_diff *= 0.1;
+	double r_param = exp_of_squared(l_diff, 3);
+
+	return r_param;
 }
 void 
 RegressionMemory::
@@ -955,13 +968,13 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 		return mParamBVH->cps;
 	}
 
-	double f_baseline = GetParamReward(Denormalize(mParamBVH->param_normalized), p_goal);
+	double f_baseline = GetParamReward(Denormalize(mParamBVH->param_normalized), p_goal) * 0.7;
 	
 	std::vector<std::pair<double, Param*>> ps_elite;
 	double r = 0;
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
-		double fitness = preward*ps[i].second->reward;
+		double fitness = preward*pow(ps[i].second->reward, 4);
 		if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		} else {

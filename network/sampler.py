@@ -2,7 +2,7 @@ import numpy as np
 import math
 from regression import Regression
 from IPython import embed
-
+from copy import copy
 class Sampler(object):
 	def __init__(self, sim_env, dim, path):
 		self.sim_env = sim_env
@@ -20,6 +20,10 @@ class Sampler(object):
 		self.path = path
 
 		self.start = 0
+		# 0: uniform 1: adaptive 2: ts
+		self.type_visit = 2
+		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling)
+		self.type_explore = 0 
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)
@@ -57,115 +61,150 @@ class Sampler(object):
 		return math.exp(slope) + 1e-10
 
 
-	def updateGoalDistribution(self, v_func, v_func_prev, results, visited, 
-		network=True, idxs=[], m=10, N=1000):
+	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
 		self.start += 1
+		if not visited:
+			self.n_explore += 1
 		self.v_mean_cur = np.array(results).mean()
 		self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
 
 		if visited:
+			if self.type_visit == 0:
+				return
 			self.pool = []
-		else:
-			self.pool_ex = []
-			self.idx_ex = []
-		if network:
 			for i in range(m):
 				x_cur = self.randomSample(visited)
 				for j in range(int(N/m)):
-					if visited:
-						self.pool.append(x_cur)
-					else:
-						self.pool_ex.append(x_cur)
-
+					self.pool.append(x_cur)
 					x_new = self.randomSample(visited)
-					if visited:
-						alpha = min(1.0, self.probAdaptive(v_func, x_new, visited)/self.probAdaptive(v_func, x_cur, visited))
+					if self.type_visit == 1:
+						alpha = min(1.0, self.probAdaptive(v_func, x_new, True)/self.probAdaptive(v_func, x_cur, True))
 					else:
-						alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, visited)/self.probTS(v_func, v_func_prev, x_cur, visited))
+						alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, True)/self.probTS(v_func, v_func_prev, x_cur, True))
 
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
 		else:
-			if visited:
-				print('not supported for visited')
+			if self.type_explore == 0:
 				return
+			self.pool_ex = []
+			self.idx_ex = []
+			if self.type_explore == 1 or self.type_explore == 3:
+				for i in range(m):
+					x_cur = self.randomSample(visited)
+					for j in range(int(N/m)):
+						self.pool_ex.append(x_cur)
+						x_new = self.randomSample(visited)
+						if self.type_explore == 1:
+							alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
+						else:
+							alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, False)/self.probTS(v_func, v_func_prev, x_cur, False))
 
-			v_mean_sample_cur = [0] * len(self.pool_ex)
-			count_sample_cur = [0] * len(self.pool_ex)
-			for i in range(len(results)):
-				v_mean_sample_cur[idxs[i]] += results[i]
-				count_sample_cur[idxs[i]] += 1
-			
-			for i in range(len(self.pool_ex)):
-				self.v_prev_sample[i] = self.v_sample[i]
-				self.v_sample[i] = 0.6 * self.v_mean_sample[i] + 0.4 * v_mean_sample_cur[i] / count_sample_cur[i]
-			print('v prev goals: ', self.v_prev_sample)
-			print('v goals: ', self.v_sample)
+						if np.random.rand() <= alpha:          
+							x_cur = x_new
+			else:
+				if self.n_explore <= 1:
+					return
+				v_mean_sample_cur = [0] * len(self.sample)
+				count_sample_cur = [0] * len(self.sample)
 
-			for i in range(m):
-				t_cur = np.random.randint(len(self.sample))
-				x_cur = self.sample[t_cur]
-				for j in range(int(N/m)):
-					self.pool_ex.append(x_cur)
-					self.idx_ex.append(t_cur)
+				for i in range(len(results)):
+					v_mean_sample_cur[idxs[i]] += results[i]
+					count_sample_cur[idxs[i]] += 1
+				
+				for i in range(len(self.sample)):
+					if count_sample_cur[i] != 0:
+						self.v_prev_sample[i] = copy(self.v_sample[i])
+						self.v_sample[i] = 0.6 * self.v_sample[i] + 0.4 * v_mean_sample_cur[i] / count_sample_cur[i]
 
-					t_new = np.random.randint(len(self.sample))
-					x_new = self.sample[t_new]
-					alpha = min(1.0, self.probAdaptiveSampling(t_new)/self.probAdaptiveSampling(t_cur))
-					# alpha = min(1.0, self.probTSSampling(t_new)/self.probTSSampling(t_cur))
+				print('v prev goals: ', self.v_prev_sample)
+				print('v goals: ', self.v_sample)
 
-					if np.random.rand() <= alpha:          
-						x_cur = x_new
-						t_cur = t_new
+				for i in range(m):
+					t_cur = np.random.randint(len(self.sample))
+					x_cur = self.sample[t_cur]
+					for j in range(int(N/m)):
+						self.pool_ex.append(x_cur)
+						self.idx_ex.append(t_cur)
 
-	def sampleGoals(self, m=10):
-		self.sample = []
-		for i in range(m):
-			self.sample.append(self.randomSample(False))
-		print('new goals: ', self.sample)
+						t_new = np.random.randint(len(self.sample))
+						x_new = self.sample[t_new]
+						if self.type_explore == 2:
+							alpha = min(1.0, self.probAdaptiveSampling(t_new)/self.probAdaptiveSampling(t_cur))
+						else:
+							alpha = min(1.0, self.probTSSampling(t_new)/self.probTSSampling(t_cur))
 
-	def adaptiveSample(self, visited, network=True):
-		if not network:
-			t = np.random.randint(len(self.pool_ex))	
-			target = self.pool_ex[t]
-			idx = idx_ex[t]
-			return target, idx
+						if np.random.rand() <= alpha:          
+							x_cur = x_new
+							t_cur = t_new
+				count = [0] * len(self.sample)
+				for i in range(len(self.idx_ex)):
+					count[self.idx_ex[i]] += 1
+				print(count)
 
-		if self.random or self.start < 10:
-			return self.randomSample(visited), -1
-		if visited and (self.n_iter % 5) == 0:
-			return self.randomSample(visited), -1
+	def adaptiveSample(self, visited):
+		if visited:
+			if self.random_start:
+				return self.randomSample(visited), -1
 
-		if visited and len(self.pool) != 0:
-			t = np.random.randint(len(self.pool))
-			target = self.pool[t] 
-		elif not visited and len(self.pool_ex) != 0:
-			t = np.random.randint(len(self.pool_ex))
-			target = self.pool_ex[t]
+			if self.type_visit == 0:
+				return self.randomSample(visited), -1
+			else:
+				t = np.random.randint(len(self.pool))
+				target = self.pool[t] 
+			return target, t
 		else:
-			return self.randomSample(visited), -1
+			if self.type_explore == 0:
+				return self.randomSample(visited), -1
+			elif self.type_explore == 1 or self.type_explore == 3:
+				if self.start < 5:
+					return self.randomSample(visited), -1
+				t = np.random.randint(len(self.pool_ex))
+				target = self.pool_ex[t]
+				return target, t 
+			else:
+				if self.n_explore < 3:
+					t = np.random.randint(len(self.sample))	
+					target = self.sample[t]
+					idx = t
+				else:
+					t = np.random.randint(len(self.pool_ex))	
+					target = self.pool_ex[t]
+					idx = self.idx_ex[t]
+				return target, idx
 
-		return target, t
-
-	def reset(self):
+	def reset_visit(self):
 		self.n_iter = 0
-		self.random = True
+		self.random_start = True
 		self.v_mean == 0
 		self.n_learning += 1
 
+	def sampleGoals(self, m=5):
+		self.sample = []
+		self.v_sample = []
+		for i in range(m):
+			self.sample.append(self.randomSample(False))
+			self.v_sample.append(1.0)
+		self.v_prev_sample = copy(self.v_sample)
+		print('new goals: ', self.sample)
+
+	def reset_explore(self):
+		if self.type_explore == 2 or self.type_explore == 4:
+			self.sampleGoals()
+		self.n_explore = 0
+
 	def isEnough(self, v_func):
 		
-		self.random = False
+		self.random_start = False
 
 		print("===========================================")
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.n_iter % 5 == 0:
-			self.printSummary(v_func)
-
-		if self.n_iter >= 5 and (self.v_mean >= 3.75 or self.v_mean_cur > 3.75):
-			return True
+		if self.n_iter % 5 == 4:
+			m , bm, tm = self.printSummary(v_func)
+			if m > 6:
+				return True
 
 		self.n_iter += 1
 		self.total_iter += 1
@@ -198,3 +237,4 @@ class Sampler(object):
 			out.write(str(vs_mean_bottom)+'\n')
 			out.write(str(vs_mean_top)+'\n')
 			out.close()
+		return vs_mean, vs_mean_bottom, vs_mean_top

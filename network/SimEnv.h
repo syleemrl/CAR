@@ -49,14 +49,14 @@ public:
 	bool Optimize();
 	void LoadAdaptiveMotion();
 	
-	void TrainRegressionNetwork(int n);
+	void TrainRegressionNetwork();
 
 	double GetPhaseLength();
 	int GetDOF();
 	
 	void SetGoalParameters(np::ndarray np_array, bool visited);
 	void SetExGoalParameters(p::list p);
-	int NeedUpdateGoal();
+	bool NeedExploration();
 	bool NeedParamTraining();
 	void SetExplorationMode(bool t);
 	void SaveParamSpace(int n);
@@ -74,7 +74,7 @@ private:
 	int mNumState;
 	int mNumAction;
 	bool isAdaptive;
-	bool mNeedRefUpdate;
+	bool mNeedExploration;
 	bool isParametric;
 	
 	p::object mRegression;

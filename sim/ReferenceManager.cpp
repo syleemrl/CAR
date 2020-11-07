@@ -470,14 +470,14 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-	mParamBVH.resize(2);
-	mParamBVH << 1, 1;
+	mParamBVH.resize(1);
+	mParamBVH << 185;
 
-	mParamCur.resize(2);
-	mParamCur << 1, 1;
+	mParamCur.resize(1);
+	mParamCur << 185;
 
-	mParamGoal.resize(2);
-	mParamGoal << 0.9, 1;
+	mParamGoal.resize(1);
+	mParamGoal << 185;
 
 	if(adaptive) {
 		// Eigen::VectorXd paramUnit(5);
@@ -489,14 +489,14 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		// mParamEnd.resize(5);
 		// mParamEnd << 1, 1.5, 6.5, 250, -3.5;
 
-		Eigen::VectorXd paramUnit(2);
-		paramUnit << 0.1, 0.1;
+		Eigen::VectorXd paramUnit(1);
+		paramUnit << 10;
 
-		mParamBase.resize(2);
-		mParamBase << 0.5, 0.5;
+		mParamBase.resize(1);
+		mParamBase << 150;
 
-		mParamEnd.resize(2);
-		mParamEnd << 1.5, 2;
+		mParamEnd.resize(1);
+		mParamEnd << 250;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -620,7 +620,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	else {
 		flag.push_back(1);
 	}
-	if(flag[0] == 0 || std::get<1>(rewards) < 0.8)
+	if(flag[0] == 0)
 		return;
 	double start_phase = std::fmod(data_spline[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;

@@ -145,11 +145,17 @@ class Regression(object):
 			print(s)
 
 
-	def train(self, n):
+	def train(self):
 		self.lossvals = []
 		lossval_reg = 0
-
-		for it in range(self.steps_per_iteration * n):
+		lossval_reg_prev = 1e8
+		epsilon_count = 0
+		n_iteration = 0
+		while epsilon_count < 2:
+			n_iteration += 1
+			lossval_reg_prev = lossval_reg
+			lossval_reg = 0
+		# for it in range(self.steps_per_iteration * n):
 			if int(len(self.regression_x) // self.batch_size) == 0:
 
 				val = self.sess.run([self.regression_train_op, self.loss_regression], 
@@ -174,7 +180,10 @@ class Regression(object):
 						}
 					)
 					lossval_reg += val[1]
-		self.lossvals.append(['loss regression', lossval_reg / (self.steps_per_iteration * n)])
+			if abs(lossval_reg_prev - lossval_reg) < 1e-5:
+				epsilon_count += 1
+		self.lossvals.append(['num iteration', n_iteration])
+		self.lossvals.append(['loss regression', lossval_reg])
 
 		self.printNetworkSummary()
 		self.save()

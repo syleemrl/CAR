@@ -192,6 +192,7 @@ class PPO(object):
 			if self.parametric:
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
+				self.critic_target_prev2, _, _ = self.createCriticNetwork(name+'_target_prev2', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -203,7 +204,7 @@ class PPO(object):
 		
 		self.sess.run(tf.global_variables_initializer())
 
-	def updateCriticTarget(self):
+	def updateCriticTarget(self, update_all=False):
 		copy_op = []
 
 		cur_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target')
@@ -212,6 +213,13 @@ class PPO(object):
 		for cur_var, prev_var in zip(cur_vars, prev_vars):
 			copy_op.append(prev_var.assign(cur_var.value()))
 		self.sess.run(copy_op)
+
+		if update_all:
+			prev_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target_prev2')
+
+			for cur_var, prev_var in zip(cur_vars, prev_vars):
+				copy_op.append(prev_var.assign(cur_var.value()))
+			self.sess.run(copy_op)
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -278,7 +286,7 @@ class PPO(object):
 				GAE_batch.append(advantages[i])
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
-	def updateAdaptive(self, tuples, param_training=0):
+	def updateAdaptive(self, tuples):
 		state_batch, state_target_batch, action_batch, \
 		TD_batch, TD_target_batch, \
 		neglogp_batch, GAE_batch = self.computeTDandGAEAdaptive(tuples)
@@ -418,7 +426,6 @@ class PPO(object):
 		
 		self.v_target = TD_target_batch
 		self.idx_target = idx_batch
-
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
 			   np.array(TD_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
@@ -489,9 +496,9 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		#self.env.updateExGoal(self.critic_target)
-		#self.env.sim_env.SetExplorationMode(True)
+
 		update_counter = 0
+		self.env.sampler.reset_explore()
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -502,7 +509,6 @@ class PPO(object):
 			epi_info = [[] for _ in range(self.num_slaves)]	
 			if self.adaptive:
 				p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
-
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -542,19 +548,24 @@ class PPO(object):
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
 				update_counter += 1
 				if self.adaptive:
-					if not self.env.mode and update_counter >= 5:
-						self.updateCriticTarget()
+					if not self.env.mode and update_counter >= 3:
+						self.updateCriticTarget(False)
 						update_counter = 0
+					self.updateAdaptive(epi_info_iter)
 
-					self.updateAdaptive(epi_info_iter, self.env.mode)
-
+					t = self.env.updateMode(self.critic_target)
+					if t == 0:
+						self.updateCriticTarget(True)
+						update_counter = 0
+					if t == 999:
+						break
 					if not self.parametric:
 						self.env.updateAdaptive()
 					else:
-						self.env.updateMode(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
 						if self.env.mode:
-							self.target_x_batch = []
-							self.target_y_batch = [] 
+							self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+						else:
+							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
 
 					epi_info_iter_hind = []
 
