@@ -191,6 +191,7 @@ class PPO(object):
 
 			if self.parametric:
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
+				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -201,6 +202,16 @@ class PPO(object):
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		self.sess.run(tf.global_variables_initializer())
+
+	def updateCriticTarget(self):
+		copy_op = []
+
+		cur_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target')
+		prev_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target_prev')
+
+		for cur_var, prev_var in zip(cur_vars, prev_vars):
+			copy_op.append(prev_var.assign(cur_var.value()))
+		self.sess.run(copy_op)
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -267,7 +278,6 @@ class PPO(object):
 				GAE_batch.append(advantages[i])
 		return np.array(state_batch), np.array(action_batch), np.array(TD_batch), np.array(neglogp_batch), np.array(GAE_batch)
 
-
 	def updateAdaptive(self, tuples, param_training=0):
 		state_batch, state_target_batch, action_batch, \
 		TD_batch, TD_target_batch, \
@@ -306,32 +316,29 @@ class PPO(object):
 		self.lossvals.append(['loss actor', lossval_ac])
 		self.lossvals.append(['loss critic', lossval_c])
 		
-		if param_training:
-			if len(self.target_x_batch) == 0:
-				self.target_x_batch = state_target_batch
-				self.target_y_batch = TD_target_batch
-			else:
-				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
-				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
+		if len(self.target_x_batch) == 0:
+			self.target_x_batch = state_target_batch
+			self.target_y_batch = TD_target_batch
+		else:
+			self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
+			self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
-				if len(self.target_x_batch) > 5000:
-					self.target_x_batch = self.target_x_batch[-2000:]
-					self.target_y_batch = self.target_y_batch[-2000:]
-			for n in range(50):
-				ind = np.arange(len(self.target_x_batch))
-				np.random.shuffle(ind)
-				for s in range(int(len(ind)//self.batch_size_target)):
-					selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
-					val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
-						feed_dict={
-							self.state_target: self.target_x_batch[selectedIndex], 
-							self.TD_target: self.target_y_batch[selectedIndex]
-						}
-					)
-					lossval_ct += val[1]
-			self.lossvals.append(['loss critic target', lossval_ct / 50])
-
-		self.v_target = TD_target_batch
+			if len(self.target_x_batch) > 5000:
+				self.target_x_batch = self.target_x_batch[-2000:]
+				self.target_y_batch = self.target_y_batch[-2000:]
+		for n in range(50):
+			ind = np.arange(len(self.target_x_batch))
+			np.random.shuffle(ind)
+			for s in range(int(len(ind)//self.batch_size_target)):
+				selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
+				val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
+					feed_dict={
+						self.state_target: self.target_x_batch[selectedIndex], 
+						self.TD_target: self.target_y_batch[selectedIndex]
+					}
+				)
+				lossval_ct += val[1]
+		self.lossvals.append(['loss critic target', lossval_ct / 50])
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
@@ -341,11 +348,11 @@ class PPO(object):
 		TD_target_batch = []
 		neglogp_batch = []
 		GAE_batch = []
-	
+		idx_batch = []
 
 		for data in tuples:
 			# get values
-			states, actions, rewards, values, neglogprobs, times, param = zip(*data)
+			states, actions, rewards, values, neglogprobs, times, param, idx = zip(*data)
 
 			if len(times) == self.env.phaselength * 6 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
@@ -360,6 +367,7 @@ class PPO(object):
 					neglogprobs = neglogprobs[:count+1]
 					times = times[:count+1]
 					param = param[:count+1]
+					idx = idx[:count+1]
 
 			size = len(times)		
 
@@ -382,21 +390,21 @@ class PPO(object):
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
 
-				if i != size - 1 and rewards[i+1][1] != 0:
-					delta += pow(self.gamma, 30 - times[i]) * rewards[i+1][1]
+				if rewards[i][1] != 0:
+					delta += rewards[i][1]
 
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
-				TD_t_dense = t * rewards[i][0] + pow(self.gamma_sparse, timestep) * TD_t_dense
-				TD_t_sparse = rewards[i][1] + pow(self.gamma_sparse, timestep) * TD_t_sparse
+				TD_t_dense = rewards[i][0] + TD_t_dense
+				TD_t_sparse = rewards[i][1] + TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-
+					idx_batch.append(idx[i])
 					state_target_batch.append(param[i])
-					TD_target_batch.append(0.1 * TD_t_dense + TD_t_sparse)
+					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + TD_t_sparse)
 
-					# TD_t_dense = 0
+					TD_t_dense = 0
 					TD_t_sparse = 0
 
 			TD = values[:size] + advantages
@@ -407,6 +415,9 @@ class PPO(object):
 				TD_batch.append(TD[i])
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages[i])
+		
+		self.v_target = TD_target_batch
+		self.idx_target = idx_batch
 
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
 			   np.array(TD_batch), np.array(TD_target_batch), \
@@ -480,7 +491,7 @@ class PPO(object):
 		epi_info_iter_hind = []
 		#self.env.updateExGoal(self.critic_target)
 		#self.env.sim_env.SetExplorationMode(True)
-
+		update_counter = 0
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -489,14 +500,15 @@ class PPO(object):
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
-			if self.parametric and self.env.mode == 0:
-				self.env.sim_env.SelectNewGoal()
+			if self.adaptive:
+				p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
 
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
+
 				values = self.critic.getValue(states)
-							
+
 				rewards, dones, times, params = self.env.step(actions)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
@@ -504,7 +516,7 @@ class PPO(object):
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
-							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j]])
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], p_idx])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
@@ -527,19 +539,23 @@ class PPO(object):
 				states = self.env.getStates()
 			print('')
 
-			if self.adaptive and self.env.mode:
-				self.env.updateGoal()
-
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
+				update_counter += 1
 				if self.adaptive:
+					if not self.env.mode and update_counter >= 5:
+						self.updateCriticTarget()
+						update_counter = 0
+
 					self.updateAdaptive(epi_info_iter, self.env.mode)
+
 					if not self.parametric:
 						self.env.updateAdaptive()
 					else:
-						self.env.updateMode(self.critic_target, self.v_target)
-						if self.env.mode == 0:
+						self.env.updateMode(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+						if self.env.mode:
 							self.target_x_batch = []
 							self.target_y_batch = [] 
+
 					epi_info_iter_hind = []
 
 				else:			

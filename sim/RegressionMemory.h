@@ -62,10 +62,10 @@ public:
 	RegressionMemory();
 	void InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::VectorXd> paramSpace , Eigen::VectorXd paramUnit, 
 						double nDOF, double nknots);
-	void SaveParamSpace(std::string path);
+	void SaveParamSpace(std::string path, bool old);
 	void LoadParamSpace(std::string path);
 
-	Eigen::VectorXd UniformSample(int n=2);
+	Eigen::VectorXd UniformSample(bool visited);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
 	void SelectNewParamGoalCandidate();
 
@@ -74,13 +74,13 @@ public:
 	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps);
 
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
-	double GetDensity(Eigen::VectorXd p);
+	double GetDensity(Eigen::VectorXd p, bool old=false);
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
 	Eigen::VectorXd GetNearestActivatedParam(Eigen::VectorXd p);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborParams(Eigen::VectorXd p);
-	std::vector<std::pair<double, Param*>> GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor=false);
+	std::vector<std::pair<double, Param*>> GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor=false, bool old=false);
 
 	Eigen::VectorXd Normalize(Eigen::VectorXd p);
 	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
@@ -98,7 +98,7 @@ public:
 	void ResetExploration();
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
-			   std::vector<double>> GetTrainingData(bool update=false);
+			   std::vector<double>> GetTrainingData(bool old=false);
 	int GetTimeFromLastUpdate() { return mTimeFromLastUpdate; }
 
 	double GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal);
@@ -148,6 +148,7 @@ private:
 	std::vector<bool> mGoalExplored;
 	std::vector<double> mGoalProgress;
 	std::vector<double> mGoalReward;
+	std::vector<int> mGoalUpdate;
 	std::vector<std::vector<Eigen::VectorXd>> mCPSCandidate;
 
 	std::random_device mRD;

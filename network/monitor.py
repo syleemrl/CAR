@@ -50,7 +50,7 @@ class Monitor(object):
 
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
-		self.sampler = Sampler(self.sim_env, self.dim_param)
+		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
 
 		self.mode = 0
 		self.mode_counter = 0
@@ -123,15 +123,18 @@ class Monitor(object):
 			self.prevframes = curframes
 
 		return rewards, dones, curframes, params
+
 	def updateAdaptive(self):
 		self.mode_counter += 1
 		if self.mode_counter % 10 == 0:
 			self.env.sim_env.SetExplorationMode(True)
 			self.sim_env.SaveParamSpace()
-			self.sim_env.TrainRegressionNetwork(50, False)
+			self.sim_env.TrainRegressionNetwork(50)
 
-	def updateMode(self, v_func, results):	
+	def updateMode(self, v_func, v_func_prev, results, idxs):	
 		self.mode_counter += 1
+		if self.num_evaluation % 50 == 0:
+			self.sim_env.SaveParamSpace(self.num_evaluation)
 
 		if self.mode == 0:
 			self.sim_env.Optimize()
@@ -141,38 +144,40 @@ class Monitor(object):
 				m = self.sim_env.NeedUpdateGoal()
 				if m == -1:
 					self.exploration_done = True
-		
-			if self.exploration_done or self.mode_counter >= 10:
-				self.sim_env.SaveParamSpace()
-				self.sim_env.TrainRegressionNetwork(30, False)
+			if self.mode_counter % 10 == 0:
+				self.sim_env.SaveParamSpace(-1)
+			if self.exploration_done or self.mode_counter >= 30:
+				self.sim_env.TrainRegressionNetwork(50)
 				self.mode = 1
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(False)
 				self.sampler.reset()
-				self.updateGoal()
-		else:
-			if self.mode_counter % 5 == 0:
-				self.sim_env.TrainRegressionNetwork(10, False)
 
-			if not self.exploration_done and (self.sampler.isEnough(results) or self.mode_counter >= 20):
+		else:
+			if self.mode_counter % 10 == 0:
+				self.sim_env.SaveParamSpace(-1)
+				self.sim_env.TrainRegressionNetwork(10)
+
+			if not self.exploration_done and self.sampler.isEnough(v_func):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sim_env.SetExplorationMode(True)
-				self.sim_env.SaveParamSpace()
-			else:
-				self.sampler.update(v_func)
 
-	def updateExGoal(self, v_func):
-		li = self.sim_env.GetParamGoalCandidate()
-		goal = self.sampler.selectExGoalParameter(li, v_func)
-		self.sim_env.SetExGoalParameters(goal)
+		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, self.mode, network=True, idxs=idxs)
+		return self.mode
 
-	def updateGoal(self):		
-		t = self.sampler.adaptiveSample()
+	def updateGoal(self, v_func, v_func_prev):
+		t, self.sample_idx = self.sampler.adaptiveSample(self.mode)
 		t = np.array(t, dtype=np.float32) 
-		
-		self.sim_env.SetGoalParameters(t)
 
+		self.sim_env.SetGoalParameters(t, self.mode)
+		
+		t = np.reshape(t, (-1, self.dim_param))
+		v = v_func.getValue(t)[0]
+		v_prev = v_func_prev.getValue(t)[0]
+
+		print(t[0], v, v - v_prev)
+		return t
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:

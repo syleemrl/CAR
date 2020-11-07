@@ -64,7 +64,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
 	    	mReferenceManager->InitOptimization(1, path);
-	    mReferenceManager->LoadAdaptiveMotion("ref_0");
+	    mReferenceManager->LoadAdaptiveMotion("ref_59");
 	    mDrawReg = true;
 
     } else if(mRunReg) {
@@ -139,9 +139,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	}
     	if(ppo != "") {
     		this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
-			Eigen::VectorXd tp(mReferenceManager->GetParamGoal().rows());
-			tp << 6.5, 220, -3.5;
-			mController->SetGoalParameters(tp);
+			mController->SetGoalParameters(mReferenceManager->GetParamCur());
 
     		p::object ppo_main = p::import("ppo");
 			this->mPPO = ppo_main.attr("PPO")();
@@ -344,8 +342,8 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	std::cout << v_param.transpose() << std::endl;
 	if(mRunReg) {
-		Eigen::VectorXd tp(1);
-		tp << v_param(2)*0.1;
+		Eigen::VectorXd tp(2);
+		tp << v_param(0)*0.1, v_param(1)*0.1;
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
@@ -421,8 +419,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
-		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    mReferenceManager->LoadAdaptiveMotion(cps);
+		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    // mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}

@@ -24,7 +24,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		}
 
 		mReferenceManager->InitOptimization(num_slaves, training_path, adaptive);
-		mReferenceManager->LoadAdaptiveMotion();
+		mReferenceManager->LoadAdaptiveMotion("ref_5");
 
 		mRegressionMemory->LoadParamSpace(mPath + "param_space");
 		
@@ -276,11 +276,11 @@ SelectNewGoal()
 }
 void 
 SimEnv::
-TrainRegressionNetwork(int n, bool update)
+TrainRegressionNetwork(int n)
 {
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
-			   std::vector<double>> x_y_z = mRegressionMemory->GetTrainingData(update);
+			   std::vector<double>> x_y_z = mRegressionMemory->GetTrainingData();
 	if(std::get<0>(x_y_z).size() == 0)
 		return;
 
@@ -326,10 +326,12 @@ SetExplorationMode(bool t) {
 			mSlaves[id]->SetGoalParameters(tp);
 			// mSlaves[id]->SetExplorationMode(true);
 		}
-		if(isParametric) {
-			mRegressionMemory->SelectNewParamGoalCandidate();
-			mRegressionMemory->ResetExploration();
-		} else if(isAdaptive) {
+		// if(isParametric) {
+		// 	mRegressionMemory->SelectNewParamGoalCandidate();
+		// 	mRegressionMemory->ResetExploration();
+		// } else 
+
+		if(isAdaptive) {
 			mReferenceManager->OptimizeExReference();
 			mReferenceManager->SelectReference();
 
@@ -367,7 +369,7 @@ NeedParamTraining() {
 }
 void 
 SimEnv::
-SetGoalParameters(np::ndarray np_array) {
+SetGoalParameters(np::ndarray np_array, bool visited) {
 
 	int dim = mRegressionMemory->GetDim();
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
@@ -375,12 +377,16 @@ SetGoalParameters(np::ndarray np_array) {
 	int dof = mReferenceManager->GetDOF() + 1;
 	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(dof_input);
-		input << j, tp_normalized;
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps.push_back(DPhy::toEigenVector(na, dof));
+	if(visited) {
+		for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+			Eigen::VectorXd input(dof_input);
+			input << j, tp_normalized;
+			p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+			np::ndarray na = np::from_object(a);
+			cps.push_back(DPhy::toEigenVector(na, dof));
+		}
+	} else {
+		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 	}
 
 	mReferenceManager->LoadAdaptiveMotion(cps);
@@ -445,14 +451,17 @@ GetParamGoal() {
 }
 np::ndarray 
 SimEnv::
-UniformSampleParam() {
-	return DPhy::toNumPyArray(mRegressionMemory->UniformSample());
+UniformSample(bool visited) {
+	return DPhy::toNumPyArray(mRegressionMemory->UniformSample(visited));
 }
 void
 SimEnv::
-SaveParamSpace() {
-	mRegressionMemory->SaveParamSpace(mPath + "param_space");
-
+SaveParamSpace(int n) {
+	if(n != -1) {
+		mRegressionMemory->SaveParamSpace(mPath + "param_space" + std::to_string(n), false);
+	} else {
+		mRegressionMemory->SaveParamSpace(mPath + "param_space", true);
+	}
 }
 void
 SimEnv::
@@ -502,7 +511,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetRewards",&SimEnv::GetRewards)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts)
 		.def("GetParamGoal",&SimEnv::GetParamGoal)
-		.def("UniformSampleParam",&SimEnv::UniformSampleParam)
+		.def("UniformSample",&SimEnv::UniformSample)
 		.def("Optimize",&SimEnv::Optimize)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)

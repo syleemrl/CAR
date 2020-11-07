@@ -346,7 +346,6 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 				skel->computeForwardKinematics(true,false,false);
 				pos = solveMCIKRoot(skel, constraints);
 				pos(4) = p_phase[phase]->GetPosition()(4);
-				
 				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 			} else {
 				pos = p_phase[phase]->GetPosition();
@@ -471,14 +470,14 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-	mParamBVH.resize(1);
-	mParamBVH << 185;
+	mParamBVH.resize(2);
+	mParamBVH << 1, 1;
 
-	mParamCur.resize(1);
-	mParamCur << 185;
+	mParamCur.resize(2);
+	mParamCur << 1, 1;
 
-	mParamGoal.resize(1);
-	mParamGoal << 300;
+	mParamGoal.resize(2);
+	mParamGoal << 0.9, 1;
 
 	if(adaptive) {
 		// Eigen::VectorXd paramUnit(5);
@@ -490,18 +489,19 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		// mParamEnd.resize(5);
 		// mParamEnd << 1, 1.5, 6.5, 250, -3.5;
 
-		Eigen::VectorXd paramUnit(1);
-		paramUnit<< 10;
+		Eigen::VectorXd paramUnit(2);
+		paramUnit << 0.1, 0.1;
 
-		mParamBase.resize(1);
-		mParamBase << 185;
+		mParamBase.resize(2);
+		mParamBase << 0.5, 0.5;
 
-		mParamEnd.resize(1);
-		mParamEnd << 300;
+		mParamEnd.resize(2);
+		mParamEnd << 1.5, 2;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
+
 
 		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 	}
@@ -620,11 +620,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	else {
 		flag.push_back(1);
 	}
-
-	if(flag[0] == 0)
+	if(flag[0] == 0 || std::get<1>(rewards) < 0.8)
 		return;
-
-
 	double start_phase = std::fmod(data_spline[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;
 	for(int i = 0; i < data_spline.size(); i++) {
@@ -699,7 +696,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 				r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
 				r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
 			} else if (dof == 3) {
-				r_regul += 0.5 * displacement[i].first.segment<3>(idx).norm();
+				r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
 			}
 		}
 	}

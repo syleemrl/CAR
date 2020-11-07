@@ -44,22 +44,22 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 	np::ndarray GetParamGoal();
-	np::ndarray UniformSampleParam();
+	np::ndarray UniformSample(bool visited);
 
 	bool Optimize();
 	void LoadAdaptiveMotion();
 	
-	void TrainRegressionNetwork(int n, bool update=false);
+	void TrainRegressionNetwork(int n);
 
 	double GetPhaseLength();
 	int GetDOF();
 	
-	void SetGoalParameters(np::ndarray np_array);
+	void SetGoalParameters(np::ndarray np_array, bool visited);
 	void SetExGoalParameters(p::list p);
 	int NeedUpdateGoal();
 	bool NeedParamTraining();
 	void SetExplorationMode(bool t);
-	void SaveParamSpace();
+	void SaveParamSpace(int n);
 	void SaveParamSpaceLog(int n);
 	void SelectNewGoal();
 	

@@ -147,7 +147,7 @@ Step()
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
-	// mAdaptiveStep = 0;
+	//mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -178,59 +178,26 @@ Step()
 
 	}
 
-	// set pd gain action
-	// Eigen::VectorXd kp(mCharacter->GetSkeleton()->getNumDofs()), kv(mCharacter->GetSkeleton()->getNumDofs());
-	// kp.setZero();
-
-	// for(int i = 1; i <= num_body_nodes; i++){
-	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-	// 	int dof = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getNumDofs();
-	// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-	// 	if(name.compare("Spine")==0){
-	// 		kp.segment<3>(idx) = Eigen::Vector3d::Constant(1000);
-	// 	}
-	// 	else{
-	// 		if(dof == 3)
-	// 			kp.segment<3>(idx) = Eigen::Vector3d::Constant(500);
-	// 		else
-	// 			kp(idx) = 500;
-	// 	}
-	// }
-
-	// // KV_RATIO from CharacterConfiguration.h
-	// kv = KV_RATIO * kp;
-	// mCharacter->SetPDParameters(kp, kv);
 	Eigen::VectorXd torque;
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
 	
 	for(int i = 0; i < this->mSimPerCon; i += 2){
-		// torque = mCharacter->GetSPDForces(mPDTargetPositions, mPDTargetVelocities);
-		// for(int j = 0; j < num_body_nodes; j++) {
-		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-		// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-		// 	double torquelim = mCharacter->GetTorqueLimit(name);
-		// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
-		
-		// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-		// }
-	
-			//mCharacter->GetSkeleton()->setForces(torque);
-		for(int j = 0; j < 2; j++) {
-			// mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			for(int j = 0; j < num_body_nodes; j++) {
-				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-				double torquelim = mCharacter->GetTorqueLimit(name);
-				double torque_norm = torque.block(idx, 0, dof, 1).norm();
-			
-				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			}
 
-			mCharacter->GetSkeleton()->setForces(torque);
+		for(int j = 0; j < 2; j++) {
+			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
+			//Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			// for(int j = 0; j < num_body_nodes; j++) {
+			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			// 	double torquelim = mCharacter->GetTorqueLimit(name);
+			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			
+			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			// }
+
+			//mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 		}
 
@@ -439,22 +406,18 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 30 && mControlFlag[0] == 1) {
+	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
 		Eigen::Vector3d p;
-		p << 6.5, mParamGoal(0), -3.5;
+		p << 6.5, 185, -3.5;
 		Eigen::VectorXd l_diff = mEnergy - p;
-		l_diff *= 0.01;
-		r_param = exp_of_squared(l_diff, 0.8);
-
-		mParamCur(0) = mEnergy(1);
-		if(abs(p(2) - p(2)) > 10)
-			mParamCur(0) = -1;
-		else if(abs(p(0) - p(0)) > 10)
-			mParamCur(0) = -1;
+		l_diff *= 0.1;
+		l_diff(1) *= 2;
+		r_param = exp_of_squared(l_diff, 2);
 
 		if(mRecord) {
 		 	std::cout << mEnergy.transpose() << " " << r_param  << std::endl;
 		}
+		mParamCur = mParamGoal;
 		mControlFlag[0] = 2;		
 	} 
 	return r_param;
@@ -531,6 +494,11 @@ UpdateAdaptiveReward()
 	double r_time = exp(-pow(time_diff, 2)*50);
 
 	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
+	
+	tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
+								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
+	accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
+
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -538,7 +506,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_param);
+		mRewardParts.push_back(5 * r_param);
 		mRewardParts.push_back(tracking_rewards_bvh[0]);
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
@@ -552,7 +520,6 @@ UpdateAdaptiveReward()
 		}
 	}
 	mTrackingRewardTrajectory += r_tot;
-
 	mTWRewardTrajectory += r_con;
 	mCountTracking += 1;
 }
@@ -565,7 +532,7 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mActions[mInterestedDof],2)*50);
+	double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
@@ -639,11 +606,11 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(!mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(!mRecord && mCurrentFrame > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
-	else if(mRecord && nTotalSteps > mReferenceManager->GetPhaseLength()* 2 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mRecord && mCurrentFrame > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -687,8 +654,8 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
-	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
+	this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
+	this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 
 void
@@ -746,25 +713,6 @@ Reset(bool RSI)
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
-
-	// } else if(isAdaptive && mRecord) {
-	// 	mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
-	// 	Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
-	// 	root_new = DPhy::projectToXZ(root_new);
-	// 	Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-	// 	Eigen::Vector3d goal_hand = aa * mParamGoal.segment<3>(0) + mHeadRoot.segment<3>(3);
-	// 	goal_hand(1) = mParamGoal(1);
-
-	// 	Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
-	// 	p_obj.setZero();
-	// 	p_obj(1) = M_PI;
-	// 	p_obj.segment<3>(3) = Eigen::Vector3d(goal_hand(0), 0.0, goal_hand(2) + 0.4);
-
-	// 	mObject->GetSkeleton()->setPositions(p_obj);
-	// 	mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	// 	mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	// 	mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
-	// }
 
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
