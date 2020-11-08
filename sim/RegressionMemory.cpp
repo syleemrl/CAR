@@ -57,7 +57,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.05;
+	mRadiusNeighbor = 0.3;
 	mThresholdActivate = 3;
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
@@ -595,12 +595,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (mNumSamples < 10 && d < 0.3 && (p - mParamBVH->param_normalized).norm() >= 1e-5)
-				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
-			else if (mNumSamples >= 10 && d < 0.3 && d >= 0.1 && (p - mParamBVH->param_normalized).norm() >= 1e-5)
+			if (mNumSamples < 10 && d < 0.15)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.4) {
+		if(visited && d > 0.3) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -683,7 +681,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		p->param_normalized = candidate_scaled;
 		p->reward = std::get<2>(candidate);
 		p->cps = std::get<0>(candidate);
-		p->update = true;
+		p->update = false;
+
+	//	p->update = true;
 
 	 	AddMapping(nearest, p);
 	//	mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
@@ -912,9 +912,26 @@ SaveContinuousParamSpace(std::string path) {
 double 
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
-	Eigen::VectorXd l_diff = p_goal - p;
-	l_diff *= 0.1;
-	double r_param = exp_of_squared(l_diff, 2);
+	Eigen::VectorXd headRoot(6);
+	headRoot << -1.77697, -1.73886, 0.793543, 0.00431308, 0.820601, -0.000182682;
+
+	Eigen::Vector3d root_new = headRoot.segment<3>(0);
+	root_new = projectToXZ(root_new);
+	Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+	Eigen::Vector3d dir = Eigen::Vector3d(p(0), 0, - sqrt(1 - p(0)*p(0)));
+	dir *= p(2);
+	Eigen::Vector3d p_hand = aa * dir;
+	p_hand(1) = p(1);
+
+	dir = Eigen::Vector3d(p_goal(0), 0, - sqrt(1 - p_goal(0)*p_goal(0)));
+	dir *= p_goal(2);
+	Eigen::Vector3d goal_hand = aa * dir;
+	goal_hand(1) = p_goal(1);
+
+	Eigen::Vector3d hand_diff = goal_hand - p_hand;
+	double v_diff = p_goal(3) - p(3);
+	
+	double 	r_param = exp_of_squared(hand_diff,0.1) * exp(-pow(v_diff, 2)*150);
 
 	return r_param;
 }

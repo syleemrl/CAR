@@ -80,7 +80,6 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
 	
 	void UpdateAdaptiveReward();
-	void UpdateRewardTrajectory();
 	double GetParamReward();
 	double GetSimilarityReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
@@ -179,14 +178,14 @@ protected:
 	int mCountParam;
 	int mCountTracking;
 
-	Eigen::Vector3d mEnergy;
 	Eigen::Vector3d mGravity;
 	double mMass;
-	double mPrevVelocity;
-	double mVelocity;
 
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
+
+	double maxSpeedObj;
+	Eigen::Vector3d mHandPosition;
 
 };
 }
