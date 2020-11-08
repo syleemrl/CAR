@@ -145,7 +145,7 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
 	//mAdaptiveStep = 0;
 
@@ -155,8 +155,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	if(mRecord)
-		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	// if(mRecord)
+	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -448,8 +448,8 @@ GetSimilarityReward()
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx) *= 5;
-			p_diff.segment<3>(idx + 3) *= 10;	
+			p_diff.segment<3>(idx) *= 2;
+			p_diff.segment<3>(idx + 3) *= 5;	
 		}
 	}
 	double r_p = exp_of_squared(p_diff,0.4);
@@ -470,7 +470,7 @@ GetParamReward()
 		r_param = exp_of_squared(l_diff, 1.5);
 
 		if(mRecord) {
-		 	std::cout << mEnergy.transpose() << " " << l_diff.transpose() << " " << r_param  << std::endl;
+		 	std::cout << mEnergy(1) << " " << mParamGoal(0) << " " << r_param  << std::endl;
 		}
 		if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
 			mParamCur(0) = -1;
