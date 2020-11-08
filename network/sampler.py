@@ -13,7 +13,6 @@ class Sampler(object):
 
 		self.k = 10
 		self.k_ex = 10
-		self.n_iter = 0
 
 		self.total_iter = 0
 		self.n_learning = 0
@@ -63,8 +62,11 @@ class Sampler(object):
 
 	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
 		self.start += 1
-		if not visited:
+		if visited:
+			self.n_visit += 1
+		else:
 			self.n_explore += 1
+			
 		self.v_mean_cur = np.array(results).mean()
 		self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
 
@@ -120,31 +122,25 @@ class Sampler(object):
 				print('v prev goals: ', self.v_prev_sample)
 				print('v goals: ', self.v_sample)
 
-				for i in range(m):
-					t_cur = np.random.randint(len(self.sample))
-					x_cur = self.sample[t_cur]
-					for j in range(int(N/m)):
-						self.pool_ex.append(x_cur)
-						self.idx_ex.append(t_cur)
-
-						t_new = np.random.randint(len(self.sample))
-						x_new = self.sample[t_new]
-						if self.type_explore == 2:
-							alpha = min(1.0, self.probAdaptiveSampling(t_new)/self.probAdaptiveSampling(t_cur))
-						else:
-							alpha = min(1.0, self.probTSSampling(t_new)/self.probTSSampling(t_cur))
-
-						if np.random.rand() <= alpha:          
-							x_cur = x_new
-							t_cur = t_new
-				count = [0] * len(self.sample)
-				for i in range(len(self.idx_ex)):
-					count[self.idx_ex[i]] += 1
-				print(count)
+				prob = []
+				for i in range(len(self.sample)):
+					if self.type_explore == 2:
+						prob.append(self.probAdaptiveSampling(i))
+					else:
+						prob.append(self.probTSSampling(i))
+				prob_mean = np.array(prob).mean()
+				
+				self.bound_sample = []
+				for i in range(len(self.sample)):
+					if i == 0:
+						self.bound_sample.append(prob[i] / prob_mean)
+					else:
+						self.bound_sample.append(self.bound_sample[-1] + prob[i] / prob_mean)
+				print(self.bound_sample)
 
 	def adaptiveSample(self, visited):
 		if visited:
-			if self.random_start:
+			if self.random_start or self.n_visit % 5 == 4:
 				return self.randomSample(visited), -1
 
 			if self.type_visit == 0:
@@ -168,16 +164,17 @@ class Sampler(object):
 					target = self.sample[t]
 					idx = t
 				else:
-					t = np.random.randint(len(self.pool_ex))	
-					target = self.pool_ex[t]
-					idx = self.idx_ex[t]
+					t = np.random.rand()	
+					for i in range(len(self.bound_sample)):
+						if t <= self.bound_sample[i]:
+							target = self.sample[i]
+							idx = i
 				return target, idx
 
 	def reset_visit(self):
-		self.n_iter = 0
 		self.random_start = True
-		self.v_mean == 0
-		self.n_learning += 1
+		self.v_mean = 0
+		self.n_visit = 0
 
 	def sampleGoals(self, m=5):
 		self.sample = []
@@ -201,12 +198,13 @@ class Sampler(object):
 		print("mean reward : ", self.v_mean)
 		print("===========================================")
 
-		if self.n_iter % 5 == 4:
-			m , bm, tm = self.printSummary(v_func)
-			if m > 6:
+		if self.n_visit % 5 == 4:
+			self.printSummary(v_func)
+			if self.v_mean_cur > 6:
 				return True
+		if self.v_mean > 6 :
+			return True
 
-		self.n_iter += 1
 		self.total_iter += 1
 		return False
 

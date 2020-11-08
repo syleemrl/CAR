@@ -563,9 +563,9 @@ class PPO(object):
 						self.env.updateAdaptive()
 					else:
 						if self.env.mode:
-							self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
-						else:
 							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
+						else:
+							self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
 
 					epi_info_iter_hind = []
 

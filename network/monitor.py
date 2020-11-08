@@ -139,7 +139,7 @@ class Monitor(object):
 		if self.mode == 0:
 			if self.mode_counter % 10 == 0:
 				self.sim_env.SaveParamSpace(-1)
-			if self.mode_counter >= 30:
+			if self.mode_counter >= 10000:
 				self.sim_env.TrainRegressionNetwork()
 				self.mode = 1
 				self.mode_counter = 0
@@ -161,7 +161,7 @@ class Monitor(object):
 	
 	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
 		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
-		if self.mode and not self.sim_env.NeedExploration():
+		if not self.mode and not self.sim_env.NeedExploration():
 			self.sim_env.TrainRegressionNetwork()
 			self.mode = 1
 			self.mode_counter = 0

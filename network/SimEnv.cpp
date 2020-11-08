@@ -265,7 +265,6 @@ SelectNewGoal()
 
 	if(t) {
 		Eigen::VectorXd tp =mRegressionMemory->GetParamGoal();
-		std::cout << tp.transpose() << std::endl;
 		for(int i = 0; i < mNumSlaves; i++) {
 			mSlaves[i]->SetGoalParameters(tp);
 		}

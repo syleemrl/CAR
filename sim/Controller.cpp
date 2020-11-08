@@ -144,7 +144,7 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2)-1) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
 	//mAdaptiveStep = 0;
@@ -499,10 +499,12 @@ UpdateAdaptiveReward()
 
 	double r_tot = 0.8 * accum_bvh + 0.1 * r_con + 0.1 * r_time;
 	
-	tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
+	Eigen::VectorXd pos_bvh = mReferenceManager->GetPosition(mCurrentFrame, false);
+	tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), pos_bvh,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
+	r_tot = 0.9 * r_tot + 0.1 * accum_bvh;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
