@@ -496,7 +496,6 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		self.env.sim_env.TrainRegressionNetwork()
 
 		update_counter = 0
 		self.env.sampler.reset_explore()

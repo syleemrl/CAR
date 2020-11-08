@@ -11,7 +11,7 @@ class Sampler(object):
 		self.v_mean = 0
 		self.random = True
 
-		self.k = 10
+		self.k = 5
 		self.k_ex = 10
 
 		self.total_iter = 0
@@ -22,7 +22,7 @@ class Sampler(object):
 		# 0: uniform 1: adaptive 2: ts
 		self.type_visit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling)
-		self.type_explore = 4
+		self.type_explore = 0
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)
@@ -205,9 +205,9 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.v_mean_cur > 1.4:
+			if self.v_mean_cur > 1.25:
 				return True
-		if self.v_mean > 1.5:
+		if self.v_mean > 1.25:
 			return True
 
 		self.total_iter += 1

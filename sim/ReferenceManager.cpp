@@ -538,41 +538,6 @@ GetContacts(double t)
 	}
 	return result;
 }
-std::vector<std::pair<bool, Eigen::Vector3d>> 
-ReferenceManager::
-GetContactInfo(Eigen::VectorXd pos) 
-{
-	auto& skel = this->mCharacter->GetSkeleton();
-	Eigen::VectorXd p_save = skel->getPositions();
-	Eigen::VectorXd v_save = skel->getVelocities();
-	
-	skel->setPositions(pos);
-	skel->computeForwardKinematics(true,false,false);
-
-	std::vector<std::string> contact;
-	contact.clear();
-	contact.push_back("RightFoot");
-	contact.push_back("RightToe");
-	contact.push_back("LeftFoot");
-	contact.push_back("LeftToe");
-
-	std::vector<std::pair<bool, Eigen::Vector3d>> result;
-	result.clear();
-	for(int i = 0; i < contact.size(); i++) {
-		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
-		if(p[1] < 0.07) {
-			result.push_back(std::pair<bool, Eigen::Vector3d>(true, p));
-		} else {
-			result.push_back(std::pair<bool, Eigen::Vector3d>(false, p));
-		}
-	}
-
-	skel->setPositions(p_save);
-	skel->setVelocities(v_save);
-	skel->computeForwardKinematics(true,true,false);
-
-	return result;
-}
 double 
 ReferenceManager::
 GetTimeStep(double t, bool adaptive) {
@@ -683,59 +648,26 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	std::vector<Eigen::VectorXd> d;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-	double r_regul = 0;
-	for(int i = 0; i < mPhaseLength; i++) {
-		Eigen::VectorXd d_t(mDOF + 1);
-		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
-		d.push_back(d_t);
-		for(int j = 0; j < n_bnodes; j++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			if(dof == 6) {
-				r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
-				r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
-			} else if (dof == 3) {
-				r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
-			}
-		}
-	}
-
-	// double r_slide = 0;
-	// std::vector<std::vector<std::pair<bool, Eigen::Vector3d>>> c;
-	// for(int i = 0; i < newpos.size(); i++) {
-	// 	c.push_back(this->GetContactInfo(newpos[i]));
-	// }
-	// for(int i = 1; i < newpos.size(); i++) {
-	// 	if(i < newpos.size() - 1) {
-	// 		for(int j = 0; j < c[i].size(); j++) {
-	// 			if((c[i-1][j].first) && (c[i+1][j].first) && !(c[i][j].first)) 
-	// 				(c[i][j].first) = true;
+	// double r_regul = 0;
+	// for(int i = 0; i < mPhaseLength; i++) {
+	// 	Eigen::VectorXd d_t(mDOF + 1);
+	// 	d_t << displacement[i].first, data_uniform[i].first.tail<1>();
+	// 	d.push_back(d_t);
+	// 	for(int j = 0; j < n_bnodes; j++) {
+	// 		int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+	// 		int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+	// 		std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+	// 		if(dof == 6) {
+	// 			r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
+	// 			r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
+	// 		} else if (dof == 3) {
+	// 			r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
 	// 		}
 	// 	}
-	// 	std::vector<bool> flag_slide;
-	// 	double r_slide_frame = 0;
-	// 	for(int j = 0; j < c[i].size(); j++) {
-	// 		bool c_prev_j = c[i-1][j].first;
-	// 		bool c_cur_j = c[i][j].first;
-	// 		if(c_prev_j && c_cur_j) {
-	// 			double d = (c[i-1][j].second - c[i][j].second).norm(); 
-	// 			r_slide_frame += pow(d, 2);
-	// 			flag_slide.push_back(true);
-	// 		} 
-	// 		else
-	// 			flag_slide.push_back(false);
-	// 	}
-	// 	if((flag_slide[0] || flag_slide[1]) && ( flag_slide[2]|| flag_slide[3]))
-	// 		r_slide += 10 * r_slide_frame;
-	// 	else r_slide += r_slide_frame;
 	// }
-	// r_slide = exp(-r_slide);
-	// int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 
-	r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
-	double reward_trajectory = r_regul;
-	// std::cout << r_regul << " " << r_slide << std::endl;
+	// r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
+	double reward_trajectory = std::get<2>(rewards);
 	mLock.lock();
 
 	if(isParametric) {
