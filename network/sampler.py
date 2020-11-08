@@ -20,9 +20,9 @@ class Sampler(object):
 
 		self.start = 0
 		# 0: uniform 1: adaptive 2: ts
-		self.type_visit = 2
+		self.type_visit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling)
-		self.type_explore = 0 
+		self.type_explore = 4
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)
@@ -128,7 +128,7 @@ class Sampler(object):
 						prob.append(self.probAdaptiveSampling(i))
 					else:
 						prob.append(self.probTSSampling(i))
-				prob_mean = np.array(prob).mean()
+				prob_mean = np.array(prob).mean() * len(self.sample)
 				
 				self.bound_sample = []
 				for i in range(len(self.sample)):
@@ -140,7 +140,7 @@ class Sampler(object):
 
 	def adaptiveSample(self, visited):
 		if visited:
-			if self.random_start or self.n_visit % 5 == 4:
+			if self.n_explore < 2 or self.n_visit % 5 == 4:
 				return self.randomSample(visited), -1
 
 			if self.type_visit == 0:
@@ -159,16 +159,21 @@ class Sampler(object):
 				target = self.pool_ex[t]
 				return target, t 
 			else:
-				if self.n_explore < 3:
+				if self.n_explore < 2:
 					t = np.random.randint(len(self.sample))	
 					target = self.sample[t]
 					idx = t
 				else:
-					t = np.random.rand()	
+					t = np.random.rand()
+					idx = -1	
 					for i in range(len(self.bound_sample)):
 						if t <= self.bound_sample[i]:
 							target = self.sample[i]
 							idx = i
+							break
+					if idx == -1:
+						idx = len(self.bound_sample) - 1
+						target = self.sample[idx]
 				return target, idx
 
 	def reset_visit(self):
@@ -200,9 +205,9 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.v_mean_cur > 6:
+			if self.v_mean_cur > 1.4:
 				return True
-		if self.v_mean > 6 :
+		if self.v_mean > 1.5:
 			return True
 
 		self.total_iter += 1

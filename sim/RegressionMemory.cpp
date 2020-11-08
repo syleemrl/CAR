@@ -579,7 +579,6 @@ UniformSample(bool visited) {
 		if(params[r]->update)
 			continue;
 		Eigen::VectorXd p = params[r]->param_normalized;
-
 		Eigen::VectorXd dir(mDim);
 
 		for(int i = 0; i < mDim; i++) {
@@ -596,16 +595,16 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (mNumSamples < 10 && d < 0.3)
+			if (mNumSamples < 10 && d < 0.3 && (p - mParamBVH->param_normalized).norm() >= 1e-5)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
-			else if (mNumSamples >= 10 && d < 0.3 && d >= 0.1)
+			else if (mNumSamples >= 10 && d < 0.3 && d >= 0.1 && (p - mParamBVH->param_normalized).norm() >= 1e-5)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		if(visited && d > 0.4) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
-		if(count > 1000) {
+		if(!visited && count > pow(100, mDim)) {
 			return std::pair<Eigen::VectorXd, bool>(p, false);
 		}
 	}

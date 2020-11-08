@@ -410,7 +410,7 @@ class PPO(object):
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
 					idx_batch.append(idx[i])
 					state_target_batch.append(param[i])
-					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + TD_t_sparse)
+					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
 
 					TD_t_dense = 0
 					TD_t_sparse = 0
@@ -496,6 +496,7 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
+		self.env.sim_env.TrainRegressionNetwork()
 
 		update_counter = 0
 		self.env.sampler.reset_explore()

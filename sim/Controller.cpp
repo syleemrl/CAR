@@ -155,8 +155,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	if(mRecord)
-		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	// if(mRecord)
+	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -412,7 +412,7 @@ GetParamReward()
 		Eigen::VectorXd l_diff = mEnergy - p;
 		l_diff *= 0.1;
 		l_diff(1) *= 2;
-		r_param = exp_of_squared(l_diff, 2);
+		r_param = exp_of_squared(l_diff, 1.5);
 
 		if(mRecord) {
 		 	std::cout << mEnergy.transpose() << " " << l_diff.transpose() << " " << r_param  << std::endl;
