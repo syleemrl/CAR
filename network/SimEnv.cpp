@@ -441,8 +441,10 @@ np::ndarray
 SimEnv::
 UniformSample(bool visited) {
 	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited);
-	if(!pair.second)
+	if(!pair.second) {
+		std::cout << "exploration done" << std::endl;
 		mNeedExploration = false;
+	}
 	return DPhy::toNumPyArray(pair.first);
 }
 void

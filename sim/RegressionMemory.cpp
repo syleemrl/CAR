@@ -604,7 +604,7 @@ UniformSample(bool visited) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
-		if(!visited && count > pow(100, mDim)) {
+		if(!visited && count > 10000) {
 			return std::pair<Eigen::VectorXd, bool>(p, false);
 		}
 	}

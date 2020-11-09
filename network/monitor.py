@@ -140,7 +140,7 @@ class Monitor(object):
 			if self.mode_counter % 10 == 0:
 				self.sim_env.SaveParamSpace(-1)
 				self.sampler.reset_explore()
-			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
+			if self.mode_counter >= 20 or not self.sim_env.NeedExploration() or self.num_evaluation < 2:
 				self.sim_env.TrainRegressionNetwork()
 				self.mode = 1
 				self.mode_counter = 0
@@ -158,6 +158,7 @@ class Monitor(object):
 				mode_change = 0
 			elif enough and not self.sim_env.NeedExploration():
 				mode_change = 999
+				print("training done")
 		return mode_change
 	
 	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
