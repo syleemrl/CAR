@@ -497,7 +497,7 @@ UpdateAdaptiveReward()
 	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
-
+	std::cout << mCurrentFrameOnPhase << " "<< time_diff << " " << r_time <<std::endl;
 	double r_tot = 0.8 * r_tracking + 0.2 * r_similarity;
 
 	mRewardParts.clear();
