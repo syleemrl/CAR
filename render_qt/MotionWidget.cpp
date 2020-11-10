@@ -246,8 +246,8 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	std::cout << v_param.transpose() << std::endl;
 	if(mRunReg) {
-		Eigen::VectorXd tp(1);
-		tp << v_param(0)*0.1;
+		Eigen::VectorXd tp(mRegressionMemory->GetDim());
+		tp = v_param*0.1;
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;

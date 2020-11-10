@@ -11,7 +11,7 @@ ReferenceManager::ReferenceManager(Character* character)
 :mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	mCharacter = character;
-	mBlendingInterval = 10;
+	mBlendingInterval = 3;
 	
 	mMotions_gen.clear();
 	mMotions_raw.clear();
@@ -94,7 +94,7 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
 	}
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -359,9 +359,9 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 			p_gen.back()->SetVelocity(vel);
 			p_gen.push_back(new Motion(pos, vel));
 
-			if(blend && phase == 0) {
-				for(int j = mBlendingInterval; j > 0; j--) {
-					double weight = 1.0 - j / (double)(mBlendingInterval+1);
+			if(blend && phase == mBlendingInterval) {
+				for(int j = 2 * mBlendingInterval - 1; j > 0; j--) {
+					double weight = 1.0 - j / (double)(2 * mBlendingInterval);
 					Eigen::VectorXd oldPos = p_gen[i - j]->GetPosition();
 					p_gen[i - j]->SetPosition(DPhy::BlendPosition(oldPos, pos, weight));
 					vel = skel->getPositionDifferences(p_gen[i - j]->GetPosition(), p_gen[i - j - 1]->GetPosition()) / 0.033;
@@ -466,28 +466,28 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mPath = save_path;
 	
 
-	mThresholdTracking = 0.87;
+	mThresholdTracking = 0.85;
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-		mParamBVH.resize(4);
-	mParamBVH << 0.707107, 1.3, 1.2, 0.36;
+	mParamBVH.resize(4);
+	mParamBVH << 0.707107, 1.3, 1.2, 0.4;
 
 	mParamCur.resize(4);
-	mParamCur << 0.707107, 1.3, 1.2, 0.36;
+	mParamCur << 0.707107, 1.3, 1.2, 0.4;
 
 	mParamGoal.resize(4);
-	mParamGoal << 0.707107, 1.3, 1.2, 0.36;
+	mParamGoal << 0.707107, 1.3, 1.2, 0.4;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.1, 0.1;
+		paramUnit<< 0.1, 0.1, 0.1, 0.2;
 
 		mParamBase.resize(4);
-		mParamBase << 0.2, 1.1, 0.8, 0.1;
+		mParamBase << 0.2, 1.1, 0.8, 0.2;
 
 		mParamEnd.resize(4);
-		mParamEnd << 0.8, 1.4, 1.2, 0.6;
+		mParamEnd << 0.8, 1.4, 1.2, 1.0;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -639,43 +639,37 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	std::vector<Eigen::VectorXd> d;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-	// double r_regul = 0;
-	// for(int i = 0; i < mPhaseLength; i++) {
-	// 	Eigen::VectorXd d_t(mDOF + 1);
-	// 	d_t << displacement[i].first, data_uniform[i].first.tail<1>();
-	// 	d.push_back(d_t);
-	// 	for(int j = 0; j < n_bnodes; j++) {
-	// 		int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-	// 		int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-	// 		std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-	// 		if(dof == 6) {
-	// 			r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
-	// 			r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
-	// 		} else if (dof == 3) {
-	// 			r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
-	// 		}
-	// 	}
-	// }
+	double r_regul = 0;
+	for(int i = 0; i < mPhaseLength; i++) {
+		Eigen::VectorXd d_t(mDOF + 1);
+		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
+		d.push_back(d_t);
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			if(dof == 6) {
+				r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
+				r_regul += 1 * displacement[i].first.segment<3>(idx + 3).norm();
+			} else if(b_name.find("RightShoulder") != std::string::npos || 
+				   b_name.find("RightArm") != std::string::npos ||
+				   b_name.find("RightForeArm") != std::string::npos ||
+				   b_name.find("RightHand") != std::string::npos) {
+					r_regul += 2 * displacement[i].first.segment<3>(idx).norm();
+			} else {
+				r_regul += 0.5 * displacement[i].first.segment<3>(idx).norm();
+			}
+		}
+	}
 
-	// r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
-	double reward_trajectory = std::get<2>(rewards);
+	r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
+	double reward_trajectory = std::get<2>(rewards) * r_regul;
 	mLock.lock();
 
 	if(isParametric) {
 		mRegressionMemory->UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
 											(d, parameters, reward_trajectory));
 
-		// std::string path = mPath + std::string("samples") + std::to_string(nOp);
-
-		// std::ofstream ofs;
-		// ofs.open(path, std::fstream::out | std::fstream::app);
-		// for(auto t: data_spline) {	
-		// 	ofs << t.transpose() << std::endl;
-		// }
-		// for(auto t: d) {	
-		// 	ofs << t.transpose() << " " << r_regul << std::endl;
-		// }
-		// ofs.close();
 	}
 	
 	mLock.unlock();
@@ -744,17 +738,12 @@ OptimizeExReference(){
 void 
 ReferenceManager::
 SelectReference(){
-	// double r = mRegressionMemory->GetTrainedRatio();
-	// if(r < 0.1) {
-	// 	LoadAdaptiveMotion(mCPS_exp);
-	// } else {
-	// 	r = std::min(r * 1.5, 0.8);
-	// 	if(mUniform(mMT) < r) {
-	// 		LoadAdaptiveMotion(mCPS_reg);
-	// 	} else {
-			LoadAdaptiveMotion(mCPS_exp);
-	// 	}
-	// }
+	double r = 0.4;
+	if(mUniform(mMT) < r) {
+		LoadAdaptiveMotion(mCPS_reg);
+	} else {
+		LoadAdaptiveMotion(mCPS_exp);
+	}
 }
 bool
 ReferenceManager::

@@ -180,9 +180,10 @@ class Regression(object):
 						}
 					)
 					lossval_reg += val[1]
-			if abs(lossval_reg_prev - lossval_reg) < 1e-5:
+			print(lossval_reg)
+			if abs(lossval_reg_prev - lossval_reg) < 1e-4:
 				epsilon_count += 1
-			if n_iteration > 1000:
+			if n_iteration > 50:
 				break
 		self.lossvals.append(['num iteration', n_iteration])
 		self.lossvals.append(['loss regression', lossval_reg])

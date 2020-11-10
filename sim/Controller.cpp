@@ -144,10 +144,10 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*2)-1) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*0.25)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
-	mAdaptiveStep = 0;
+	// mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -155,8 +155,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	if(mRecord)
-		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	// if(mRecord)
+	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -468,8 +468,17 @@ Controller::
 GetSimilarityReward()
 {
 	auto& skel = this->mCharacter->GetSkeleton();
-	Eigen::VectorXd pos = mReferenceManager->GetPosition(mCurrentFrame, false);
-	
+	Eigen::VectorXd pos_prev;
+	if(mCurrentFrame < 1)
+		pos_prev = mReferenceManager->GetPosition(mCurrentFrame + 1, false);
+	else
+		pos_prev = mReferenceManager->GetPosition(mCurrentFrame - 1, false);
+
+	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	Eigen::VectorXd pos = p_v_target->GetPosition();
+	Eigen::VectorXd vel = mCharacter->GetSkeleton()->getPositionDifferences(pos, pos_prev) / 0.033;
+	delete p_v_target;
+
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 	double con_diff = 0;
@@ -482,17 +491,25 @@ GetSimilarityReward()
 	double r_con = exp(-con_diff);
 
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(pos, skel->getPositions());
-	int num_body_nodes = skel->getNumBodyNodes();
-	for(int i = 0; i < num_body_nodes; i++) {
-		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx) *= 5;
-			p_diff.segment<3>(idx + 3) *= 10;	
-		}
-	}
+	Eigen::VectorXd v_diff = skel->getVelocityDifferences(vel, skel->getVelocities());
+
+	// int num_body_nodes = skel->getNumBodyNodes();
+	// for(int i = 0; i < num_body_nodes; i++) {
+	// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
+	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+	// 	if(name.compare("Hips") == 0 ) {
+	// 		p_diff.segment<3>(idx) *= 2;
+	// 		p_diff.segment<3>(idx + 3) *= 5;
+
+	// 		v_diff.segment<3>(idx) *= 2;
+	// 		v_diff.segment<3>(idx + 3) *= 5;
+	// 	}
+	// }
+
 	double r_p = exp_of_squared(p_diff,0.4);
-	return 0.6 * r_con + 0.4 * r_p;
+	double r_v = exp_of_squared(v_diff,3);
+
+	return r_con;
 }
 double 
 Controller::
@@ -525,7 +542,7 @@ GetParamReward()
 
 		if(mRecord) {
 			std::cout << hand_diff.transpose() << " "<< exp_of_squared(hand_diff, 0.4)  << " "<< exp_of_squared(hand_diff,0.1) << std::endl;
-			std::cout << maxSpeedObj << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*150) << std::endl;
+			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*150) << std::endl;
 		}
 	}
 	return r_param;
@@ -541,13 +558,13 @@ UpdateAdaptiveReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
 	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
-	double r_time = exp(-pow(time_diff, 2)*50);
+	double r_time = exp(-pow(time_diff, 2)*75);
 
-	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
+	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
 
-	double r_tot = 0.8 * r_tracking + 0.2 * r_similarity;
+	double r_tot = r_tracking;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -569,7 +586,7 @@ UpdateAdaptiveReward()
 		}
 	}
 	mTWRewardTrajectory += r_similarity;
-	mTrackingRewardTrajectory += r_tot;
+	mTrackingRewardTrajectory += accum_bvh;
 	mCountTracking += 1;
 }
 void
@@ -756,9 +773,22 @@ Reset(bool RSI)
 
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
+	
+	if(isAdaptive) {
+		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
+		p_obj.setZero();
+		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
+		mObject->GetSkeleton()->setPositions(p_obj);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,true,true);
+	}
+
 	ClearRecord();
 	SaveStepInfo();
-
+	mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+	mCountHead += 1;
+	
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 	
@@ -907,7 +937,6 @@ GetState()
 	for(int i = 1; i < n_bnodes; i++){
 		Eigen::Isometry3d transform = skel->getBodyNode(i)->getRelativeTransform();
 		// Eigen::Quaterniond q(transform.linear());
-		//	ret.segment<6>(6*i) << rot, transform.translation();
 		p.segment<6>(6*(i-1)) << transform.linear()(0,0), transform.linear()(0,1), transform.linear()(0,2),
 								 transform.linear()(1,0), transform.linear()(1,1), transform.linear()(1,2);
 	}
