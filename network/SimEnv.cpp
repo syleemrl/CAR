@@ -373,6 +373,10 @@ SetGoalParameters(np::ndarray np_array, bool visited) {
 			np::ndarray na = np::from_object(a);
 			cps.push_back(DPhy::toEigenVector(na, dof));
 		}
+		mReferenceManager->SetCPSreg(cps);
+		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		mReferenceManager->SetCPSexp(cps);
+		mReferenceManager->SelectReference();
 	} else {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 	}

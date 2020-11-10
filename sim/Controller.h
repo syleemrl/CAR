@@ -107,6 +107,7 @@ protected:
 	double mParamRewardTrajectory;
 	double mTrackingRewardTrajectory;
 	double mTWRewardTrajectory;
+	double mTWRewardTrajectory2;
 
 	Character* mCharacter;
 	Character* mObject;
@@ -158,7 +159,15 @@ protected:
 
 	int terminationReason;
 
-	Eigen::VectorXd mPrevPositions;
+	Eigen::VectorXd mTlPrev;
+	Eigen::VectorXd mTlPrev2;
+
+	// Eigen::VectorXd mTlPrev_BVH;
+	// Eigen::VectorXd mTlPrev2_BVH;
+
+	double mPrevFrame;
+	double mPrevFrame2;
+
 	Eigen::VectorXd mPrevTargetPositions;
 	Eigen::VectorXd mMask;
 	Eigen::VectorXd mControlFlag;

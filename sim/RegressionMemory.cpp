@@ -62,18 +62,21 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
 
-	mParamBVH = new Param();
-	mParamBVH->cps.clear();
-	for(int i = 0; i < mNumKnots; i++) {
-		Eigen::VectorXd cps(mDimDOF);
-		cps.setZero();
-		mParamBVH->cps.push_back(cps);
-	}
+	for(int j = 0; j < 10; j++) {
+		mParamBVH = new Param();
+		mParamBVH->cps.clear();
+		for(int i = 0; i < mNumKnots; i++) {
+			Eigen::VectorXd cps(mDimDOF);
+			cps.setZero();
+			mParamBVH->cps.push_back(cps);
+		}
 
-	mParamBVH->param_normalized = Normalize(paramBvh);
-	mParamBVH->reward = 1;
-	mParamBVH->update = false;
-	AddMapping(mParamBVH);
+		mParamBVH->param_normalized = Normalize(paramBvh);
+		mParamBVH->reward = 1;
+		mParamBVH->update = false;
+		AddMapping(mParamBVH);
+
+	}
 	mGoalInfo.rewards = -1;
 
 
@@ -595,12 +598,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (mNumSamples < 10 && d < 0.3 && (p - mParamBVH->param_normalized).norm() >= 1e-5)
-				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
-			else if (mNumSamples >= 10 && d < 0.3 && d >= 0.1 && (p - mParamBVH->param_normalized).norm() >= 1e-5)
+			if (d < 0.6 && d > 0.3)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.4) {
+		if(visited && d > 0.7) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -974,6 +975,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*pow(ps[i].second->reward, 2);
+		// std::cout << Denormalize(ps[i].second->param_normalized) << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
 		if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		} else {
@@ -999,7 +1001,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
    	for(int i = 0; i < mNumKnots; i++) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDimDOF));
 	}
-   
 	double weight_sum = 0;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = log(mNumElite + 1) - log(i + 1);
@@ -1012,6 +1013,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
+		// std::cout << i << " " << exp(mean_cps[i][mDimDOF - 1]) << std::endl;
 	}
 	if(mPrevElite.size() == 0) {
 		for(int i = 0; i < mNumElite; i++) {

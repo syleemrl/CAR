@@ -579,14 +579,20 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 	std::vector<int> flag;
-	if(std::get<0>(rewards) < mThresholdTracking) {
-		flag.push_back(0);
-	}
-	else {
-		flag.push_back(1);
-	}
-	if(flag[0] == 0)
+
+	if(std::get<1>(rewards) < 0.92) {
 		return;
+	}
+	// if(std::get<0>(rewards) < mThresholdTracking) {
+	// 	flag.push_back(0);
+	// }
+	// else {
+	// 	flag.push_back(1);
+	// }
+
+	// if(flag[0] == 0)
+	// 	return;
+
 	double start_phase = std::fmod(data_spline[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;
 	for(int i = 0; i < data_spline.size(); i++) {
@@ -648,26 +654,26 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	std::vector<Eigen::VectorXd> d;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-	// double r_regul = 0;
+	double r_regul = 0;
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd d_t(mDOF + 1);
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
-		// for(int j = 0; j < n_bnodes; j++) {
-		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-		// 	std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-		// 	if(dof == 6) {
-		// 		r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
-		// 		r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
-		// 	} else if (dof == 3) {
-		// 		r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
-		// 	}
-		// }
+		for(int j = 0; j < n_bnodes; j++) {
+			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			if(dof == 6) {
+				r_regul += 2 * displacement[i].first.segment<3>(idx).norm();
+				r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
+			} else if (dof == 3) {
+				r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
+			}
+		}
 	}
 
-	// r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
-	double reward_trajectory = std::get<2>(rewards);
+	r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
+	double reward_trajectory = std::get<1>(rewards) * (0.4 * r_regul + 0.6 * std::get<2>(rewards));
 	mLock.lock();
 
 	if(isParametric) {
@@ -753,17 +759,12 @@ OptimizeExReference(){
 void 
 ReferenceManager::
 SelectReference(){
-	// double r = mRegressionMemory->GetTrainedRatio();
-	// if(r < 0.1) {
-	// 	LoadAdaptiveMotion(mCPS_exp);
-	// } else {
-	// 	r = std::min(r * 1.5, 0.8);
-	// 	if(mUniform(mMT) < r) {
-	// 		LoadAdaptiveMotion(mCPS_reg);
-	// 	} else {
-			LoadAdaptiveMotion(mCPS_exp);
-	// 	}
-	// }
+	double r = 0.4;
+	if(mUniform(mMT) < r) {
+		LoadAdaptiveMotion(mCPS_reg);
+	} else {
+		LoadAdaptiveMotion(mCPS_exp);
+	}
 }
 bool
 ReferenceManager::
