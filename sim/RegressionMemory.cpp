@@ -57,20 +57,19 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.35;
+	mRadiusNeighbor = 0.3;
 	mThresholdActivate = 3;
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
 
-	mParamBVH = new Param();
-	mParamBVH->cps.clear();
-	for(int i = 0; i < mNumKnots; i++) {
-		Eigen::VectorXd cps(mDimDOF);
-		cps.setZero();
-		mParamBVH->cps.push_back(cps);
-	}
-
 	for(int i = 0; i < 10; i++) {
+		mParamBVH = new Param();
+		mParamBVH->cps.clear();
+		for(int i = 0; i < mNumKnots; i++) {
+			Eigen::VectorXd cps(mDimDOF);
+			cps.setZero();
+			mParamBVH->cps.push_back(cps);
+		}
 		mParamBVH->param_normalized = Normalize(paramBvh);
 		mParamBVH->reward = 1;
 		mParamBVH->update = false;
@@ -598,10 +597,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.6 && d > 0.3)
+			if (d < 0.5 && d > 0.2)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.7) {
+		if(visited && d > 0.6) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -980,7 +979,7 @@ std::vector<Eigen::VectorXd>
 RegressionMemory::
 GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	// naive implementation
-	std::vector<std::pair<double, Param*>> ps = GetNearestParams(Normalize(p_goal), mNumElite * 50, false, true);
+	std::vector<std::pair<double, Param*>> ps = GetNearestParams(Normalize(p_goal), mNumElite * 10, false, true);
 
 	if(ps.size() < mNumElite) {
 		return mParamBVH->cps;
@@ -992,12 +991,12 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*pow(ps[i].second->reward, 2);
-		if(f_baseline < fitness) {
+	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
-		} else {
-			ps_elite.push_back(std::pair<double, Param*>(f_baseline, mParamBVH));
+		// } else {
+		// 	ps_elite.push_back(std::pair<double, Param*>(f_baseline, mParamBVH));
 
-		}
+		// }
 		r += preward;
 
 	}

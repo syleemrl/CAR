@@ -106,6 +106,13 @@ protected:
 	double mParamRewardTrajectory;
 	double mTrackingRewardTrajectory;
 	double mTWRewardTrajectory;
+	std::vector<double> mRewardSimilarity;
+
+	Eigen::VectorXd mTlPrev;
+	Eigen::VectorXd mTlPrev2;
+
+	double mPrevFrame;
+	double mPrevFrame2;
 
 	Character* mCharacter;
 	Character* mObject;

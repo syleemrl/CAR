@@ -205,9 +205,9 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.v_mean_cur > 1:
+			if self.v_mean_cur > 0.95:
 				return True
-		if self.v_mean > 1:
+		if self.v_mean > 0.95:
 			return True
 
 		self.total_iter += 1
