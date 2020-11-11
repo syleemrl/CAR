@@ -373,15 +373,17 @@ SetGoalParameters(np::ndarray np_array, bool visited) {
 			np::ndarray na = np::from_object(a);
 			cps.push_back(DPhy::toEigenVector(na, dof));
 		}
-		mReferenceManager->SetCPSreg(cps);
-		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->SetCPSexp(cps);
-		mReferenceManager->SelectReference();
+		// mReferenceManager->SetCPSreg(cps);
+		// cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		// mReferenceManager->SetCPSexp(cps);
+		// mReferenceManager->SelectReference();
+		mReferenceManager->LoadAdaptiveMotion(cps);
+
 	} else {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-	}
+		mReferenceManager->LoadAdaptiveMotion(cps);
 
-	mReferenceManager->LoadAdaptiveMotion(cps);
+	}
 
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(tp);

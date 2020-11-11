@@ -580,9 +580,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 	std::vector<int> flag;
 
-	// if(std::get<2>(rewards)[0] < 0.9W) {
-	// 	return;
-	// }
+	if(std::get<2>(rewards)[0] < 0.9) {
+		return;
+	}
 	// if(std::get<0>(rewards) < mThresholdTracking) {
 	// 	flag.push_back(0);
 	// }
@@ -682,7 +682,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	double r_delta = std::get<2>(rewards)[3];
 	double r_pos = std::get<2>(rewards)[2];
 	double reward_trajectory = r_foot * r_pos * r_delta;
-
 	mLock.lock();
 
 	if(isParametric) {

@@ -439,6 +439,7 @@ GetSimilarityReward()
 
 	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	Eigen::VectorXd pos = p_v_target->GetPosition();
+
 	delete p_v_target;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
@@ -464,148 +465,76 @@ GetSimilarityReward()
 		}
 	}
 
-	Eigen::VectorXd ee_v_diff(3 + mEndEffectors.size() * 3);
-	ee_v_diff.setZero();
 
-	Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
-	Eigen::AngleAxisd aa_cur(skel->getPositions().segment<3>(0).norm(), skel->getPositions().segment<3>(0).normalized());
-	ee_v_cur.segment<3>(0) = skel->getBodyNode(0)->getCOMLinearVelocity();
-
+	//Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
 	Eigen::VectorXd tl_cur(3 + mEndEffectors.size() * 3);
+	Eigen::AngleAxisd aa_cur(skel->getPositions().segment<3>(0).norm(), skel->getPositions().segment<3>(0).normalized());
+
 	tl_cur.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
 	for(int i = 0; i < mEndEffectors.size(); i++) {
 		tl_cur.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
-		ee_v_cur.segment<3>(i*3 + 3) = aa_cur.inverse() * skel->getBodyNode(mEndEffectors[i])->getCOMLinearVelocity();
 	}
 	
-	skel->setPositions(pos);
-	skel->computeForwardKinematics(true,false,false);
+	// ee_v_bvh.segment<3>(0) = skel->getBodyNode(0)->getCOMLinearVelocity();
+	// ee_v_diff.segment<3>(0) = (ee_v_bvh.segment<3>(0) - ee_v_cur.segment<3>(0)) / std::max(ee_v_bvh.segment<3>(0).norm(), 0.5);
 
-	Eigen::VectorXd ee_v_bvh(3 + mEndEffectors.size() * 3);
-	Eigen::AngleAxisd aa(skel->getPositions().segment<3>(0).norm(), skel->getPositions().segment<3>(0).normalized());
+	// for(int i = 0; i < mEndEffectors.size(); i++) {
+	// 	ee_v_bvh.segment<3>(i*3 + 3) = aa.inverse() * skel->getBodyNode(mEndEffectors[i])->getCOMLinearVelocity();
+	// 	ee_v_diff.segment<3>(i*3 + 3) = (ee_v_bvh.segment<3>(i*3 + 3) - ee_v_cur.segment<3>(i*3 + 3)) / std::max(ee_v_bvh.segment<3>(i*3 + 3).norm(), 0.5);
+	// }
 
-	ee_v_bvh.segment<3>(0) = skel->getBodyNode(0)->getCOMLinearVelocity();
-	for(int i = 0; i < mEndEffectors.size(); i++) {
-		ee_v_bvh.segment<3>(i*3 + 3) = aa.inverse() * skel->getBodyNode(mEndEffectors[i])->getCOMLinearVelocity();
-	}
-	ee_v_diff = ee_v_bvh - ee_v_cur;
-
-	
 	// Eigen::VectorXd dir_diff(3 + mEndEffectors.size() * 3);
 	// Eigen::VectorXd ratio_diff(2 + mEndEffectors.size() * 2);
 	// dir_diff.setZero();
 	// ratio_diff.setZero();
+	Eigen::VectorXd ee_v_diff(3 + mEndEffectors.size() * 3);
+	ee_v_diff.setZero();
 	
 	double slide = 0;
+	
 	if(mCurrentFrame != mPrevFrame && mPrevFrame != mPrevFrame2) {
-		// Eigen::VectorXd tl_cur_bvh(3 + mEndEffectors.size() * 3);
-		// Eigen::VectorXd tl_prev_bvh(3 + mEndEffectors.size() * 3);
-		// Eigen::VectorXd tl_prev2_bvh(3 + mEndEffectors.size() * 3);
+		skel->setPositions(pos);
+		skel->computeForwardKinematics(true,false,false);
 
-		// Eigen::VectorXd p_bvh_prev = mReferenceManager->GetPosition(mPrevFrame, false);
-		// Eigen::VectorXd p_bvh_prev2 = mReferenceManager->GetPosition(mPrevFrame2, false);
+		Eigen::AngleAxisd aa_bvh(skel->getPositions().segment<3>(0).norm(), skel->getPositions().segment<3>(0).normalized());
 
-		// skel->setPositions(p_bvh_prev2);
-		// skel->computeForwardKinematics(true,false,false);
+		Eigen::VectorXd tl_cur_bvh(3 + mEndEffectors.size() * 3);
+		tl_cur_bvh.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
+		for(int i = 0; i < mEndEffectors.size(); i++) {
+			tl_cur_bvh.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
+		}
 
-		// tl_prev2_bvh.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
-		// for(int i = 0; i < mEndEffectors.size(); i++) {
-		// 	tl_prev2_bvh.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
-		// }
+		Eigen::VectorXd tl_prev_bvh(3 + mEndEffectors.size() * 3);
+		Eigen::VectorXd p_bvh_prev = mReferenceManager->GetPosition(mPrevFrame, false);
 
-		// skel->setPositions(p_bvh_prev);
-		// skel->computeForwardKinematics(true,false,false);
+		skel->setPositions(p_bvh_prev);
+		skel->computeForwardKinematics(true,false,false);
 
-		// tl_prev_bvh.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
-		// for(int i = 0; i < mEndEffectors.size(); i++) {
-		// 	tl_prev_bvh.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
-		// }
+		tl_prev_bvh.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
+		for(int i = 0; i < mEndEffectors.size(); i++) {
+			tl_prev_bvh.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
+		}
 
-		// Eigen::VectorXd xz_dir_bvh(2 * (1 + mEndEffectors.size()));
-		// Eigen::VectorXd xz_ratio_bvh(1 + mEndEffectors.size());
+		skel->setPositions(p_save);
+		skel->setVelocities(v_save);
+		skel->computeForwardKinematics(true,true,false);
 
-		// Eigen::VectorXd y_dir_bvh(1 + mEndEffectors.size());
-		// Eigen::VectorXd y_ratio_bvh(1 + mEndEffectors.size());
-		
-		// for(int i = 0; i < mEndEffectors.size() + 1; i++) {
-		// 	Eigen::Vector3d dir;
-		// 	dir << tl_cur_bvh(3*i) - tl_prev2_bvh(3*i), 0, tl_cur_bvh(3*i+2) - tl_prev2_bvh(3*i+2);
-		// 	double dir_norm = dir.norm();
-		// 	if(dir_norm <= 0.05) 
-		// 		dir << 1, 0, 0;
-		// 	dir.normalize();
+		Eigen::VectorXd ee_v_bvh(3 + mEndEffectors.size() * 3);
+		Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
+		ee_v_bvh.setZero();
+		ee_v_cur.setZero();
 
-		// 	Eigen::AngleAxisd dir_aa(dir.norm(), dir);
-		// 	Eigen::Vector3d tl_rel_global;
-		// 	tl_rel_global << tl_prev_bvh(3*i) - tl_prev2_bvh(3*i), 0, tl_prev_bvh(3*i+2) - tl_prev2_bvh(3*i+2);
-		// 	double x = dir.dot(tl_rel_global);
-		// 	double z = (tl_rel_global - x * dir).norm();
-		// 	xz_dir_bvh.segment<2>(2*i) << x, z; 
-		// 	if(xz_dir_bvh.segment<2>(2*i).norm() < 0.05)
-		// 		xz_dir_bvh.segment<2>(2*i) << 0, 0;
-		// 	else
-		// 		xz_dir_bvh.segment<2>(2*i).normalize();
-		// 	xz_ratio_bvh(i) = tl_rel_global.norm() / std::max(0.01, dir_norm);
-		// 	y_ratio_bvh(i) =(tl_prev_bvh(3*i+1) - tl_prev2_bvh(3*i+1)) / std::max(0.01, abs(tl_cur_bvh(3*i+1) - tl_prev2_bvh(3*i+1)));
-		// 	if(tl_prev_bvh(3*i+1) - tl_prev2_bvh(3*i+1) > 0 && abs(tl_prev_bvh(3*i+1) - tl_prev2_bvh(3*i+1)) > 0.01)
-		// 		y_dir_bvh(i) = 1;
-		// 	else
-		// 		y_dir_bvh(i) = -1;
-		// 	// y_ratio_bvh(i) = std::max(std::min(1.0, y_ratio_bvh(i)), -1.0);
-		// }
+		for(int i = 0; i < mEndEffectors.size() + 1; i++) {
+			if(i == 0) {
+				ee_v_bvh.segment<3>(3*i) = tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i);
+				ee_v_cur.segment<3>(3*i) = tl_cur.segment<3>(3*i) - mTlPrev.segment<3>(3*i);
 
-		// Eigen::VectorXd xz_dir_cur(2 * (1 + mEndEffectors.size()));
-		// Eigen::VectorXd xz_ratio_cur(1 + mEndEffectors.size());
-
-		// Eigen::VectorXd y_dir_cur(1 + mEndEffectors.size());
-		// Eigen::VectorXd y_ratio_cur(1 + mEndEffectors.size());
-
-		// for(int i = 0; i < mEndEffectors.size() + 1; i++) {
-		// 	Eigen::Vector3d dir;
-		// 	dir << tl_cur(3*i) - mTlPrev2(3*i), 0, tl_cur(3*i+2) - mTlPrev2(3*i+2);
-		// 	double dir_norm = dir.norm();
-		// 	if(dir_norm <= 0.05) 
-		// 		dir << 1, 0, 0;
-		// 	dir.normalize();
-
-		// 	Eigen::AngleAxisd dir_aa(dir.norm(), dir);
-		// 	Eigen::Vector3d tl_rel_global;
-		// 	tl_rel_global << mTlPrev(3*i) - mTlPrev2(3*i), 0, mTlPrev(3*i+2) - mTlPrev2(3*i+2);
-		// 	double x = dir.dot(tl_rel_global);
-		// 	double z = (tl_rel_global - x * dir).norm();
-		// 	xz_dir_cur.segment<2>(2*i) << x, z; 
-		// 	if(xz_dir_cur.segment<2>(2*i).norm() < 0.05)
-		// 		xz_dir_cur.segment<2>(2*i) << 0, 0;
-		// 	else
-		// 		xz_dir_cur.segment<2>(2*i).normalize();
-
-		// 	// if(i == 3 && mCurrentFrameOnPhase >= 30 && mCurrentFrameOnPhase <= 40) {
-		// 	// 	std::cout << x << " " << z << std::endl;
-		// 	// }
-		// 	xz_ratio_cur(i) = tl_rel_global.norm() / std::max(0.01, dir_norm);
-		// 	y_ratio_cur(i) = (mTlPrev(3*i+1) - mTlPrev2(3*i+1)) / std::max(0.01, abs(tl_cur(3*i+1) - mTlPrev2(3*i+1)));
-		// 	if(mTlPrev(3*i+1) - mTlPrev2(3*i+1) > 0 && abs(mTlPrev(3*i+1) - mTlPrev2(3*i+1)) > 0.01)
-		// 		y_dir_cur(i) = 1;
-		// 	else
-		// 		y_dir_cur(i) = -1;
-		// }
-
-		// Eigen::VectorXd xz_diff = xz_ratio_cur - xz_ratio_bvh;
-		// Eigen::VectorXd y_diff = y_ratio_cur - y_ratio_bvh;
-		
-		// xz_diff.segment<2>(0) *= 2;
-		// y_diff(0) *= 2;
-
-		// ratio_diff << xz_diff, y_diff;
-		
-		// xz_diff = xz_dir_cur - xz_dir_bvh;
-		// y_diff = y_dir_cur - y_dir_bvh;
-
-		// // xz_diff.segment<2>(0) *= 2;
-		// // y_diff(0) *= 2;
-
-		// dir_diff << xz_diff, y_diff;
-
+			} else {
+				ee_v_bvh.segment<3>(3*i) = aa_bvh.inverse() * (tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i));
+				ee_v_cur.segment<3>(3*i) = aa_cur.inverse() * (tl_cur.segment<3>(3*i) - mTlPrev.segment<3>(3*i));
+			}
+			ee_v_diff.segment<3>(3*i) = (ee_v_cur.segment<3>(3*i) - ee_v_bvh.segment<3>(3*i)) / std::max(0.02, ee_v_bvh.segment<3>(3*i).norm());
+		}
 		for(int j = 0; j < 2; j++) {
 			if(tl_cur(3*(j+1) + 1) < 0.07 && mTlPrev(3*(j+1) + 1) < 0.07 && mTlPrev2(3*(j+1) + 1) < 0.07) {
 				Eigen::Vector2d cur, prev, prev2;
@@ -616,16 +545,10 @@ GetSimilarityReward()
 			} 
 		}
 	}
-	skel->setPositions(p_save);
-	skel->setVelocities(v_save);
-	skel->computeForwardKinematics(true,true,false);
 
 	double r_slide = exp(-slide*200);
-	double r_ee = exp_of_squared(ee_v_diff, 0.8);
-	// double r_ratio = exp_of_squared(ratio_diff, 0.7);
-	// double r_dir = exp_of_squared(dir_diff, 1);
+	double r_ee = exp_of_squared(ee_v_diff, 1.5);
 	double r_p = exp_of_squared(p_diff,0.4);
-	// double r_s = exp_of_squared(scale_diff, 0.5);
 
 	mTlPrev2 = mTlPrev;
 	mTlPrev = tl_cur;	
@@ -635,11 +558,10 @@ GetSimilarityReward()
 			mRewardSimilarity.push_back(0);
 		}
 	}
+	
 	mRewardSimilarity[0] += r_con;
 	mRewardSimilarity[1] += r_slide;
 	mRewardSimilarity[2] += r_p;
-	// mRewardSimilarity[3] += r_ratio;
-	// mRewardSimilarity[4] += r_dir;
 	mRewardSimilarity[3] += r_ee;
 
 	return 0.6 * r_con + 0.4 * r_p * r_ee;
