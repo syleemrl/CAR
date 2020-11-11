@@ -645,20 +645,16 @@ GetParamReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
 		Eigen::Vector3d p;
-		p << 6.5, mParamGoal(0), -3.5;
+		p << 6.5, 185, -3.5;
 		Eigen::VectorXd l_diff = mEnergy - p;
 		l_diff *= 0.1;
 		l_diff(1) *= 2;
-		r_param = exp_of_squared(l_diff, 1.5);
+		r_param = exp_of_squared(l_diff, 2);
 
 		if(mRecord) {
-		 	std::cout << mEnergy(1) << " " << mParamGoal(0) << " " << r_param  << std::endl;
+		 	std::cout << mEnergy.transpose() << " " << r_param << std::endl;
 		}
-		if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
-			mParamCur(0) = -1;
-		} else {
-			mParamCur(0) = mEnergy(1);
-		}
+		mParamCur = mParamGoal;
 		mControlFlag[0] = 2;		
 	} 
 	return r_param;
@@ -822,8 +818,8 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
-	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
+	this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
+	this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 
 void
