@@ -655,25 +655,30 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	std::vector<Eigen::VectorXd> d;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	double r_regul = 0;
+	Eigen::VectorXd max_dist(mDOF);
+	max_dist.setZero();
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd d_t(mDOF + 1);
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
-		for(int j = 0; j < n_bnodes; j++) {
-			int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			if(dof == 6) {
-				r_regul += 2 * displacement[i].first.segment<3>(idx).norm();
-				r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
-			} else if (dof == 3) {
-				r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
-			}
+		// for(int j = 0; j < n_bnodes; j++) {
+		// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+		// 	std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+		// 	if(dof == 6) {
+		// 		r_regul += 2 * displacement[i].first.segment<3>(idx).norm();
+		// 		r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
+		// 	} else if (dof == 3) {
+		// 		r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
+		// 	}
+		// }
+		for(int j = 0; j < mDOF; j++) {
+			if(displacement[i].first(j) > max_dist(j))
+				max_dist(j) = displacement[i].first(j);
 		}
 	}
-
-	r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
-	double reward_trajectory = std::get<1>(rewards) * (0.4 * r_regul + 0.6 * std::get<2>(rewards));
+	double r_max = exp_of_squared(max_dist, 0.4);
+	double reward_trajectory = std::get<1>(rewards) * (0.4 * r_max + 0.6 * std::get<2>(rewards));
 	mLock.lock();
 
 	if(isParametric) {
