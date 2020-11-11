@@ -44,6 +44,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	}
 
 	bool CheckCollisionWithGround(std::string bodyName);
+	bool CheckCollisionWithObject(std::string bodyName);
 	void SetAction(const Eigen::VectorXd& action);
 	double GetReward() {return mRewardParts[0]; }
 	std::vector<double> GetRewardByParts() {return mRewardParts; }

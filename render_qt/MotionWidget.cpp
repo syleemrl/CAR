@@ -29,9 +29,12 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
-	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
-	mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
-	
+	mSkel_obj = nullptr;
+	#ifdef OBJECT_TYPE 
+		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
+		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
+	#endif
+
 	if(ppo == "") {
 		mRunSim = false;
 		mDrawSim = false;
@@ -50,6 +53,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	mPoints_exp.setZero();
 
     path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+
     DPhy::Character* ref = new DPhy::Character(path);
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
@@ -64,7 +68,9 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
 	    	mReferenceManager->InitOptimization(1, path);
+
 	    mReferenceManager->LoadAdaptiveMotion("ref_59");
+
 	    mDrawReg = true;
 
     } else if(mRunReg) {
@@ -357,11 +363,21 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
-		//Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
 		position_bvh(3) -= 0.75;
+
+		#ifdef OBJECT_TYPE
+			// Eigen::Vector3d position_obj = this->mSkel_obj->getBodyNode(0)->getWorldTransform().translation();
+			// position_obj(0) += 0.75;
+			
+			// Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+			// T.translation()= position_obj;
+			// mSkel_obj->getBodyNode(0)->getProperties().mT_ChildBodyToJoint = T.inverse();
+			// mSkel_obj->getBodyNode(0)->setProperties().mT_ChildBodyToJoint = T.inverse();
+			
+		#endif
 		//position_obj(3) += 0.75;
 
 		pos_reg.push_back(position_reg);
@@ -405,8 +421,7 @@ SetFrame(int n)
 	}
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
-    //	mSkel_obj->setPositions(mMotion_obj[n]);
-
+    	// mSkel_obj->setPositions(mMotion_obj[n]);
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
@@ -421,11 +436,24 @@ MotionWidget::
 DrawSkeletons()
 {
 
-	if(mDrawBvh)
+	if(mDrawBvh){
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
+		if(this->mSkel_obj) {
+			glPushMatrix();
+			glTranslated(-0.75, 0, 0);
+			GUI::DrawSkeleton(this->mSkel_obj, 0);
+			glPopMatrix();
+		}
+	}
+
 	if(mDrawSim) {
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
-	//	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		if(this->mSkel_obj) {
+			glPushMatrix();
+			glTranslated(0.75, 0, 0);
+			GUI::DrawSkeleton(this->mSkel_obj, 0);
+			glPopMatrix();
+		}
 	}
 	if(mDrawReg) {
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
@@ -436,7 +464,6 @@ DrawSkeletons()
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
 		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-
 	}
 
 }	

@@ -112,6 +112,7 @@ int main(int argc,char** argv)
 	}
 	if(vm.count("bvh")) {
 		bvh = vm["bvh"].as<std::string>();
+		// ex) ./render_qt -b mixamo_box_jump.bvh
 	}
 
 	glutInit(&argc,argv);

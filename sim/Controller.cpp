@@ -32,6 +32,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
 	dynamic_cast<dart::constraint::BoxedLcpConstraintSolver*>(mWorld->getConstraintSolver())->setBoxedLcpSolver(std::make_shared<dart::constraint::PgsBoxedLcpSolver>());
 	
+
 	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/ground.xml")).first;
 	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
 	this->mWorld->addSkeleton(this->mGround);
@@ -40,11 +41,22 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mCharacter = new DPhy::Character(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
+	// this->mObject = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/jump_box.xml")).first;
+	// this->mWorld->addSkeleton(this->mObject);
+	
+	#ifdef OBJECT_TYPE 
+		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
+		this->mObject = new DPhy::Character(object_path);	
+		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
+	#endif
+
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
+	
 	this->mMass = mBaseMass;
 
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
-
+	
 	kp.setZero();
 	kv.setZero();
 	this->mCharacter->SetPDParameters(kp,kv);
@@ -56,15 +68,22 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 	mInterestedDof = mCharacter->GetSkeleton()->getNumDofs() - 6;
 	mRewardDof = mCharacter->GetSkeleton()->getNumDofs();
-
+	
 	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
 	this->mCGL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot"));
 	this->mCGR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("RightFoot"));
+	
 	this->mCGEL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("LeftToe"));
 	this->mCGER = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("RightToe"));
+
 	this->mCGHL = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("LeftHand"));
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("RightHand"));
+
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
+	
+	#ifdef OBJECT_TYPE
+	this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton().get());
+	#endif
 
 	int num_body_nodes = mInterestedDof / 3;
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
@@ -81,7 +100,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	mEndEffectors.push_back("RightHand");
 	mEndEffectors.push_back("Head");
 
-
 	this->mTargetPositions = Eigen::VectorXd::Zero(dof);
 	this->mTargetVelocities = Eigen::VectorXd::Zero(dof);
 
@@ -93,7 +111,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	mParamCur.resize(mReferenceManager->GetParamGoal().rows());
 	this->mNumState = this->GetState().rows();
 	this->mNumAction = mActions.size();
-
 	ClearRecord();
 	
 	mRewardLabels.clear();
@@ -111,7 +128,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("v");
 		mRewardLabels.push_back("time");
 	}
-
+	
 	// } else if(isAdaptive && mRecord) {
 	// 	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
 	// 	this->mObject = new DPhy::Character(path);	
@@ -147,7 +164,7 @@ Step()
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
 	mAdaptiveStep = mActions[mInterestedDof];
-	//mAdaptiveStep = 0;
+	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -155,8 +172,8 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	if(mRecord)
-		std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
+	// if(mRecord)
+	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -268,7 +285,6 @@ Step()
 	
 	if(isAdaptive && mIsTerminal)
 		data_spline.clear();
-
 }
 void
 Controller::
@@ -808,6 +824,7 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 
 	return ret;
 }
+
 bool
 Controller::
 CheckCollisionWithGround(std::string bodyName){
@@ -843,6 +860,43 @@ CheckCollisionWithGround(std::string bodyName){
 		return false;
 	}
 }
+
+bool
+Controller::
+CheckCollisionWithObject(std::string bodyName){
+	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
+	dart::collision::CollisionOption option;
+	dart::collision::CollisionResult result;
+	if(bodyName == "RightFoot"){
+		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGOBJ.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "LeftFoot"){
+		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGOBJ.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "RightToe"){
+		bool isCollide = collisionEngine->collide(this->mCGER.get(), this->mCGOBJ.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "LeftToe"){
+		bool isCollide = collisionEngine->collide(this->mCGEL.get(), this->mCGOBJ.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "RightHand"){
+		bool isCollide = collisionEngine->collide(this->mCGHR.get(), this->mCGOBJ.get(), option, &result);
+		return isCollide;
+	}
+	else if(bodyName == "LeftHand"){
+		bool isCollide = collisionEngine->collide(this->mCGHL.get(), this->mCGOBJ.get(), option, &result);
+		return isCollide;
+	}
+	else{ // error case
+		std::cout << "check collision : bad body name" << std::endl;
+		return false;
+	}
+}
+
 Eigen::VectorXd 
 Controller::
 GetState()

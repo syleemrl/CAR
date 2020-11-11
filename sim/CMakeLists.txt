@@ -19,3 +19,9 @@ file(GLOB srcs "*.h" "*.cpp")
 
 add_library(sim ${srcs} )
 target_link_libraries(sim ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})
+
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+
+add_executable(xmlGen BVHToXML.cpp)
+target_link_libraries(xmlGen ${TinyXML_LIBRARIES})
