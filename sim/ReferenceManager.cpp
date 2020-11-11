@@ -565,7 +565,7 @@ ReportEarlyTermination() {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
-				 std::tuple<double, double, double> rewards,
+				 std::tuple<double, double, std::vector<double>> rewards,
 				 Eigen::VectorXd parameters) {
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		mLock_ET.lock();
@@ -580,9 +580,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 	std::vector<int> flag;
 
-	if(std::get<1>(rewards) < 0.92) {
-		return;
-	}
+	// if(std::get<2>(rewards)[0] < 0.9W) {
+	// 	return;
+	// }
 	// if(std::get<0>(rewards) < mThresholdTracking) {
 	// 	flag.push_back(0);
 	// }
@@ -654,9 +654,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 
 	std::vector<Eigen::VectorXd> d;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-	double r_regul = 0;
-	Eigen::VectorXd max_dist(mDOF);
-	max_dist.setZero();
+	// double r_regul = 0;
+	// Eigen::VectorXd max_dist(mDOF);
+	// Eigen::VectorXd max_dist_i(mDOF);
+	// max_dist.setZero();
+
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd d_t(mDOF + 1);
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
@@ -666,19 +668,21 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
 		// 	std::string b_name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
 		// 	if(dof == 6) {
-		// 		r_regul += 2 * displacement[i].first.segment<3>(idx).norm();
-		// 		r_regul += 5 * displacement[i].first.segment<3>(idx + 3).norm();
+		// 		r_regul += 1 * displacement[i].first.segment<3>(idx).norm();
+		// 		r_regul += 2 * displacement[i].first.segment<3>(idx + 3).norm();
 		// 	} else if (dof == 3) {
 		// 		r_regul += 0.25 * displacement[i].first.segment<3>(idx).norm();
 		// 	}
 		// }
-		for(int j = 0; j < mDOF; j++) {
-			if(displacement[i].first(j) > max_dist(j))
-				max_dist(j) = displacement[i].first(j);
-		}
 	}
-	double r_max = exp_of_squared(max_dist, 0.4);
-	double reward_trajectory = std::get<1>(rewards) * (0.4 * r_max + 0.6 * std::get<2>(rewards));
+	// max_dist.segment<6>(0) *= 2;
+	// r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
+	// double r_max = exp_of_squared(max_dist, 0.5);
+	double r_foot = std::get<2>(rewards)[0] * std::get<2>(rewards)[1];
+	double r_delta = std::get<2>(rewards)[3];
+	double r_pos = std::get<2>(rewards)[2];
+	double reward_trajectory = r_foot * r_pos * r_delta;
+
 	mLock.lock();
 
 	if(isParametric) {

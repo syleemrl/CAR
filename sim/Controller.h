@@ -106,8 +106,6 @@ protected:
 	double mPrevFrameOnPhase;
 	double mParamRewardTrajectory;
 	double mTrackingRewardTrajectory;
-	double mTWRewardTrajectory;
-	double mTWRewardTrajectory2;
 
 	Character* mCharacter;
 	Character* mObject;
@@ -134,6 +132,7 @@ protected:
 	std::vector<std::string> mEndEffectors;
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
+	std::vector<double> mRewardSimilarity;
 	// for foot collision, left, right foot, ground
 	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGOBJ; 
 
@@ -161,6 +160,7 @@ protected:
 
 	Eigen::VectorXd mTlPrev;
 	Eigen::VectorXd mTlPrev2;
+	Eigen::VectorXd mPrevPositions;
 
 	// Eigen::VectorXd mTlPrev_BVH;
 	// Eigen::VectorXd mTlPrev2_BVH;
