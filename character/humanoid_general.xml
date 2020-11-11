@@ -1,0 +1,52 @@
+<Skeleton name="Humanoid">
+    <Hips type="FreeJoint" mass= "8" TorqueLimit="0"/>
+    <Spine  mass="8" TorqueLimit="200"/>
+    <Spine1 mass="5" TorqueLimit="100"/>
+    <Spine2 mass="5" TorqueLimit="100"/>
+    <Neck mass="1.5" TorqueLimit="50"/>
+    <Head mass="3" TorqueLimit="50"/>
+
+    <LeftShoulder mass="1" TorqueLimit="100"/>
+    <LeftArm mass="2.1" TorqueLimit="100"/>
+    <LeftForeArm mass="1.2" TorqueLimit="60"/>
+    <LeftHand mass="0.4" TorqueLimit="60"/>
+
+    <RightShoulder mass="1" TorqueLimit="100"/>
+    <RightArm mass="2.1" TorqueLimit="100"/>
+    <RightForeArm mass="1.2" TorqueLimit="60"/>
+    <RightHand mass="0.4" TorqueLimit="60"/>
+
+    <LeftUpLeg mass="7" TorqueLimit="200"/>
+    <LeftLeg mass="3" TorqueLimit="150"/>
+    <LeftFoot mass="0.6" TorqueLimit="90"/>
+    <LeftToe name="LeftToe" mass="0.3" TorqueLimit="60"/>
+
+    <RightUpLeg mass="7" TorqueLimit="200"/>
+    <RightLeg mass="3" TorqueLimit="150"/>
+    <RightFoot mass="0.6" TorqueLimit="90"/>
+    <RightToe name="RightToe" mass="0.3" TorqueLimit="60"/>
+</Skeleton>
+
+<!--     <Joint bvh="Hips" type="FreeJoint" mass= "8" TorqueLimit="200"/>
+    <Joint bvh="Spine"  mass="8" TorqueLimit="200"/>
+    <Joint bvh="Spine1" mass="5" TorqueLimit="100"/>
+    <Joint bvh="Spine2" mass="5" TorqueLimit="100"/>
+    <Joint bvh="Neck" mass="1.5" TorqueLimit="50"/>
+    <Joint bvh="Head" mass="3" TorqueLimit="50"/>
+    <Joint bvh="LeftShoulder" mass="1" TorqueLimit="100"/>
+    <Joint bvh="LeftArm" mass="2.1" TorqueLimit="100"/>
+    <Joint bvh="LeftForeArm" mass="1.2" TorqueLimit="60"/>
+    <Joint bvh="LeftHand" mass="0.4" TorqueLimit="60"/>
+    <Joint bvh="RightShoulder" mass="1" TorqueLimit="100"/>
+    <Joint bvh="RightArm" mass="2.1" TorqueLimit="100"/>
+    <Joint bvh="RightForeArm" mass="1.2" TorqueLimit="60"/>
+    <Joint bvh="RightHand" mass="0.4" TorqueLimit="60"/>
+    <Joint bvh="LeftUpLeg" mass="7" TorqueLimit="200"/>
+    <Joint bvh="LeftLeg" mass="3" TorqueLimit="150"/>
+    <Joint bvh="LeftFoot" mass="0.6" TorqueLimit="90"/>
+    <Joint bvh="LeftToeBase" name="LeftToe" mass="0.3" TorqueLimit="60"/>
+    <Joint bvh="RightUpLeg" mass="7" TorqueLimit="200"/>
+    <Joint bvh="RightLeg" mass="3" TorqueLimit="150"/>
+    <Joint bvh="RightFoot" mass="0.6" TorqueLimit="90"/>
+    <Joint bvh="RightToe" name="RightToe" mass="0.3" TorqueLimit="60"/>
+ -->

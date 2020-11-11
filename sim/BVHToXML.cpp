@@ -15,6 +15,23 @@ std::string v3toString(Eigen::Vector3d vec){
 double default_height = 0;
 double foot_height = 0;
 
+// std::string skelname = skeldoc->Attribute("name");
+// SkeletonPtr skel = Skeleton::create(skelname);
+// std::cout << skelname << std::endl;
+// std::map<std::string, double>* torqueMap = new std::map<std::string, double>();
+// std::map<std::string, Eigen::VectorXd>* positionMap = new std::map<std::string, Eigen::VectorXd>();
+
+// 	for(TiXmlElement *body = skeldoc->FirstChildElement("Joint"); body != nullptr; body = body->NextSiblingElement("Joint")){
+// 		// type
+// 		std::string jointType = body->Attribute("type");
+// 		// name
+// 		std::string name = body->Attribute("name");
+// 		// parent name
+// 		std::string parentName = body->Attribute("parent_name");
+// 		BodyNode *parent;
+// 		if(!parentName.compare("None"))
+// 			parent = nullptr;
+
 namespace myBVH{
 	struct BVHNode{
 		std::string name;
@@ -23,7 +40,7 @@ namespace myBVH{
 		std::vector<BVHNode*> child;
 	};
 
-	void BVHToXML(BVHNode* node, TiXmlElement *xml, Eigen::Vector3d offset, std::vector<TiXmlElement*> &list){
+	void BVHToXML(BVHNode* node, TiXmlElement *xml, Eigen::Vector3d offset, std::vector<TiXmlElement*> &list, TiXmlElement *general_doc){
 		TiXmlElement* body = new TiXmlElement("BodyPosition");
 		list.push_back(xml);
 
@@ -38,10 +55,9 @@ namespace myBVH{
 		for(BVHNode* c : node->child){
 			TiXmlElement* child = new TiXmlElement("Joint");
 			child->SetAttribute("type", "BallJoint");
-			child->SetAttribute("name", c->name);
 			child->SetAttribute("parent_name", node->name);
 			child->SetAttribute("size", "0.1 0.1 0.1");
-			child->SetAttribute("mass", "1");
+			child->SetAttribute("name", c->name);
 			child->SetAttribute("bvh", c->name);
 
 			if(Eigen::Vector3d(c->offset).norm() >= 1e-6){
@@ -123,17 +139,37 @@ namespace myBVH{
 			}
 
 			if(c->name == "Site") continue;
-			BVHToXML(c, child, offset + Eigen::Vector3d(c->offset), list);
+			BVHToXML(c, child, offset + Eigen::Vector3d(c->offset), list, general_doc);
 		}
 
-		TiXmlElement* TorqueLimit = new TiXmlElement("TorqueLimit");
-		xml->LinkEndChild(TorqueLimit);
-		TorqueLimit->SetAttribute("norm", "100");
+
+		if(general_doc->FirstChildElement(node->name)!= nullptr) {
+			TiXmlElement* elm= general_doc->FirstChildElement(node->name);
+			xml->SetAttribute("mass", elm->Attribute("mass")); 
+			if(elm->Attribute("type")!= nullptr){
+				elm->SetAttribute("type", elm->Attribute("type"));		
+			}
+			if(elm->Attribute("name")!= nullptr){
+				elm->SetAttribute("name", elm->Attribute("name"));		
+			}
+			if(elm->Attribute("TorqueLimit")!= nullptr){
+				TiXmlElement* TorqueLimit = new TiXmlElement("TorqueLimit");
+				elm->LinkEndChild(TorqueLimit);
+				TorqueLimit->SetAttribute("norm", general_doc->FirstChildElement(node->name)->Attribute("TorqueLimit"));
+			}
+		}
+
+		// if(general_doc->FirstChildElement(node->name)!= nullptr) {
+		// 	TiXmlElement* TorqueLimit = new TiXmlElement("TorqueLimit");
+		// 	xml->LinkEndChild(TorqueLimit);
+		// 	TorqueLimit->SetAttribute("norm", general_doc->FirstChildElement(node->name)->Attribute("TorqueLimit"));
+		// }
+
 
 		if(body->Attribute("translation")== nullptr) body->SetAttribute("translation",v3toString(offset));
 	}
 
-	void BVHToFile(BVHNode* root, std::string filename){
+	void BVHToFile(BVHNode* root, std::string filename, TiXmlElement* general_doc){
 		TiXmlDocument* doc = new TiXmlDocument(filename);
 		std::vector<TiXmlElement*> list;
 
@@ -149,7 +185,26 @@ namespace myBVH{
 		child->SetAttribute("mass", "1"); // interactive if want to
 		child->SetAttribute("bvh", root->name);
 
-		BVHToXML(root, child, Eigen::Vector3d::Zero(), /*(root->offset),*/ list);
+		if(general_doc->FirstChildElement(root->name)!= nullptr) {
+			TiXmlElement* child_elm = general_doc->FirstChildElement(root->name);
+			child->SetAttribute("mass", child_elm->Attribute("mass")); 
+			if(child_elm->Attribute("type")!= nullptr){
+				child->SetAttribute("type", child_elm->Attribute("type"));		
+			}
+			if(child_elm->Attribute("name")!= nullptr){
+				child->SetAttribute("name", child_elm->Attribute("name"));		
+			}
+			if(child_elm->Attribute("TorqueLimit")!= nullptr){
+				TiXmlElement* TorqueLimit = new TiXmlElement("TorqueLimit");
+				child->LinkEndChild(TorqueLimit);
+				TorqueLimit->SetAttribute("norm", general_doc->FirstChildElement(root->name)->Attribute("TorqueLimit"));
+			}
+
+
+		}
+
+
+		BVHToXML(root, child, Eigen::Vector3d::Zero(), /*(root->offset),*/ list, general_doc);
 		for(auto elem : list){
 			skel->LinkEndChild(elem);
 		}
@@ -231,5 +286,15 @@ namespace myBVH{
 
 int main(int argc, char** argv)
 {
-	myBVH::BVHToFile(myBVH::BVHParser(argv[1]), argv[2]);
+	// TiXmlDocument* general_doc = new TiXmlDocument("../character/humanoid_general.xml");
+	std::string filename= "../character/humanoid_general.xml";
+	TiXmlDocument general_doc;
+	if(!general_doc.LoadFile(filename)){
+		std::cout << "Can't open file : " << filename << std::endl;
+		// return nullptr;
+	}
+
+	TiXmlElement * skeldoc = general_doc.FirstChildElement("Skeleton");
+
+	myBVH::BVHToFile(myBVH::BVHParser(argv[1]), argv[2], skeldoc);
 }
