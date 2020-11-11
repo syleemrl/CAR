@@ -12,6 +12,9 @@ std::string v3toString(Eigen::Vector3d vec){
 	return ss.str();
 }
 
+double default_height = 0;
+double foot_height = 0;
+
 namespace myBVH{
 	struct BVHNode{
 		std::string name;
@@ -68,6 +71,37 @@ namespace myBVH{
 						body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); //body == draw
 						xml->LinkEndChild(capsule);
 					}
+				}else if(c->name.find("Toe")!= std::string::npos){
+					// Foot->Toe
+					TiXmlElement* capsule = new TiXmlElement("Box");
+					capsule->SetAttribute("offset", v3toString(Eigen::Vector3d::Zero()));  // body == draw
+					capsule->SetAttribute("direction", v3toString(Eigen::Vector3d(c->offset).normalized()));
+					
+					Eigen::Vector3d foot_position = offset+ Eigen::Vector3d(c->offset)/2;
+					double foot_length = Eigen::Vector3d(c->offset).norm();
+					foot_height = default_height + foot_position[1] ;
+					std::cout<<"foot_height : "<<foot_height<<std::endl;
+					double foot_front = sqrt(foot_length*foot_length - foot_height*foot_height);
+
+					capsule->SetAttribute("size", v3toString(Eigen::Vector3d( 0.08, 2*foot_height,foot_front)));
+					
+
+					body->SetAttribute("translation",v3toString(foot_position)); //body == draw
+					xml->LinkEndChild(capsule);
+
+				}else if(node->name.find("Toe")!= std::string::npos){
+					// Toe->ToeEnd
+					TiXmlElement* capsule = new TiXmlElement("Box");
+					capsule->SetAttribute("offset", v3toString(Eigen::Vector3d::Zero()));  // body == draw
+					capsule->SetAttribute("direction", v3toString(Eigen::Vector3d(c->offset).normalized()));
+					
+					capsule->SetAttribute("size", v3toString(Eigen::Vector3d(0.08, 2*foot_height, Eigen::Vector3d(c->offset).norm())));
+					
+					Eigen::Vector3d toe_position = offset+ Eigen::Vector3d(c->offset)/2;
+					toe_position[1] = foot_height-default_height;
+					body->SetAttribute("translation",v3toString(toe_position)); //body == draw
+					xml->LinkEndChild(capsule);
+
 				}else{
 					TiXmlElement* capsule = new TiXmlElement("Box");
 					capsule->SetAttribute("offset", v3toString(Eigen::Vector3d::Zero()));  // body == draw
@@ -80,6 +114,10 @@ namespace myBVH{
 					body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); //body == draw
 					xml->LinkEndChild(capsule);
 
+					// if(node->name.find("Foot")!=std::string::npos || node->name.find("Toe")!=std::string::npos
+					// 	||c->name.find("Foot")!=std::string::npos || c->name.find("Toe")!=std::string::npos) {
+					// 	std::cout<<node->name<<" "<<c->name<<"\t"<<offset.transpose()<<"\t"<<(offset.norm())<<" "<<Eigen::Vector3d(c->offset).norm()<<std::endl;
+					// }
 				}
 				// xml->SetAttribute("mass", std::to_string(std::pow(Eigen::Vector3d(c->offset).norm()*4, 3))); 
 			}
@@ -177,6 +215,13 @@ namespace myBVH{
 		file >> command; assert(command == "HIERARCHY");
 		file >> tmp; assert(tmp == "ROOT");
 		BVHNode *root = nodeParser(file);
+
+		for(int i=0; i<8; i++) {
+			// MOTION / Frames: / 30/ Frame/ Time: / 0.03333/ x / y
+			file >> tmp; 
+		}
+		std::cout<<tmp<<std::endl;
+		default_height = std::stof(tmp)/100;
 
 		file.close();
 
