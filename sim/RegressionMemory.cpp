@@ -1013,7 +1013,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
-		//std::cout << i << " " << exp(mean_cps[i][mDimDOF - 1]) << std::endl;
+		// std::cout << i << " " << exp(mean_cps[i][mDimDOF - 1]) << std::endl;
 	}
 	if(mPrevElite.size() == 0) {
 		for(int i = 0; i < mNumElite; i++) {
