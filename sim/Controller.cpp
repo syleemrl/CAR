@@ -460,7 +460,7 @@ GetSimilarityReward()
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx) *= 2;
+			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
 		}
 	}
@@ -490,6 +490,11 @@ GetSimilarityReward()
 	Eigen::VectorXd ee_v_diff(3 + mEndEffectors.size() * 3);
 	ee_v_diff.setZero();
 	
+	Eigen::VectorXd ee_v_bvh(3 + mEndEffectors.size() * 3);
+	Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
+	ee_v_bvh.setZero();
+	ee_v_cur.setZero();
+
 	double slide = 0;
 	
 	if(mCurrentFrame != mPrevFrame && mPrevFrame != mPrevFrame2) {
@@ -519,11 +524,6 @@ GetSimilarityReward()
 		skel->setVelocities(v_save);
 		skel->computeForwardKinematics(true,true,false);
 
-		Eigen::VectorXd ee_v_bvh(3 + mEndEffectors.size() * 3);
-		Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
-		ee_v_bvh.setZero();
-		ee_v_cur.setZero();
-
 		for(int i = 0; i < mEndEffectors.size() + 1; i++) {
 			if(i == 0) {
 				ee_v_bvh.segment<3>(3*i) = tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i);
@@ -533,7 +533,10 @@ GetSimilarityReward()
 				ee_v_bvh.segment<3>(3*i) = aa_bvh.inverse() * (tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i));
 				ee_v_cur.segment<3>(3*i) = aa_cur.inverse() * (tl_cur.segment<3>(3*i) - mTlPrev.segment<3>(3*i));
 			}
-			ee_v_diff.segment<3>(3*i) = (ee_v_cur.segment<3>(3*i) - ee_v_bvh.segment<3>(3*i)) / std::max(0.02, ee_v_bvh.segment<3>(3*i).norm());
+			ee_v_diff.segment<3>(3*i) = (ee_v_cur.segment<3>(3*i) - ee_v_bvh.segment<3>(3*i));
+		}
+		for(int i = 0; i < 3 * mEndEffectors.size() + 3; i++) {
+			ee_v_diff(i) /= std::max(0.03, abs(ee_v_bvh(i)));
 		}
 		ee_v_diff.segment<3>(0) *= 2;
 		for(int j = 0; j < 2; j++) {
@@ -549,10 +552,12 @@ GetSimilarityReward()
 
 	double r_slide = abs(slide); //exp(-slide*200);
 	double r_ee = exp_of_squared(ee_v_diff, 1.5);
-	double r_p = exp_of_squared(p_diff,0.4);
+	double r_p = exp_of_squared(p_diff,0.3);
 
 	mTlPrev2 = mTlPrev;
 	mTlPrev = tl_cur;	
+	// std::cout << ee_v_bvh.transpose() << std::endl;
+	// std::cout << ee_v_diff.transpose() << std::endl;
 
 	if(mRewardSimilarity.size() == 0) {
 		for(int i = 0; i < 4; i++) {
