@@ -34,6 +34,7 @@ Eigen::Vector3d string_to_vector3d(const std::string& input);
 Eigen::VectorXd string_to_vectorXd(const std::string& input, int n);
     Eigen::VectorXd string_to_vectorXd(const std::string& input);
 Eigen::Matrix3d string_to_matrix3d(const std::string& input);
+std::string vectorXd_to_string(const Eigen::VectorXd& vec);
 
 double exp_of_squared(const Eigen::VectorXd& vec,double sigma = 1.0);
 double exp_of_squared(const Eigen::Vector3d& vec,double sigma = 1.0);
@@ -47,6 +48,7 @@ Eigen::Quaterniond DARTPositionToQuaternion(Eigen::Vector3d in);
 Eigen::Vector3d QuaternionToDARTPosition(const Eigen::Quaterniond& in);
 void QuaternionNormalize(Eigen::Quaterniond& in);
 Eigen::VectorXd BlendPosition(Eigen::VectorXd v_target, Eigen::VectorXd v_source, double weight, bool blend_rootpos=true);
+Eigen::VectorXd BlendVelocity(Eigen::VectorXd target_a, Eigen::VectorXd target_b, double weight);
 Eigen::Vector3d NearestOnGeodesicCurve3d(Eigen::Vector3d targetAxis, Eigen::Vector3d targetPosition, Eigen::Vector3d position);
 Eigen::VectorXd NearestOnGeodesicCurve(Eigen::VectorXd targetAxis, Eigen::VectorXd targetPosition, Eigen::VectorXd position);
 Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot);
@@ -71,6 +73,7 @@ Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m);
 Eigen::Vector3d projectToXZ(Eigen::Vector3d v);
 
 std::vector<std::string> split(const std::string &s, char delim);
+Eigen::MatrixXd getPseudoInverse(Eigen::MatrixXd m);
 }
 
 #endif

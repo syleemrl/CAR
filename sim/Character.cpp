@@ -18,13 +18,9 @@ Character::Character(const std::string& path)
 	this->mSkeleton = p.first;
 	this->mTorqueMap = p.second;
 
+
 	mPath = path;
 }
-// Character::Character(const dart::dynamics::SkeletonPtr& skeleton)
-// {
-// 	this->mSkeleton = skeleton;
-// }
-
 const dart::dynamics::SkeletonPtr& Character::GetSkeleton()
 {
 	return this->mSkeleton;

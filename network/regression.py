@@ -24,7 +24,7 @@ class Regression(object):
 		self.learning_rate_decay = learning_rate_decay
 		self.learning_rate = learning_rate	
 
-	def initRun(self, directory, num_input, num_output, postfix="reg"):
+	def initRun(self, directory, num_input, num_output, postfix=""):
 		self.directory = directory
 
 		self.num_input = num_input
@@ -37,13 +37,10 @@ class Regression(object):
 		self.postfix = postfix
 		self.buildOptimize(self.name)
 
-		self.save_list = [v for v in tf.trainable_variables() if v.name.find(self.name)!=-1]
-		self.saver = tf.train.Saver(var_list=self.save_list, max_to_keep=1)
-
 		self.load()
 
-	def initTrain(self, directory, num_input, num_output, postfix="reg",
-		batch_size=1024, steps_per_iteration=50):
+	def initTrain(self, directory, num_input, num_output, postfix="",
+		batch_size=128, steps_per_iteration=1):
 		name = directory.split("/")[-2]
 		self.name = name + postfix
 		self.postfix = postfix
@@ -64,7 +61,6 @@ class Regression(object):
 		self.regression_y = np.empty(shape=[0, num_output])
 
 		self.load()
-		self.loadRegressionData()	
 
 		print("init regression network done")
 
@@ -85,56 +81,16 @@ class Regression(object):
 				save_list.append(v)
 
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
+		self.save_list = save_list
 
 		self.sess.run(tf.global_variables_initializer())
 
-	def loadRegressionData(self):
-		x_data = []
-		y_data = []
-		try:
-			f = open(self.directory+"regression_data"+self.postfix, "r")
-			for l in f.readlines():
-				l = l[:-1].split(",")
-				x = l[0].split(" ")[:-1]
-				y = l[1].split(" ")[1:-1]
-				
-				x = [float(x_i) for x_i in x]
-				y = [float(y_i) for y_i in y]
-	
-				x_data.append(x)
-				y_data.append(y)
 
-			self.updateRegressionData([x_data, y_data])
-			
-			f.close()
-		except:
-			print("Nothing to load")
-
-	def saveRegressionData(self, tuples, append=True):
-		if len(tuples[0]) == 0:
-			return
-
-		if append:
-			out = open(self.directory+"regression_data"+self.postfix, "a")
-		else:
-			out = open(self.directory+"regression_data"+self.postfix, "w")
-		
-		for i in range(len(tuples[0])):
-			for sx in tuples[0][i]:
-				out.write(str(sx)+' ')
-			out.write(', ')
-			for sy in tuples[1][i]:
-				out.write(str(sy)+' ')
-			out.write('\n')
-		out.close()
-
-		print("save data to "+self.directory+"regression_data"+self.postfix)
-
-	def replaceRegressionData(self, tuples):
+	def setRegressionData(self, tuples):
 		self.regression_x = tuples[0]
 		self.regression_y = tuples[1]
 
-	def updateRegressionData(self, tuples):
+	def appendRegressionData(self, tuples):
 		if len(tuples[0]) == 0:
 			return
 		self.regression_x = np.concatenate((self.regression_x, tuples[0]), axis=0)
@@ -167,6 +123,7 @@ class Regression(object):
 			for v in self.save_list:
 				# if v.name[0:11]+v.name[14:-2] in saved_dict:
 				# 	saved_v = saved_dict[v.name[0:11]+v.name[14:-2]]
+
 				if v.name[:-2] in saved_dict:
 					saved_v = saved_dict[v.name[:-2]]
 					if v.shape == saved_v.shape:
@@ -190,26 +147,45 @@ class Regression(object):
 
 	def train(self):
 		self.lossvals = []
-		for it in range(self.steps_per_iteration):
-			if int(len(self.regression_x) // self.batch_size) == 0:
-				return
-
-			ind = np.arange(len(self.regression_x))
-			np.random.shuffle(ind)
-
+		lossval_reg = 0
+		lossval_reg_prev = 1e8
+		epsilon_count = 0
+		n_iteration = 0
+		while epsilon_count < 2:
+			n_iteration += 1
+			lossval_reg_prev = lossval_reg
 			lossval_reg = 0
-
-			for s in range(int(len(ind)//self.batch_size)):
-				selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
+		# for it in range(self.steps_per_iteration * n):
+			if int(len(self.regression_x) // self.batch_size) == 0:
 
 				val = self.sess.run([self.regression_train_op, self.loss_regression], 
-					feed_dict={
-						self.input: self.regression_x[selectedIndex], 
-						self.output: self.regression_y[selectedIndex], 
-					}
-				)
+						feed_dict={
+							self.input: self.regression_x, 
+							self.output: self.regression_y, 
+						}
+					)
 				lossval_reg += val[1]
-		self.lossvals.append(['loss regression', lossval_reg / self.steps_per_iteration])
+
+			else:
+				ind = np.arange(len(self.regression_x))
+				np.random.shuffle(ind)
+
+				for s in range(int(len(ind)//self.batch_size)):
+					selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
+
+					val = self.sess.run([self.regression_train_op, self.loss_regression], 
+						feed_dict={
+							self.input: self.regression_x[selectedIndex], 
+							self.output: self.regression_y[selectedIndex], 
+						}
+					)
+					lossval_reg += val[1]
+			if abs(lossval_reg_prev - lossval_reg) < 1e-5:
+				epsilon_count += 1
+			if n_iteration > 1000:
+				break
+		self.lossvals.append(['num iteration', n_iteration])
+		self.lossvals.append(['loss regression', lossval_reg])
 
 		self.printNetworkSummary()
 		self.save()
@@ -217,7 +193,6 @@ class Regression(object):
 	def run(self, input):
 		input = np.reshape(input, (-1, self.num_input))
 		output = self.regression.getValue(input)
-
 		return output
 
 	def runBatch(self, input_li):

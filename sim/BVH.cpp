@@ -131,7 +131,7 @@ SetMotion(double t)
 	int k1 = std::min(k+1, mNumTotalFrames - 1);
 	double dt = (t/mTimeStep - std::floor(t/mTimeStep));
 	std::vector<Eigen::Matrix3d> R_0,R_1;
-
+	
 	//R0
 	for(auto& bn: mMap)
 		bn.second->Set(mMotions[k]);

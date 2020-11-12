@@ -6,6 +6,7 @@
 #include "CharacterConfigurations.h"
 #include "BVH.h"
 #include "MultilevelSpline.h"
+#include "RegressionMemory.h"
 #include <tuple>
 #include <mutex>
 
@@ -17,8 +18,6 @@ public:
 	Motion(Motion* m) {
 		position = m->position;
 		velocity = m->velocity;
-		// rightContact = m->rightContact;
-		// leftContact = m->leftContact;
 	}
 	Motion(Eigen::VectorXd pos) {
 		position = pos;
@@ -29,19 +28,14 @@ public:
 	}
 	void SetPosition(Eigen::VectorXd pos) { position = pos; }
 	void SetVelocity(Eigen::VectorXd vel) { velocity = vel; }
-	// void SetLeftContact(bool contact) { leftContact = contact; }
-	// void SetRightContact(bool contact) { rightContact = contact; }
 
 	Eigen::VectorXd GetPosition() { return position; }
 	Eigen::VectorXd GetVelocity() { return velocity; }
-	// bool GetLeftContact() { return leftContact; }
-	// bool GetRightContact() { return rightContact; }
 
 protected:
 	Eigen::VectorXd position;
 	Eigen::VectorXd velocity;
-	// bool rightContact;
-	// bool leftContact;
+
 };
 class ReferenceManager
 {
@@ -52,33 +46,31 @@ public:
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
-	void RescaleMotion(double w);
 	Motion* GetMotion(double t, bool adaptive=false);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
-	double GetTimeStep() {return mTimeStep; }
 	int GetPhaseLength() {return mPhaseLength; }
-	void ComputeAxisDev();
-	void ComputeAxisMean();
-	Eigen::VectorXd GetAxisMean(double t);
-	Eigen::VectorXd GetAxisDev(double t);
+	double GetTimeStep(double t, bool adaptive);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::pair<double, double> rewards, Eigen::VectorXd parameters);
-	void InitOptimization(int nslaves, std::string save_path);
-	bool Optimize();
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, std::tuple<double, double, std::vector<double>> rewards, Eigen::VectorXd parameters);
+	void InitOptimization(int nslaves, std::string save_path, bool adaptive=false);
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
-	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 	std::vector<double> GetContacts(double t);
-	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>> GetRegressionSamples();
 	int GetDOF() {return mDOF; }
-	int GetNumCPS() {return (mKnots.size()+3);}
-	std::vector<double> GetKnots() {return mKnots;}
-	void SetRefUpdateMode(bool on) { mRefUpdateMode = on; }
-	Eigen::VectorXd GetTargetBase() {return mTargetBase; }
-	Eigen::VectorXd GetTargetGoal() {return mTargetGoal; }
-	Eigen::VectorXd GetTargetUnit() {return mTargetUnit; }
-	Eigen::VectorXd GetTargetCurMean() {return mTargetCurMean; }
+	int GetNumCPS() {return mPhaseLength;}
+
+	Eigen::VectorXd GetParamGoal() {return mParamGoal; }
+	Eigen::VectorXd GetParamCur() {return mParamCur; }
+	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetParamRange() {return std::pair<Eigen::VectorXd, Eigen::VectorXd>(mParamBase, mParamEnd); }
+	void SetParamGoal(Eigen::VectorXd g) { mParamGoal = g; }
+	void ResetOptimizationParameters(bool reset_displacement=true);
+	void SetRegressionMemory(RegressionMemory* r) {mRegressionMemory = r; }
+	void SetCPSreg(std::vector<Eigen::VectorXd> cps) {mCPS_reg = cps; }
+	void SetCPSexp(std::vector<Eigen::VectorXd> cps) {mCPS_exp = cps; }
+	std::vector<Eigen::VectorXd> GetCPSreg() { return mCPS_reg; }
+	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
+	void SelectReference();
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -92,40 +84,34 @@ protected:
 	std::vector<Motion*> mMotions_gen;
 	std::vector<Motion*> mMotions_gen_adaptive;
 	std::vector<std::vector<Motion*>> mMotions_gen_temp;
-
-	std::vector<double> mIdxs;
+	std::vector<double> mTimeStep_adaptive;
 	
-	std::vector<Eigen::VectorXd> mAxis_BVH;
-	std::vector<Eigen::VectorXd> mDev_BVH;
+	std::vector<Eigen::VectorXd> mCPS_reg;
+	std::vector<Eigen::VectorXd> mCPS_exp;
 
-	//cps, target, similarity
-	std::vector<std::tuple<MultilevelSpline*, std::pair<double, double>, double>> mSamples;
-	
-	//cps, parameter, quality
-	std::vector<std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>> mRegressionSamples;
-
-	std::vector<Eigen::VectorXd> mPrevCps;
-	std::vector<Eigen::VectorXd> mDisplacement;
-	std::vector<double> mKnots;
-	std::vector<std::string> mInterestedBodies;
-	std::vector<Eigen::VectorXd> mSampleTargets;
 	double mSlaves;
 	std::mutex mLock;
-	bool mSaveTrajectory;
+
 	std::string mPath;
-	double mPrevRewardTrajectory;
-	double mPrevRewardTarget;
 	
-	bool mRefUpdateMode;
+	bool isParametric;
 	int mDOF;
-	int nOp;
-	Eigen::VectorXd mTargetBase;
-	Eigen::VectorXd mTargetGoal;
-	Eigen::VectorXd mTargetUnit;
-	Eigen::VectorXd mTargetCurMean;
 
-	std::vector<int> nRejectedSamples;
+	Eigen::VectorXd mParamGoal;
+	Eigen::VectorXd mParamCur;
+	Eigen::VectorXd mParamBase;
+	Eigen::VectorXd mParamEnd;
 
+	RegressionMemory* mRegressionMemory;
+	
+	double mMeanTrackingReward;
+	double mMeanParamReward;
+
+	double mThresholdTracking;
+
+	std::random_device mRD;
+	std::mt19937 mMT;
+	std::uniform_real_distribution<double> mUniform;
 };
 }
 

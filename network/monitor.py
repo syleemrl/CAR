@@ -10,8 +10,8 @@ from utils import RunningMeanStd
 from IPython import embed
 
 class Monitor(object):
-	def __init__(self, ref, num_slaves, directory, adaptive, plot=True, verbose=True):
-		self.env = Env(ref, directory, adaptive, num_slaves)
+	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
+		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
 		self.num_slaves = self.env.num_slaves
 		self.sim_env = self.env.sim_env
 		
@@ -22,6 +22,7 @@ class Monitor(object):
 		self.plot = plot
 		self.directory = directory
 		self.adaptive = adaptive
+		self.parametric = parametric
 
 		self.start_time = time.time()		
 		self.num_evaluation = 0
@@ -29,7 +30,6 @@ class Monitor(object):
 		self.num_transitions = 0
 		self.total_frames_elapsed = 0
 		self.total_rewards = []
-		self.total_rewards_target = []
 		self.max_episode_length = 0
 
 		self.reward_label = self.sim_env.GetRewardLabels()
@@ -49,14 +49,13 @@ class Monitor(object):
 		self.rewards_sparse_phase = [0]*self.num_slaves
 
 		self.phaselength = self.sim_env.GetPhaseLength()
-		target_base = self.sim_env.GetTargetBase()
-		target_unit = self.sim_env.GetTargetUnit()
-
-		self.dim_target = len(target_base)
-		self.sampler = Sampler(target_base, target_unit)
+		self.dim_param = len(self.sim_env.GetParamGoal())
+		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
 
 		self.mode = 0
 		self.mode_counter = 0
+		self.flag_updated = False
+		self.exploration_done = False
 
 		if self.plot:
 			plt.ion()
@@ -90,11 +89,12 @@ class Monitor(object):
 
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
-		if self.adaptive:
-			params = np.array(self.states)[:,-self.dim_target:]
-			curframes = np.array(self.states)[:,-(self.dim_target+1)]
+
+		if self.adaptive and self.parametric:
+			params = np.array(self.states)[:,-self.dim_param:]
+			curframes = np.array(self.states)[:,-(self.dim_param+1)]
 		else:
-			params = np.zeros(self.num_slaves, 1)
+			params = np.zeros(self.num_slaves)
 			curframes = np.array(self.states)[:,-1]
 
 		states_updated = self.RMS.apply(self.states[~np.array(self.terminated)])
@@ -102,7 +102,7 @@ class Monitor(object):
 		if record:
 			self.num_nan_per_iteration += nan_count
 			for i in range(self.num_slaves):
-			
+		
 				if not self.terminated[i] and rewards[i][0] is not None:
 					self.rewards_per_iteration += rewards[i][0]
 					self.rewards_by_part_per_iteration.append(rewards[i])
@@ -124,39 +124,64 @@ class Monitor(object):
 
 		return rewards, dones, curframes, params
 
-	def updateMode(self, v_func, results):
-		self.mode_counter += 1	
+	def updateReference(self):
+		self.mode_counter += 1
+		if self.mode_counter % 10 == 0:
+			self.sim_env.SaveParamSpace(-1)
+			self.env.sim_env.UpdateReference()
+			self.sim_env.TrainRegressionNetwork()
 
-		self.sim_env.TrainRegressionNetwork()
-		b = self.sim_env.GetTargetBound()
-		if len(b) != 0:
-			self.sampler.updateBound(b)
-
+	def updateMode(self, v_func):
+		mode_change = -1
+		self.mode_counter += 1
+		if self.num_evaluation % 50 == 0:
+			self.sim_env.SaveParamSpace(self.num_evaluation)
 		if self.mode == 0:
-			self.sim_env.Optimize()
-			if self.mode_counter >= 10:
-				if len(b) == 0:
-					self.mode_counter = 9
-				else:
-					self.mode = 1
-					self.sim_env.SetRefUpdateMode(False)
-					self.sampler.reset()
-					self.mode_counter = 0
-		else:
-			if self.sim_env.NeedRefUpdate() and self.sampler.isEnough(results):
-				self.mode = 0
-				self.sim_env.SetRefUpdateMode(True)
+			if self.mode_counter % 10 == 0:
+				self.sim_env.SaveParamSpace(-1)
+				self.sampler.reset_explore()
+			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
+				self.sim_env.TrainRegressionNetwork()
+				self.mode = 1
 				self.mode_counter = 0
-			else:
-				self.sampler.update(v_func)
+				self.sampler.reset_visit()
+				mode_change = 1
+		else:
+			if self.mode_counter % 10 == 0:
+				self.sim_env.SaveParamSpace(-1)
+				self.sim_env.TrainRegressionNetwork()
+			enough = self.sampler.isEnough(v_func)
+			if enough and self.sim_env.NeedExploration():
+				self.mode = 0
+				self.mode_counter = 0
+				self.sampler.reset_explore()
+				mode_change = 0
+			elif enough and not self.sim_env.NeedExploration():
+				mode_change = 999
+				print("training done")
+		return mode_change
+	
+	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
+		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
+		if not self.mode and not self.sim_env.NeedExploration():
+			self.sim_env.TrainRegressionNetwork()
+			self.mode = 1
+			self.mode_counter = 0
+			self.sampler.reset_visit()
+			self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
 
-
-	def updateTarget(self):		
-		t = self.sampler.adaptiveSample()
+	def updateGoal(self, v_func, v_func_prev):
+		t, idx = self.sampler.adaptiveSample(self.mode)
 		t = np.array(t, dtype=np.float32) 
-		
-		self.sim_env.SetTargetParameters(t)
 
+		self.sim_env.SetGoalParameters(t, self.mode)
+		
+		t = np.reshape(t, (-1, self.dim_param))
+		v = v_func.getValue(t)[0]
+		v_prev = v_func_prev.getValue(t)[0]
+
+		print(t[0], v, v - v_prev)
+		return idx
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
 		if self.plot:
@@ -221,7 +246,7 @@ class Monitor(object):
 			if self.num_transitions_per_iteration is not 0:
 				te_per_t = self.total_frames_elapsed / self.num_transitions_per_iteration;
 			print_list.append('frame elapsed per transition : {:.2f}'.format(te_per_t))
-
+			print_list.append('param goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetParamGoal()]))			
 			if self.num_nan_per_iteration != 0:
 				print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
 			print_list.append('===============================================================')
@@ -254,7 +279,8 @@ class Monitor(object):
 		self.rewards_per_iteration = 0
 		self.rewards_by_part_per_iteration = []
 		self.total_frames_elapsed = 0
-
+		if self.parametric:
+			self.sim_env.SaveParamSpaceLog(self.num_evaluation)
 		summary = dict()
 		summary['r_per_e'] = r_per_e
 		summary['rp_per_i'] = rp_per_i

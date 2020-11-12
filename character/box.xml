@@ -1,0 +1,18 @@
+<Skeleton name="Box">
+	<Joint type="FreeJoint" name="Ground" parent_name="None" size="0.3 0.1 0.3" mass="50">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+	<Joint type="BallJoint" name="Base1" parent_name="Ground" size="0.1 0.5 0.1" mass="10">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.3 0"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.05 0"></JointPosition>
+	</Joint>
+	<Joint type="PrismaticJoint" name="Base2" parent_name="Base1" size="0.1 0.2 0.1" axis="0 1 0" mass="0.1">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.65 0.0"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.55 0" ></JointPosition>
+	</Joint>
+	<Joint type="WeldJoint" name="Sandbag" size="0.3 0.3 0.3" mass="5" parent_name="Base2">
+        <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 0.9 0" />
+        <JointPosition translation="0.0 0.8 0"/>
+    </Joint>
+</Skeleton>

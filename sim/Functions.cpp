@@ -313,6 +313,15 @@ Eigen::VectorXd string_to_vectorXd(const std::string& input){
 
 	return res;
 }
+std::string vectorXd_to_string(const Eigen::VectorXd& vec) {
+	std::string str= "";
+	for(int i = 0; i < vec.rows(); i++) {
+		str += std::to_string(vec(i));
+		if(i != vec.rows() - 1)
+			str += " ";
+	}
+	return str;
+}
 
 double RadianClamp(double input){
 	return std::fmod(input+M_PI, 2*M_PI)-M_PI;
@@ -437,6 +446,13 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b
 		}
 	}
 
+	return result;
+}
+Eigen::VectorXd BlendVelocity(Eigen::VectorXd target_a, Eigen::VectorXd target_b, double weight) {
+
+	Eigen::VectorXd result(target_a.rows());
+	result= (1 - weight) * target_a + weight * target_b; 
+		
 	return result;
 }
 Eigen::VectorXd RotatePosition(Eigen::VectorXd pos, Eigen::VectorXd rot)
@@ -953,5 +969,22 @@ Eigen::Vector3d projectToXZ(Eigen::Vector3d v) {
 	Eigen::Vector3d nearest = DPhy::NearestOnGeodesicCurve3d(Eigen::Vector3d(0, 1, 0), Eigen::Vector3d(0, 0, 0), v);
 	return nearest;
 
+}
+Eigen::MatrixXd getPseudoInverse(Eigen::MatrixXd m){
+	Eigen::JacobiSVD<Eigen::MatrixXd> svd(m, Eigen::ComputeThinU | Eigen::ComputeThinV);
+	int min = std::min(m.cols(), m.rows());
+	Eigen::MatrixXd inv_singular_value(min, min);
+		
+	inv_singular_value.setZero();
+	for(int k=0;k<min;k++)
+	{
+		if(svd.singularValues()[k]<1e-8)
+			inv_singular_value(k,k) = 0.0;
+		else
+			inv_singular_value(k,k) = 1.0/svd.singularValues()[k];
+	}
+
+	Eigen::MatrixXd inv = svd.matrixV()*inv_singular_value*svd.matrixU().transpose();
+	return inv;
 }
 }

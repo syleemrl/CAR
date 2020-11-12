@@ -19,17 +19,21 @@ namespace DPhy
 class Controller
 {
 public:
-Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=0);
+Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool record=false, int id=0);
 
 	void Step();
 	void UpdateReward();
-	void UpdateAdaptiveReward();
-	void UpdateRewardTrajectory();
-
 	void UpdateTerminalInfo();
 	void Reset(bool RSI=true);
-	bool FollowBvh();
 	int GetTerminationReason() {return terminationReason; }
+	int GetNumState();
+	int GetNumAction();
+	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
+	Eigen::VectorXd GetState();
+
+	
+	bool FollowBvh();
+
 	bool IsTerminalState() {return this->mIsTerminal; }
 	bool IsNanAtTerminal() {return this->mIsNanAtTerminal;}
 	bool IsTimeEnd(){
@@ -38,12 +42,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 		else
 			return false;
 	}
-	int GetNumState();
-	int GetNumAction();
-	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
 
 	bool CheckCollisionWithGround(std::string bodyName);
-	Eigen::VectorXd GetState();
 	void SetAction(const Eigen::VectorXd& action);
 	double GetReward() {return mRewardParts[0]; }
 	std::vector<double> GetRewardByParts() {return mRewardParts; }
@@ -57,42 +57,40 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool record=false, int id=
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 
-	void RescaleCharacter(double w0, double w1);
-	void SaveDisplayedData(std::string directory);
-	void SaveStats(std::string directory);
-	void UpdateSigTorque();
-	void UpdateGRF(std::vector<std::string> joints);
-	std::vector<Eigen::VectorXd> GetGRF();
+	void SaveDisplayedData(std::string directory, bool bvh=false);
+	void SaveTimeData(std::string directory);
 	void SaveStepInfo();
+	void ClearRecord();
+
+	// get record (for visualization)
+
 	Eigen::VectorXd GetObjPositions(int idx) { return this->mRecordObjPosition[idx]; }
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
-	double GetTime(int idx) { return this->mRecordTime[idx]; }
+	double GetPhase(int idx) { return this->mRecordPhase[idx]; }
 	Eigen::VectorXd GetTargetPositions(int idx) { return this->mRecordTargetPosition[idx]; }
 	Eigen::VectorXd GetBVHPositions(int idx) { return this->mRecordBVHPosition[idx]; }
-	Eigen::VectorXd GetRewardPositions(int idx) { return this->mRecordRewardPosition[idx];}
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
+
+ 	// functions related to adaptive motion retargeting
+	void RescaleCharacter(double w0, double w1);	
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
-
+	
+	void UpdateAdaptiveReward();
+	void UpdateRewardTrajectory();
+	double GetParamReward();
+	double GetSimilarityReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
-	double GetPhaseReward();
-	double  GetTargetReward();
-	std::vector<bool> GetContacts();
-	std::vector<bool> GetContacts(Eigen::VectorXd pos);
-	void GetNextPosition(Eigen::VectorXd cur, Eigen::VectorXd delta, Eigen::VectorXd& next);
-	Eigen::VectorXd GetNewPositionFromAxisController(Eigen::VectorXd prev, double timestep, double phase);
-	std::vector<double> GetAdaptiveIdxs();
+	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 
-	std::vector<Eigen::VectorXd> GetHindsightTarget() {return mHindsightTarget; }
-	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, double>>> GetHindsightSAR(std::vector<std::vector<Eigen::VectorXd>> cps);
-
-	void SetTargetParameters(Eigen::VectorXd tp) {mInputTargetParameters = tp; }
+	void SetGoalParameters(Eigen::VectorXd tp);
+	void SetSkeletonWeight(double mass);
 
 protected:
 	dart::simulation::WorldPtr mWorld;
-	double w_p,w_v,w_com,w_ee,w_srl;
+	double w_p,w_v,w_com,w_ee;
 	double mStartFrame;
 	double mCurrentFrame; // for discrete ref motion
 	double mTimeElapsed;
@@ -102,11 +100,13 @@ protected:
 	double mCurrentFrameOnPhase;
 	int nTotalSteps;
 	bool isAdaptive;
+	bool isParametric;
+	
 	int id;
 	double mPrevFrameOnPhase;
-	double mTargetRewardTrajectory;
+	double mParamRewardTrajectory;
 	double mTrackingRewardTrajectory;
-	
+
 	Character* mCharacter;
 	Character* mObject;
 	ReferenceManager* mReferenceManager;
@@ -114,31 +114,22 @@ protected:
 
 	Eigen::VectorXd mTargetPositions;
 	Eigen::VectorXd mTargetVelocities;
-	std::pair<bool, bool> mTargetContacts;
 
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;
 
-	Eigen::VectorXd mRewardTargetPositions;
-
 	Eigen::VectorXd mActions;
-
-	Eigen::Vector3d mTargetCOMvelocity;
-	double mAdaptiveCOM;
 	double mAdaptiveStep;
-	double sig_torque;
-	double meanTargetReward;
-	int mCount;
 
 	std::vector<std::string> mInterestedBodies;
 	std::vector<std::string> mRewardBodies;
 	int mInterestedDof;
 	int mRewardDof;
 
-	std::vector<std::string> mAdaptiveBodies;
 	std::vector<std::string> mEndEffectors;
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
+	std::vector<double> mRewardSimilarity;
 	// for foot collision, left, right foot, ground
 	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGOBJ; 
 
@@ -147,26 +138,14 @@ protected:
 	std::vector<Eigen::Vector3d> mRecordCOM;
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
-	std::vector<Eigen::VectorXd> mRecordRewardPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
-
-	std::vector<double> mRecordEnergy;
-	std::vector<double> mRecordWork;
-	std::vector<double> mRecordDCOM;
-	std::vector<Eigen::VectorXd> mRecordTorque;
-	std::vector<Eigen::VectorXd> mRecordWorkByJoints;
-	std::vector<Eigen::VectorXd> mRecordTorqueByJoints;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
+	std::vector<double> mRecordPhase;
+
 	bool mIsTerminal;
 	bool mIsNanAtTerminal;
 	bool mRecord;
-	bool mIsHindsight;
-	std::tuple<bool, double, double> mDoubleStanceInfo;
 	std::tuple<double, double, double> mRescaleParameter;
-	std::vector<std::string> mGRFJoints;
-	std::vector<double> mRecordTime;
-	std::vector<double> mRecordDTime;
-	std::vector<Eigen::VectorXd> mRecordFootConstraint;
 	std::vector<Eigen::Vector6d> mRecordCOMVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOMPositionRef;
 	std::vector<std::string> mContacts;
@@ -175,42 +154,34 @@ protected:
 
 	int terminationReason;
 
-	std::vector<std::vector<Eigen::VectorXd>> GRFs;
-	std::shared_ptr<dart::collision::DARTCollisionDetector> mGroundCollisionChecker;	
-
-	Eigen::VectorXd mTorqueMean;
-	Eigen::VectorXd mTorqueMin;
-	Eigen::VectorXd mTorqueMax;
-
+	Eigen::VectorXd mTlPrev;
+	Eigen::VectorXd mTlPrev2;
 	Eigen::VectorXd mPrevPositions;
+
+	double mPrevFrame;
+	double mPrevFrame2;
+	Eigen::Vector6d mRootZero;
+
 	Eigen::VectorXd mPrevTargetPositions;
-	Eigen::VectorXd mTorqueSig;
-	Eigen::VectorXd mMask;
 	Eigen::VectorXd mControlFlag;
 
-	Eigen::Vector3d mExtra;
-	//target
-	Eigen::Vector6d mHeadRoot;
+	Eigen::VectorXd mParamGoal;
+	Eigen::VectorXd mParamCur;
 
-	double mStartPhase;
-	int nTotalStepsPhase;
+	std::vector<std::pair<Eigen::VectorXd,double>> data_raw;
 
-	Eigen::VectorXd mInputTargetParameters;
-	Eigen::VectorXd targetParameters;
-	double target_reward = 0;
+	int mCountParam;
+	int mCountTracking;
 
-	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
+	Eigen::Vector3d mGravity;
+	double mMass;
 
-	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
+	Eigen::Vector3d mBaseGravity;
+	double mBaseMass;
 
-	//pos, vel, curFrame
-	std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>> mHindsightPhase;
-	std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>> mHindsightSAPhase;
-
-	//state, pos, vel, curFrame, target each phase
-	std::vector<std::vector<std::tuple<Eigen::VectorXd, Eigen::VectorXd, double>>> mHindsightCharacter;
-	std::vector<std::vector<std::pair<Eigen::VectorXd, Eigen::VectorXd>>> mHindsightSA;
-	std::vector<Eigen::VectorXd> mHindsightTarget;
+	double mPrevVelocity;
+	double mVelocity;
+	Eigen::Vector3d mEnergy;
 };
 }
 #endif

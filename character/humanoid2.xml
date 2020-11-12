@@ -1,18 +1,24 @@
 <Skeleton name="Humanoid">
-    <Joint type="FreeJoint" name="Torso" parent_name="None" size="0.2 0.18 0.08 " mass="5" bvh="Hips">
+    <Joint type="FreeJoint" name="Torso" parent_name="None" size="0.2 0.18 0.08 " mass="10" bvh="Hips">
         <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 0.0 0.0" />
         <JointPosition translation="0.000000 0.000000 0.000000 " />
         <Box size="0.18 0.14 0.1" offset="0.0 0.01 0.0" />
         <TorqueLimit norm="0"/>
         <!-- <Sphere radius="0.08"/> -->
     </Joint>
-    <Joint type="BallJoint" name="Spine" parent_name="Torso" size="0.22 0.3 0.08 " mass="12" bvh="Spine">
+    <Joint type="BallJoint" name="Spine" parent_name="Torso" size="0.22 0.3 0.08 " mass="5" bvh="Spine">
         <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 0.25 0.0" />
         <JointPosition translation="0.0 0.1 0.0"/>
         <Box size="0.2 0.3 0.12 "/>
         <TorqueLimit norm="200"/>
     </Joint>
-    <Joint type="BallJoint" name="Neck" parent_name="Spine" size="0.06 0.06 0.06" mass="2" bvh="Neck">
+    <Joint type="BallJoint" name="Spine1" parent_name="Spine" size="0.22 0.3 0.08 " mass="10" bvh="Spine1">
+        <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 0.25 0.0" />
+        <JointPosition translation="0.0 0.1 0.0"/>
+        <Box size="0.2 0.3 0.12 "/>
+        <TorqueLimit norm="200"/>
+    </Joint>
+    <Joint type="BallJoint" name="Neck" parent_name="Spine1" size="0.06 0.06 0.06" mass="2" bvh="Neck">
         <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 0.44 0.0" />
         <JointPosition translation="0.0 0.4 0.0"/>
         <Sphere radius="0.03" offset="0.0 -0.015 0.0"/>
