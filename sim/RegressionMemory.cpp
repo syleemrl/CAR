@@ -598,10 +598,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.6 && d > 0.3)
+			if (d < 0.5 && d > 0.2)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.7) {
+		if(visited && d > 0.6) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -1013,7 +1013,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
-		// std::cout << i << " " << exp(mean_cps[i][mDimDOF - 1]) << std::endl;
+		//std::cout << i << " " << exp(mean_cps[i][mDimDOF - 1]) << std::endl;
 	}
 	if(mPrevElite.size() == 0) {
 		for(int i = 0; i < mNumElite; i++) {

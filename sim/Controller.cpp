@@ -451,8 +451,8 @@ GetSimilarityReward()
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 5, 2);
 		}
 	}
-	double r_con = exp(-con_diff);
-
+	//double r_con = exp(-con_diff);
+	double r_con = abs(con_diff);
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(pos, skel->getPositions());
 
 	int num_body_nodes = skel->getNumBodyNodes();
@@ -535,6 +535,7 @@ GetSimilarityReward()
 			}
 			ee_v_diff.segment<3>(3*i) = (ee_v_cur.segment<3>(3*i) - ee_v_bvh.segment<3>(3*i)) / std::max(0.02, ee_v_bvh.segment<3>(3*i).norm());
 		}
+		ee_v_diff.segment<3>(0) *= 2;
 		for(int j = 0; j < 2; j++) {
 			if(tl_cur(3*(j+1) + 1) < 0.07 && mTlPrev(3*(j+1) + 1) < 0.07 && mTlPrev2(3*(j+1) + 1) < 0.07) {
 				Eigen::Vector2d cur, prev, prev2;
@@ -546,7 +547,7 @@ GetSimilarityReward()
 		}
 	}
 
-	double r_slide = exp(-slide*200);
+	double r_slide = abs(slide); //exp(-slide*200);
 	double r_ee = exp_of_squared(ee_v_diff, 1.5);
 	double r_p = exp_of_squared(p_diff,0.4);
 
@@ -564,6 +565,10 @@ GetSimilarityReward()
 	mRewardSimilarity[2] += r_p;
 	mRewardSimilarity[3] += r_ee;
 
+	// if(mCurrentFrameOnPhase>= 38 && mCurrentFrameOnPhase <= 46) {
+	// 	std::cout << mCurrentFrameOnPhase <<std::endl;
+	// 	std::cout << r_con << " " << r_slide << " " << r_p << " " << r_ee << std::endl;
+	// }
 	return 0.6 * r_con + 0.4 * r_p * r_ee;
 }
 double 

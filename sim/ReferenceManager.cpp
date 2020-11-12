@@ -580,7 +580,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 	std::vector<int> flag;
 
-	if(std::get<2>(rewards)[0] < 0.9) {
+	if(std::get<2>(rewards)[0] > 0.1) {
 		return;
 	}
 	// if(std::get<0>(rewards) < mThresholdTracking) {
@@ -678,10 +678,13 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	// max_dist.segment<6>(0) *= 2;
 	// r_regul = exp(-pow(r_regul / mPhaseLength, 2)*0.1);
 	// double r_max = exp_of_squared(max_dist, 0.5);
-	double r_foot = std::get<2>(rewards)[0] * std::get<2>(rewards)[1];
+	double r_con =  exp(-std::get<2>(rewards)[0]); //exp(-std::get<2>(rewards)[0]);
+	double r_slide = exp(-std::get<2>(rewards)[1] * 200); //exp(-std::get<2>(rewards)[0]);
+	double r_foot = r_con; // * r_slide;
 	double r_delta = std::get<2>(rewards)[3];
 	double r_pos = std::get<2>(rewards)[2];
-	double reward_trajectory = r_foot * r_pos * r_delta;
+	double reward_trajectory = r_foot * (r_pos * r_delta);
+	// std::cout << r_con << " " << r_slide << " " << std::get<2>(rewards)[3] << " "<<std::get<2>(rewards)[2] << std::endl; 
 	mLock.lock();
 
 	if(isParametric) {
