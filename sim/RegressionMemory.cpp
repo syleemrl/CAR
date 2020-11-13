@@ -600,10 +600,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.5 && d > 0.2)
+			if (d < 0.65 && d > 0.3)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.6) {
+		if(visited && d > 0.7) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -995,7 +995,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	}
    
 	double weight_sum = 0;
-	int mNumElite = 1;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = log(mNumElite + 1) - log(i + 1);
 		weight_sum += w;
@@ -1068,5 +1067,28 @@ SaveGoalInfo(std::string path) {
 	}
 	ofs << r / mNumElite - mGoalInfo.rewards << " " << mNumSamples - mGoalInfo.numSamples << std::endl;
 	ofs.close();
+}
+bool 
+RegressionMemory::
+IsSpaceExpanded() { 
+	std::cout << "ac: " << mParamActivated.size() <<", prev ac:" << mNumActivatedPrev << std::endl;
+	int size = mParamActivated.size();
+	if((size - mNumActivatedPrev) > mThresholdUpdate && size > 4 * mDim) {
+		std::cout << "space expanded by " << mParamActivated.size() - mNumActivatedPrev << std::endl;
+		mNumActivatedPrev = mParamActivated.size();
+		mTimeFromLastUpdate = 0;
+		return true;
+	} 
+	mTimeFromLastUpdate += 1;
+	return false;
+}
+bool
+RegressionMemory::
+IsSpaceFullyExplored() {
+	std::cout << "deac: " << mParamDeactivated.size() << ", ac: " << mParamActivated.size() << std::endl;
+	if(mParamDeactivated.size() <= mThresholdUpdate) {
+		return true;
+	}
+	return false;
 }
 };

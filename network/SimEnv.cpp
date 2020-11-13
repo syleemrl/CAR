@@ -279,7 +279,7 @@ UpdateParamState() {
 }
 void 
 SimEnv::
-TrainRegressionNetwork()
+TrainRegressionNetwork(int n)
 {
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
@@ -295,7 +295,7 @@ TrainRegressionNetwork()
 	l.append(y);
 
 	this->mRegression.attr("setRegressionData")(l);
-	this->mRegression.attr("train")();
+	this->mRegression.attr("train")(n);
 
 }
 void

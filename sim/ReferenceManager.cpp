@@ -731,7 +731,7 @@ OptimizeExReference(){
 void 
 ReferenceManager::
 SelectReference(){
-	double r = 0.4;
+	double r = 0.6;
 	if(mUniform(mMT) < r) {
 		LoadAdaptiveMotion(mCPS_reg);
 	} else {

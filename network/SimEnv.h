@@ -49,7 +49,7 @@ public:
 	bool Optimize();
 	void LoadAdaptiveMotion();
 	void UpdateParamState();
-	void TrainRegressionNetwork();
+	void TrainRegressionNetwork(int n);
 
 	double GetPhaseLength();
 	int GetDOF();

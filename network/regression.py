@@ -145,7 +145,7 @@ class Regression(object):
 			print(s)
 
 
-	def train(self):
+	def train(self, max_iter):
 		self.lossvals = []
 		lossval_reg = 0
 		lossval_reg_prev = 1e8
@@ -180,10 +180,11 @@ class Regression(object):
 						}
 					)
 					lossval_reg += val[1]
-			print(lossval_reg)
+			if n_iteration % 10 == 0:
+				print(n_iteration, lossval_reg)
 			if abs(lossval_reg_prev - lossval_reg) < 1e-4:
 				epsilon_count += 1
-			if n_iteration > 50:
+			if n_iteration > max_iter:
 				break
 		self.lossvals.append(['num iteration', n_iteration])
 		self.lossvals.append(['loss regression', lossval_reg])

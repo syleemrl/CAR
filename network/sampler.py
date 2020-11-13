@@ -11,8 +11,8 @@ class Sampler(object):
 		self.v_mean = 0
 		self.random = True
 
-		self.k = 5
-		self.k_ex = 10
+		self.k = 15
+		self.k_ex = 20
 
 		self.total_iter = 0
 		self.n_learning = 0
@@ -23,6 +23,8 @@ class Sampler(object):
 		self.type_visit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
 		self.type_explore = 4
+		self.epsilon_greedy = False
+		self.epsilon = 0.2
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)
@@ -49,12 +51,12 @@ class Sampler(object):
 
 	def probAdaptiveSampling(self, idx):
 		v = self.v_sample[idx]
-		return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+		return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
 
 	def probTSSampling(self, idx):
 		v = self.v_sample[idx]
 		v_prev = self.v_prev_sample[idx]
-		slope = (v - v_prev) / v_prev * self.k * 2
+		slope = (v - v_prev) / v_prev * self.k_ex * 2
 		if slope > 10:
 			slope = 10
 		return math.exp(slope) + 1e-10
@@ -105,7 +107,7 @@ class Sampler(object):
 						if np.random.rand() <= alpha:          
 							x_cur = x_new
 			else:
-				if self.n_explore <= 1:
+				if self.n_explore == 1:
 					return
 				v_mean_sample_cur = [0] * len(self.sample)
 				count_sample_cur = [0] * len(self.sample)
@@ -121,26 +123,26 @@ class Sampler(object):
 
 				print('v prev goals: ', self.v_prev_sample)
 				print('v goals: ', self.v_sample)
+				self.prob = []
 
-				prob = []
 				for i in range(len(self.sample)):
 					if self.type_explore == 2:
-						prob.append(self.probAdaptiveSampling(i))
+						self.prob.append(self.probAdaptiveSampling(i))
 					else:
-						prob.append(self.probTSSampling(i))
-				prob_mean = np.array(prob).mean() * len(self.sample)
+						self.prob.append(self.probTSSampling(i))
+				prob_mean = np.array(self.prob).mean() * len(self.sample)
 				
 				self.bound_sample = []
 				for i in range(len(self.sample)):
 					if i == 0:
-						self.bound_sample.append(prob[i] / prob_mean)
+						self.bound_sample.append(self.prob[i] / prob_mean)
 					else:
-						self.bound_sample.append(self.bound_sample[-1] + prob[i] / prob_mean)
+						self.bound_sample.append(self.bound_sample[-1] + self.prob[i] / prob_mean)
 				print(self.bound_sample)
 
 	def adaptiveSample(self, visited):
 		if visited:
-			if self.n_explore < 2 or self.n_visit % 5 == 4:
+			if self.n_visit < 1 or self.n_visit % 5 == 4:
 				return self.randomSample(visited), -1
 
 			if self.type_visit == 0:
@@ -158,27 +160,41 @@ class Sampler(object):
 				idx = t
 				return target, t
 			elif self.type_explore == 1 or self.type_explore == 3:
-				if self.start < 5:
+				if self.start < 2:
 					return self.randomSample(visited), -1
 				t = np.random.randint(len(self.pool_ex))
 				target = self.pool_ex[t]
 				return target, t 
 			else:
-				if self.n_explore < 2:
+				if self.n_explore <= 2:
 					t = np.random.randint(len(self.sample))	
 					target = self.sample[t]
 					idx = t
 				else:
 					t = np.random.rand()
-					idx = -1	
-					for i in range(len(self.bound_sample)):
-						if t <= self.bound_sample[i]:
-							target = self.sample[i]
-							idx = i
-							break
-					if idx == -1:
-						idx = len(self.bound_sample) - 1
-						target = self.sample[idx]
+					if self.epsilon_greedy:
+						if t < self.epsilon:
+							t = np.random.randint(len(self.sample))	
+							target = self.sample[t]
+							idx = t
+						else:
+							idx = 0
+							max_prob = 0
+							for i in range(len(self.prob)):
+								if max_prob < self.prob[i]:
+									max_prob = self.prob[i]
+									idx = i
+							target = self.sample[idx]
+					else:
+						idx = -1	
+						for i in range(len(self.bound_sample)):
+							if t <= self.bound_sample[i]:
+								target = self.sample[i]
+								idx = i
+								break
+						if idx == -1:
+							idx = len(self.bound_sample) - 1
+							target = self.sample[idx]
 				return target, idx
 
 	def reset_visit(self):
@@ -187,14 +203,14 @@ class Sampler(object):
 		self.n_visit = 0
 		self.n_learning += 1
 
-	def sampleGoals(self, m=10):
+	def sampleGoals(self, m=5):
 		self.sample = []
 		self.v_sample = []
 		for i in range(m):
 			self.sample.append(self.randomSample(False))
-			self.v_sample.append(1.0)
+			self.v_sample.append(0.1)
 		self.v_prev_sample = copy(self.v_sample)
-		print('new goals: ', self.sample)
+		# print('new goals: ', self.sample)
 
 	def reset_explore(self):
 		if self.type_explore == 2 or self.type_explore == 4 or self.type_explore == 5:
@@ -211,10 +227,10 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.v_mean_cur > 0.9:
+			if self.n_visit > 10 and self.v_mean_cur > 0.9:
 				return True
-		# if self.v_mean > 1.0:
-		# 	return True
+		if self.n_visit > 10 and self.v_mean > 0.9:
+				return True
 
 		self.total_iter += 1
 		return False
