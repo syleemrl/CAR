@@ -571,7 +571,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 	std::vector<int> flag;
 
-	if(std::get<2>(rewards)[0] < 0.85) {
+	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
 	// if(std::get<0>(rewards) < mThresholdTracking) {
@@ -651,7 +651,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
 	}
-	double r_foot = std::get<2>(rewards)[0] * std::get<2>(rewards)[1];
+	double r_con =  exp(-std::get<2>(rewards)[0] * 0.6); //exp(-std::get<2>(rewards)[0]);
+	double r_slide = exp(-std::get<2>(rewards)[1] * 100); //exp(-std::get<2>(rewards)[0]);
+	double r_foot = r_con;
 	double r_delta = std::get<2>(rewards)[3];
 	double r_pos = std::get<2>(rewards)[2];
 	double reward_trajectory = r_foot * r_pos * r_delta;

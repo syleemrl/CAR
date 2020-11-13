@@ -57,7 +57,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.3;
+	mRadiusNeighbor = 0.35;
 	mThresholdActivate = 3;
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
@@ -597,7 +597,7 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.5 && d > 0.2)
+			if (d < 0.5 && d > 0.1)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		if(visited && d > 0.6) {
@@ -1017,6 +1017,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	}
    
 	double weight_sum = 0;
+	int mNumElite = 1;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = log(mNumElite + 1) - log(i + 1);
 		weight_sum += w;

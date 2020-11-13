@@ -266,6 +266,7 @@ Step()
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+		mRootZero = mHeadRoot;
 		mCountHead = 1;
 
 		if(isAdaptive) {
@@ -308,7 +309,7 @@ Step()
 
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
-	
+
 	if(isAdaptive && mIsTerminal)
 		data_spline.clear();
 
@@ -489,21 +490,30 @@ GetSimilarityReward()
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 5, 2);
 		}
 	}
-	double r_con = exp(-con_diff);
-
-	Eigen::VectorXd p_diff = skel->getPositionDifferences(pos, skel->getPositions());
+	//double r_con = exp(-con_diff);
+	double r_con = abs(con_diff);
+	Eigen::VectorXd p_aligned = skel->getPositions();
+	std::vector<Eigen::VectorXd> p_with_zero;
+	p_with_zero.push_back(mRootZero);
+	p_with_zero.push_back(p_aligned.segment<6>(0));
+	p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
+	p_aligned.segment<6>(0) = p_with_zero[1];
+	Eigen::VectorXd p_diff = skel->getPositionDifferences(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false), p_aligned);
 
 	int num_body_nodes = skel->getNumBodyNodes();
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx + 3) *= 3;
+			p_diff.segment<3>(idx) *= 3;
+			p_diff.segment<3>(idx + 3) *= 5;
 		}
 	}
 
 	Eigen::VectorXd tl_cur(3 + mEndEffectors.size() * 3);
-	Eigen::AngleAxisd aa_cur(skel->getPositions().segment<3>(0).norm(), skel->getPositions().segment<3>(0).normalized());
+	Eigen::Vector3d root_cur = skel->getPositions().segment<3>(0);
+	root_cur = projectToXZ(root_cur);
+	Eigen::AngleAxisd aa_cur(root_cur.norm(), root_cur.normalized());
 
 	tl_cur.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
 	for(int i = 0; i < mEndEffectors.size(); i++) {
@@ -513,13 +523,20 @@ GetSimilarityReward()
 	Eigen::VectorXd ee_v_diff(3 + mEndEffectors.size() * 3);
 	ee_v_diff.setZero();
 	
+	Eigen::VectorXd ee_v_bvh(3 + mEndEffectors.size() * 3);
+	Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
+	ee_v_bvh.setZero();
+	ee_v_cur.setZero();
+
 	double slide = 0;
 	
 	if(mCurrentFrame != mPrevFrame && mPrevFrame != mPrevFrame2) {
 		skel->setPositions(pos);
 		skel->computeForwardKinematics(true,false,false);
-
-		Eigen::AngleAxisd aa_bvh(skel->getPositions().segment<3>(0).norm(), skel->getPositions().segment<3>(0).normalized());
+		
+		root_cur = skel->getPositions().segment<3>(0);
+		root_cur = projectToXZ(root_cur);
+		Eigen::AngleAxisd aa_bvh(root_cur.norm(), root_cur.normalized());
 
 		Eigen::VectorXd tl_cur_bvh(3 + mEndEffectors.size() * 3);
 		tl_cur_bvh.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
@@ -542,11 +559,6 @@ GetSimilarityReward()
 		skel->setVelocities(v_save);
 		skel->computeForwardKinematics(true,true,false);
 
-		Eigen::VectorXd ee_v_bvh(3 + mEndEffectors.size() * 3);
-		Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
-		ee_v_bvh.setZero();
-		ee_v_cur.setZero();
-
 		for(int i = 0; i < mEndEffectors.size() + 1; i++) {
 			if(i == 0) {
 				ee_v_bvh.segment<3>(3*i) = tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i);
@@ -556,8 +568,12 @@ GetSimilarityReward()
 				ee_v_bvh.segment<3>(3*i) = aa_bvh.inverse() * (tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i));
 				ee_v_cur.segment<3>(3*i) = aa_cur.inverse() * (tl_cur.segment<3>(3*i) - mTlPrev.segment<3>(3*i));
 			}
-			ee_v_diff.segment<3>(3*i) = (ee_v_cur.segment<3>(3*i) - ee_v_bvh.segment<3>(3*i)) / std::max(0.02, ee_v_bvh.segment<3>(3*i).norm());
+			ee_v_diff.segment<3>(3*i) = (ee_v_cur.segment<3>(3*i) - ee_v_bvh.segment<3>(3*i));
 		}
+		for(int i = 0; i < 3 * mEndEffectors.size() + 3; i++) {
+			ee_v_diff(i) /= std::max(0.03, abs(ee_v_bvh(i)));
+		}
+		ee_v_diff.segment<3>(0) *= 2;
 		for(int j = 0; j < 2; j++) {
 			if(tl_cur(3*(j+1) + 1) < 0.07 && mTlPrev(3*(j+1) + 1) < 0.07 && mTlPrev2(3*(j+1) + 1) < 0.07) {
 				Eigen::Vector2d cur, prev, prev2;
@@ -568,13 +584,17 @@ GetSimilarityReward()
 			} 
 		}
 	}
-
-	double r_slide = exp(-slide*200);
+	
+	double r_slide = abs(slide); //exp(-slide*200);
 	double r_ee = exp_of_squared(ee_v_diff, 1.5);
-	double r_p = exp_of_squared(p_diff,0.4);
+	double r_p = exp_of_squared(p_diff,0.3);
 
 	mTlPrev2 = mTlPrev;
 	mTlPrev = tl_cur;	
+	
+	mPrevFrame2 = mPrevFrame;
+	mPrevFrame = mCurrentFrame;
+
 
 	if(mRewardSimilarity.size() == 0) {
 		for(int i = 0; i < 4; i++) {
@@ -587,7 +607,7 @@ GetSimilarityReward()
 	mRewardSimilarity[2] += r_p;
 	mRewardSimilarity[3] += r_ee;
 
-	return 0.6 * r_con + 0.4 * r_p * r_ee;
+	return exp(-r_con)  * r_p * r_ee;
 }
 double 
 Controller::
@@ -864,6 +884,7 @@ Reset(bool RSI)
 	ClearRecord();
 	SaveStepInfo();
 	mHeadRoot = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+	mRootZero = mHeadRoot;
 	mCountHead += 1;
 	
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();

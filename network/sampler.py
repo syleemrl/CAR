@@ -22,7 +22,7 @@ class Sampler(object):
 		# 0: uniform 1: adaptive 2: ts
 		self.type_visit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling)
-		self.type_explore = 0
+		self.type_explore = 2
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)
@@ -119,8 +119,8 @@ class Sampler(object):
 						self.v_prev_sample[i] = copy(self.v_sample[i])
 						self.v_sample[i] = 0.6 * self.v_sample[i] + 0.4 * v_mean_sample_cur[i] / count_sample_cur[i]
 
-				print('v prev goals: ', self.v_prev_sample)
-				print('v goals: ', self.v_sample)
+				# print('v prev goals: ', self.v_prev_sample)
+				# print('v goals: ', self.v_sample)
 
 				prob = []
 				for i in range(len(self.sample)):
@@ -181,14 +181,14 @@ class Sampler(object):
 		self.v_mean = 0
 		self.n_visit = 0
 
-	def sampleGoals(self, m=5):
+	def sampleGoals(self, m=10):
 		self.sample = []
 		self.v_sample = []
 		for i in range(m):
 			self.sample.append(self.randomSample(False))
 			self.v_sample.append(1.0)
 		self.v_prev_sample = copy(self.v_sample)
-		print('new goals: ', self.sample)
+		# print('new goals: ', self.sample)
 
 	def reset_explore(self):
 		if self.type_explore == 2 or self.type_explore == 4:
@@ -207,8 +207,8 @@ class Sampler(object):
 			self.printSummary(v_func)
 			if self.v_mean_cur > 0.95:
 				return True
-		if self.v_mean > 0.95:
-			return True
+		# if self.v_mean > 1.0:
+		# 	return True
 
 		self.total_iter += 1
 		return False
