@@ -53,13 +53,14 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	mPoints_exp.setZero();
 
     path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
-
     DPhy::Character* ref = new DPhy::Character(path);
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
+
     if(mRunReg) {
     	mRegressionMemory = new DPhy::RegressionMemory();
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
+
     }
 
     if(mRunSim) {
@@ -68,9 +69,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
 	    	mReferenceManager->InitOptimization(1, path);
-
-	    mReferenceManager->LoadAdaptiveMotion("ref_59");
-
+	    mReferenceManager->LoadAdaptiveMotion("ref_1");
 	    mDrawReg = true;
 
     } else if(mRunReg) {
@@ -83,15 +82,11 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     std::vector<Eigen::VectorXd> pos;
     double phase = 0;
     if(mRunReg) {
-    	mReferenceManager->OptimizeExReference(); 
-    	std::vector<Eigen::VectorXd> cps = mReferenceManager->GetCPSexp(); 
-
-	    mReferenceManager->LoadAdaptiveMotion(cps);
 	    for(int i = 0; i < 1000; i++) {
-	        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
+	        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, false);
 	        p(3) += (0.75 + 1.5); 
 	        pos.push_back(p);
-	        phase += mReferenceManager->GetTimeStep(phase, true);
+	        phase += mReferenceManager->GetTimeStep(phase, false);
     	}
 
    	 	UpdateMotion(pos, 3);
@@ -172,85 +167,10 @@ void
 MotionWidget::
 UpdateRandomParam(const bool& pressed) {
 
-	// if(mRunReg) {
-	//    	Eigen::VectorXd tp_denorm = mRegressionMemory->UniformSample(3);
-	//    	Eigen::VectorXd tp = mRegressionMemory->Normalize(tp_denorm);
-	//     int dof = mReferenceManager->GetDOF() + 1;
-	//     auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
-	//     for(int i = 0; i < pairs.size(); i++) {
-	//     	std::cout << pairs[i].first<< " " ;
-	//     }
-	//     std::cout << std::endl;
-	//     std::vector<Eigen::VectorXd> cps;
-	//     for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
-	//         cps.push_back(Eigen::VectorXd::Zero(dof));
-	//     }
-	//     for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	//         Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
-	//         input << j, tp;
-	//         p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-	    
-	//         np::ndarray na = np::from_object(a);
-	//         cps[j] = DPhy::toEigenVector(na, dof);
-	//     }
-	// 	mReferenceManager->SetParamGoal(tp_denorm); 
-	//     mReferenceManager->OptimizeExReference(); 
-	//     cps = mReferenceManager->GetCPSexp(); 
-
-	//     mReferenceManager->LoadAdaptiveMotion(cps);
-	    
-
-	//     if(!mRunSim) {
-
-	// 	    std::vector<Eigen::VectorXd> pos;
-	// 	    double phase = 0;
-
-	// 	    Eigen::VectorXd headRoot(6);
-	// 	    bool flag_test = false;
-	// 		headRoot = mReferenceManager->GetPosition(phase, false).segment<6>(0);
-
-	// 	    for(int i = 0; i < 500; i++) {
-
-	// 	        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
-	// 	        p(3) += 0.75;
-	// 	      	pos.push_back(p);
-	// 	        phase += mReferenceManager->GetTimeStep(phase, true);
-	// 	    }
-	// 	    mTotalFrame = 500;
-	// 	    Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-	// 		root_bvh(3) += 0.75;
-	// 		pos = DPhy::Align(pos, root_bvh);
-
-	// 	    UpdateMotion(pos, 2);
-	//    	 	pos.clear();
-
-	// 		mReferenceManager->SetParamGoal(tp_denorm); 
-	//     	mReferenceManager->OptimizeExReference(); 
-	//     	cps = mReferenceManager->GetCPSexp(); 
-
-	// 	    mReferenceManager->LoadAdaptiveMotion(cps);
-		   
-	// 	    phase = 0;
-	// 	    for(int i = 0; i < 10000; i++) {
-	// 	        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
-	// 	        p(3) += (0.75 + 1.5); 
-	// 	        pos.push_back(p);
-	// 	        phase += mReferenceManager->GetTimeStep(phase, true);
-	//     	}
-	// 		root_bvh(3) += 1.5;
-	// 		pos = DPhy::Align(pos, root_bvh);
-	//    	 	UpdateMotion(pos, 3);
-	//     } else {
-	//      	mTotalFrame = 0;
-	//      	mController->SetGoalParameters(tp_denorm);
-	// 		RunPPO();
-	//     }
-	// }
 }
 void 
 MotionWidget::
 UpdateParam(const bool& pressed) {
-	std::cout << v_param.transpose() << std::endl;
 	if(mRunReg) {
 		Eigen::VectorXd tp(1);
 		tp << v_param(0)*0.1;
@@ -259,11 +179,7 @@ UpdateParam(const bool& pressed) {
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
 	    std::cout << tp.transpose() << " " << d << std::endl;
-	    auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
-	    for(int i = 0; i < pairs.size(); i++) {
-	    	std::cout << "(" << pairs[i].first<< ", " << pairs[i].second->param_normalized.transpose() << ") " ;
-	    }
-	    std::cout << std::endl;
+
 	    std::vector<Eigen::VectorXd> cps;
 	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
 	        cps.push_back(Eigen::VectorXd::Zero(dof));
@@ -280,16 +196,13 @@ UpdateParam(const bool& pressed) {
 	    mReferenceManager->LoadAdaptiveMotion(cps);
 	    
 	    double phase = 0;
-		Eigen::VectorXd headRoot(6);
 
 	    if(!mRunSim) {
 
 		    std::vector<Eigen::VectorXd> pos;
 		    double phase = 0;
 
-		    Eigen::VectorXd headRoot(6);
 		    bool flag = false;
-			headRoot = mReferenceManager->GetPosition(phase, false).segment<6>(0);
 		    for(int i = 0; i < 500; i++) {
 
 		        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
@@ -306,10 +219,7 @@ UpdateParam(const bool& pressed) {
 		    UpdateMotion(pos, 2);
 
 		    pos.clear();
-		    mReferenceManager->SetParamGoal(tp_denorm);
-		    mReferenceManager->OptimizeExReference(); 
-	    	cps = mReferenceManager->GetCPSexp(); 
-
+		   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 		    mReferenceManager->LoadAdaptiveMotion(cps);
 		   
 		    phase = 0;
@@ -363,6 +273,7 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
+		//Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
@@ -493,24 +404,6 @@ paintGL()
 	glEnable(GL_LIGHTING);
 
 	mCamera->Apply();
-	// Eigen::Vector3d com_root = mSkel->getRootBodyNode()->getCOM();
-	// Eigen::Vector3d com_front = mSkel->getRootBodyNode()->getTransform()*Eigen::Vector3d(0.0, 0.0, 2.0);
-
-	// if(this->mTrackCamera){
-	// 	Eigen::Vector3d com = mSkel->getRootBodyNode()->getCOM();
-	// 	Eigen::Isometry3d transform = mSkel->getRootBodyNode()->getTransform();
-	// 	com[1] = 0.8;
-
-	// 	Eigen::Vector3d camera_pos;
-	// 	camera_pos << -3, 1, 1.5;
-	// 	camera_pos = camera_pos + com;
-	// 	camera_pos[1] = 2;
-
-	// 	mCamera->SetCenter(com);
-	// }
-	// initLights(com_root[0], com_root[2], com_front[0], com_front[2]);
-	// glEnable(GL_LIGHTING);
-	// mCamera->Apply();
 
 	DrawGround();
 	DrawSkeletons();
@@ -600,19 +493,6 @@ toggleDrawExp() {
 		mDrawExp = !mDrawExp;
 
 }
-// void
-// MotionWidget::
-// toggleDraw(int type) {
-// 	if(type == 0) {
-// 		mDrawBvh != mDrawBvh;
-// 	}
-// 	if(type == 1) {
-// 		mDrawSim != mDrawSim;
-// 	}
-// 	if(type == 2) {
-// 		mDrawReg != mDrawReg;
-// 	}
-// }
 void
 MotionWidget::
 keyPressEvent(QKeyEvent *event)

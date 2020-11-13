@@ -75,7 +75,6 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	int GetRecordSize() { return this->mRecordPosition.size(); }
 	std::pair<bool, bool> GetFootContact(int idx) { return this->mRecordFootContact[idx]; }
 
-
  	// functions related to adaptive motion retargeting
 	void RescaleCharacter(double w0, double w1);	
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
@@ -103,11 +102,11 @@ protected:
 	int nTotalSteps;
 	bool isAdaptive;
 	bool isParametric;
+	
 	int id;
 	double mPrevFrameOnPhase;
 	double mParamRewardTrajectory;
 	double mTrackingRewardTrajectory;
-	double mTWRewardTrajectory;
 
 	Character* mCharacter;
 	Character* mObject;
@@ -121,9 +120,6 @@ protected:
 	Eigen::VectorXd mPDTargetVelocities;
 
 	Eigen::VectorXd mActions;
-
-	Eigen::Vector3d mTargetCOMvelocity;
-	double mAdaptiveCOM;
 	double mAdaptiveStep;
 
 	std::vector<std::string> mInterestedBodies;
@@ -134,6 +130,7 @@ protected:
 	std::vector<std::string> mEndEffectors;
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
+	std::vector<double> mRewardSimilarity;
 	// for foot collision, left, right foot, ground
 	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGOBJ; 
 
@@ -144,7 +141,6 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
-	std::vector<double> mRecordTorqueNorm;
 	std::vector<double> mRecordPhase;
 
 	bool mIsTerminal;
@@ -159,36 +155,34 @@ protected:
 
 	int terminationReason;
 
+	Eigen::VectorXd mTlPrev;
+	Eigen::VectorXd mTlPrev2;
 	Eigen::VectorXd mPrevPositions;
-	Eigen::VectorXd mPrevTargetPositions;
-	Eigen::VectorXd mMask;
-	Eigen::VectorXd mControlFlag;
 
-	//target
-	Eigen::Vector6d mHeadRoot;
-	int mCountHead;
+	double mPrevFrame;
+	double mPrevFrame2;
+	Eigen::Vector6d mRootZero;
+
+	Eigen::VectorXd mPrevTargetPositions;
+	Eigen::VectorXd mControlFlag;
 
 	Eigen::VectorXd mParamGoal;
 	Eigen::VectorXd mParamCur;
 
-	double mCurParamReward;
-
-	std::tuple<Eigen::VectorXd, double, double> mStartPosition;
-
-	std::vector<std::pair<Eigen::VectorXd,double>> data_spline;
+	std::vector<std::pair<Eigen::VectorXd,double>> data_raw;
 
 	int mCountParam;
 	int mCountTracking;
 
-	Eigen::Vector3d mEnergy;
 	Eigen::Vector3d mGravity;
 	double mMass;
-	double mPrevVelocity;
-	double mVelocity;
 
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
 
+	double mPrevVelocity;
+	double mVelocity;
+	Eigen::Vector3d mEnergy;
 };
 }
 #endif
