@@ -47,7 +47,7 @@ ROOT Hips
                 CHANNELS 3 Zrotation Xrotation Yrotation
                 End Site
                 {
-                  OFFSET 0 0 0
+                  OFFSET 9.5334 -3.3924e-05 1.3937e-05
                 }
               }
             }
@@ -71,7 +71,7 @@ ROOT Hips
                 CHANNELS 3 Zrotation Xrotation Yrotation
                 End Site
                 {
-                  OFFSET 0 0 0
+                  OFFSET -9.5325 -1.63123e-05 1.67918e-05
                 }
               }
             }
