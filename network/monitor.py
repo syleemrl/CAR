@@ -31,7 +31,7 @@ class Monitor(object):
 		self.total_frames_elapsed = 0
 		self.total_rewards = []
 		self.max_episode_length = 0
-
+		
 		self.reward_label = self.sim_env.GetRewardLabels()
 		self.total_rewards_by_parts = np.array([[]]*len(self.reward_label))
 		self.transition_per_episodes = []
@@ -126,6 +126,8 @@ class Monitor(object):
 
 	def updateAdaptive(self):
 		self.mode_counter += 1
+		if self.mode_counter % 2 == 0:
+			self.sim_env.UpdateParamState()
 		if self.mode_counter % 10 == 0:
 			self.env.sim_env.SetExplorationMode(True)
 			self.sim_env.SaveParamSpace()
@@ -134,6 +136,8 @@ class Monitor(object):
 	def updateMode(self, v_func):
 		mode_change = -1
 		self.mode_counter += 1
+		if self.mode_counter % 2 == 0:
+			self.sim_env.UpdateParamState()
 		if self.num_evaluation % 50 == 0:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
 		if self.mode == 0:

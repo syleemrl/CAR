@@ -16,7 +16,6 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	DPhy::Character* character = new DPhy::Character(path);
 	mReferenceManager = new DPhy::ReferenceManager(character);
 	mReferenceManager->LoadMotionFromBVH(ref);
-	
 	if(adaptive) {
 		if(adaptive) {
 			mRegressionMemory = new DPhy::RegressionMemory();
@@ -45,7 +44,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 			PyErr_Print();
 		}
 	}
-	
+
 	for(int i =0;i<num_slaves;i++)
 	{
 		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, parametric, false, i));
@@ -273,6 +272,11 @@ SelectNewGoal()
 		mReferenceManager->LoadAdaptiveMotion(cps);
 	}
 }
+void
+SimEnv::
+UpdateParamState() {
+	mRegressionMemory->UpdateParamState();
+}
 void 
 SimEnv::
 TrainRegressionNetwork()
@@ -456,9 +460,9 @@ void
 SimEnv::
 SaveParamSpace(int n) {
 	if(n != -1) {
-		mRegressionMemory->SaveParamSpace(mPath + "param_space" + std::to_string(n), false);
+		mRegressionMemory->SaveParamSpace(mPath + "param_space" + std::to_string(n));
 	} else {
-		mRegressionMemory->SaveParamSpace(mPath + "param_space", true);
+		mRegressionMemory->SaveParamSpace(mPath + "param_space");
 	}
 }
 void
@@ -512,6 +516,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UniformSample",&SimEnv::UniformSample)
 		.def("Optimize",&SimEnv::Optimize)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
+		.def("UpdateParamState",&SimEnv::UpdateParamState)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
 		.def("GetPhaseLength",&SimEnv::GetPhaseLength)
 		.def("GetDOF",&SimEnv::GetDOF)

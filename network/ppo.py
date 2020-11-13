@@ -616,7 +616,6 @@ if __name__=="__main__":
 	parser.set_defaults(plot=True)
 	parser.set_defaults(adaptive=False)
 	parser.set_defaults(parametric=False)
-
 	args = parser.parse_args()
 
 	directory = None

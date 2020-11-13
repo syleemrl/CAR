@@ -48,7 +48,7 @@ public:
 
 	bool Optimize();
 	void LoadAdaptiveMotion();
-	
+	void UpdateParamState();
 	void TrainRegressionNetwork();
 
 	double GetPhaseLength();

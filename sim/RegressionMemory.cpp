@@ -117,11 +117,20 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	// 	std::cout << it->first.transpose() << std::endl;
 	// }
 }
+void
+RegressionMemory::
+UpdateParamState() {
+	auto iter = mParamNew.begin();
+	while(iter != mParamNew.end()) {
+		iter->second->update = false;
+		iter++;
+	}
+	mParamNew.clear();
+}
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>
 RegressionMemory::
-GetTrainingData(bool old) {
-	if(old)
-		mNumSamples = 0;
+GetTrainingData() {
+	mNumSamples = 0;
 	std::vector<Eigen::VectorXd> x;
 	std::vector<Eigen::VectorXd> y;
 	std::vector<double> r;
@@ -129,9 +138,6 @@ GetTrainingData(bool old) {
 	while(iter != mGridMap.end()) {
 		std::vector<Param*> p = iter->second->GetParams();
 		for(int i = 0; i < p.size(); i++) {
-			if(old && p[i]->update ) {
-				p[i]->update = false;
-			}
 			for(int j = 0; j < mNumKnots; j++) {
 				Eigen::VectorXd x_elem(mDim + 1);
 				x_elem << j, p[i]->param_normalized;
@@ -139,8 +145,7 @@ GetTrainingData(bool old) {
 				y.push_back((p[i]->cps)[j]);
 			}
 			r.push_back(p[i]->reward);
-			if(old)
-				mNumSamples += 1;
+			mNumSamples += 1;
 		} 
 		iter++;
 	}
@@ -153,8 +158,8 @@ GetTrainingData(bool old) {
 }
 void
 RegressionMemory::
-SaveParamSpace(std::string path, bool old) {
-	auto x_y_r = GetTrainingData(old);
+SaveParamSpace(std::string path) {
+	auto x_y_r = GetTrainingData();
 
 	std::vector<Eigen::VectorXd> x = std::get<0>(x_y_r);
 	std::vector<Eigen::VectorXd> y = std::get<1>(x_y_r);
@@ -162,7 +167,7 @@ SaveParamSpace(std::string path, bool old) {
 
 	std::ofstream ofs(path);
 	
-	ofs << mNumActivatedPrev << std::endl;
+	ofs << r.size() << std::endl;
 	ofs << mParamGoalCur.transpose() << std::endl;
 
 	int count = 0;
@@ -207,7 +212,6 @@ bool cmp_pair_param(const std::pair<double, Param*> &p1,
 void
 RegressionMemory::
 LoadParamSpace(std::string path) {
-	mNumSamples = 1;
 	mRecordLog.clear();
 
 	char buffer[256];
@@ -219,7 +223,7 @@ LoadParamSpace(std::string path) {
 		return;
 
 	is >> buffer;
-	mNumActivatedPrev = atoi(buffer);
+	mNumSamples = atoi(buffer);;
 
 	mParamGoalCur.resize(mDim);
 	for(int i = 0; i < mDim; i++) 
@@ -288,7 +292,6 @@ LoadParamSpace(std::string path) {
 		p->reward = reward;
 		p->update = false;
 		AddMapping(p);
-		mNumSamples += 1;
 	}
 
 	is.close();
@@ -597,7 +600,7 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.5 && d > 0.1)
+			if (d < 0.5 && d > 0.2)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		if(visited && d > 0.6) {
@@ -670,12 +673,12 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	if(flag) {
 
 		for(int i = 0; i < to_be_deleted.size(); i++) {
-			// for(int j = 0; j < to_be_deleted[i].second.size(); j++) {
-			// 	Param* p = (to_be_deleted[i].second)[j];
-			// 	if(p->update) {
-			// 	//	mParamNew.erase(p->param_normalized);
-			// 	}
-			// }
+			for(int j = 0; j < to_be_deleted[i].second.size(); j++) {
+				Param* p = (to_be_deleted[i].second)[j];
+				if(p->update) {
+					mParamNew.erase(p->param_normalized);
+				}
+			}
 			DeleteMappings(to_be_deleted[i].first, to_be_deleted[i].second);
 		}
 
@@ -683,12 +686,10 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		p->param_normalized = candidate_scaled;
 		p->reward = std::get<2>(candidate);
 		p->cps = std::get<0>(candidate);
-		p->update = false;
-
 		p->update = true;
 
 	 	AddMapping(nearest, p);
-	//	mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
+		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	}
 	return flag;
 
@@ -856,29 +857,6 @@ SetNextCandidate() {
 	mParamGoalCur = mGoalCandidate[mIdxCandidate];
 
 	return true;
-}
-bool 
-RegressionMemory::
-IsSpaceExpanded() { 
-	std::cout << "ac: " << mParamActivated.size() <<", prev ac:" << mNumActivatedPrev << std::endl;
-	int size = mParamActivated.size();
-	if((size - mNumActivatedPrev) > mThresholdUpdate && size > 4 * mDim) {
-		std::cout << "space expanded by " << mParamActivated.size() - mNumActivatedPrev << std::endl;
-		mNumActivatedPrev = mParamActivated.size();
-		mTimeFromLastUpdate = 0;
-		return true;
-	} 
-	mTimeFromLastUpdate += 1;
-	return false;
-}
-bool
-RegressionMemory::
-IsSpaceFullyExplored() {
-	std::cout << "deac: " << mParamDeactivated.size() << ", ac: " << mParamActivated.size() << std::endl;
-	if(mParamDeactivated.size() <= mThresholdUpdate) {
-		return true;
-	}
-	return false;
 }
 void
 RegressionMemory::

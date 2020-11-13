@@ -62,7 +62,7 @@ public:
 	RegressionMemory();
 	void InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::VectorXd> paramSpace , Eigen::VectorXd paramUnit, 
 						double nDOF, double nknots);
-	void SaveParamSpace(std::string path, bool old);
+	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
 	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
@@ -72,7 +72,7 @@ public:
 	void AddMapping(Param* p);
 	void AddMapping(Eigen::VectorXd nearest, Param* p);
 	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps);
-
+	void UpdateParamState();
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
 	double GetDensity(Eigen::VectorXd p, bool old=false);
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
@@ -98,7 +98,7 @@ public:
 	void ResetExploration();
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
-			   std::vector<double>> GetTrainingData(bool old=false);
+			   std::vector<double>> GetTrainingData();
 	int GetTimeFromLastUpdate() { return mTimeFromLastUpdate; }
 
 	double GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal);
