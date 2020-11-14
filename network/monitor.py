@@ -6,15 +6,18 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import copy
+import os.path
 from utils import RunningMeanStd
 from IPython import embed
 
 class Monitor(object):
-	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
+	def __init__(self, ref, num_slaves, directory, adaptive, parametric, 
+				 explore, visit, egreedy, exploration_test_print, plot=True, verbose=True):
 		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
 		self.num_slaves = self.env.num_slaves
 		self.sim_env = self.env.sim_env
-		
+		self.exploration_test_print = exploration_test_print
+
 		self.num_state = self.env.num_state
 		self.num_action = self.env.num_action
 		self.RMS = RunningMeanStd(shape=(self.num_state))	
@@ -50,14 +53,15 @@ class Monitor(object):
 
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
-		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
+		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory,
+							   explore, visit, egreedy)
 
 		self.mode = 0
 		self.mode_counter = 0
 		self.flag_updated = False
 		self.exploration_done = False
 
-		if self.plot:
+		if self.exploration_test_print == "" and self.plot:
 			plt.ion()
 
 	def getStates(self):
@@ -138,18 +142,29 @@ class Monitor(object):
 		self.mode_counter += 1
 		if self.mode_counter % 2 == 0:
 			self.sim_env.UpdateParamState()
-		if self.num_evaluation % 50 == 0:
+		if self.exploration_test_print == "" and self.num_evaluation % 50 == 0:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
 		if self.mode == 0:
-			if self.mode_counter % 10 == 0:
+			if self.exploration_test_print == "" and self.mode_counter % 10 == 0:
 				self.sim_env.SaveParamSpace(-1)
 				self.sampler.reset_explore()
 			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
-				self.sim_env.TrainRegressionNetwork(300)
-				self.mode = 1
-				self.mode_counter = 0
-				self.sampler.reset_visit()
-				mode_change = 1
+				if self.exploration_test_print != "":
+					if not os.path.isfile(self.exploration_test_print) :
+						out = open(self.exploration_test_print, "w")
+						out.write(str(self.sim_env.GetNumSamples())+'\n')
+						out.close()
+					else:
+						out = open(self.exploration_test_print, "a")
+						out.write(str(self.sim_env.GetNumSamples())+'\n')
+						out.close()
+					mode_change = 999
+				else:
+					self.sim_env.TrainRegressionNetwork(300)
+					self.mode = 1
+					self.mode_counter = 0
+					self.sampler.reset_visit()
+					mode_change = 1
 		else:
 			if self.mode_counter % 10 == 0:
 				self.sim_env.SaveParamSpace(-1)
@@ -264,7 +279,7 @@ class Monitor(object):
 					out.write(s+'\n')
 				out.close()
 	# y_list에 타겟 추가하는거 고치기 transition_per_episodes로 또 나눠져서 겁나 작아짐
-			if self.plot:
+			if self.exploration_test_print == "" and self.plot:
 				y_list = [[np.asarray(self.transition_per_episodes), 'steps']]
 				for i in range(len(self.total_rewards_by_parts)):
 					y_list.append([np.asarray(self.total_rewards_by_parts[i]), self.reward_label[i]])

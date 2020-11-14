@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings(action='ignore') 
+
 from network import Actor
 from network import Critic
 from monitor import Monitor
@@ -16,8 +19,9 @@ from utils import RunningMeanStd
 from tensorflow.python import pywrap_tensorflow
 import scipy.integrate as integrate
 import types
-np.set_printoptions(threshold=sys.maxsize)
 
+np.set_printoptions(threshold=sys.maxsize)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
 if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
 	tf.contrib._warning = None
@@ -63,6 +67,7 @@ class PPO(object):
 			self.load(self.pretrain)
 			li = pretrain.split("network")
 			suffix = li[-1]
+
 			self.RMS = RunningMeanStd(shape=(self.num_state))
 			self.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 			self.RMS.setNumStates(self.num_state)
@@ -104,7 +109,11 @@ class PPO(object):
 			self.load(self.pretrain)
 			li = pretrain.split("network")
 			suffix = li[-1]
-			self.env.RMS.load(li[0]+'rms'+suffix)
+
+			if len(li) == 2:
+				self.env.RMS.load(li[0]+'rms'+suffix)
+			else:
+				self.env.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 			self.env.RMS.setNumStates(self.num_state)
 		
 		self.printSetting()
@@ -613,6 +622,11 @@ if __name__=="__main__":
 	parser.add_argument("--parametric", dest='parametric', action='store_true')
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
+	parser.add_argument("--explore", type=int, default=0)
+	parser.add_argument("--visit", type=int, default=0)
+	parser.add_argument("--egreedy", type=int, default=0)
+	parser.add_argument("--exploration_test_print", type=str, default="")
+
 	parser.set_defaults(plot=True)
 	parser.set_defaults(adaptive=False)
 	parser.set_defaults(parametric=False)
@@ -628,9 +642,13 @@ if __name__=="__main__":
 			os.mkdir(directory)
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, 
+					  adaptive=args.adaptive, parametric=args.parametric, 
+					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, exploration_test_print=args.exploration_test_print)
 	else:
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, 
+					  adaptive=args.adaptive, parametric=args.parametric, 
+					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, exploration_test_print=arg.sexploration_test_print)
 
 	ppo = PPO()
 

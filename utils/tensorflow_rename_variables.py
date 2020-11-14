@@ -1,8 +1,9 @@
 # code from https://gist.github.com/batzner/7c24802dd9c5e15870b4b56e22135c96
-
+import warnings
+warnings.filterwarnings(action='ignore') 
 import sys, getopt
 import tensorflow as tf
-
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 usage_str = 'python tensorflow_rename_variables.py --checkpoint_dir=path/to/dir/ ' \
             '--replace_from=substr --replace_to=substr --add_prefix=abc --dry_run'
 

@@ -4,7 +4,7 @@ from regression import Regression
 from IPython import embed
 from copy import copy
 class Sampler(object):
-	def __init__(self, sim_env, dim, path):
+	def __init__(self, sim_env, dim, path, explore, visit, egreedy):
 		self.sim_env = sim_env
 		self.dim = dim
 		
@@ -20,11 +20,20 @@ class Sampler(object):
 
 		self.start = 0
 		# 0: uniform 1: adaptive 2: ts
-		self.type_visit = 1
+		self.type_visit = visit
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
-		self.type_explore = 4
-		self.epsilon_greedy = False
+		self.type_explore = explore
+		if egreedy:
+			self.epsilon_greedy = True
+		else:
+			self.epsilon_greedy = False
 		self.epsilon = 0.2
+		print('=======================================')
+		print('curriculum option')
+		print('type visit', self.type_visit)
+		print('type explore', self.type_explore)
+		print('e greedy', self.epsilon_greedy)
+		print('=======================================')
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)

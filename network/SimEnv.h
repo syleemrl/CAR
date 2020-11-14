@@ -62,6 +62,7 @@ public:
 	void SaveParamSpace(int n);
 	void SaveParamSpaceLog(int n);
 	void SelectNewGoal();
+	int GetNumSamples();
 	
 	p::list GetParamGoalCandidate();
 private:

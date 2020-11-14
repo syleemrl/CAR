@@ -110,6 +110,7 @@ public:
 	bool SetNextCandidate();
 	std::vector<Eigen::VectorXd> GetCurrentCPS();
 
+	int GetNumSamples();
 
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;

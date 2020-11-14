@@ -255,6 +255,13 @@ Optimize()
 
 	return true;
 }
+int
+SimEnv::
+GetNumSamples() 
+{
+	return mRegressionMemory->GetNumSamples();
+
+}
 void
 SimEnv::
 SelectNewGoal() 
@@ -528,6 +535,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("SelectNewGoal",&SimEnv::SelectNewGoal)
+		.def("GetNumSamples",&SimEnv::GetNumSamples)
 		.def("GetParamGoalCandidate",&SimEnv::GetParamGoalCandidate);
 
 }

@@ -156,6 +156,20 @@ GetTrainingData() {
 					  std::vector<Eigen::VectorXd>, 
 					  std::vector<double>> (x, y, r);
 }
+int
+RegressionMemory::
+GetNumSamples() {
+	int n = 0;
+	auto iter = mGridMap.begin();
+	while(iter != mGridMap.end()) {
+		std::vector<Param*> p = iter->second->GetParams();
+		for(int i = 0; i < p.size(); i++) {
+			n += 1;
+		} 
+		iter++;
+	}
+	return n;
+}
 void
 RegressionMemory::
 SaveParamSpace(std::string path) {
@@ -600,10 +614,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.65 && d > 0.3)
+			if (d < 0.4 && d > 0.1)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.7) {
+		if(visited && d > 0.5) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
