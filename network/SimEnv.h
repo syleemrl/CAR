@@ -63,7 +63,7 @@ public:
 	void SaveParamSpaceLog(int n);
 	void SelectNewGoal();
 	int GetNumSamples();
-	
+	int GetNewSamplesNearGoal();
 	p::list GetParamGoalCandidate();
 private:
 	std::vector<DPhy::Controller*> mSlaves;

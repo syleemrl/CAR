@@ -614,7 +614,7 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.4 && d > 0.1)
+			if (d < 0.2 && d > 0.1)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		if(visited && d > 0.5) {
@@ -637,15 +637,11 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 			return false;
 		}
 	}
-	if(mNumGoalCandidate == mGoalCandidate.size()) {
-		for(int i = 0; i < mNumGoalCandidate; i++) {
-			if(GetDistanceNorm(candidate_param, mGoalCandidate[i]) < 1e-3) {
-				mGoalUpdate[i] += 1;
-				break;
-			}
-		}
+
+	Eigen::VectorXd candidate_scaled = Normalize(candidate_param);
+	if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < mEliteGoalDistance) {
+		mNewSamplesNearGoal += 1;
 	}
-	Eigen::VectorXd candidate_scaled = (candidate_param - mParamMin).cwiseProduct(mParamScale);
 	Eigen::VectorXd nearest = GetNearestPointOnGrid(candidate_scaled);
 
 	std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(candidate_scaled, nearest, mRadiusNeighbor);
@@ -932,13 +928,16 @@ void
 RegressionMemory::
 SetParamGoal(Eigen::VectorXd paramGoal) { 
 	mParamGoalCur = paramGoal; 
-	auto pairs = GetNearestParams(Normalize(mParamGoalCur), 10);
+	auto pairs = GetNearestParams(Normalize(mParamGoalCur), 10, false, true);
 	mRecordLog.push_back("new goal: " + vectorXd_to_string(mParamGoalCur));
-
+	mEliteGoalDistance = 0;
 	std::string result ="distance : ";
 	for(int i = 0; i < pairs.size(); i++) {
+		mEliteGoalDistance += pairs[i].first;
 		result += std::to_string(pairs[i].first) + " ";
 	}
+	mEliteGoalDistance /= pairs.size();
+	mNewSamplesNearGoal = 0;
 	mRecordLog.push_back(result);
 }
 void

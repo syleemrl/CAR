@@ -552,6 +552,8 @@ class PPO(object):
 					last_print = local_step
 				
 				states = self.env.getStates()
+			if self.adaptive:
+				self.env.sampler.updateNumSampleDelta(p_idx)
 			print('')
 
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	

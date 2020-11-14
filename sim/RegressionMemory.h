@@ -111,7 +111,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCurrentCPS();
 
 	int GetNumSamples();
-
+	int GetNewSamplesNearGoal() {return mNewSamplesNearGoal;}
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -157,6 +157,8 @@ private:
 	std::uniform_real_distribution<double> mUniform;
 
 	std::vector<std::string> mRecordLog;
+	double mEliteGoalDistance;
+	int mNewSamplesNearGoal;
 
 	GoalInfo mGoalInfo; 
 };

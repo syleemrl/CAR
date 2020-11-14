@@ -392,12 +392,18 @@ SetGoalParameters(np::ndarray np_array, bool visited) {
 
 	} else {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		mRegressionMemory->SetParamGoal(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps);
 	}
 
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(tp);
 	}
+}
+int
+SimEnv::
+GetNewSamplesNearGoal() {
+	return mRegressionMemory->GetNewSamplesNearGoal();
 }
 void
 SimEnv::
@@ -536,6 +542,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("SelectNewGoal",&SimEnv::SelectNewGoal)
 		.def("GetNumSamples",&SimEnv::GetNumSamples)
+		.def("GetNewSamplesNearGoal",&SimEnv::GetNewSamplesNearGoal)
 		.def("GetParamGoalCandidate",&SimEnv::GetParamGoalCandidate);
 
 }

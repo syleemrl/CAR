@@ -1,6 +1,6 @@
-visit=$1
-explore=$2
-egreedy=$3
+visit=1
+explore=$1
+egreedy=$2
 n=0
 print_file="/home/sonic/Projects/CAR/network/output/test_result${visit}${explore}${egreedy}"
 base_file="/home/sonic/Projects/CAR/network/output/punch_ue_a2_test"

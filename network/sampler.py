@@ -21,7 +21,7 @@ class Sampler(object):
 		self.start = 0
 		# 0: uniform 1: adaptive 2: ts
 		self.type_visit = visit
-		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
+		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling) 6: num sample slope(sampling) 7:num sample near goal(sampling)
 		self.type_explore = explore
 		if egreedy:
 			self.epsilon_greedy = True
@@ -70,6 +70,20 @@ class Sampler(object):
 			slope = 10
 		return math.exp(slope) + 1e-10
 
+	def probTS2Sampling(self, idx):
+		v = self.ns_slope_sample[idx]
+		mean = np.array(self.ns_slope_sample).mean() + 1e-8
+		return math.exp((v - mean) / mean) + 1e-10
+
+	def updateNumSampleDelta(self, idx):
+		if self.type_explore != 6 and self.type_explore != 7:
+			return
+		if self.type_explore == 6:
+			slope = max(0.0, self.sim_env.GetNumSamples() - self.prev_ns)
+		else:
+			slope = self.sim_env.GetNewSamplesNearGoal()
+		self.ns_slope_temp[idx] += slope
+		self.ns_count_temp[idx] += 1
 
 	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
 		self.start += 1
@@ -124,7 +138,7 @@ class Sampler(object):
 				for i in range(len(results)):
 					v_mean_sample_cur[idxs[i]] += results[i]
 					count_sample_cur[idxs[i]] += 1
-				
+					
 				for i in range(len(self.sample)):
 					if count_sample_cur[i] != 0:
 						self.v_prev_sample[i] = copy(self.v_sample[i])
@@ -132,15 +146,28 @@ class Sampler(object):
 
 				print('v prev goals: ', self.v_prev_sample)
 				print('v goals: ', self.v_sample)
+				if self.type_explore == 6 or self.type_explore == 7:
+					for i in range(len(self.sample)):
+						if self.ns_count_temp[i] != 0:
+							w = min(1.0, 0.1 * self.ns_count_temp[i])
+							self.ns_slope_sample[i] = (1-w) * self.ns_slope_sample[i] + w * self.ns_slope_temp[i] / self.ns_count_temp[i]
+					print('ns slope goals current: ', self.ns_slope_temp)
+					print('ns slope goals: ', self.ns_slope_sample)
+
+					for i in range(len(self.sample)):
+						self.ns_slope_temp[i] = 0
+						self.ns_count_temp[i] = 0
+
 				self.prob = []
 
 				for i in range(len(self.sample)):
 					if self.type_explore == 2:
 						self.prob.append(self.probAdaptiveSampling(i))
-					else:
+					elif self.type_explore == 4:
 						self.prob.append(self.probTSSampling(i))
+					else:
+						self.prob.append(self.probTS2Sampling(i))
 				prob_mean = np.array(self.prob).mean() * len(self.sample)
-				
 				self.bound_sample = []
 				for i in range(len(self.sample)):
 					if i == 0:
@@ -148,7 +175,6 @@ class Sampler(object):
 					else:
 						self.bound_sample.append(self.bound_sample[-1] + self.prob[i] / prob_mean)
 				print(self.bound_sample)
-
 	def adaptiveSample(self, visited):
 		if visited:
 			if self.n_visit < 1 or self.n_visit % 5 == 4:
@@ -204,6 +230,9 @@ class Sampler(object):
 						if idx == -1:
 							idx = len(self.bound_sample) - 1
 							target = self.sample[idx]
+				if self.type_explore == 6:
+					self.prev_ns = self.sim_env.GetNumSamples()
+
 				return target, idx
 
 	def reset_visit(self):
@@ -212,17 +241,24 @@ class Sampler(object):
 		self.n_visit = 0
 		self.n_learning += 1
 
-	def sampleGoals(self, m=5):
+	def sampleGoals(self, m=10):
 		self.sample = []
 		self.v_sample = []
+		self.ns_slope_sample = []
+		self.ns_slope_temp = []
+		self.ns_count_temp = []
 		for i in range(m):
 			self.sample.append(self.randomSample(False))
 			self.v_sample.append(0.1)
+			self.ns_slope_sample.append(0)
+			self.ns_slope_temp.append(0)
+			self.ns_count_temp.append(0)
+
 		self.v_prev_sample = copy(self.v_sample)
 		# print('new goals: ', self.sample)
 
 	def reset_explore(self):
-		if self.type_explore == 2 or self.type_explore == 4 or self.type_explore == 5:
+		if self.type_explore != 0 and self.type_explore != 1 and self.type_explore != 3:
 			self.sampleGoals()
 		self.n_explore = 0
 
