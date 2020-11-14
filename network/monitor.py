@@ -12,7 +12,8 @@ from IPython import embed
 
 class Monitor(object):
 	def __init__(self, ref, num_slaves, directory, adaptive, parametric, 
-				 explore, visit, egreedy, exploration_test_print, plot=True, verbose=True):
+				 explore, visit, egreedy, hard, exploration_test_print, 
+				 plot=True, verbose=True):
 		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
 		self.num_slaves = self.env.num_slaves
 		self.sim_env = self.env.sim_env
@@ -54,7 +55,7 @@ class Monitor(object):
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
 		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory,
-							   explore, visit, egreedy)
+							   explore, visit, egreedy, hard)
 
 		self.mode = 0
 		self.mode_counter = 0

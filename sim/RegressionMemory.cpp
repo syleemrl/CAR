@@ -614,8 +614,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.2 && d > 0.1)
+			if (d < 0.2 && d > 0.1) {
+				std::cout << d << std::endl;
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
+			}
 		}
 		if(visited && d > 0.5) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
@@ -639,9 +641,6 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	}
 
 	Eigen::VectorXd candidate_scaled = Normalize(candidate_param);
-	if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < mEliteGoalDistance) {
-		mNewSamplesNearGoal += 1;
-	}
 	Eigen::VectorXd nearest = GetNearestPointOnGrid(candidate_scaled);
 
 	std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(candidate_scaled, nearest, mRadiusNeighbor);
@@ -700,6 +699,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < mEliteGoalDistance) {
+			mNewSamplesNearGoal += 1;
+		}
 	}
 	return flag;
 

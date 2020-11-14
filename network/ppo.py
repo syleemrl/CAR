@@ -627,6 +627,7 @@ if __name__=="__main__":
 	parser.add_argument("--explore", type=int, default=0)
 	parser.add_argument("--visit", type=int, default=0)
 	parser.add_argument("--egreedy", type=int, default=0)
+	parser.add_argument("--hard", type=int, default=0)
 	parser.add_argument("--exploration_test_print", type=str, default="")
 
 	parser.set_defaults(plot=True)
@@ -646,11 +647,11 @@ if __name__=="__main__":
 	if args.pretrain != "":
 		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, 
 					  adaptive=args.adaptive, parametric=args.parametric, 
-					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, exploration_test_print=args.exploration_test_print)
+					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, hard=args.hard, exploration_test_print=args.exploration_test_print)
 	else:
 		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, 
 					  adaptive=args.adaptive, parametric=args.parametric, 
-					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, exploration_test_print=arg.sexploration_test_print)
+					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, hard=args.hard, exploration_test_print=arg.sexploration_test_print)
 
 	ppo = PPO()
 

@@ -4,7 +4,7 @@ from regression import Regression
 from IPython import embed
 from copy import copy
 class Sampler(object):
-	def __init__(self, sim_env, dim, path, explore, visit, egreedy):
+	def __init__(self, sim_env, dim, path, explore, visit, egreedy, hard):
 		self.sim_env = sim_env
 		self.dim = dim
 		
@@ -27,12 +27,17 @@ class Sampler(object):
 			self.epsilon_greedy = True
 		else:
 			self.epsilon_greedy = False
-		self.epsilon = 0.2
+		if hard:
+			self.hard = True
+		else:
+			self.hard = False
+		self.epsilon = 0.25
 		print('=======================================')
 		print('curriculum option')
 		print('type visit', self.type_visit)
 		print('type explore', self.type_explore)
 		print('e greedy', self.epsilon_greedy)
+		print('hard', self.hard)
 		print('=======================================')
 
 	def randomSample(self, visited=True):
@@ -60,12 +65,18 @@ class Sampler(object):
 
 	def probAdaptiveSampling(self, idx):
 		v = self.v_sample[idx]
-		return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
+		if self.hard:
+			return math.exp(self.k_ex * -(v - self.v_mean) / self.v_mean) + 1e-10
+		else:
+			return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
 
 	def probTSSampling(self, idx):
 		v = self.v_sample[idx]
 		v_prev = self.v_prev_sample[idx]
 		slope = (v - v_prev) / v_prev * self.k_ex * 2
+
+		if self.hard:
+			slope = -slope
 		if slope > 10:
 			slope = 10
 		return math.exp(slope) + 1e-10
@@ -73,7 +84,10 @@ class Sampler(object):
 	def probTS2Sampling(self, idx):
 		v = self.ns_slope_sample[idx]
 		mean = np.array(self.ns_slope_sample).mean() + 1e-8
-		return math.exp((v - mean) / mean) + 1e-10
+		if self.hard:
+			return math.exp(-(v - mean) / mean) + 1e-10
+		else:
+			return math.exp((v - mean) / mean) + 1e-10
 
 	def updateNumSampleDelta(self, idx):
 		if self.type_explore != 6 and self.type_explore != 7:
