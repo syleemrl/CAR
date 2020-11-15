@@ -143,32 +143,30 @@ class Monitor(object):
 		self.mode_counter += 1
 		if self.mode_counter % 2 == 0:
 			self.sim_env.UpdateParamState()
-		if self.exploration_test_print == "" and self.num_evaluation % 50 == 0:
+		if self.num_evaluation % 50 == 0:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
+		if self.mode_counter % 5 == 0 and self.exploration_test_print != "":
+			if not os.path.isfile(self.exploration_test_print) :
+				out = open(self.exploration_test_print, "w")
+				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetNumSamples())+'\n')
+				out.close()
+			else:
+				out = open(self.exploration_test_print, "a")
+				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetNumSamples())+'\n')
+				out.close()		
 		if self.mode == 0:
-			if self.exploration_test_print == "" and self.mode_counter % 10 == 0:
-				self.sim_env.SaveParamSpace(-1)
-				self.sampler.reset_explore()
+			#if self.mode_counter % 10 == 0:
+			#	self.sim_env.SaveParamSpace(-1)
+			#	self.sampler.reset_explore()
 			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
-				if self.exploration_test_print != "":
-					if not os.path.isfile(self.exploration_test_print) :
-						out = open(self.exploration_test_print, "w")
-						out.write(str(self.sim_env.GetNumSamples())+'\n')
-						out.close()
-					else:
-						out = open(self.exploration_test_print, "a")
-						out.write(str(self.sim_env.GetNumSamples())+'\n')
-						out.close()
-					mode_change = 999
-				else:
-					self.sim_env.TrainRegressionNetwork(300)
-					self.mode = 1
-					self.mode_counter = 0
-					self.sampler.reset_visit()
-					mode_change = 1
+				self.sim_env.TrainRegressionNetwork(300)
+				self.mode = 1
+				self.mode_counter = 0
+				self.sampler.reset_visit()
+				mode_change = 1
 		else:
 			if self.mode_counter % 10 == 0:
-				self.sim_env.SaveParamSpace(-1)
+			#	self.sim_env.SaveParamSpace(-1)
 				self.sim_env.TrainRegressionNetwork(50)
 			enough = self.sampler.isEnough(v_func)
 			if enough and self.sim_env.NeedExploration():

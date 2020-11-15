@@ -73,7 +73,7 @@ class Sampler(object):
 	def probTSSampling(self, idx):
 		v = self.v_sample[idx]
 		v_prev = self.v_prev_sample[idx]
-		slope = (v - v_prev) / v_prev * self.k_ex * 2
+		slope = (v - v_prev) / v_prev * self.k_ex * 3
 
 		if self.hard:
 			slope = -slope
@@ -107,7 +107,10 @@ class Sampler(object):
 			self.n_explore += 1
 			
 		self.v_mean_cur = np.array(results).mean()
-		self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
+		if self.v_mean == 0:
+			self.v_mean = self.v_mean_cur
+		else:
+			self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
 
 		if visited:
 			if self.type_visit == 0:
@@ -286,9 +289,9 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.n_visit > 10 and self.v_mean_cur > 0.9:
+			if self.n_visit > 3 and self.v_mean_cur > 0.9:
 				return True
-		if self.n_visit > 10 and self.v_mean > 0.9:
+		if self.n_visit > 3 and self.v_mean > 0.9:
 				return True
 
 		self.total_iter += 1

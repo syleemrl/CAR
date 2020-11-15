@@ -552,7 +552,7 @@ class PPO(object):
 					last_print = local_step
 				
 				states = self.env.getStates()
-			if self.adaptive:
+			if self.adaptive and self.env.mode == 0:
 				self.env.sampler.updateNumSampleDelta(p_idx)
 			print('')
 
