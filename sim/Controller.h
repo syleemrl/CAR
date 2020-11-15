@@ -110,6 +110,7 @@ protected:
 
 	Character* mCharacter;
 	Character* mObject;
+	Character* mObject_stepon;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 
@@ -140,6 +141,8 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
+	std::vector<Eigen::VectorXd> mRecordObj2Position;
+
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	std::vector<double> mRecordPhase;
 
@@ -165,6 +168,7 @@ protected:
 
 	Eigen::VectorXd mPrevTargetPositions;
 	Eigen::VectorXd mControlFlag;
+	bool placed_object;
 
 	Eigen::VectorXd mParamGoal;
 	Eigen::VectorXd mParamCur;

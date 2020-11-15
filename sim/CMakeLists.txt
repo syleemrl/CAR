@@ -23,5 +23,5 @@ target_link_libraries(sim ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARI
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-add_executable(xmlGen BVHToXML.cpp)
-target_link_libraries(xmlGen ${TinyXML_LIBRARIES})
+#add_executable(xmlGen BVHToXML.cpp)
+#target_link_libraries(xmlGen ${TinyXML_LIBRARIES})

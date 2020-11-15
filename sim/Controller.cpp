@@ -44,12 +44,26 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 	// this->mObject = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/jump_box.xml")).first;
 	// this->mWorld->addSkeleton(this->mObject);
-	
+	this->placed_object = false;
+
 	#ifdef OBJECT_TYPE 
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 		this->mObject = new DPhy::Character(object_path);	
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
+		this->placed_object = true;
+
+		// this->mObject_stepon = new DPhy::Character(object_path);
+		// Eigen::VectorXd faraway(mObject_stepon->GetSkeleton()->getNumDofs());
+		// faraway.setZero();
+		// faraway.segment<3>(3) =Eigen::Vector3d(1000, 0, 1000);
+		// mObject_stepon->GetSkeleton()->setPositions(faraway);
+		// mObject_stepon->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
+		// mObject_stepon->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
+		// mObject_stepon->GetSkeleton()->computeForwardKinematics(true,false,false);
+		
+		// this->mWorld->addSkeleton(this->mObject_stepon->GetSkeleton());
+		// this->mObject_stepon->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
 	#endif
 
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
@@ -158,8 +172,8 @@ Step()
 		sign = -1;
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
-	mAdaptiveStep = mActions[mInterestedDof];
-	//mAdaptiveStep = 0;
+	// mAdaptiveStep = mActions[mInterestedDof];
+	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -234,16 +248,45 @@ Step()
 
 	}
 
+	if(isAdaptive && mCurrentFrameOnPhase >= 41 && !(this->placed_object)){
+
+		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+		obj_pos.setZero();
+		Eigen::Vector3d lf_pos = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf_pos = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::Vector3d middle= (lf_pos+rf_pos)/2.;
+		Eigen::Vector3d default_pos(0.0104028, 0.547423, 0.719404);
+		obj_pos[5] = (middle- default_pos)[2];
+		// obj_pos.segment<3>(3) = middle - default_pos;
+		// 41 ; 0.0104028  0.547423  0.719404
+
+		mObject->GetSkeleton()->setPositions(obj_pos);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		std::cout<<mCurrentFrame<<", object: "<<obj_pos.segment<3>(3).transpose()<<std::endl;
+
+		this->placed_object = true;
+	}
+
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+		
+		Eigen::Vector6d newRootZero = mRootZero;
+		newRootZero[4] = 1.04059;
+		mCharacter->GetSkeleton()->getJoint(0)->setPositions(newRootZero);
+		// Eigen::VectorXd prev_vel = mCharacter->GetSkeleton()->getVelocities();
+		mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+		// Eigen::VectorXd vel = mCharacter->GetSkeleton()->getVelocities();
+		// std::cout<<"pv: "<<prev_vel.segment<6>(0).transpose()<<std::endl;
+		// std::cout<<"v:  "<<vel.segment<6>(0).transpose()<<std::endl;
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
 			for(int i = 0; i < mRewardSimilarity.size(); i++) {
 				mRewardSimilarity[i] /= mCountTracking;
 			}
-
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, std::vector<double>>(mTrackingRewardTrajectory, mParamRewardTrajectory, mRewardSimilarity), mParamCur);
 			data_raw.clear();
 
@@ -257,15 +300,52 @@ Step()
 			
 			mEnergy.setZero();
 			mVelocity = 0;
+			
+			#ifdef OBJECT_TYPE
+			// copy previous box position (goal box to jump on) to -> step_on(ground) box : so that the character does not stand on the air
+			// Eigen::VectorXd prevObjPos = mObject->GetSkeleton()->getPositions();
+			// mObject_stepon->GetSkeleton()->setPositions(prevObjPos);
+			// mObject_stepon->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
+			// mObject_stepon->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
+			// mObject_stepon->GetSkeleton()->computeForwardKinematics(true,false,false);
+			
+			// place the object far far away , so that it cannot affect the character now..
+			Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+			obj_pos.setZero();
+			obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
+			
+			mObject->GetSkeleton()->setPositions(obj_pos);
+			mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+			this->placed_object = false;
+			#endif
 		}
-	}
+		else{
+			#ifdef OBJECT_TYPE
+			// reset : Character :  3.20143e-05    -0.040131   -0.0131928 -8.63835e-05      1.04059     0.016015
+			Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+			obj_pos.setZero();
+			obj_pos[5]= newRootZero[5]- 0.016015;
+			// std::cout<<"NOT adaptive, after a cycle; "<<newRootZero.transpose()<<"/"<<obj_pos[5]<<std::endl;
+			
+			mObject->GetSkeleton()->setPositions(obj_pos);
+			mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+			this->placed_object = true;
+			#endif
+		}
 
+
+	}
 	if(isAdaptive) {
 		this->UpdateAdaptiveReward();
 
 	}
 	else
 		this->UpdateReward();
+
 
 	this->UpdateTerminalInfo();
 
@@ -299,6 +379,11 @@ SaveStepInfo()
 	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
 
 	mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
+
+	#ifdef OBJECT_TYPE
+	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
+	// mRecordObj2Position.push_back(mObject_stepon->GetSkeleton()->getPositions());
+	#endif
 }
 void 
 Controller::
@@ -845,6 +930,31 @@ Reset(bool RSI)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
 	}
+
+	#ifdef OBJECT_TYPE 
+	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+	obj_pos.setZero();
+	mObject->GetSkeleton()->setPositions(obj_pos);
+	mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+	// std::cout<<"RESET / obj_pos: "<<obj_pos.transpose()<<std::endl;
+	// std::cout<<"Character : "<<mTargetPositions.segment<6>(0).transpose()<<std::endl;
+
+	//Character :  3.20143e-05    -0.040131   -0.0131928 -8.63835e-05      1.04059     0.016015
+
+	// Eigen::VectorXd faraway (mObject->GetSkeleton()->getNumDofs());
+	// faraway.setZero();
+	// faraway.segment<3>(3)= Eigen::Vector3d(1000, 0, 1000);
+	// mObject_stepon->GetSkeleton()->setPositions(faraway);
+	// mObject_stepon->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
+	// mObject_stepon->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
+	// mObject_stepon->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+	placed_object = true;
+	#endif
+	 // 0.547423  0.719404
+
 
 }
 int

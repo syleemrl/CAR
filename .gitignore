@@ -3,4 +3,5 @@ network/__pycache__/
 network/output/
 network/simEnv.so
 sim/libsim.a
+result/
 

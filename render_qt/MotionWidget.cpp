@@ -31,6 +31,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 
 	mSkel_obj = nullptr;
 	#ifdef OBJECT_TYPE 
+		std::cout<<"\nMotionWidget OBJ"<<std::endl;
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
 	#endif
@@ -105,6 +106,36 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	initNetworkSetting(ppo, reg);
 
 
+	for(int i=35; i<42; i++)
+	{
+		mSkel_bvh->setPositions(mMotion_bvh[i]);
+		Eigen::Vector3d lf = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::Vector3d middle= (lf+rf)/2;
+		middle[0]+= 0.75;
+		std::cout<<(i)<<" "<<middle.transpose()<<std::endl;//<<foot.transpose()<<"\t/ "<<root.transpose()<<"\t/"<<new_root.transpose()<<std::endl;
+	}
+	mSkel_bvh->setPositions(mMotion_bvh[0]);
+	Eigen::Vector3d root = mSkel_bvh->getBodyNode("Hips")->getWorldTransform().translation();
+	std::cout<<"0, hips: "<<root.transpose()<<std::endl; 
+
+	mSkel_obj->setPositions(mMotion_obj[0]);
+	std::cout<<"obj : "<<mSkel_obj->getPositions().transpose()<<std::endl;
+
+	// 35 0.020062 0.531804 0.265839
+	// 36 0.0176278   0.59416   0.35295
+	// 37 0.0110007  0.624677  0.453007
+	// 38 0.00593657   0.630926   0.551213
+	// 39 0.00503803   0.618199   0.633275
+	// 40 0.00724252   0.587761   0.690165
+	// 41 0.0104028  0.547423  0.719404
+	// 0, hips: -0.750086   1.04059  0.016015
+
+	
+
+	    UpdateMotion(pos, 0);
+
+
 	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
@@ -139,7 +170,8 @@ initNetworkSetting(std::string ppo, std::string reg) {
 		//	mRegressionMemory->SaveContinuousParamSpace(path + "param_cspace");
     	}
     	if(ppo != "") {
-    		this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
+    		if (reg!="") this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
+    		else this->mController = new DPhy::Controller(mReferenceManager, false, false, true);
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
 
     		p::object ppo_main = p::import("ppo");
@@ -251,7 +283,7 @@ RunPPO() {
 	std::vector<Eigen::VectorXd> pos_bvh;
 	std::vector<Eigen::VectorXd> pos_reg;
 	std::vector<Eigen::VectorXd> pos_sim;
-	// std::vector<Eigen::VectorXd> pos_obj;
+	std::vector<Eigen::VectorXd> pos_obj;
 
 	int count = 0;
 	mController->Reset(false);
@@ -273,28 +305,19 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
-		//Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
+		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
 		position_bvh(3) -= 0.75;
 
-		#ifdef OBJECT_TYPE
-			// Eigen::Vector3d position_obj = this->mSkel_obj->getBodyNode(0)->getWorldTransform().translation();
-			// position_obj(0) += 0.75;
-			
-			// Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
-			// T.translation()= position_obj;
-			// mSkel_obj->getBodyNode(0)->getProperties().mT_ChildBodyToJoint = T.inverse();
-			// mSkel_obj->getBodyNode(0)->setProperties().mT_ChildBodyToJoint = T.inverse();
-			
-		#endif
-		//position_obj(3) += 0.75;
-
 		pos_reg.push_back(position_reg);
 		pos_sim.push_back(position);
 		pos_bvh.push_back(position_bvh);
-		//pos_obj.push_back(position_obj);
+		
+		#ifdef OBJECT_TYPE
+		pos_obj.push_back(position_obj);
+		#endif
 	}
 	Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
 	root_bvh(3) += 0.75;
@@ -303,8 +326,9 @@ RunPPO() {
 	UpdateMotion(pos_bvh, 0);
 	UpdateMotion(pos_sim, 1);
 	UpdateMotion(pos_reg, 2);
-	//UpdateMotion(pos_obj, 3);
-
+	#ifdef OBJECT_TYPE
+	UpdateMotion(pos_obj, 5);
+	#endif
 }
 void
 MotionWidget::
@@ -332,7 +356,9 @@ SetFrame(int n)
 	}
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
-    	// mSkel_obj->setPositions(mMotion_obj[n]);
+    	#ifdef OBJECT_TYPE
+	    	mSkel_obj->setPositions(mMotion_obj[n]);
+    	#endif
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
@@ -408,6 +434,7 @@ paintGL()
 	DrawGround();
 	DrawSkeletons();
 
+	GUI::DrawStringOnScreen(0.9, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
 void
 MotionWidget::
@@ -568,6 +595,8 @@ UpdateMotion(std::vector<Eigen::VectorXd> motion, int type)
 		mMotion_exp = motion;	
 	} else if(type == 4) {
 		mMotion_points = motion;
+	} else if(type == 5){
+		mMotion_obj = motion;
 	}
 	mCurFrame = 0;
 	if(mTotalFrame == 0)
