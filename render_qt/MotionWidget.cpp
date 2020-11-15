@@ -106,36 +106,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	initNetworkSetting(ppo, reg);
 
 
-	for(int i=35; i<42; i++)
-	{
-		mSkel_bvh->setPositions(mMotion_bvh[i]);
-		Eigen::Vector3d lf = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
-		Eigen::Vector3d middle= (lf+rf)/2;
-		middle[0]+= 0.75;
-		std::cout<<(i)<<" "<<middle.transpose()<<std::endl;//<<foot.transpose()<<"\t/ "<<root.transpose()<<"\t/"<<new_root.transpose()<<std::endl;
-	}
-	mSkel_bvh->setPositions(mMotion_bvh[0]);
-	Eigen::Vector3d root = mSkel_bvh->getBodyNode("Hips")->getWorldTransform().translation();
-	std::cout<<"0, hips: "<<root.transpose()<<std::endl; 
-
-	mSkel_obj->setPositions(mMotion_obj[0]);
-	std::cout<<"obj : "<<mSkel_obj->getPositions().transpose()<<std::endl;
-
-	// 35 0.020062 0.531804 0.265839
-	// 36 0.0176278   0.59416   0.35295
-	// 37 0.0110007  0.624677  0.453007
-	// 38 0.00593657   0.630926   0.551213
-	// 39 0.00503803   0.618199   0.633275
-	// 40 0.00724252   0.587761   0.690165
-	// 41 0.0104028  0.547423  0.719404
-	// 0, hips: -0.750086   1.04059  0.016015
-
-	
-
-	    UpdateMotion(pos, 0);
-
-
 	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));

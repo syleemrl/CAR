@@ -52,18 +52,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
 		this->placed_object = true;
-
-		// this->mObject_stepon = new DPhy::Character(object_path);
-		// Eigen::VectorXd faraway(mObject_stepon->GetSkeleton()->getNumDofs());
-		// faraway.setZero();
-		// faraway.segment<3>(3) =Eigen::Vector3d(1000, 0, 1000);
-		// mObject_stepon->GetSkeleton()->setPositions(faraway);
-		// mObject_stepon->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
-		// mObject_stepon->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
-		// mObject_stepon->GetSkeleton()->computeForwardKinematics(true,false,false);
-		
-		// this->mWorld->addSkeleton(this->mObject_stepon->GetSkeleton());
-		// this->mObject_stepon->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
 	#endif
 
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
@@ -172,8 +160,8 @@ Step()
 		sign = -1;
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
-	// mAdaptiveStep = mActions[mInterestedDof];
-	mAdaptiveStep = 0;
+	mAdaptiveStep = mActions[mInterestedDof];
+	// mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -212,39 +200,26 @@ Step()
 
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			
-			//Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			// for(int j = 0; j < num_body_nodes; j++) {
-			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			// 	double torquelim = mCharacter->GetTorqueLimit(name);
-			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
-			
-			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			// }
-
-			//mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 		}
 
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
-		if(mCurrentFrameOnPhase >= 10 && mControlFlag[0] == 0) {
-			double curVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
-			if(mPrevVelocity * curVelocity < 0) {
-				mControlFlag[0] = 1;
-			}
+		// if(mCurrentFrameOnPhase >= 10 && mControlFlag[0] == 0) {
+		// 	double curVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
+		// 	if(mPrevVelocity * curVelocity < 0) {
+		// 		mControlFlag[0] = 1;
+		// 	}
 
-			mPrevVelocity = curVelocity;
+		// 	mPrevVelocity = curVelocity;
 
-		} else if(mControlFlag[0] == 1) {
-			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
-			if(mVelocity < c_vel(1)) {
-				mVelocity = c_vel(1);
-				mEnergy = mCharacter->GetSkeleton()->getMass() * c_vel;
-			}
-			mPrevVelocity = 0;
-		}
+		// } else if(mControlFlag[0] == 1) {
+		// 	Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+		// 	if(mVelocity < c_vel(1)) {
+		// 		mVelocity = c_vel(1);
+		// 		mEnergy = mCharacter->GetSkeleton()->getMass() * c_vel;
+		// 	}
+		// 	mPrevVelocity = 0;
+		// }
 
 	}
 
@@ -281,6 +256,10 @@ Step()
 		// Eigen::VectorXd vel = mCharacter->GetSkeleton()->getVelocities();
 		// std::cout<<"pv: "<<prev_vel.segment<6>(0).transpose()<<std::endl;
 		// std::cout<<"v:  "<<vel.segment<6>(0).transpose()<<std::endl;
+		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		mStartPosition = (lf+rf)/2.;
+		jump_stepon = false;
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
@@ -298,17 +277,10 @@ Step()
 			mCountParam = 0;
 			mCountTracking = 0;
 			
-			mEnergy.setZero();
-			mVelocity = 0;
+			// mEnergy.setZero();
+			// mVelocity = 0;
 			
 			#ifdef OBJECT_TYPE
-			// copy previous box position (goal box to jump on) to -> step_on(ground) box : so that the character does not stand on the air
-			// Eigen::VectorXd prevObjPos = mObject->GetSkeleton()->getPositions();
-			// mObject_stepon->GetSkeleton()->setPositions(prevObjPos);
-			// mObject_stepon->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
-			// mObject_stepon->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
-			// mObject_stepon->GetSkeleton()->computeForwardKinematics(true,false,false);
-			
 			// place the object far far away , so that it cannot affect the character now..
 			Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 			obj_pos.setZero();
@@ -382,7 +354,6 @@ SaveStepInfo()
 
 	#ifdef OBJECT_TYPE
 	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
-	// mRecordObj2Position.push_back(mObject_stepon->GetSkeleton()->getPositions());
 	#endif
 }
 void 
@@ -405,9 +376,9 @@ ClearRecord()
 	mCountTracking = 0;
 	data_raw.clear();
 
-	mEnergy.setZero();
-	mVelocity = 0;
-	mPrevVelocity = 0;
+	// mEnergy.setZero();
+	// mVelocity = 0;
+	// mPrevVelocity = 0;
 }
 
 std::vector<double> 
@@ -668,25 +639,48 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
-		Eigen::Vector3d p;
-		p << 6.5, mParamGoal(0), -3.5;
-		Eigen::VectorXd l_diff = mEnergy - p;
-		l_diff *= 0.1;
-		l_diff(1) *= 2;
-		r_param = exp_of_squared(l_diff, 1.5);
 
-		if(mRecord) {
-		 	std::cout << mEnergy(1) << " " << mParamGoal(0) << " " << r_param  << std::endl;
+	// TODO/ DONE: do this only after jumping (?)
+	if(mCurrentFrameOnPhase >= 50 && !(this->jump_stepon)){
+		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::Vector3d middle = (lf+rf)/2.;
+		Eigen::Vector3d jump = middle- mStartPosition; // y-axis, z-axis	
+		// TODO/ DONE: set mStartPosition when resetting  & when a cycle is over
+
+		Eigen::VectorXd result(2); result << jump[1], jump[2]; // y-axis, z-axis
+		Eigen::VectorXd diff = result- mParamGoal;
+		r_param = exp_of_squared(diff, 1.5);
+		
+		if(mRecord){
+			std::cout<<mParamGoal.transpose()<<" / r: "<<r_param<<std::endl;
 		}
-		if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
-			mParamCur(0) = -1;
-		} else {
-			mParamCur(0) = mEnergy(1);
-		}
-		mControlFlag[0] = 2;		
-	} 
+
+		mParamCur = result;
+
+		this->jump_stepon = true;
+	}
+
+	// auto& skel = this->mCharacter->GetSkeleton();
+	// if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
+	// 	Eigen::Vector3d p;
+	// 	p << 6.5, mParamGoal(0), -3.5;
+	// 	Eigen::VectorXd l_diff = mEnergy - p;
+	// 	l_diff *= 0.1;
+	// 	l_diff(1) *= 2;
+	// 	r_param = exp_of_squared(l_diff, 1.5);
+
+	// 	if(mRecord) {
+	// 	 	std::cout << mEnergy(1) << " " << mParamGoal(0) << " " << r_param  << std::endl;
+	// 	}
+	// 	if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
+	// 		mParamCur(0) = -1;
+	// 	} else {
+	// 		mParamCur(0) = mEnergy(1);
+	// 	}
+	// 	mControlFlag[0] = 2;		
+	// } 
+
 	return r_param;
 }
 void
@@ -943,17 +937,14 @@ Reset(bool RSI)
 
 	//Character :  3.20143e-05    -0.040131   -0.0131928 -8.63835e-05      1.04059     0.016015
 
-	// Eigen::VectorXd faraway (mObject->GetSkeleton()->getNumDofs());
-	// faraway.setZero();
-	// faraway.segment<3>(3)= Eigen::Vector3d(1000, 0, 1000);
-	// mObject_stepon->GetSkeleton()->setPositions(faraway);
-	// mObject_stepon->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
-	// mObject_stepon->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_stepon->GetSkeleton()->getNumDofs()));
-	// mObject_stepon->GetSkeleton()->computeForwardKinematics(true,false,false);
-
 	placed_object = true;
+	jump_stepon =  false;
 	#endif
 	 // 0.547423  0.719404
+
+	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	mStartPosition = (lf+rf)/2.;
 
 
 }

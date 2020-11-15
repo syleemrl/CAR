@@ -914,8 +914,8 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::VectorXd l_diff = p_goal - p;
-	l_diff *= 0.1;
-	double r_param = exp_of_squared(l_diff, 2);
+	// l_diff *= 0.1;
+	double r_param = exp_of_squared(l_diff, 1.5);
 
 	return r_param;
 }
