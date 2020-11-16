@@ -216,9 +216,11 @@ class PPO(object):
 
 	def updateCriticProgress(self, n):
 		state_progress, progress_batch = self.env.sampler.GetTrainingDataProgress()
+
 		batch_size_progress = 20
+		n=1000
 		for _ in range(n):
-			ind = np.arange(len(state_batch))
+			ind = np.arange(len(state_progress))
 			np.random.shuffle(ind)
 
 			for s in range(int(len(ind)//batch_size_progress)):
@@ -542,7 +544,10 @@ class PPO(object):
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
 			if self.adaptive:
-				p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
+				if self.env.sampler.type_explore == 8 and not self.env.mode:
+					p_idx = self.env.updateGoal(self.critic_progress, self.critic_target_prev)
+				else:
+					p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -592,13 +597,13 @@ class PPO(object):
 					t = self.env.updateMode(self.critic_target)
 					if t == 0:
 						self.updateCriticTarget(True)
-						self.updateCriticProgress(100)
-						self.ClearTrainingDataProgress()
+						self.updateCriticProgress(200)
+						self.env.sampler.ClearTrainingDataProgress()
 
 						update_counter = 0
 					elif self.env.mode == 0:
-						self.updateCriticProgress(50)
-						self.ClearTrainingDataProgress()
+						self.updateCriticProgress(20)
+						self.env.sampler.ClearTrainingDataProgress()
 					if t == 999:
 						break
 

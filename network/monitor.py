@@ -143,8 +143,8 @@ class Monitor(object):
 		self.mode_counter += 1
 		if self.mode_counter % 2 == 0:
 			self.sim_env.UpdateParamState()
-		if self.num_evaluation % 50 == 0:
-			self.sim_env.SaveParamSpace(self.num_evaluation)
+		# if self.num_evaluation % 50 == 0:
+		# 	self.sim_env.SaveParamSpace(self.num_evaluation)
 		if self.mode_counter % 5 == 0 and self.exploration_test_print != "":
 			if not os.path.isfile(self.exploration_test_print) :
 				out = open(self.exploration_test_print, "w")

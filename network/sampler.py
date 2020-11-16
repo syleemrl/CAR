@@ -55,7 +55,10 @@ class Sampler(object):
 		if hard:
 			return math.exp(- self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 		else:
-			return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+			if self.type_explore == 8:
+				return math.exp(v) + 1e-10
+			else:
+				return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 
 	def probTS(self, v_func, v_func_prev, target, hard=True):
 		target = np.reshape(target, (-1, self.dim))
@@ -68,6 +71,7 @@ class Sampler(object):
 		if slope > 10:
 			slope = 10
 		return math.exp(slope) + 1e-10
+
 
 	def probAdaptiveSampling(self, idx):
 		v = self.v_sample[idx]
@@ -107,17 +111,16 @@ class Sampler(object):
 			self.ns_count_temp[idx] += 1
 		else:
 			self.state_batch.append(self.prev_action)
-			self.progress_batch.append(self.slope * 2)
-
+			self.progress_batch.append(slope * 2)
 	def GetTrainingDataProgress(self):
-		return self.state_batch, self.progress_batch
+		return np.array(copy(self.state_batch)), np.array(copy(self.progress_batch))
 
 	def ClearTrainingDataProgress(self):
 		if len(self.state_batch) > 80:
 			self.state_batch = self.state_batch[-80:]
 			self.progress_batch = self.progress_batch[-80:]
 
-	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
+	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=4, N=200):
 		self.start += 1
 		if visited:
 			self.n_visit += 1
@@ -237,9 +240,11 @@ class Sampler(object):
 				return target, t
 			elif self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
 				if self.start < 2:
-					return self.randomSample(visited), -1
-				t = np.random.randint(len(self.pool_ex))
-				target = self.pool_ex[t]
+					target = self.randomSample(visited)
+					t = -1
+				else:
+					t = np.random.randint(len(self.pool_ex))
+					target = self.pool_ex[t]
 				if self.type_explore == 8:
 					self.prev_nsample = self.sim_env.GetNumSamples()
 					self.prev_action = target
