@@ -21,7 +21,8 @@ class Sampler(object):
 		self.start = 0
 		# 0: uniform 1: adaptive 2: ts
 		self.type_visit = visit
-		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling) 6: num sample slope(sampling) 7:num sample near goal(sampling)
+		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
+		# 6: num sample slope(sampling) 7:num sample near goal(sampling) 8: num sample slope (network)
 		self.type_explore = explore
 		if egreedy:
 			self.epsilon_greedy = True
@@ -32,6 +33,11 @@ class Sampler(object):
 		else:
 			self.hard = False
 		self.epsilon = 0.25
+
+		self.state_batch = []
+		self.progress_batch = []
+		self.prev_action = 0
+		self.prev_nsample = 0
 		print('=======================================')
 		print('curriculum option')
 		print('type visit', self.type_visit)
@@ -90,14 +96,26 @@ class Sampler(object):
 			return math.exp((v - mean) / mean) + 1e-10
 
 	def updateNumSampleDelta(self, idx):
-		if self.type_explore != 6 and self.type_explore != 7:
+		if self.type_explore < 6:
 			return
-		if self.type_explore == 6:
-			slope = max(0.0, self.sim_env.GetNumSamples() - self.prev_ns)
-		else:
+		if self.type_explore == 7:
 			slope = self.sim_env.GetNewSamplesNearGoal()
-		self.ns_slope_temp[idx] += slope
-		self.ns_count_temp[idx] += 1
+		else:
+			slope = max(0.0, self.sim_env.GetNumSamples() - self.prev_nsample)
+		if self.type_explore == 6 or self.type_explore == 7:
+			self.ns_slope_temp[idx] += slope
+			self.ns_count_temp[idx] += 1
+		else:
+			self.state_batch.append(self.prev_action)
+			self.progress_batch.append(self.slope * 2)
+
+	def GetTrainingDataProgress(self):
+		return self.state_batch, self.progress_batch
+
+	def ClearTrainingDataProgress(self):
+		if len(self.state_batch) > 80:
+			self.state_batch = self.state_batch[-80:]
+			self.progress_batch = self.progress_batch[-80:]
 
 	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
 		self.start += 1
@@ -133,13 +151,13 @@ class Sampler(object):
 				return
 			self.pool_ex = []
 			self.idx_ex = []
-			if self.type_explore == 1 or self.type_explore == 3:
+			if self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
 				for i in range(m):
 					x_cur = self.randomSample(visited)
 					for j in range(int(N/m)):
 						self.pool_ex.append(x_cur)
 						x_new = self.randomSample(visited)
-						if self.type_explore == 1:
+						if self.type_explore == 1 or self.type_explore == 8:
 							alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
 						else:
 							alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, False)/self.probTS(v_func, v_func_prev, x_cur, False))
@@ -166,8 +184,8 @@ class Sampler(object):
 				if self.type_explore == 6 or self.type_explore == 7:
 					for i in range(len(self.sample)):
 						if self.ns_count_temp[i] != 0:
-							w = min(1.0, 0.1 * self.ns_count_temp[i])
-							self.ns_slope_sample[i] = (1-w) * self.ns_slope_sample[i] + w * self.ns_slope_temp[i] / self.ns_count_temp[i]
+							w = min(1.0, 0.2 * self.ns_count_temp[i])
+							self.ns_slope_sample[i] = (1-w) * self.ns_slope_sample[i] + w * ( 2 * self.ns_slope_temp[i] / self.ns_count_temp[i])
 					print('ns slope goals current: ', self.ns_slope_temp)
 					print('ns slope goals: ', self.ns_slope_sample)
 
@@ -192,6 +210,7 @@ class Sampler(object):
 					else:
 						self.bound_sample.append(self.bound_sample[-1] + self.prob[i] / prob_mean)
 				print(self.bound_sample)
+
 	def adaptiveSample(self, visited):
 		if visited:
 			if self.n_visit < 1 or self.n_visit % 5 == 4:
@@ -202,6 +221,11 @@ class Sampler(object):
 			else:
 				t = np.random.randint(len(self.pool))
 				target = self.pool[t] 
+
+			if self.type_explore == 8:
+				self.prev_nsample = self.sim_env.GetNumSamples()
+				self.prev_action = target
+
 			return target, t
 		else:
 			if self.type_explore == 0:
@@ -211,11 +235,14 @@ class Sampler(object):
 				target = self.sample[t]
 				idx = t
 				return target, t
-			elif self.type_explore == 1 or self.type_explore == 3:
+			elif self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
 				if self.start < 2:
 					return self.randomSample(visited), -1
 				t = np.random.randint(len(self.pool_ex))
 				target = self.pool_ex[t]
+				if self.type_explore == 8:
+					self.prev_nsample = self.sim_env.GetNumSamples()
+					self.prev_action = target
 				return target, t 
 			else:
 				if self.n_explore <= 2:
@@ -258,7 +285,7 @@ class Sampler(object):
 		self.n_visit = 0
 		self.n_learning += 1
 
-	def sampleGoals(self, m=10):
+	def sampleGoals(self, m=50):
 		self.sample = []
 		self.v_sample = []
 		self.ns_slope_sample = []

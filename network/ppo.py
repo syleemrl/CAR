@@ -78,9 +78,9 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.25]
+		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25]
 
-		self.optim_frequency = [optim_frequency * 2, optim_frequency * 4]
+		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -202,6 +202,7 @@ class PPO(object):
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
 				self.critic_target_prev2, _, _ = self.createCriticNetwork(name+'_target_prev2', self.state_target, self.TD_target, False)
+				self.critic_progress, self.critic_progress_train_op, self.loss_critic_progress = self.createCriticNetwork(name+'_target_progress', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -212,6 +213,30 @@ class PPO(object):
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		self.sess.run(tf.global_variables_initializer())
+
+	def updateCriticProgress(self, n):
+		state_progress, progress_batch = self.env.sampler.GetTrainingDataProgress()
+		batch_size_progress = 20
+		for _ in range(n):
+			ind = np.arange(len(state_batch))
+			np.random.shuffle(ind)
+
+			for s in range(int(len(ind)//batch_size_progress)):
+				selectedIndex = ind[s*batch_size_progress:(s+1)*batch_size_progress]
+				val = self.sess.run([self.critic_progress_train_op, self.loss_critic_progress], 
+					feed_dict={
+						self.state_target: state_progress[selectedIndex], 
+						self.TD_target: progress_batch[selectedIndex], 
+					}
+				)
+			selectedIndex = ind[(s+1)*batch_size_progress:]
+			if len(selectedIndex) != 0:
+				val = self.sess.run([self.critic_progress_train_op, self.loss_critic_progress], 
+					feed_dict={
+						self.state_target: state_progress[selectedIndex], 
+						self.TD_target: progress_batch[selectedIndex], 
+					}
+				)
 
 	def updateCriticTarget(self, update_all=False):
 		copy_op = []
@@ -552,7 +577,7 @@ class PPO(object):
 					last_print = local_step
 				
 				states = self.env.getStates()
-			if self.adaptive and self.env.mode == 0:
+			if self.adaptive and (self.env.mode == 0 or self.env.sampler.type_explore == 8):
 				self.env.sampler.updateNumSampleDelta(p_idx)
 			print('')
 
@@ -567,16 +592,28 @@ class PPO(object):
 					t = self.env.updateMode(self.critic_target)
 					if t == 0:
 						self.updateCriticTarget(True)
+						self.updateCriticProgress(100)
+						self.ClearTrainingDataProgress()
+
 						update_counter = 0
+					elif self.env.mode == 0:
+						self.updateCriticProgress(50)
+						self.ClearTrainingDataProgress()
 					if t == 999:
 						break
+
 					if not self.parametric:
 						self.env.updateAdaptive()
 					else:
-						if self.env.mode:
+						if self.env.sampler.type_explore == 8  and self.env.mode:
 							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-						else:
-							self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+						elif self.env.sampler.type_explore == 8  and not self.env.mode:
+								self.env.updateCurriculum(self.critic_progress, self.critic_target_prev, self.v_target, self.idx_target)
+						else :
+							if self.env.mode:
+								self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
+							else:
+								self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
 
 					epi_info_iter_hind = []
 
