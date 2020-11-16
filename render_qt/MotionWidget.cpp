@@ -133,7 +133,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
 	        this->mRegression = reg_main.attr("Regression")();
 	        std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
 	        this->mRegression.attr("initRun")(path, mReferenceManager->GetParamGoal().rows() + 1, mReferenceManager->GetDOF() + 1);
-			mRegressionMemory->LoadParamSpace(path + "param_space");
+			mRegressionMemory->LoadParamSpace(path + "param_space0");
 	        mParamRange = mReferenceManager->GetParamRange();
 	       
 	        path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
@@ -241,8 +241,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
-		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    // mReferenceManager->LoadAdaptiveMotion(cps);
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}

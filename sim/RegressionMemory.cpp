@@ -57,12 +57,12 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.05;
+	mRadiusNeighbor = 0.2;
 	mThresholdActivate = 3;
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
 
-	for(int j = 0; j < 10; j++) {
+	for(int j = 0; j < 1; j++) {
 		mParamBVH = new Param();
 		mParamBVH->cps.clear();
 		for(int i = 0; i < mNumKnots; i++) {
@@ -598,6 +598,9 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
+			if(mNumSamples <= 10 && d < 0.5 && d > 0.05)
+				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
+
 			if (d < 0.5 && d > 0.2)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
@@ -976,14 +979,13 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*pow(ps[i].second->reward, 2);
 		// std::cout << Denormalize(ps[i].second->param_normalized) << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
-		if(f_baseline < fitness) {
+		//if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
-		} else {
-			ps_elite.push_back(std::pair<double, Param*>(f_baseline, mParamBVH));
+		// } else {
+		// 	ps_elite.push_back(std::pair<double, Param*>(f_baseline, mParamBVH));
 
-		}
+		// }
 		r += preward;
-
 	}
 	
 	// double currentReward = r / mNumElite;

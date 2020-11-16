@@ -158,9 +158,10 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*0.3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
+	// std::cout<<mAdaptiveStep<<std::endl;
 	// mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
@@ -239,7 +240,7 @@ Step()
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		std::cout<<mCurrentFrame<<", object: "<<obj_pos.segment<3>(3).transpose()<<std::endl;
+		// std::cout<<mCurrentFrame<<", object: "<<obj_pos.segment<3>(3).transpose()<<std::endl;
 
 		this->placed_object = true;
 	}
@@ -923,7 +924,22 @@ Reset(bool RSI)
 	if(isAdaptive)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
+
+		#ifdef OBJECT_TYPE
+		// place the object far far away , so that it cannot affect the character now..
+		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+		obj_pos.setZero();
+		obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
+		
+		mObject->GetSkeleton()->setPositions(obj_pos);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		this->placed_object = false;
+		#endif
+
 	}
+	else{
 
 	#ifdef OBJECT_TYPE 
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
@@ -941,6 +957,7 @@ Reset(bool RSI)
 	jump_stepon =  false;
 	#endif
 	 // 0.547423  0.719404
+	}
 
 	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();

@@ -439,7 +439,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	// 50, middle: -0.740508  0.502092  0.718014
 
 	mParamGoal.resize(2);
-	mParamGoal << 0.46, (0.5-0.016015);
+	mParamGoal << 0.46, (0.718014 - 0.0566185); //(0.5-0.016015);
 
 	if(adaptive) {
 
@@ -550,6 +550,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 			double weight = 1.0 - (mPhaseLength + i - data_raw[size-1].second) / (mPhaseLength + data_raw[count].second - data_raw[size-1].second);
 			double t1 = data_raw[count+1].second - data_raw[count].second;
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[size-1].first, data_raw[0].first, weight);
+			p_blend[4] = data_raw[0].first[4];
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
 		} else if(count == data_raw.size() - 1 && i > data_raw[count].second) {
@@ -594,6 +595,14 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		Eigen::VectorXd d_t(mDOF + 1);
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
+		if(i < 5 && (displacement[i].first)(4) > 0.2) {
+			for(int j =0; j < 5; j++) {
+				std::cout << data_raw[j].second << " " << data_raw[j].first.segment<6>(0).transpose() << std::endl;
+				std::cout << j << " " << data_uniform[j].first.segment<6>(0).transpose() << std::endl;
+				std::cout << j << " " << displacement[j].first.segment<6>(0).transpose() << std::endl;
+
+			}
+		}
 	}
 	double r_con =  exp(-std::get<2>(rewards)[0]); //exp(-std::get<2>(rewards)[0]);
 	double r_slide = exp(-std::get<2>(rewards)[1] * 100); //exp(-std::get<2>(rewards)[0]);
