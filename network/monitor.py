@@ -159,7 +159,7 @@ class Monitor(object):
 			#	self.sim_env.SaveParamSpace(-1)
 			#	self.sampler.reset_explore()
 			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
-				self.sim_env.TrainRegressionNetwork(300)
+				self.sim_env.TrainRegressionNetwork(20)
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.reset_visit()

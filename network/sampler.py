@@ -106,11 +106,12 @@ class Sampler(object):
 		if self.type_explore == 7:
 			slope = self.sim_env.GetNewSamplesNearGoal()
 		else:
-			slope = max(0.0, self.sim_env.GetNumSamples() - self.prev_nsample)
+			slope =  max(0.0, self.sim_env.GetNumSamples() - self.prev_nsample)
 		if self.type_explore == 6 or self.type_explore == 7:
 			self.ns_slope_temp[idx] += slope
 			self.ns_count_temp[idx] += 1
 		else:
+			# print(self.sim_env.GetNumSamples() - self.prev_nsample)
 			self.ns_slope_sample.append(self.prev_action)
 			self.ns_slope_temp.append(2 * slope)
 			# self.state_batch.append(self.prev_action)
@@ -149,15 +150,19 @@ class Sampler(object):
 				tp = self.sim_env.UniformSample(False, True)
 				aug_x.append(tp)
 				aug_y.append(0)
+
 			# for _ in range(200):
 			# 	tp = self.sim_env.UniformSample(True, False)
 			# 	aug_x.append(tp)
 			# 	aug_y.append(0)
+			if len(self.state_batch) == 0:
+				return np.array(aug_x), np.array(aug_y)
+
 			aug_x = np.concatenate((self.state_batch, aug_x))
 			aug_y = np.concatenate((self.progress_batch, aug_y))
 			aug_x = np.concatenate((self.state_batch, aug_x))
 			aug_y = np.concatenate((self.progress_batch, aug_y))
-			
+
 			return aug_x, aug_y
 
 	def ClearTrainingDataProgress(self, all):
@@ -168,7 +173,7 @@ class Sampler(object):
 			self.state_batch = []
 			self.progress_batch = []
 
-	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
+	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=2, N=400):
 		self.start += 1
 		if visited:
 			self.n_visit += 1
@@ -204,7 +209,10 @@ class Sampler(object):
 			self.idx_ex = []
 			if self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
 				for i in range(m):
-					x_cur = self.randomSample(visited)
+					while 1:
+						x_cur = self.randomSample(visited)
+						if v_func.getValue([x_cur])[0] > 0.5:
+							break
 					for j in range(int(N/m)):
 						self.pool_ex.append(x_cur)
 						x_new = self.randomSample(visited)
@@ -290,7 +298,7 @@ class Sampler(object):
 				idx = t
 				return target, t
 			elif self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
-				if self.start < 2:
+				if self.n_explore <= 2:
 					target = self.randomSample(visited)
 					t = -1
 				else:

@@ -605,12 +605,13 @@ class PPO(object):
 					if t == 0:
 						self.updateCriticTarget(True)
 						self.state_old, self.progress_old = self.env.sampler.GetTrainingDataProgress(False)
-						self.updateCriticProgress(100)
 						self.env.sampler.ClearTrainingDataProgress(True)
+						self.updateCriticProgress(100)
 						update_counter = 0
 					elif t == 1:
 						self.env.sampler.ClearTrainingDataProgress(True)
 					elif self.env.mode == 0:
+					#	self.env.sampler.ClearTrainingDataProgress(False)
 						self.env.sampler.UpdateTrainingDataProgress()
 						self.updateCriticProgress(100)
 					if t == 999:
