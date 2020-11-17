@@ -36,6 +36,7 @@ class Sampler(object):
 
 		self.state_batch = []
 		self.progress_batch = []
+
 		self.prev_action = 0
 		self.prev_nsample = 0
 		print('=======================================')
@@ -110,9 +111,34 @@ class Sampler(object):
 			self.ns_slope_temp[idx] += slope
 			self.ns_count_temp[idx] += 1
 		else:
-			self.state_batch.append(self.prev_action)
-			self.progress_batch.append(slope * 2)
+			self.ns_slope_sample.append(self.prev_action)
+			self.ns_slope_temp.append(2 * slope)
+			# self.state_batch.append(self.prev_action)
+			# self.progress_batch.append(slope * 2)
 	
+	def UpdateTrainingDataProgress(self):
+		to_delete = []
+		state_temp = []
+		progress_temp = []
+		for j in range(len(self.state_batch)):
+			to_delete.append(False)
+		for i in range(len(self.ns_slope_sample)):
+			state_temp.append(self.ns_slope_sample[i])
+			progress_temp.append(self.ns_slope_temp[i])
+			for j in range(len(self.state_batch)):
+				if not to_delete[j] and np.linalg.norm(self.state_batch[j] - self.ns_slope_sample[i]) < 2*1e-1:
+					to_delete[j] = True
+
+		for i in range(len(self.state_batch)):
+			if not to_delete[i]:
+				state_temp.append(self.state_batch[i])
+				progress_temp.append(self.progress_batch[i])
+
+		self.state_batch = copy(state_temp)
+		self.progress_batch = copy(progress_temp)
+		
+		self.ns_slope_sample = []
+		self.ns_slope_temp = []
 	def GetTrainingDataProgress(self, augment=False):
 		if not augment:
 			return np.array(copy(self.state_batch)), np.array(copy(self.progress_batch))
@@ -123,9 +149,15 @@ class Sampler(object):
 				tp = self.sim_env.UniformSample(False, True)
 				aug_x.append(tp)
 				aug_y.append(0)
+			# for _ in range(200):
+			# 	tp = self.sim_env.UniformSample(True, False)
+			# 	aug_x.append(tp)
+			# 	aug_y.append(0)
 			aug_x = np.concatenate((self.state_batch, aug_x))
 			aug_y = np.concatenate((self.progress_batch, aug_y))
-
+			aug_x = np.concatenate((self.state_batch, aug_x))
+			aug_y = np.concatenate((self.progress_batch, aug_y))
+			
 			return aug_x, aug_y
 
 	def ClearTrainingDataProgress(self, all):
@@ -183,8 +215,7 @@ class Sampler(object):
 
 						if np.random.rand() <= alpha:          
 							x_cur = x_new
-				if self.start >= 25:
-					embed()
+
 			else:
 				if self.n_explore == 1:
 					return
@@ -313,8 +344,6 @@ class Sampler(object):
 	def sampleGoals(self, m=50):
 		self.sample = []
 		self.v_sample = []
-		self.ns_slope_sample = []
-		self.ns_slope_temp = []
 		self.ns_count_temp = []
 		for i in range(m):
 			self.sample.append(self.randomSample(False))
@@ -327,7 +356,9 @@ class Sampler(object):
 		# print('new goals: ', self.sample)
 
 	def reset_explore(self):
-		if self.type_explore != 0 and self.type_explore != 1 and self.type_explore != 3:
+		self.ns_slope_sample = []
+		self.ns_slope_temp = []
+		if self.type_explore != 0 and self.type_explore != 1 and self.type_explore != 3 and self.type_explore != 8:
 			self.sampleGoals()
 		self.n_explore = 0
 
