@@ -461,8 +461,8 @@ GetParamGoal() {
 }
 np::ndarray 
 SimEnv::
-UniformSample(bool visited) {
-	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited);
+UniformSample(bool visited, bool far) {
+	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited, far);
 	if(!pair.second) {
 		std::cout << "exploration done" << std::endl;
 		mNeedExploration = false;

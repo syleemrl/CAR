@@ -579,7 +579,7 @@ GetDensity(Eigen::VectorXd p, bool old) {
 }
 std::pair<Eigen::VectorXd , bool>
 RegressionMemory::
-UniformSample(bool visited) {
+UniformSample(bool visited, bool far) {
 	int count = 0;
 	while(1) {
 		double r = mUniform(mMT);
@@ -617,6 +617,8 @@ UniformSample(bool visited) {
 			if (d < 0.2 && d > 0.1) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
+			if(far && d < 0.1)
+				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		if(visited && d > 0.5) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);

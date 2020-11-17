@@ -143,8 +143,8 @@ class Monitor(object):
 		self.mode_counter += 1
 		if self.mode_counter % 2 == 0:
 			self.sim_env.UpdateParamState()
-		# if self.num_evaluation % 50 == 0:
-		# 	self.sim_env.SaveParamSpace(self.num_evaluation)
+		if self.num_evaluation % 100 == 99:
+			self.sim_env.SaveParamSpace(self.num_evaluation)
 		if self.mode_counter % 5 == 0 and self.exploration_test_print != "":
 			if not os.path.isfile(self.exploration_test_print) :
 				out = open(self.exploration_test_print, "w")
@@ -158,8 +158,8 @@ class Monitor(object):
 			#if self.mode_counter % 10 == 0:
 			#	self.sim_env.SaveParamSpace(-1)
 			#	self.sampler.reset_explore()
-			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
-				self.sim_env.TrainRegressionNetwork(300)
+			if self.mode_counter >= 1 or not self.sim_env.NeedExploration():
+			#	self.sim_env.TrainRegressionNetwork(300)
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.reset_visit()

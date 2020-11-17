@@ -47,7 +47,7 @@ class Sampler(object):
 		print('=======================================')
 
 	def randomSample(self, visited=True):
-		return self.sim_env.UniformSample(visited)
+		return self.sim_env.UniformSample(visited, False)
 		
 	def probAdaptive(self, v_func, target, hard=True):
 		target = np.reshape(target, (-1, self.dim))
@@ -112,15 +112,31 @@ class Sampler(object):
 		else:
 			self.state_batch.append(self.prev_action)
 			self.progress_batch.append(slope * 2)
-	def GetTrainingDataProgress(self):
-		return np.array(copy(self.state_batch)), np.array(copy(self.progress_batch))
+	
+	def GetTrainingDataProgress(self, augment=False):
+		if not augment:
+			return np.array(copy(self.state_batch)), np.array(copy(self.progress_batch))
+		else:
+			aug_x = []
+			aug_y = []
+			for _ in range(200):
+				tp = self.sim_env.UniformSample(False, True)
+				aug_x.append(tp)
+				aug_y.append(0)
+			aug_x = np.concatenate((self.state_batch, aug_x))
+			aug_y = np.concatenate((self.progress_batch, aug_y))
 
-	def ClearTrainingDataProgress(self):
-		if len(self.state_batch) > 80:
-			self.state_batch = self.state_batch[-80:]
-			self.progress_batch = self.progress_batch[-80:]
+			return aug_x, aug_y
 
-	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=4, N=200):
+	def ClearTrainingDataProgress(self, all):
+		if not all and len(self.state_batch) >= 60:
+			self.state_batch = self.state_batch[-60:]
+			self.progress_batch = self.progress_batch[-60:]
+		elif all:
+			self.state_batch = []
+			self.progress_batch = []
+
+	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
 		self.start += 1
 		if visited:
 			self.n_visit += 1
@@ -167,6 +183,8 @@ class Sampler(object):
 
 						if np.random.rand() <= alpha:          
 							x_cur = x_new
+				if self.start >= 25:
+					embed()
 			else:
 				if self.n_explore == 1:
 					return
@@ -217,10 +235,12 @@ class Sampler(object):
 	def adaptiveSample(self, visited):
 		if visited:
 			if self.n_visit < 1 or self.n_visit % 5 == 4:
-				return self.randomSample(visited), -1
+				target = self.randomSample(visited)
+				t = -1
 
 			if self.type_visit == 0:
-				return self.randomSample(visited), -1
+				target = self.randomSample(visited)
+				t = -1
 			else:
 				t = np.random.randint(len(self.pool))
 				target = self.pool[t] 

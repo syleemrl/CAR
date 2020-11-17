@@ -65,7 +65,7 @@ public:
 	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
-	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
+	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited, bool far=false);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
 	void SelectNewParamGoalCandidate();
 

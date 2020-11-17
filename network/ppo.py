@@ -94,6 +94,8 @@ class PPO(object):
 
 		self.target_x_batch = []
 		self.target_y_batch = []
+		self.state_old = []
+		self.progress_old = []
 
 		self.last_target_update = 0
 
@@ -147,9 +149,12 @@ class PPO(object):
 			out = open(self.directory+"results", "w")
 			out.close()
 
-	def createCriticNetwork(self, name, input, TD, clip=True):
-		critic = Critic(self.sess, name, input)
-			
+	def createCriticNetwork(self, name, input, TD, clip=True, critic_layer_size=-1):
+		if critic_layer_size == -1:
+			critic = Critic(self.sess, name, input)
+		else:	
+			critic = Critic(self.sess, name, input, critic_layer_size=critic_layer_size)
+
 		with tf.variable_scope(name+'_Optimize'):
 			value_loss = tf.reduce_mean(tf.square(critic.value - TD))
 			loss = value_loss
@@ -202,7 +207,7 @@ class PPO(object):
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
 				self.critic_target_prev2, _, _ = self.createCriticNetwork(name+'_target_prev2', self.state_target, self.TD_target, False)
-				self.critic_progress, self.critic_progress_train_op, self.loss_critic_progress = self.createCriticNetwork(name+'_target_progress', self.state_target, self.TD_target, False)
+				self.critic_progress, self.critic_progress_train_op, self.loss_critic_progress = self.createCriticNetwork(name+'_target_progress', self.state_target, self.TD_target, False, critic_layer_size=8)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -215,10 +220,13 @@ class PPO(object):
 		self.sess.run(tf.global_variables_initializer())
 
 	def updateCriticProgress(self, n):
-		state_progress, progress_batch = self.env.sampler.GetTrainingDataProgress()
-
+		state_progress, progress_batch = self.env.sampler.GetTrainingDataProgress(True)
+		embed()
 		batch_size_progress = 20
-		n=1000
+		if len(self.state_old) != 0:
+			state_progress = np.concatenate((state_progress, self.state_old))
+			progress_batch = np.concatenate((progress_batch, self.progress_old))
+
 		for _ in range(n):
 			ind = np.arange(len(state_progress))
 			np.random.shuffle(ind)
@@ -598,12 +606,15 @@ class PPO(object):
 					if t == 0:
 						self.updateCriticTarget(True)
 						self.updateCriticProgress(200)
-						self.env.sampler.ClearTrainingDataProgress()
-
+						self.state_old, self.progress_old = self.env.sampler.GetTrainingDataProgress(False)
+						embed()
+						self.env.sampler.ClearTrainingDataProgress(True)
 						update_counter = 0
+					elif t == 1:
+						self.env.sampler.ClearTrainingDataProgress(True)
 					elif self.env.mode == 0:
-						self.updateCriticProgress(20)
-						self.env.sampler.ClearTrainingDataProgress()
+						self.updateCriticProgress(200)
+						self.env.sampler.ClearTrainingDataProgress(False)
 					if t == 999:
 						break
 
