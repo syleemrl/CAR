@@ -39,6 +39,7 @@ class Sampler(object):
 
 		self.prev_action = 0
 		self.prev_nsample = 0
+		self.ns_mean = 0
 		print('=======================================')
 		print('curriculum option')
 		print('type visit', self.type_visit)
@@ -57,7 +58,7 @@ class Sampler(object):
 			return math.exp(- self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 		else:
 			if self.type_explore == 8:
-				return math.exp(v) + 1e-10
+				return math.exp(3 *  (v- self.ns_mean) / self.ns_mean) + 1e-10
 			else:
 				return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 
@@ -106,17 +107,18 @@ class Sampler(object):
 		if self.type_explore == 7:
 			slope = self.sim_env.GetNewSamplesNearGoal()
 		else:
-			slope =  max(0.0, self.sim_env.GetNumSamples() - self.prev_nsample)
+			slope =  max(0, self.sim_env.GetNumSamples() - self.prev_nsample)
 		if self.type_explore == 6 or self.type_explore == 7:
 			self.ns_slope_temp[idx] += slope
 			self.ns_count_temp[idx] += 1
 		else:
+			# print(slope)
 			# print(self.sim_env.GetNumSamples() - self.prev_nsample)
 			self.ns_slope_sample.append(self.prev_action)
 			self.ns_slope_temp.append(2 * slope)
 			# self.state_batch.append(self.prev_action)
 			# self.progress_batch.append(slope * 2)
-	
+			self.ns_mean += 0.05 * 2 * slope
 	def UpdateTrainingDataProgress(self):
 		to_delete = []
 		state_temp = []
@@ -151,10 +153,10 @@ class Sampler(object):
 				aug_x.append(tp)
 				aug_y.append(0)
 
-			# for _ in range(200):
-			# 	tp = self.sim_env.UniformSample(True, False)
-			# 	aug_x.append(tp)
-			# 	aug_y.append(0)
+			for _ in range(200):
+				tp = self.sim_env.UniformSample(True, False)
+				aug_x.append(tp)
+				aug_y.append(0)
 			if len(self.state_batch) == 0:
 				return np.array(aug_x), np.array(aug_y)
 
@@ -209,10 +211,12 @@ class Sampler(object):
 			self.idx_ex = []
 			if self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
 				for i in range(m):
-					while 1:
-						x_cur = self.randomSample(visited)
-						if v_func.getValue([x_cur])[0] > 0.5:
-							break
+					x_cur = self.randomSample(visited)
+
+					# while 1:
+					# 	x_cur = self.randomSample(visited)
+					# 	if v_func.getValue([x_cur])[0] > 0.5:
+					# 		break
 					for j in range(int(N/m)):
 						self.pool_ex.append(x_cur)
 						x_new = self.randomSample(visited)
@@ -223,7 +227,10 @@ class Sampler(object):
 
 						if np.random.rand() <= alpha:          
 							x_cur = x_new
-
+				# for i in range(len(self.pool_ex)):
+				# 	print(self.pool_ex[i], v_func.getValue([self.pool_ex[i]])[0], self.probAdaptive(v_func, self.pool_ex[i], False))
+				print(self.ns_mean)
+				self.ns_mean = 0
 			else:
 				if self.n_explore == 1:
 					return
@@ -380,9 +387,9 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.n_visit > 3 and self.v_mean_cur > 0.9:
+			if self.n_visit > 3 and self.v_mean_cur > 0.95:
 				return True
-		if self.n_visit > 3 and self.v_mean > 0.9:
+		if self.n_visit > 3 and self.v_mean > 0.95:
 				return True
 
 		self.total_iter += 1

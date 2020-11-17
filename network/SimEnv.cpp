@@ -405,6 +405,11 @@ SimEnv::
 GetNewSamplesNearGoal() {
 	return mRegressionMemory->GetNewSamplesNearGoal();
 }
+double
+SimEnv::
+GetVisitedRatio() {
+	return mRegressionMemory->GetVisitedRatio();
+}
 void
 SimEnv::
 SetExGoalParameters(p::list p) {
@@ -539,6 +544,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("NeedParamTraining",&SimEnv::NeedParamTraining)
 		.def("SetExplorationMode",&SimEnv::SetExplorationMode)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
+		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("SelectNewGoal",&SimEnv::SelectNewGoal)
 		.def("GetNumSamples",&SimEnv::GetNumSamples)

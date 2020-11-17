@@ -222,9 +222,9 @@ class PPO(object):
 	def updateCriticProgress(self, n):
 		state_progress, progress_batch = self.env.sampler.GetTrainingDataProgress(True)
 		batch_size_progress = 20
-		if len(self.state_old) != 0:
-			state_progress = np.concatenate((state_progress, self.state_old))
-			progress_batch = np.concatenate((progress_batch, self.progress_old))
+		# if len(self.state_old) != 0:
+		# 	state_progress = np.concatenate((state_progress, self.state_old))
+		# 	progress_batch = np.concatenate((progress_batch, self.progress_old))
 
 		for _ in range(n):
 			ind = np.arange(len(state_progress))
@@ -604,16 +604,16 @@ class PPO(object):
 					t = self.env.updateMode(self.critic_target)
 					if t == 0:
 						self.updateCriticTarget(True)
-						self.state_old, self.progress_old = self.env.sampler.GetTrainingDataProgress(False)
-						self.env.sampler.ClearTrainingDataProgress(True)
-						self.updateCriticProgress(100)
+						# self.state_old, self.progress_old = self.env.sampler.GetTrainingDataProgress(False)
+						# self.env.sampler.ClearTrainingDataProgress(True)
+						# self.updateCriticProgress(100)
 						update_counter = 0
-					elif t == 1:
-						self.env.sampler.ClearTrainingDataProgress(True)
-					elif self.env.mode == 0:
+					# elif t == 1:
+					# 	self.env.sampler.ClearTrainingDataProgress(True)
+					# elif self.env.mode == 0:
 					#	self.env.sampler.ClearTrainingDataProgress(False)
-						self.env.sampler.UpdateTrainingDataProgress()
-						self.updateCriticProgress(100)
+						# self.env.sampler.UpdateTrainingDataProgress()
+						# self.updateCriticProgress(100)
 					if t == 999:
 						break
 

@@ -88,6 +88,7 @@ public:
 
 	bool IsSpaceExpanded();
 	bool IsSpaceFullyExplored();
+	double GetVisitedRatio();
 
 	Eigen::VectorXd GetParamGoal() {return mParamGoalCur; }
 	void SetParamGoal(Eigen::VectorXd paramGoal);

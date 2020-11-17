@@ -148,11 +148,11 @@ class Monitor(object):
 		if self.mode_counter % 5 == 0 and self.exploration_test_print != "":
 			if not os.path.isfile(self.exploration_test_print) :
 				out = open(self.exploration_test_print, "w")
-				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetNumSamples())+'\n')
+				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetVisitedRatio())+'\n')
 				out.close()
 			else:
 				out = open(self.exploration_test_print, "a")
-				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetNumSamples())+'\n')
+				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetVisitedRatio())+'\n')
 				out.close()		
 		if self.mode == 0:
 			#if self.mode_counter % 10 == 0:
