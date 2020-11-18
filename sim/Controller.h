@@ -178,6 +178,7 @@ protected:
 
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
+	Eigen::Vector3d mCOM;
 
 	double mPrevVelocity;
 	double mVelocity;

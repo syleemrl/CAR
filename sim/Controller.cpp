@@ -44,6 +44,8 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
 	this->mMass = mBaseMass;
 
+	this->mCOM = mCharacter->GetSkeleton()->getCOM();
+
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
 
 	kp.setZero();
@@ -144,10 +146,10 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*0.1)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
-	//mAdaptiveStep = 0;
+	// mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -203,7 +205,7 @@ Step()
 		}
 
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
-		if(mCurrentFrameOnPhase >= 10 && mControlFlag[0] == 0) {
+		if(mCurrentFrameOnPhase >= 29 && mControlFlag[0] == 0) {
 			double curVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
 			if(mPrevVelocity * curVelocity < 0) {
 				mControlFlag[0] = 1;
@@ -572,22 +574,33 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
+
+	//Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+	//c_vel *= mCharacter->GetSkeleton()->getMass();
+	//std::cout<< "Current Frame :" <<mCurrentFrame;
+	//std::cout<<"The momentum " << c_vel(0)<<" "<<c_vel(1)<<" "<<c_vel(2)<<std::endl;
+	
+	if(mCurrentFrameOnPhase >= 36 && mControlFlag[0] == 1) {
+		// Should modify This part and set m ParamGoal
 		Eigen::Vector3d p;
-		p << 6.5, mParamGoal(0), -3.5;
+		p << -1, mParamGoal(0), mParamGoal(1);
 		Eigen::VectorXd l_diff = mEnergy - p;
+		/////////////////////////////////////////////////
 		l_diff *= 0.1;
 		l_diff(1) *= 2;
-		r_param = exp_of_squared(l_diff, 1.5);
+		r_param = exp_of_squared(l_diff, 1.5) ;
 
 		if(mRecord) {
-		 	std::cout << mEnergy(1) << " " << mParamGoal(0) << " " << r_param  << std::endl;
+		 	std::cout << "The Goal is "<<mParamGoal(0) << " " << mParamGoal(1) << std::endl;
 		}
-		if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
+		if(abs(-1 - mEnergy(0)) > 6.0) {
 			mParamCur(0) = -1;
+			mParamCur(1) = -1;
 		} else {
 			mParamCur(0) = mEnergy(1);
+			mParamCur(1) = mEnergy(2);
 		}
+		//std::cout << mParamCur.transpose() << std::endl;
 		mControlFlag[0] = 2;		
 	} 
 	return r_param;
@@ -853,6 +866,7 @@ SetAction(const Eigen::VectorXd& action)
 {
 	this->mActions = action;
 }
+
 Eigen::VectorXd 
 Controller::
 GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel) {

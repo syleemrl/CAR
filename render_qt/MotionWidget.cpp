@@ -51,6 +51,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 
     path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     DPhy::Character* ref = new DPhy::Character(path);
+    
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 
@@ -68,6 +69,8 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path);
 	    mReferenceManager->LoadAdaptiveMotion("ref_1");
 	    mDrawReg = true;
+
+
 
     } else if(mRunReg) {
     	mReferenceManager->InitOptimization(1, "", true);
@@ -236,8 +239,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
-		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    // mReferenceManager->LoadAdaptiveMotion(cps);
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}
@@ -382,6 +385,7 @@ paintGL()
 
 	DrawGround();
 	DrawSkeletons();
+	GUI::DrawStringOnScreen(0.9, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 
 }
 void
@@ -482,6 +486,7 @@ keyPressEvent(QKeyEvent *event)
 		else 
 			std::cout << "Pause." << std::endl;
 	}
+	
 }
 void
 MotionWidget::

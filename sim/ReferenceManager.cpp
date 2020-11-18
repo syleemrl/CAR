@@ -166,6 +166,8 @@ LoadMotionFromBVH(std::string filename)
 		}
 
 		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
+		p[4]-=0.05;
+
 		Eigen::VectorXd v;
 
 		if(t != 0)
@@ -431,22 +433,22 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.85;
 
-	mParamCur.resize(1);
-	mParamCur << 185;
+	mParamCur.resize(2);
+	mParamCur << 137,67.5;
 
-	mParamGoal.resize(1);
-	mParamGoal << 185;
+	mParamGoal.resize(2);
+	mParamGoal << 137,67.5;
 
 	if(adaptive) {
 
-		Eigen::VectorXd paramUnit(1);
-		paramUnit << 10;
+		Eigen::VectorXd paramUnit(2);
+		paramUnit << 10,10;
 
-		mParamBase.resize(1);
-		mParamBase << 185;
+		mParamBase.resize(2);
+		mParamBase << 90,40;
 
-		mParamEnd.resize(1);
-		mParamEnd << 300;
+		mParamEnd.resize(2);
+		mParamEnd << 300,150;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -523,7 +525,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(std::get<2>(rewards)[0] > 0.2) {
 		return;
 	}
-
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;
 	for(int i = 0; i < data_raw.size(); i++) {

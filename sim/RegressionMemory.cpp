@@ -43,6 +43,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamScaleInv.resize(mDim);
 
 	mParamGridUnit.resize(mDim);
+
 	for(int i = 0 ; i < mDim; i++) {
 		if(paramSpace.second(i) == paramSpace.first(i))
 			mParamScale(i) = 1.0;			
@@ -57,7 +58,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.05;
+	mRadiusNeighbor = 0.2;
 	mThresholdActivate = 3;
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
@@ -621,6 +622,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 			return false;
 		}
 	}
+
 	if(mNumGoalCandidate == mGoalCandidate.size()) {
 		for(int i = 0; i < mNumGoalCandidate; i++) {
 			if(GetDistanceNorm(candidate_param, mGoalCandidate[i]) < 1e-3) {

@@ -203,6 +203,24 @@ class Monitor(object):
 		if path is not None:
 			plt.savefig(path, format="png")
 
+	def plot2DParam(self, x_list,y_list, title, num_fig=1, ylim=True, path=None):
+		if self.plot:
+			plt.figure(num_fig, clear=True, figsize=(5.5, 4))
+		else:
+			plt.figure(num_fig, figsize=(5.5, 4))
+
+		plt.title(title)
+
+		plt.plot(x_list, y_list)
+		
+		if self.plot:
+			plt.show()
+			if ylim:
+				plt.ylim([0,1])
+			plt.pause(0.001)
+		if path is not None:
+			plt.savefig(path, format="png")
+
 	def printSummary(self, save=True):
 		t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
 		r_per_e = self.rewards_per_iteration/self.num_episodes_per_iteration
