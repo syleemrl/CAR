@@ -66,6 +66,7 @@ public:
 	int GetNewSamplesNearGoal();
 	p::list GetParamGoalCandidate();
 	double GetVisitedRatio();
+	double GetDensity(np::ndarray np_array);
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;

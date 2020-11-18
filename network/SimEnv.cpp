@@ -489,6 +489,13 @@ SaveParamSpaceLog(int n) {
 	mRegressionMemory->SaveLog(mPath + "log");
 
 }
+double
+SimEnv::
+GetDensity(np::ndarray np_array) {
+	int dim = mRegressionMemory->GetDim();
+	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
+	return mRegressionMemory->GetDensity(mRegressionMemory->Normalize(tp));
+}
 p::list
 SimEnv::
 GetParamGoalCandidate() {
@@ -549,6 +556,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SelectNewGoal",&SimEnv::SelectNewGoal)
 		.def("GetNumSamples",&SimEnv::GetNumSamples)
 		.def("GetNewSamplesNearGoal",&SimEnv::GetNewSamplesNearGoal)
+		.def("GetDensity",&SimEnv::GetDensity)
 		.def("GetParamGoalCandidate",&SimEnv::GetParamGoalCandidate);
 
 }

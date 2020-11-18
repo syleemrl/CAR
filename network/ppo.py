@@ -222,9 +222,9 @@ class PPO(object):
 	def updateCriticProgress(self, n):
 		state_progress, progress_batch = self.env.sampler.GetTrainingDataProgress(True)
 		batch_size_progress = 20
-		# if len(self.state_old) != 0:
-		# 	state_progress = np.concatenate((state_progress, self.state_old))
-		# 	progress_batch = np.concatenate((progress_batch, self.progress_old))
+		if len(self.state_old) != 0:
+			state_progress = np.concatenate((state_progress, self.state_old))
+			progress_batch = np.concatenate((progress_batch, self.progress_old))
 
 		for _ in range(n):
 			ind = np.arange(len(state_progress))
@@ -609,9 +609,9 @@ class PPO(object):
 						# self.updateCriticProgress(100)
 						update_counter = 0
 					# elif t == 1:
-					# 	self.env.sampler.ClearTrainingDataProgress(True)
+						# self.env.sampler.ClearTrainingDataProgress(True)
 					# elif self.env.mode == 0:
-					#	self.env.sampler.ClearTrainingDataProgress(False)
+						# self.env.sampler.ClearTrainingDataProgress(False)
 						# self.env.sampler.UpdateTrainingDataProgress()
 						# self.updateCriticProgress(100)
 					if t == 999:

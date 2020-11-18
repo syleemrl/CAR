@@ -182,7 +182,7 @@ class Monitor(object):
 	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
 		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
 		if not self.mode and not self.sim_env.NeedExploration():
-			self.sim_env.TrainRegressionNetwork()
+			self.sim_env.TrainRegressionNetwork(50)
 			self.mode = 1
 			self.mode_counter = 0
 			self.sampler.reset_visit()

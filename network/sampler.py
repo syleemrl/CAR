@@ -60,7 +60,7 @@ class Sampler(object):
 			if self.type_explore == 8:
 				return math.exp(3 *  (v- self.ns_mean) / self.ns_mean) + 1e-10
 			else:
-				return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+				return math.exp(5 * self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 
 	def probTS(self, v_func, v_func_prev, target, hard=True):
 		target = np.reshape(target, (-1, self.dim))
@@ -229,7 +229,6 @@ class Sampler(object):
 							x_cur = x_new
 				# for i in range(len(self.pool_ex)):
 				# 	print(self.pool_ex[i], v_func.getValue([self.pool_ex[i]])[0], self.probAdaptive(v_func, self.pool_ex[i], False))
-				print(self.ns_mean)
 				self.ns_mean = 0
 			else:
 				if self.n_explore == 1:
@@ -242,9 +241,16 @@ class Sampler(object):
 					count_sample_cur[idxs[i]] += 1
 					
 				for i in range(len(self.sample)):
-					if count_sample_cur[i] != 0:
-						self.v_prev_sample[i] = copy(self.v_sample[i])
-						self.v_sample[i] = 0.6 * self.v_sample[i] + 0.4 * v_mean_sample_cur[i] / count_sample_cur[i]
+					d = self.sim_env.GetDensity(self.sample[i]) 
+					if d > 0.3:
+						print(self.sample[i], d)
+						self.sample[i] = self.randomSample(visited)
+						self.v_prev_sample[i] = 0.8
+						self.v_sample[i] = 1.0
+					else:
+						if count_sample_cur[i] != 0:
+							self.v_prev_sample[i] = copy(self.v_sample[i])
+							self.v_sample[i] = v_mean_sample_cur[i] / count_sample_cur[i]
 
 				print('v prev goals: ', self.v_prev_sample)
 				print('v goals: ', self.v_sample)
@@ -356,18 +362,21 @@ class Sampler(object):
 		self.n_visit = 0
 		self.n_learning += 1
 
-	def sampleGoals(self, m=50):
+	def sampleGoals(self, m=10):
 		self.sample = []
 		self.v_sample = []
+		self.v_prev_sample = []
 		self.ns_count_temp = []
 		for i in range(m):
 			self.sample.append(self.randomSample(False))
-			self.v_sample.append(0.1)
+
+			self.v_sample.append(1.0)
+			self.v_prev_sample.append(0.8)
+
 			self.ns_slope_sample.append(0)
 			self.ns_slope_temp.append(0)
 			self.ns_count_temp.append(0)
 
-		self.v_prev_sample = copy(self.v_sample)
 		# print('new goals: ', self.sample)
 
 	def reset_explore(self):
@@ -387,9 +396,9 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.n_visit > 3 and self.v_mean_cur > 0.95:
+			if self.n_visit > 15 and self.v_mean_cur > 0.9:
 				return True
-		if self.n_visit > 3 and self.v_mean > 0.95:
+		if self.n_visit > 15 and self.v_mean > 0.9:
 				return True
 
 		self.total_iter += 1
