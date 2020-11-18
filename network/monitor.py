@@ -61,7 +61,7 @@ class Monitor(object):
 		self.mode_counter = 0
 		self.flag_updated = False
 		self.exploration_done = False
-
+		self.v_ratio = 0
 		if self.exploration_test_print == "" and self.plot:
 			plt.ion()
 
@@ -145,20 +145,23 @@ class Monitor(object):
 			self.sim_env.UpdateParamState()
 		if self.num_evaluation % 100 == 99:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
-		if self.mode_counter % 5 == 0 and self.exploration_test_print != "":
+		if self.num_evaluation % 10 == 0 and self.exploration_test_print != "":
+			self.v_ratio = self.sim_env.GetVisitedRatio()
 			if not os.path.isfile(self.exploration_test_print) :
 				out = open(self.exploration_test_print, "w")
-				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetVisitedRatio())+'\n')
+				out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
 				out.close()
 			else:
 				out = open(self.exploration_test_print, "a")
-				out.write(str(self.num_episodes)+':'+str(self.sim_env.GetVisitedRatio())+'\n')
+				out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
 				out.close()		
 		if self.mode == 0:
 			#if self.mode_counter % 10 == 0:
 			#	self.sim_env.SaveParamSpace(-1)
 			#	self.sampler.reset_explore()
-			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
+			if self.mode_counter >= 20 or self.v_ratio == 1:
+				if self.v_ratio == 1:
+					self.sampler.done = True
 				self.sim_env.TrainRegressionNetwork(20)
 				self.mode = 1
 				self.mode_counter = 0
@@ -167,26 +170,26 @@ class Monitor(object):
 		else:
 			if self.mode_counter % 10 == 0:
 			#	self.sim_env.SaveParamSpace(-1)
-				self.sim_env.TrainRegressionNetwork(50)
+				self.sim_env.TrainRegressionNetwork(10)
 			enough = self.sampler.isEnough(v_func)
-			if enough and self.sim_env.NeedExploration():
+			if enough and self.v_ratio != 1:
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.reset_explore()
 				self.sim_env.UpdateParamState()
 				mode_change = 0
-			elif enough and not self.sim_env.NeedExploration():
+			elif enough and self.v_ratio == 1:
 				mode_change = 999
 		return mode_change
 	
 	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
 		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
-		if not self.mode and not self.sim_env.NeedExploration():
-			self.sim_env.TrainRegressionNetwork(50)
-			self.mode = 1
-			self.mode_counter = 0
-			self.sampler.reset_visit()
-			self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
+		# if not self.mode and not self.sim_env.NeedExploration():
+		# 	self.sim_env.TrainRegressionNetwork(50)
+		# 	self.mode = 1
+		# 	self.mode_counter = 0
+		# 	self.sampler.reset_visit()
+		# 	self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
 
 	def updateGoal(self, v_func, v_func_prev):
 		t, idx = self.sampler.adaptiveSample(self.mode)

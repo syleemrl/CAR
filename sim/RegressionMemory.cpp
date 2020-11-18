@@ -121,22 +121,22 @@ double
 RegressionMemory::
 GetVisitedRatio() {
 	Eigen::VectorXd base(mDim);
-	base.setZero();
+	base = mParamGridUnit * 0.5;
 	std::vector<Eigen::VectorXd> vecs_to_check;
 
 	vecs_to_check.push_back(base);
 	for(int i = 0; i < mDim; i++) {
 		std::vector<Eigen::VectorXd> vecs;
 	
-		double range = std::floor(1.0 / mParamGridUnit(i) + 1e-8) + 1;
-		int j = 1;
+		double range = std::floor(1.0 / mParamGridUnit(i) + 1e-8);
+		double j = 1;
 		while(j < range) {
 			for(int k = 0; k < vecs_to_check.size(); k++) {
 				Eigen::VectorXd p = vecs_to_check[k];
 				p(i) = j * mParamGridUnit(i);
 				vecs.push_back(p);
 			}
-			j += 1;
+			j += 0.5;
 		}
 		for(int j = 0; j < vecs.size(); j++) {
 			vecs_to_check.push_back(vecs[j]);
@@ -150,7 +150,6 @@ GetVisitedRatio() {
 			result += 1;
 	}
 	result /= tot;
-	std::cout << result << std::endl;
 
 	return result;
 }

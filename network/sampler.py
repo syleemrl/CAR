@@ -40,6 +40,8 @@ class Sampler(object):
 		self.prev_action = 0
 		self.prev_nsample = 0
 		self.ns_mean = 0
+
+		self.done = False
 		print('=======================================')
 		print('curriculum option')
 		print('type visit', self.type_visit)
@@ -396,10 +398,19 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.n_visit > 15 and self.v_mean_cur > 0.9:
+			if self.n_visit > 5 and self.v_mean_cur > 0.9 and not self.done:
 				return True
-		if self.n_visit > 15 and self.v_mean > 0.9:
+			if self.v_mean_cur > 1.1 and self.done:
 				return True
+
+		# if self.n_visit > 20 and not self.done:
+		# 	return True
+		
+		if self.n_visit > 5 and self.v_mean > 0.9 and not self.done:
+			return True
+
+		if self.v_mean > 1.1 and self.done:
+			return True
 
 		self.total_iter += 1
 		return False
