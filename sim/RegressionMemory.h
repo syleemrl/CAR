@@ -110,7 +110,8 @@ public:
 	bool SetNextCandidate();
 	std::vector<Eigen::VectorXd> GetCurrentCPS();
 
-
+std::vector<Param*> mloadAllSamples;
+	
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -158,6 +159,8 @@ private:
 	std::vector<std::string> mRecordLog;
 
 	GoalInfo mGoalInfo; 
+
+	
 };
 }
 #endif

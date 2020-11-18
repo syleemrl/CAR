@@ -35,7 +35,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
 	#endif
-
+	
 	if(ppo == "") {
 		mRunSim = false;
 		mDrawSim = false;
@@ -133,7 +133,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
 	        this->mRegression = reg_main.attr("Regression")();
 	        std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
 	        this->mRegression.attr("initRun")(path, mReferenceManager->GetParamGoal().rows() + 1, mReferenceManager->GetDOF() + 1);
-			mRegressionMemory->LoadParamSpace(path + "param_space0");
+			mRegressionMemory->LoadParamSpace(path + "param_space");
 	        mParamRange = mReferenceManager->GetParamRange();
 	       
 	        path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
@@ -151,7 +151,6 @@ initNetworkSetting(std::string ppo, std::string reg) {
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
 			RunPPO();
-			
     	}
     
     } catch (const p::error_already_set&) {
@@ -170,6 +169,55 @@ MotionWidget::
 UpdateRandomParam(const bool& pressed) {
 
 }
+
+void MotionWidget::updateIthParam(int i)
+{
+    mReferenceManager->LoadAdaptiveMotion(mRegressionMemory->mloadAllSamples[i]->cps);		
+
+
+    std::vector<Eigen::VectorXd> pos;
+    double phase = 0;
+
+    bool flag = false;
+    for(int i = 0; i < 500; i++) {
+
+        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
+        p(3) += 0.75;
+      	pos.push_back(p);
+        //phase += mReferenceManager->GetTimeStep(phase, true);
+        phase += 1;
+    }
+    mTotalFrame = 500;
+    Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
+	root_bvh(3) += 0.75;
+	pos = DPhy::Align(pos, root_bvh);
+
+    UpdateMotion(pos, 2);
+}
+void 
+MotionWidget::
+UpdatePrevParam(const bool& pressed) {
+	//mRegressionMemory->LoadParamSpace(path + "param_space");
+	if(mRunReg) {
+		if (regMemShow_idx == 0) regMemShow_idx = mRegressionMemory->mloadAllSamples.size()-1;
+		else regMemShow_idx-- ;
+
+		std::cout<<regMemShow_idx<<" / "<<(mRegressionMemory->mloadAllSamples.size())<<std::endl;
+		this->updateIthParam(regMemShow_idx);
+	}
+}
+
+void 
+MotionWidget::
+UpdateNextParam(const bool& pressed) {
+	//mRegressionMemory->LoadParamSpace(path + "param_space");
+	if(mRunReg) {
+		regMemShow_idx = (regMemShow_idx+1) % mRegressionMemory->mloadAllSamples.size();
+		std::cout<<regMemShow_idx<<" / "<<(mRegressionMemory->mloadAllSamples.size())<<std::endl;
+		this->updateIthParam(regMemShow_idx);
+	}
+}
+
 void 
 MotionWidget::
 UpdateParam(const bool& pressed) {
@@ -241,8 +289,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
-		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    mReferenceManager->LoadAdaptiveMotion(cps);
+		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    // mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}
@@ -257,6 +305,8 @@ RunPPO() {
 
 	int count = 0;
 	mController->Reset(false);
+	this->mTiming= std::vector<double>();
+
 	while(!this->mController->IsTerminalState()) {
 		Eigen::VectorXd state = this->mController->GetState();
 
@@ -266,6 +316,8 @@ RunPPO() {
 
 		this->mController->SetAction(action);
 		this->mController->Step();
+		this->mTiming.push_back(this->mController->GetCurrentLength());
+
 		count += 1;
 	}
 
@@ -276,6 +328,7 @@ RunPPO() {
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
 		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
+
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
@@ -342,7 +395,6 @@ void
 MotionWidget::
 DrawSkeletons()
 {
-
 	if(mDrawBvh){
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
 		if(this->mSkel_obj) {
@@ -366,7 +418,6 @@ DrawSkeletons()
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 		// if(!mRunSim) {
 		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	//	}
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
@@ -404,7 +455,8 @@ paintGL()
 	DrawGround();
 	DrawSkeletons();
 
-	GUI::DrawStringOnScreen(0.9, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
+	if(mRunSim) GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
+	else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
 void
 MotionWidget::

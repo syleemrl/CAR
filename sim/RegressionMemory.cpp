@@ -210,6 +210,7 @@ RegressionMemory::
 LoadParamSpace(std::string path) {
 	mNumSamples = 1;
 	mRecordLog.clear();
+	mloadAllSamples= std::vector<Param*>();
 
 	char buffer[256];
 
@@ -289,6 +290,7 @@ LoadParamSpace(std::string path) {
 		p->reward = reward;
 		p->update = false;
 		AddMapping(p);
+		mloadAllSamples.push_back(p);
 		mNumSamples += 1;
 	}
 
@@ -520,6 +522,8 @@ DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps) {
 		int count = 0;
 		for(int i = 0; i < ps_old.size(); i++) {
 			if(count < ps.size() && IsEqualParam(ps_old[i], ps[count])) {
+				// std::cout << Denormalize(ps_old[i]->param_normalized).transpose() << std::endl;
+
 				delete ps_old[i];
 				count += 1;
 			} else {
@@ -604,7 +608,7 @@ UniformSample(bool visited) {
 			if (d < 0.5 && d > 0.2)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.6) {
+		if(visited && d > 0.6) { // increse d ? 
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -672,6 +676,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		mRecordLog.push_back("new parameter: " + vectorXd_to_string(nearest) + ", " + std::to_string(std::get<2>(candidate)));
 	}
 	if(flag) {
+		// std::cout << "Added: " <<  std::get<1>(candidate).transpose() << std::endl;
 
 		for(int i = 0; i < to_be_deleted.size(); i++) {
 			// for(int j = 0; j < to_be_deleted[i].second.size(); j++) {
@@ -918,7 +923,7 @@ RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::VectorXd l_diff = p_goal - p;
 	// l_diff *= 0.1;
-	double r_param = exp_of_squared(l_diff, 1.5);
+	double r_param = exp_of_squared(l_diff, 0.3);
 
 	return r_param;
 }
@@ -978,7 +983,9 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*pow(ps[i].second->reward, 2);
-		// std::cout << Denormalize(ps[i].second->param_normalized) << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
+		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
+		 // if(ps[i].second->reward == 1)
+		 // 	continue;
 		//if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		// } else {

@@ -45,3 +45,13 @@
 	// 50, middle: -0.740508  0.502092  0.718014
 
 	
+
+	// testing prismatic joint
+	Eigen::VectorXd obj_pos(mSkel_tmp->getNumDofs());
+	obj_pos.setZero();
+	obj_pos[5] = -1;
+	obj_pos[6] = 1;
+	mSkel_tmp->setPositions(obj_pos);
+	mSkel_tmp->setVelocities(Eigen::VectorXd::Zero(mSkel_tmp->getNumDofs()));
+	mSkel_tmp->setAccelerations(Eigen::VectorXd::Zero(mSkel_tmp->getNumDofs()));
+	mSkel_tmp->computeForwardKinematics(true,false,false);

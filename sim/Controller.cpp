@@ -51,6 +51,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		this->mObject = new DPhy::Character(object_path);	
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
+		this->mObject->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
 		this->placed_object = true;
 	#endif
 
@@ -81,6 +82,9 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("RightHand"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
+#ifdef OBJECT_TYPE
+	this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton()->getBodyNode("Jump_Box"));
+#endif
 	int num_body_nodes = mInterestedDof / 3;
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
 	
@@ -231,16 +235,15 @@ Step()
 		Eigen::Vector3d lf_pos = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf_pos = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		Eigen::Vector3d middle= (lf_pos+rf_pos)/2.;
-		Eigen::Vector3d default_pos(0.0104028, 0.547423, 0.719404);
-		obj_pos[5] = (middle- default_pos)[2];
-		// obj_pos.segment<3>(3) = middle - default_pos;
-		// 41 ; 0.0104028  0.547423  0.719404
+		Eigen::Vector3d default_pos(0.0104028, 0.547423, 0.719404); 		// 41 ; 0.0104028  0.547423  0.719404
+
+		obj_pos[5] = (middle - default_pos)[2]; // base : move z-axis
+		obj_pos[6] = (middle - default_pos)[1]; // prismatic joint: move y-axis
 
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		// std::cout<<mCurrentFrame<<", object: "<<obj_pos.segment<3>(3).transpose()<<std::endl;
 
 		this->placed_object = true;
 	}
@@ -649,16 +652,16 @@ GetParamReward()
 		Eigen::Vector3d jump = middle- mStartPosition; // y-axis, z-axis	
 		// TODO/ DONE: set mStartPosition when resetting  & when a cycle is over
 
-		Eigen::VectorXd result(2); result << jump[1], jump[2]; // y-axis, z-axis
+		Eigen::VectorXd result(2); result << jump[1], jump[2]; // y-axis(height), z-axis(distance)
 		Eigen::VectorXd diff = result- mParamGoal;
-		r_param = exp_of_squared(diff, 1.5);
+		r_param = exp_of_squared(diff, 0.1); //controller 0.1 regressionmemory 0.3 okok
 		
 		if(mRecord){
 			std::cout<<mParamGoal.transpose()<<" / r: "<<r_param<<std::endl;
 		}
 
 		mParamCur = result;
-
+		// std::cout<<"height: "<<mParamCur[0]<<" / distance: "<<mParamCur[1]<<std::endl;
 		this->jump_stepon = true;
 	}
 
@@ -798,7 +801,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 2+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -893,6 +896,9 @@ Reset(bool RSI)
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
 
+	// Eigen::VectorXd nextTargetPositions = mReferenceManager->GetPosition(mCurrentFrame+1, isAdaptive);
+	// this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(nextTargetPositions, mTargetPositions) / 0.033;
+	// std::cout <<  mCharacter->GetSkeleton()->getPositionDifferences(nextTargetPositions, mTargetPositions).segment<3>(3).transpose() << std::endl;
 	this->mPDTargetPositions = mTargetPositions;
 	this->mPDTargetVelocities = mTargetVelocities;
 
@@ -962,8 +968,6 @@ Reset(bool RSI)
 	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 	mStartPosition = (lf+rf)/2.;
-
-
 }
 int
 Controller::
@@ -1176,6 +1180,25 @@ GetState()
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
 		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
 	}
+
+	// if(mRecord && mCurrentFrame < 10){
+	// 	std::cout<<"i :: "<<mCurrentFrame<<std::endl;
+	// 	std::cout<< "p : "<< p.segment<6>(0).transpose() <<std::endl;
+	// 	std::cout<< "v : "<< v.segment<6>(0).transpose() <<std::endl;
+	// 	std::cout<< up_vec_angle <<std::endl;
+	// 	std::cout<< root_height <<std::endl;
+	// 	std::cout<< "p_next : "<<p_next.segment<6>(0).transpose() <<std::endl;
+	// 	std::cout<< "ee : "<<ee.transpose() <<std::endl;
+	// 	std::cout<< "mCurrentFrameOnPhase: "<<mCurrentFrameOnPhase <<std::endl;
+	// 	std::cout<< "mParamGoal: "<<mParamGoal.transpose() <<std::endl;
+	// 	std::cout<<std::endl;
+		
+	// 	// bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe");
+	// 	// bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe") ||  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe");
+
+	// 	bool contactWithObj =  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe") ||CheckCollisionWithObject("LeftHand") || CheckCollisionWithObject("RightHand") ;
+	// 	if(contactWithObj) std::cout<<" COLLISION WITH OBJECT ----------------------------------------------- "<<std::endl;
+	// }
 
 	return state;
 }

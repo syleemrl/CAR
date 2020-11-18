@@ -33,6 +33,9 @@ public slots:
 	void Reset();
 	void UpdateParam(const bool& pressed);
 	void UpdateRandomParam(const bool& pressed);
+	void UpdatePrevParam(const bool& pressed);
+	void UpdateNextParam(const bool& pressed);
+	void updateIthParam(int i);
 
 	void setValue(const int &x);
 	void toggleDrawBvh();
@@ -74,6 +77,7 @@ protected:
 	std::vector<Eigen::VectorXd> 	mMotion_exp;
 	std::vector<Eigen::VectorXd> 	mMotion_obj;
 	std::vector<Eigen::VectorXd> 	mMotion_points;
+	std::vector<double>				mTiming; // Controller->GetCurrentLength()
 
 
 
@@ -105,5 +109,6 @@ protected:
 	Eigen::Vector3d 				mPoints;
 	Eigen::Vector3d 				mPoints_exp;
 
+	int regMemShow_idx = 0;
 };
 #endif
