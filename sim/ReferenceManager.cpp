@@ -470,13 +470,13 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);
-		paramUnit << mParamGoal[0]*0.3, mParamGoal[1]*0.5;
+		paramUnit << mParamGoal[0]*0.1, mParamGoal[1]*0.1;
 
 		mParamBase.resize(2);
-		mParamBase << mParamGoal[0]*0.5, mParamGoal[1]*1;
+		mParamBase << mParamGoal[0]*0.5, mParamGoal[1]*0.5;
 
 		mParamEnd.resize(2);
-		mParamEnd << mParamCur[0]*2, mParamCur[1]*3.5;
+		mParamEnd << mParamCur[0]*1.5, mParamCur[1]*1.5;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -540,6 +540,7 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, std::vector<double>> rewards,
 				 Eigen::VectorXd parameters) {
+
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
@@ -550,7 +551,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards)[0] > 0.2) {
+	if(std::get<2>(rewards)[0] > 0.1) {
 		return;
 	}
 
