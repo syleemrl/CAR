@@ -252,9 +252,9 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		
-		Eigen::Vector6d newRootZero = mRootZero;
-		newRootZero[4] = 1.04059;
-		mCharacter->GetSkeleton()->getJoint(0)->setPositions(newRootZero);
+		// Eigen::Vector6d newRootZero = mRootZero;
+		mRootZero[4] = 1.04059;
+		mCharacter->GetSkeleton()->getJoint(0)->setPositions(mRootZero);
 		// Eigen::VectorXd prev_vel = mCharacter->GetSkeleton()->getVelocities();
 		mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
 		// Eigen::VectorXd vel = mCharacter->GetSkeleton()->getVelocities();
@@ -302,7 +302,7 @@ Step()
 			// reset : Character :  3.20143e-05    -0.040131   -0.0131928 -8.63835e-05      1.04059     0.016015
 			Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 			obj_pos.setZero();
-			obj_pos[5]= newRootZero[5]- 0.016015;
+			obj_pos[5]= mRootZero[5]- 0.016015;
 			// std::cout<<"NOT adaptive, after a cycle; "<<newRootZero.transpose()<<"/"<<obj_pos[5]<<std::endl;
 			
 			mObject->GetSkeleton()->setPositions(obj_pos);

@@ -66,6 +66,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 
     if(mRunSim) {
 	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
+	    std::cout<<"path : "<<path<<std::endl;
 	    if(mRunReg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
@@ -141,7 +142,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	}
     	if(ppo != "") {
     		if (reg!="") this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
-    		else this->mController = new DPhy::Controller(mReferenceManager, false, false, true);
+    		else this->mController = new DPhy::Controller(mReferenceManager, false, false, true); //adaptive=true, bool parametric=true, bool record=true
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
 
     		p::object ppo_main = p::import("ppo");
@@ -228,7 +229,7 @@ UpdateParam(const bool& pressed) {
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
-	    std::cout << tp.transpose() << " " << d << std::endl;
+	    std::cout << tp.transpose() << " / d: " << d << std::endl;
 
 	    std::vector<Eigen::VectorXd> cps;
 	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
@@ -342,10 +343,10 @@ RunPPO() {
 		pos_obj.push_back(position_obj);
 		#endif
 	}
-	Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-	root_bvh(3) += 0.75;
-	pos_sim =  DPhy::Align(pos_sim, root_bvh);
-	pos_reg =  DPhy::Align(pos_reg, root_bvh);
+	// Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
+	// root_bvh(3) += 0.75;
+	// pos_sim =  DPhy::Align(pos_sim, root_bvh);
+	// pos_reg =  DPhy::Align(pos_reg, root_bvh);
 	UpdateMotion(pos_bvh, 0);
 	UpdateMotion(pos_sim, 1);
 	UpdateMotion(pos_reg, 2);

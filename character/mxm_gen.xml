@@ -29,7 +29,7 @@
         <!-- <Box offset="0 0 0 " direction="0 0.984998 0.172567 " size="0.1 0.0976437 0.1 " /> -->
         <TorqueLimit norm="50" />
     </Joint>
-    <Joint type="BallJoint" name="Head" parent_name="Neck" size="0.16 0.180018 0.16" mass="3" bvh="Head">
+    <Joint type="BallJoint" name="Head" parent_name="Neck" size="0.16 0.180018 0.13" mass="3" bvh="Head">
         <BodyPosition translation="0 0.645623 -0.0178136 " />
         <JointPosition translation="0 0.556547 -0.0307386 " />
         <!-- <Box offset="0 0 0 " direction="0 0.989636 0.143596 " size="0.16 0.180018 0.16 " /> -->
@@ -41,13 +41,13 @@
         <!-- <Box offset="0 0 0 " direction="0.977363 -0.0484034 -0.205958 " size="0.1 0.108377 0.1 " /> -->
         <TorqueLimit norm="100" />
     </Joint>
-    <Joint type="BallJoint" name="LeftArm" parent_name="LeftShoulder" size="0.278415 0.07 0.07 " mass="2,1" bvh="LeftArm">
+    <Joint type="BallJoint" name="LeftArm" parent_name="LeftShoulder" size="0.278415 0.07 0.07 " mass="2.1" bvh="LeftArm">
         <BodyPosition translation="0.290836 0.397865 -0.0710279 " />
         <JointPosition translation="0.151628 0.397865 -0.0710281 " />
         <!-- <Box offset="0 0 0 " direction="1 -3.21206e-06 1.34543e-06 " size="0.278415 0.07 0.07 " /> -->
         <TorqueLimit norm="100" />
     </Joint>
-    <Joint type="BallJoint" name="LeftForeArm" parent_name="LeftArm" size="0.283288 0.07 0.07 " mass="1,2" bvh="LeftForeArm">
+    <Joint type="BallJoint" name="LeftForeArm" parent_name="LeftArm" size="0.283288 0.07 0.07 " mass="1.2" bvh="LeftForeArm">
         <BodyPosition translation="0.571688 0.397864 -0.0710275 " />
         <JointPosition translation="0.430044 0.397864 -0.0710277 " />
         <!-- <Box offset="0 0 0 " direction="1 -6.15653e-07 1.33449e-06 " size="0.283288 0.07 0.07 " /> -->

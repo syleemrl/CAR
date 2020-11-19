@@ -75,7 +75,6 @@ LoadAdaptiveMotion(std::string postfix) {
 	std::ifstream is(path);
 	if(is.fail())
 		return;
-	std::cout << "load Motion from: " << path << std::endl;
 
 	char buffer[256];
 	for(int i = 0; i < mPhaseLength; i++) {
@@ -598,7 +597,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 			double t1 = data_raw[1].second - data_raw[0].second;
 			
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[0].first, weight);
-			p_blend.segment<3>(3) = data_raw[0].first.segment<3>(3);
+			p_blend.segment<3>(3) = data_raw[count].first.segment<3>(3);
 	
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
