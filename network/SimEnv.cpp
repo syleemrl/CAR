@@ -56,7 +56,6 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
 	mExUpdate = 0;
-	mNeedExploration = true;
 }
 
 //For general properties
@@ -262,11 +261,6 @@ UpdateReference() {
 	mExUpdate += 1;
 
 }
-bool 
-SimEnv::
-NeedExploration() {
-	return mNeedExploration;
-}
 void 
 SimEnv::
 SetGoalParameters(np::ndarray np_array, bool visited) {
@@ -285,11 +279,11 @@ SetGoalParameters(np::ndarray np_array, bool visited) {
 			np::ndarray na = np::from_object(a);
 			cps.push_back(DPhy::toEigenVector(na, dof));
 		}
-		// mReferenceManager->SetCPSreg(cps);
-		// cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		// mReferenceManager->SetCPSexp(cps);
-		// mReferenceManager->SelectReference();
-		mReferenceManager->LoadAdaptiveMotion(cps);
+		mReferenceManager->SetCPSreg(cps);
+		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		mReferenceManager->SetCPSexp(cps);
+		mReferenceManager->SelectReference();
+	//	mReferenceManager->LoadAdaptiveMotion(cps);
 
 	} else {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
@@ -312,7 +306,6 @@ UniformSample(bool visited) {
 	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited);
 	if(!pair.second) {
 		std::cout << "exploration done" << std::endl;
-		mNeedExploration = false;
 	}
 	return DPhy::toNumPyArray(pair.first);
 }
@@ -320,9 +313,9 @@ void
 SimEnv::
 SaveParamSpace(int n) {
 	if(n != -1) {
-		mRegressionMemory->SaveParamSpace(mPath + "param_space" + std::to_string(n), false);
+		mRegressionMemory->SaveParamSpace(mPath + "param_space" + std::to_string(n));
 	} else {
-		mRegressionMemory->SaveParamSpace(mPath + "param_space", true);
+		mRegressionMemory->SaveParamSpace(mPath + "param_space");
 	}
 }
 void
@@ -330,6 +323,23 @@ SimEnv::
 SaveParamSpaceLog(int n) {
 	mRegressionMemory->SaveLog(mPath + "log");
 
+}
+void
+SimEnv::
+UpdateParamState() {
+	mRegressionMemory->UpdateParamState();
+}
+double
+SimEnv::
+GetVisitedRatio() {
+	return mRegressionMemory->GetVisitedRatio();
+}
+double
+SimEnv::
+GetDensity(np::ndarray np_array) {
+	int dim = mRegressionMemory->GetDim();
+	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
+	return mRegressionMemory->GetDensity(mRegressionMemory->Normalize(tp));
 }
 using namespace boost::python;
 
@@ -362,8 +372,11 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetPhaseLength",&SimEnv::GetPhaseLength)
 		.def("GetDOF",&SimEnv::GetDOF)
 		.def("SetGoalParameters",&SimEnv::SetGoalParameters)
-		.def("NeedExploration",&SimEnv::NeedExploration)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
-		.def("UpdateReference",&SimEnv::UpdateReference);
+		.def("UpdateReference",&SimEnv::UpdateReference)
+		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
+		.def("GetDensity",&SimEnv::GetDensity)
+		.def("UpdateParamState",&SimEnv::UpdateParamState);
+
 }

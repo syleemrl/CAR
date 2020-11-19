@@ -179,9 +179,13 @@ protected:
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
 
-	double mPrevVelocity;
+
+/////////////////////////////////////////////////
+// for action parameter design
+	int mCount;
+	double mMomentum;
 	double mVelocity;
-	Eigen::Vector3d mEnergy;
+//////////////////////////////////////////////////
 };
 }
 #endif

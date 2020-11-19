@@ -144,11 +144,10 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*0.2)-1) * sign;
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 2.0);
 	mAdaptiveStep = mActions[mInterestedDof];
-	//mAdaptiveStep = 0;
-
+	mAdaptiveStep = 0;
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
 	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
@@ -203,25 +202,31 @@ Step()
 		}
 
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
-		if(mCurrentFrameOnPhase >= 10 && mControlFlag[0] == 0) {
-			double curVelocity = mCharacter->GetSkeleton()->getCOMLinearVelocity()(1);
-			if(mPrevVelocity * curVelocity < 0) {
-				mControlFlag[0] = 1;
-			}
-
-			mPrevVelocity = curVelocity;
-
-		} else if(mControlFlag[0] == 1) {
-			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
-			if(mVelocity < c_vel(1)) {
-				mVelocity = c_vel(1);
-				mEnergy = mCharacter->GetSkeleton()->getMass() * c_vel;
-			}
-			mPrevVelocity = 0;
-		}
 
 	}
-
+	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase <= 40) {
+		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
+		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+		V(1) = 0;
+		Eigen::Vector3d momentum;
+		momentum.setZero();
+		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
+			auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+			Eigen::Matrix3d R = bn->getWorldTransform().linear();
+			double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
+			bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
+			Eigen::Matrix3d I;
+			I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
+			I = R * I * R.transpose();
+			Eigen::AngleAxisd aa(I); 
+			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
+			momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+		}
+		momentum(1) = 0;
+		mVelocity += V.segment<3>(0).norm();
+		mMomentum += momentum.norm();
+		mCount += 1;
+	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
@@ -242,9 +247,10 @@ Step()
 			mControlFlag.setZero();
 			mCountParam = 0;
 			mCountTracking = 0;
-			
-			mEnergy.setZero();
+
+			mMomentum = 0;
 			mVelocity = 0;
+			mCount = 0;
 		}
 	}
 
@@ -308,9 +314,9 @@ ClearRecord()
 	mCountTracking = 0;
 	data_raw.clear();
 
-	mEnergy.setZero();
+	mMomentum = 0;
 	mVelocity = 0;
-	mPrevVelocity = 0;
+	mCount = 0;
 }
 
 std::vector<double> 
@@ -433,7 +439,7 @@ GetSimilarityReward()
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrameOnPhase, false);
 	Eigen::VectorXd pos = p_v_target->GetPosition();
 
 	delete p_v_target;
@@ -572,24 +578,25 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
-		Eigen::Vector3d p;
-		p << 6.5, mParamGoal(0), -3.5;
-		Eigen::VectorXd l_diff = mEnergy - p;
-		l_diff *= 0.1;
-		l_diff(1) *= 2;
-		r_param = exp_of_squared(l_diff, 1.5);
+	if(mCurrentFrameOnPhase >= 40 && mControlFlag[0] == 0) {
+		double meanMomentum = mMomentum / mCount;
+		double meanVelocity = mVelocity / mCount;
+
+		r_param = 0.25 * exp(-pow(meanMomentum - 42, 2)*0.075);
+		r_param += 0.75 * exp(-pow(meanVelocity - mParamGoal(0), 2)*5);
 
 		if(mRecord) {
-		 	std::cout << mEnergy(1) << " " << mParamGoal(0) << " " << r_param  << std::endl;
+			std::cout << meanMomentum << " " << exp(-pow(meanMomentum - 42, 2)*0.075) <<  std::endl; // <<  meanMomentum - mInputTargetParameters(0) << " " <<  exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075) << std::endl;
+			std::cout << meanVelocity << " " << exp(-pow(meanVelocity - mParamGoal(0), 2)*5) << std::endl; // meanVelocity - mInputTargetParameters(1) << " " << exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) << std::endl;
 		}
-		if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
-			mParamCur(0) = -1;
-		} else {
-			mParamCur(0) = mEnergy(1);
-		}
-		mControlFlag[0] = 2;		
-	} 
+
+		mParamCur(0) = meanVelocity;
+		if(abs(meanMomentum - 42) > 4)
+			mParamCur(0) = -1; 
+		mControlFlag[0] = 1;		
+
+	}
+
 	return r_param;
 }
 void
@@ -616,7 +623,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(5 * r_param);
+		mRewardParts.push_back(10 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -706,7 +713,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 4 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}

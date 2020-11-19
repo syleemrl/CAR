@@ -53,10 +53,14 @@ public:
 	int GetDOF();
 	
 	void SetGoalParameters(np::ndarray np_array, bool visited);
-	bool NeedExploration();
 	void UpdateReference();
 	void SaveParamSpace(int n);
 	void SaveParamSpaceLog(int n);
+
+	double GetVisitedRatio();
+	double GetDensity(np::ndarray np_array);
+	void UpdateParamState();
+
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
@@ -66,7 +70,6 @@ private:
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
-	bool mNeedExploration;
 	
 	p::object mRegression;
 
