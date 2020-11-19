@@ -109,7 +109,7 @@ public:
 	void EvalExplorationStep();
 	bool SetNextCandidate();
 	std::vector<Eigen::VectorXd> GetCurrentCPS();
-
+	std::vector<Param*> mloadAllSamples;
 
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;

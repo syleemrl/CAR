@@ -106,6 +106,7 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     mParamlayout->addStretch(1);
 
     QHBoxLayout *mButtonlayout = new QHBoxLayout();
+
     QPushButton* rbutton = new QPushButton("random", this);
     rbutton->setStyleSheet("margin-bottom: 10px;"
                            "padding: 5px;");
@@ -119,6 +120,19 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     connect (rbutton, SIGNAL(clicked(bool)), mMotionWidget, SLOT(UpdateRandomParam(const bool&)));
 
     connect (mButton, SIGNAL(clicked(bool)), mMotionWidget, SLOT(UpdateParam(const bool&)));
+//// next button
+    QPushButton* pbutton = new QPushButton("prev", this);
+    pbutton->setStyleSheet("margin-bottom: 10px;"
+                           "padding: 5px;");
+    mButtonlayout->addWidget(pbutton);
+    connect (pbutton, SIGNAL(clicked(bool)), mMotionWidget, SLOT(UpdatePrevParam(const bool&)));
+
+    QPushButton* nbutton = new QPushButton("next", this);
+    nbutton->setStyleSheet("margin-bottom: 10px;"
+                           "padding: 5px;");
+    mButtonlayout->addWidget(nbutton);
+    connect (nbutton, SIGNAL(clicked(bool)), mMotionWidget, SLOT(UpdateNextParam(const bool&)));
+/////
 
     this->setCentralWidget(new QWidget());
     this->centralWidget()->setLayout(mMainLayout);

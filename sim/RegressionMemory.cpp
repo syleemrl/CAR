@@ -210,7 +210,7 @@ RegressionMemory::
 LoadParamSpace(std::string path) {
 	mNumSamples = 1;
 	mRecordLog.clear();
-
+	mloadAllSamples= std::vector<Param*>();
 	char buffer[256];
 
 	std::ifstream is;
@@ -289,6 +289,7 @@ LoadParamSpace(std::string path) {
 		p->reward = reward;
 		p->update = false;
 		AddMapping(p);
+		mloadAllSamples.push_back(p);
 		mNumSamples += 1;
 	}
 

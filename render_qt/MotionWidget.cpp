@@ -242,6 +242,55 @@ UpdateParam(const bool& pressed) {
 	    }
 	}
 }
+void MotionWidget::UpdateIthParam(int i)
+{
+    mReferenceManager->LoadAdaptiveMotion(mRegressionMemory->mloadAllSamples[i]->cps);
+
+
+    std::vector<Eigen::VectorXd> pos;
+    double phase = 0;
+
+    bool flag = false;
+    for(int i = 0; i < 500; i++) {
+
+        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
+        p(3) += 0.75;
+      pos.push_back(p);
+        //phase += mReferenceManager->GetTimeStep(phase, true);
+        phase += 1;
+    }
+    mTotalFrame = 500;
+    Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
+root_bvh(3) += 0.75;
+pos = DPhy::Align(pos, root_bvh);
+
+    UpdateMotion(pos, 2);
+}
+void
+MotionWidget::
+UpdatePrevParam(const bool& pressed) {
+//mRegressionMemory->LoadParamSpace(path + "param_space");
+	if(mRunReg) {
+		if (regMemShow_idx == 0) regMemShow_idx = mRegressionMemory->mloadAllSamples.size()-1;
+		else regMemShow_idx-- ;
+
+		std::cout<<regMemShow_idx<<" / "<<(mRegressionMemory->mloadAllSamples.size())<<std::endl;
+		this->UpdateIthParam(regMemShow_idx);
+	}
+}
+
+void
+MotionWidget::
+UpdateNextParam(const bool& pressed) {
+//mRegressionMemory->LoadParamSpace(path + "param_space");
+	if(mRunReg) {
+		regMemShow_idx = (regMemShow_idx+1) % mRegressionMemory->mloadAllSamples.size();
+		std::cout<<regMemShow_idx<<" / "<<(mRegressionMemory->mloadAllSamples.size())<<std::endl;
+		this->UpdateIthParam(regMemShow_idx);
+	}
+}
+
+
 void
 MotionWidget::
 RunPPO() {
