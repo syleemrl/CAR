@@ -122,7 +122,12 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	Eigen::Vector3d root_41 = mSkel_bvh->getPositions().segment<3>(3);
 	root_41[0]+=0.75;
 
-	std::cout<<root.transpose()<<" / 41 : "<<root_41.transpose()<<std::endl;
+	mSkel_bvh->setPositions(mMotion_bvh[81]);
+	mSkel_bvh->computeForwardKinematics(true, false, false);
+	Eigen::Vector3d root_81 = mSkel_bvh->getPositions().segment<3>(3);
+	root_81[0]+=0.75;
+
+	std::cout<<root.transpose()<<" / 41 : "<<root_41.transpose()<<" / 81 : "<<root_81.transpose()<<std::endl;
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){

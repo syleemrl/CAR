@@ -458,8 +458,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(2); // jump height, jump distance
-	mParamCur << 0.46, ( 0.378879 -  0.016015 ); 	
-	// mParamCur << 0.46, (0.718014 - 0.0566185); 	
+	mParamCur << 0.46, (   0.614314 -  0.016015 ); 	// com, 81th frame
+	// mParamCur << 0.46, ( 0.378879 -  0.016015 ); // com , 41 th frame
+	// mParamCur << 0.46, (0.718014 - 0.0566185); 	// (lf+rf)/2.
+
 	// frame, (lf+rf)/2.
 	// 0, middle: -0.739319 0.0438206 0.0566185
 	// 45, middle: -0.739077  0.495829  0.710883
@@ -469,7 +471,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mParamGoal = mParamCur;
 
 	// character root:
-	// 0 : -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879
+	// 0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 
 	if(adaptive) {
 
@@ -480,7 +482,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamBase << mParamGoal[0]*0.5, mParamGoal[1]*0.5;
 
 		mParamEnd.resize(2);
-		mParamEnd << mParamGoal[0]*1.5, mParamGoal[1]*1.5;
+		mParamEnd << mParamGoal[0]*1.8, mParamGoal[1]*2.0;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 

@@ -647,7 +647,7 @@ GetParamReward()
 	double r_param = 0;
 
 	// TODO/ DONE: do this only after jumping (?)
-	if(mCurrentFrameOnPhase >= 40.5 && !(this->jump_stepon)){
+	if(mCurrentFrameOnPhase >= 80.5 && !(this->jump_stepon)){
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		Eigen::Vector3d middle = (lf+rf)/2.;
@@ -977,11 +977,10 @@ Reset(bool RSI)
 	// Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 	// Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 	// mStartPosition = (lf+rf)/2.;
-	// 0 : -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879
-
 	mStartPosition = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 	jump_stepon =  false;
 
+	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
 int
 Controller::
