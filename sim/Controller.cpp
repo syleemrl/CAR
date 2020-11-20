@@ -236,16 +236,21 @@ Step()
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		
 		// Eigen::Vector6d newRootZero = mRootZero;
-		mRootZero[4] = 1.04059;
+		// mRootZero[4] = 1.04059;
+		mRootZero.segment<3>(3)= Eigen::Vector3d(-8.63835e-05 ,1.04059 ,0.016015);
 		mCharacter->GetSkeleton()->getJoint(0)->setPositions(mRootZero);
 		// Eigen::VectorXd prev_vel = mCharacter->GetSkeleton()->getVelocities();
 		mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
 		// Eigen::VectorXd vel = mCharacter->GetSkeleton()->getVelocities();
 		// std::cout<<"pv: "<<prev_vel.segment<6>(0).transpose()<<std::endl;
 		// std::cout<<"v:  "<<vel.segment<6>(0).transpose()<<std::endl;
-		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-		mStartPosition = (lf+rf)/2.;
+
+		// Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		// Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		// mStartPosition = (lf+rf)/2.;
+
+		mStartPosition = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+	
 		jump_stepon = false;
 
 		if(isAdaptive) {
@@ -253,7 +258,10 @@ Step()
 			for(int i = 0; i < mRewardSimilarity.size(); i++) {
 				mRewardSimilarity[i] /= mCountTracking;
 			}
-			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, std::vector<double>>(mTrackingRewardTrajectory, mParamRewardTrajectory, mRewardSimilarity), mParamCur);
+			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
+				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
+				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, std::vector<double>>(mTrackingRewardTrajectory, mParamRewardTrajectory, mRewardSimilarity), mParamCur);
+			}
 			data_raw.clear();
 
 			mRewardSimilarity.clear();
@@ -304,7 +312,8 @@ Step()
 			// this->placed_object = true;
 			#endif
 		}
-
+		// mReferenceManager->tmp_debug = Eigen::Vector3d::Zero();
+		// mReferenceManager->tmp_debug_frame = 0;
 
 	}
 	if(isAdaptive) {
@@ -476,11 +485,12 @@ GetContactInfo(Eigen::VectorXd pos)
 	result.clear();
 	for(int i = 0; i < contact.size(); i++) {
 		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
-		if(p[1] < 0.07) {
-			result.push_back(std::pair<bool, Eigen::Vector3d>(true, p));
-		} else {
-			result.push_back(std::pair<bool, Eigen::Vector3d>(false, p));
-		}
+			double height_threshold = (placed_object) ? 0.46+ this->mObject->GetSkeleton()->getPositions()[6] +0.07: 0.07;
+			if(p[1] < height_threshold) {
+				result.push_back(std::pair<bool, Eigen::Vector3d>(true, p));
+			} else {
+				result.push_back(std::pair<bool, Eigen::Vector3d>(false, p));
+			}
 	}
 
 	skel->setPositions(p_save);
@@ -643,9 +653,13 @@ GetParamReward()
 		Eigen::Vector3d middle = (lf+rf)/2.;
 		Eigen::Vector3d jump = middle- mStartPosition; // y-axis, z-axis	
 		double height = std::min(lf[1], rf[1]);
+		double distance = (this->mCharacter->GetSkeleton()->getPositions().segment<3>(3) - mStartPosition ) [2];
 		// TODO/ DONE: set mStartPosition when resetting  & when a cycle is over
+		// std::cout<<mCurrentFrame<<"/ foot/controller : "<<middle.transpose()<<std::endl;
+		// mReferenceManager->tmp_debug = middle; //Eigen::Vector3d(0, height, jump[2]);
+		// mReferenceManager->tmp_debug_frame= mCurrentFrame;
 
-		Eigen::VectorXd result(2); result << height, jump[2]; // y-axis(height), z-axis(distance)
+		Eigen::VectorXd result(2); result << height, distance; // y-axis(height), z-axis(distance)
 		Eigen::VectorXd diff = result- mParamGoal;
 		r_param = exp_of_squared(diff, 0.04); //controller 0.1 regressionmemory 0.3 okok
 		
@@ -956,14 +970,18 @@ Reset(bool RSI)
 	//Character :  3.20143e-05    -0.040131   -0.0131928 -8.63835e-05      1.04059     0.016015
 
 	placed_object = false;
-	jump_stepon =  false;
 	#endif
 	 // 0.547423  0.719404
 	}
 
-	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	mStartPosition = (lf+rf)/2.;
+	// Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// mStartPosition = (lf+rf)/2.;
+	// 0 : -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879
+
+	mStartPosition = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+	jump_stepon =  false;
+
 }
 int
 Controller::

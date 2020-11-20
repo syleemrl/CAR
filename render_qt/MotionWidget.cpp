@@ -112,6 +112,18 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
+	mSkel_bvh->setPositions(mMotion_bvh[0]);
+	mSkel_bvh->computeForwardKinematics(true, false, false);
+	Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
+	root[0]+=0.75;
+
+	mSkel_bvh->setPositions(mMotion_bvh[41]);
+	mSkel_bvh->computeForwardKinematics(true, false, false);
+	Eigen::Vector3d root_41 = mSkel_bvh->getPositions().segment<3>(3);
+	root_41[0]+=0.75;
+
+	std::cout<<root.transpose()<<" / 41 : "<<root_41.transpose()<<std::endl;
+
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
     for(int i = 0; i < p1.rows(); i++) {
@@ -224,12 +236,14 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(2);
+		std::cout<<"MW / "<<v_param.transpose()<<std::endl;
 		tp << v_param(0)*0.1, v_param(1)*0.1;
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
-	    std::cout << tp.transpose() << " / d: " << d << std::endl;
+	    std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
+
 
 	    std::vector<Eigen::VectorXd> cps;
 	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
@@ -245,7 +259,7 @@ UpdateParam(const bool& pressed) {
 	    }
 
 	    mReferenceManager->LoadAdaptiveMotion(cps);
-	    
+
 	    double phase = 0;
 
 	    if(!mRunSim) {
@@ -278,7 +292,7 @@ UpdateParam(const bool& pressed) {
 		    pos.clear();
 		   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 		    mReferenceManager->LoadAdaptiveMotion(cps);
-		   
+
 		    phase = 0;
 		    flag = false;
 		    for(int i = 0; i < 500; i++) {
@@ -300,7 +314,23 @@ UpdateParam(const bool& pressed) {
 		    // mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
+
+
+		mPoints= Eigen::Vector3d(0, tp_denorm[0], tp_denorm[1]); //height: min(foot), distance(com)
+		mPoints[0]+=2.25;
+
+	    Eigen::VectorXd restore = mSkel_exp->getPositions();
+	    Eigen::VectorXd targetPose= mReferenceManager->GetPosition(41, true);
+		mSkel_exp->setPositions(targetPose);
+		mSkel_exp->computeForwardKinematics(true, false, false);
+		Eigen::Vector3d lf= mSkel_exp->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf= mSkel_exp->getBodyNode("RightFoot")->getWorldTransform().translation();
+		std::cout<<"jumped : "<<std::min(lf[1], rf[1])<<" "<<mSkel_exp->getPositions()[5]<<std::endl;
+
+		mSkel_exp->setPositions(restore);
+		mSkel_exp->computeForwardKinematics(true, false, false);
 	}
+
 }
 void
 MotionWidget::
@@ -425,10 +455,22 @@ DrawSkeletons()
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 		// if(!mRunSim) {
 		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		if(this->mSkel_obj) {
+			glPushMatrix();
+			glTranslated(0.75, 0, 0);
+			GUI::DrawSkeleton(this->mSkel_obj, 0);
+			glPopMatrix();
+		}
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
 		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		if(this->mSkel_obj) {
+			glPushMatrix();
+			glTranslated(2.25, 0, 0);
+			GUI::DrawSkeleton(this->mSkel_obj, 0);
+			glPopMatrix();
+		}
 	}
 
 }	

@@ -71,6 +71,9 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSreg() { return mCPS_reg; }
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
+
+	// Eigen::Vector3d tmp_debug= Eigen::Vector3d::Zero();
+	// double tmp_debug_frame=0;
 protected:
 	Character* mCharacter;
 	double mTimeStep;

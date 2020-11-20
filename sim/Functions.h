@@ -36,7 +36,6 @@ Eigen::VectorXd string_to_vectorXd(const std::string& input, int n);
 Eigen::Matrix3d string_to_matrix3d(const std::string& input);
 std::string vectorXd_to_string(const Eigen::VectorXd& vec);
 
-double exp_of_squared(double value, double sigma = 1.0);
 double exp_of_squared(const Eigen::VectorXd& vec,double sigma = 1.0);
 double exp_of_squared(const Eigen::Vector3d& vec,double sigma = 1.0);
 double exp_of_squared(const Eigen::MatrixXd& mat,double sigma = 1.0);

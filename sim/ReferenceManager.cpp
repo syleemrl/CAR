@@ -458,14 +458,18 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(2); // jump height, jump distance
-	mParamCur << 0.46, (0.718014 - 0.0566185); 	
+	mParamCur << 0.46, ( 0.378879 -  0.016015 ); 	
+	// mParamCur << 0.46, (0.718014 - 0.0566185); 	
 	// frame, (lf+rf)/2.
 	// 0, middle: -0.739319 0.0438206 0.0566185
 	// 45, middle: -0.739077  0.495829  0.710883
 	// 50, middle: -0.740508  0.502092  0.718014
 
 	mParamGoal.resize(2);
-	mParamGoal << 0.46, (0.718014 - 0.0566185); //(0.5-0.016015);
+	mParamGoal = mParamCur;
+
+	// character root:
+	// 0 : -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879
 
 	if(adaptive) {
 
@@ -476,7 +480,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamBase << mParamGoal[0]*0.5, mParamGoal[1]*0.5;
 
 		mParamEnd.resize(2);
-		mParamEnd << mParamCur[0]*1.5, mParamCur[1]*1.5;
+		mParamEnd << mParamGoal[0]*1.5, mParamGoal[1]*1.5;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -565,8 +569,19 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
 	if(std::abs(forward_angle) > M_PI/8.) return;
 
-	if (data_raw[0].second != 0) return ;
+	if (std::abs(data_raw[0].second) > 1e-8) return ;
 	
+
+/*	Eigen::VectorXd restore = mCharacter->GetSkeleton()->getPositions();
+
+		Eigen::VectorXd raw_41 = data_raw[41].first;
+		mCharacter->GetSkeleton()->setPositions(raw_41);
+		mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+		Eigen::Vector3d raw_41_lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d raw_41_rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::Vector3d raw= (raw_41_lf+raw_41_rf)/2.;
+
+*/
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;
 	for(int i = 0; i < data_raw.size(); i++) {
@@ -626,6 +641,55 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		data_uniform.push_back(std::pair<Eigen::VectorXd,double>(p, i));
 	}
 
+/*
+	mCharacter->GetSkeleton()->setPositions(restore);
+	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+	
+
+	Eigen::VectorXd test = data_uniform[40].first.segment<69>(0);
+	mCharacter->GetSkeleton()->setPositions(test);
+	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+	lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// std::cout<<"RefM/ 40: "<<((lf+rf)/2.).transpose()<<std::endl;
+
+	test = data_uniform[41].first.segment<69>(0);
+	mCharacter->GetSkeleton()->setPositions(test);
+	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+	lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+	if((tmp_debug- (lf+rf)/2.).norm() > 0.05) {
+		std::cout<<"!!!!!!!!"<<std::endl;
+		std::cout<<"foot(tmp_debug): "<<tmp_debug_frame<<" : "<<tmp_debug.transpose()<<std::endl;
+		std::cout<<"RefM/ 41: "<<((lf+rf)/2.).transpose()<<std::endl;
+		std::cout<<raw.transpose()<<std::endl;
+		
+		raw_41 = data_raw[41].first;
+		mCharacter->GetSkeleton()->setPositions(raw_41);
+		mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+		raw_41_lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		raw_41_rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		raw= (raw_41_lf+raw_41_rf)/2.;
+		std::cout<<raw.transpose()<<std::endl;
+		
+		// std::cout<<"rawraw/ 41: "<<raw.transpose()<<std::endl;
+		// std::cout<<"raw_raw/ 41: "<<raw_raw.transpose()<<std::endl;
+
+		// raw_41 = data_raw[41].first;
+		// mCharacter->GetSkeleton()->setPositions(raw_41);
+		// mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+		// raw_41_lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		// raw_41_rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		// raw= (raw_41_lf+raw_41_rf)/.2;
+		
+		std::cout<<std::endl;
+	}
+
+	mCharacter->GetSkeleton()->setPositions(restore);
+	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+*/
+
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 	this->GetDisplacementWithBVH(data_uniform, displacement);
 
@@ -636,6 +700,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		Eigen::VectorXd d_t(mDOF + 1);
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
+	
 	}
 	double r_con =  exp(-std::get<2>(rewards)[0]); //exp(-std::get<2>(rewards)[0]);
 	double r_slide = exp(-std::get<2>(rewards)[1] * 100); //exp(-std::get<2>(rewards)[0]);

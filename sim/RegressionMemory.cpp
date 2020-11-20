@@ -628,17 +628,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 			return false;
 		}
 	}
-	if(mNumGoalCandidate == mGoalCandidate.size()) {
-		for(int i = 0; i < mNumGoalCandidate; i++) {
-			if(GetDistanceNorm(candidate_param, mGoalCandidate[i]) < 1e-3) {
-				mGoalUpdate[i] += 1;
-				break;
-			}
-		}
-	}
-	Eigen::VectorXd candidate_scaled = (candidate_param - mParamMin).cwiseProduct(mParamScale);
+	Eigen::VectorXd candidate_scaled = (candidate_param - mParamMin).cwiseProduct(mParamScale); //normalize
 	Eigen::VectorXd nearest = GetNearestPointOnGrid(candidate_scaled);
-
+	//std::cout << candidate_param.transpose() << " / " << candidate_scaled.transpose() << std::endl;
 	std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(candidate_scaled, nearest, mRadiusNeighbor);
 	int n_compare = 0;
 	bool flag = true;
@@ -977,13 +969,14 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	}
 
 	double f_baseline = GetParamReward(Denormalize(mParamBVH->param_normalized), p_goal);
-
+	
+	// std::cout << "cps/ "<<p_goal.transpose()<<"/";
 	std::vector<std::pair<double, Param*>> ps_elite;
 	double r = 0;
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
-		double fitness = preward; //*pow(ps[i].second->reward, 2);
-		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
+		double fitness = preward*pow(ps[i].second->reward, 2);
+		// std::cout << p_goal.transpose()<<"/ "<<Denormalize(ps[i].second->param_normalized).transpose() << "/ " << preward << "/ " << ps[i].second->reward << "/ " << fitness << std::endl;
 		 // if(ps[i].second->reward == 1)
 		 // 	continue;
 		//if(f_baseline < fitness) {
@@ -1011,11 +1004,12 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDimDOF));
 	}
 	double weight_sum = 0;
-	mNumElite = 1;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = log(mNumElite + 1) - log(i + 1);
 		weight_sum += w;
 	    std::vector<Eigen::VectorXd> cps = ps_elite[i].second->cps;
+		// std::cout<<"/ "<<Denormalize(ps_elite[i].second->param_normalized).transpose() << "/ " << ps_elite[i].second->reward << "/ " << ps_elite[i].first << std::endl;
+	
 	    for(int j = 0; j < mNumKnots; j++) {
 			mean_cps[j] += w * cps[j];
 	    }
