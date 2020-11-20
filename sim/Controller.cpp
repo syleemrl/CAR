@@ -239,8 +239,8 @@ Step()
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		
 		// Eigen::Vector6d newRootZero = mRootZero;
-		// mRootZero[4] = 1.04059;
-		mRootZero.segment<3>(3)= Eigen::Vector3d(-8.63835e-05 ,1.04059 ,0.016015);
+		mRootZero[4] = 1.04059;
+		// mRootZero.segment<3>(3)= Eigen::Vector3d(-8.63835e-05 ,1.04059 ,0.016015);
 		mCharacter->GetSkeleton()->getJoint(0)->setPositions(mRootZero);
 		// Eigen::VectorXd prev_vel = mCharacter->GetSkeleton()->getVelocities();
 		mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
