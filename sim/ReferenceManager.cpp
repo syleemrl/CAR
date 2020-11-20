@@ -458,7 +458,8 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(2); // jump height, jump distance
-	mParamCur << 0.46, (   0.614314 -  0.016015 ); 	// com, 81th frame
+	mParamCur << 0.46, (   0.710883 -  0.016015 ); 	// foot 45 th frame - com 0th frame
+	// mParamCur << 0.46, (   0.614314 -  0.016015 ); 	// com, 81th frame
 	// mParamCur << 0.46, ( 0.378879 -  0.016015 ); // com , 41 th frame
 	// mParamCur << 0.46, (0.718014 - 0.0566185); 	// (lf+rf)/2.
 
@@ -473,6 +474,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	// character root:
 	// 0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 
+// 0: -8.63835e-05      1.04059     0.016015 / lf : 0.0971196  0.043994 0.0626424 / rf : -0.0757574  0.0436472  0.0505945 /mid:0.0106811 0.0438206 0.0566185
+// 41: 0.00327486    1.34454   0.378879 / lf : 0.105515 0.558091 0.688128 / rf : -0.0847098   0.536756   0.750679/ mid:0.0104028  0.547423  0.719404
+// 45: 0.00249872    1.16603   0.461853 / lf : 0.100115 0.495786 0.695288 / rf : -0.0782693   0.495872   0.726477/ mid:0.010923 0.495829 0.710883
+// 81: -0.0177552    1.48029   0.614314 / lf : 0.0972839  0.501218  0.702958 / rf : -0.0749804      0.499   0.706534/ mid:0.0111517  0.500109  0.704746
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);

@@ -651,13 +651,13 @@ GetParamReward()
 	double r_param = 0;
 
 	// TODO/ DONE: do this only after jumping (?)
-	if(mCurrentFrameOnPhase >= 80.5 && !(this->jump_stepon)){
+	if(mCurrentFrameOnPhase >= 45.5 && !(this->jump_stepon)){
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		Eigen::Vector3d middle = (lf+rf)/2.;
 		Eigen::Vector3d jump = middle- mStartPosition; // y-axis, z-axis	
 		double height = std::min(lf[1], rf[1]);
-		double distance = (this->mCharacter->GetSkeleton()->getPositions().segment<3>(3) - mStartPosition ) [2];
+		double distance = jump[2];
 		// TODO/ DONE: set mStartPosition when resetting  & when a cycle is over
 		// std::cout<<mCurrentFrame<<"/ foot/controller : "<<middle.transpose()<<std::endl;
 		// mReferenceManager->tmp_debug = middle; //Eigen::Vector3d(0, height, jump[2]);
