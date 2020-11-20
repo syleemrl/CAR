@@ -223,8 +223,8 @@ void
 MotionWidget::
 UpdateParam(const bool& pressed) {
 	if(mRunReg) {
-		Eigen::VectorXd tp(1);
-		tp << v_param(0)*0.1;
+		Eigen::VectorXd tp(2);
+		tp << v_param(0)*0.1, v_param(1)*0.1;
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
@@ -249,10 +249,9 @@ UpdateParam(const bool& pressed) {
 	    double phase = 0;
 
 	    if(!mRunSim) {
-
+		    ///// REGRESSION MOTION UPDATE
 		    std::vector<Eigen::VectorXd> pos;
 		    double phase = 0;
-
 		    bool flag = false;
 		    for(int i = 0; i < 500; i++) {
 
@@ -260,6 +259,11 @@ UpdateParam(const bool& pressed) {
 		        p(3) += 0.75;
 		      	pos.push_back(p);
 		        //phase += mReferenceManager->GetTimeStep(phase, true);
+		        // if(i==41){
+		        // 	Eigen::VectorXd pos_restore = mSkel_reg->GetPositions();
+		        // 	mSkel_reg->setPositions(p);
+		        // 	Eigen::Vector3d
+		        // }
 		        phase += 1;
 		    }
 		    mTotalFrame = 500;
@@ -269,6 +273,8 @@ UpdateParam(const bool& pressed) {
 
 		    UpdateMotion(pos, 2);
 
+
+		    //// BLEND MOTION UPDATE
 		    pos.clear();
 		   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 		    mReferenceManager->LoadAdaptiveMotion(cps);

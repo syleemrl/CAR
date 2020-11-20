@@ -647,13 +647,14 @@ GetParamReward()
 
 		Eigen::VectorXd result(2); result << height, jump[2]; // y-axis(height), z-axis(distance)
 		Eigen::VectorXd diff = result- mParamGoal;
-		r_param = exp_of_squared(diff, 0.1); //controller 0.1 regressionmemory 0.3 okok
+		r_param = exp_of_squared(diff, 0.04); //controller 0.1 regressionmemory 0.3 okok
 		
+		mParamCur = result;
+
 		if(mRecord){
-			std::cout<<mParamGoal.transpose()<<" / r: "<<r_param<<std::endl;
+			std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
 		}
 
-		mParamCur = result;
 		// std::cout<<"height: "<<mParamCur[0]<<" / distance: "<<mParamCur[1]<<std::endl;
 		this->jump_stepon = true;
 	}
