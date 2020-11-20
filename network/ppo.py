@@ -408,9 +408,10 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					idx_batch.append(idx[i])
-					state_target_batch.append(param[i])
-					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 5.0 * TD_t_sparse)
+					if TD_t_sparse != 0:
+						idx_batch.append(idx[i])
+						state_target_batch.append(param[i])
+						TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
 
 					TD_t_dense = 0
 					TD_t_sparse = 0
