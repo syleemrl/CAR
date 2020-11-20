@@ -217,11 +217,14 @@ Step()
 		obj_pos.setZero();
 		Eigen::Vector3d lf_pos = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf_pos = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::Vector3d lt_pos = mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
+		Eigen::Vector3d rt_pos = mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
+
 		Eigen::Vector3d middle= (lf_pos+rf_pos)/2.;
-		double height = std::min(lf_pos[1], rf_pos[1]);
+		double height = std::min(std::min(lf_pos[1], rf_pos[1]), std::min(lt_pos[1], rt_pos[1]));
 		Eigen::Vector3d default_pos(0.0104028, 0.547423, 0.719404); 		// 41 ; 0.0104028  0.547423  0.719404
 		obj_pos[5] = (middle - default_pos)[2]; // base : move z-axis
-		obj_pos[6] = height - 0.5; // prismatic joint: move y-axis
+		obj_pos[6] = height - 0.5; // prismatic joint: move y-axis //0.46+0.04-0.5
 
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -485,8 +488,9 @@ GetContactInfo(Eigen::VectorXd pos)
 	result.clear();
 	for(int i = 0; i < contact.size(); i++) {
 		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
-			double height_threshold = (placed_object) ? 0.46+ this->mObject->GetSkeleton()->getPositions()[6] +0.07: 0.07;
-			if(p[1] < height_threshold) {
+			double ground_or_box_baseline = (placed_object) ? 0.46+ this->mObject->GetSkeleton()->getPositions()[6] : 0; 
+			p[1]-= ground_or_box_baseline;
+			if(p[1] < 0.07) {
 				result.push_back(std::pair<bool, Eigen::Vector3d>(true, p));
 			} else {
 				result.push_back(std::pair<bool, Eigen::Vector3d>(false, p));
