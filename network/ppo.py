@@ -78,9 +78,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25]
-
-		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4]
+		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25, steps_per_iteration * 0.25]
+		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4, optim_frequency * 12]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -377,7 +376,8 @@ class PPO(object):
 			if len(self.target_x_batch) > 5000:
 				self.target_x_batch = self.target_x_batch[-2000:]
 				self.target_y_batch = self.target_y_batch[-2000:]
-		for n in range(50):
+
+		for n in range(5):
 			ind = np.arange(len(self.target_x_batch))
 			np.random.shuffle(ind)
 			for s in range(int(len(ind)//self.batch_size_target)):
@@ -389,7 +389,7 @@ class PPO(object):
 					}
 				)
 				lossval_ct += val[1]
-		self.lossvals.append(['loss critic target', lossval_ct / 50])
+		self.lossvals.append(['loss critic target', lossval_ct / 5])
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
@@ -451,9 +451,10 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					idx_batch.append(idx[i])
-					state_target_batch.append(param[i])
-					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
+					if TD_t_sparse != 0:
+						idx_batch.append(idx[i])
+						state_target_batch.append(param[i])
+						TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
 
 					TD_t_dense = 0
 					TD_t_sparse = 0
@@ -466,7 +467,7 @@ class PPO(object):
 				TD_batch.append(TD[i])
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages[i])
-		
+
 		self.v_target = TD_target_batch
 		self.idx_target = idx_batch
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
@@ -593,7 +594,7 @@ class PPO(object):
 				self.env.sampler.updateNumSampleDelta(p_idx)
 			print('')
 
-			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
+			if it % self.optim_frequency[self.env.sampler.mode] == self.optim_frequency[self.env.sampler.mode] - 1:	
 				update_counter += 1
 				if self.adaptive:
 					if not self.env.mode and update_counter >= 3:
@@ -615,6 +616,7 @@ class PPO(object):
 						# self.env.sampler.UpdateTrainingDataProgress()
 						# self.updateCriticProgress(100)
 					if t == 999:
+						self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
 						break
 
 					if not self.parametric:

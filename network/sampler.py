@@ -3,15 +3,17 @@ import math
 from regression import Regression
 from IPython import embed
 from copy import copy
+from sklearn.neighbors import KNeighborsRegressor
+import os
 class Sampler(object):
-	def __init__(self, sim_env, dim, path, explore, visit, egreedy, hard):
+	def __init__(self, sim_env, dim, path, explore, visit, egreedy, hard, print_verbose):
 		self.sim_env = sim_env
 		self.dim = dim
 		
 		self.v_mean = 0
 		self.random = True
 
-		self.k = 15
+		self.k = 10
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -21,7 +23,7 @@ class Sampler(object):
 		self.start = 0
 		# 0: uniform 1: adaptive 2: ts
 		self.type_visit = visit
-		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
+		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:adaptive2(network) 4:ts(sampling) 5: uniform(sampling)
 		# 6: num sample slope(sampling) 7:num sample near goal(sampling) 8: num sample slope (network)
 		self.type_explore = explore
 		if egreedy:
@@ -42,6 +44,18 @@ class Sampler(object):
 		self.ns_mean = 0
 
 		self.done = False
+		self.exploration_test_print = print_verbose
+		
+		self.progress = []
+		
+		self.v_mean_uniform = 1.0
+		self.v_std_uniform = 0.1
+
+		# 0 : exploitation 1: exploration 2: evaluation
+		self.mode = 2
+		self.sample_counter = 0
+		self.regressor = KNeighborsRegressor(n_neighbors=5, weights='distance')
+
 		print('=======================================')
 		print('curriculum option')
 		print('type visit', self.type_visit)
@@ -64,6 +78,14 @@ class Sampler(object):
 			else:
 				return math.exp(5 * self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 
+	def probAdaptive2(self, v_func, target):
+		target = np.reshape(target, (-1, self.dim))
+		v = v_func.getValue(target)
+		v = v.reshape(-1, 1)
+		p_predict =	self.regressor.predict(v)[0]
+
+		return math.exp(p_predict*500)
+
 	def probTS(self, v_func, v_func_prev, target, hard=True):
 		target = np.reshape(target, (-1, self.dim))
 		v = v_func.getValue(target)[0]
@@ -80,28 +102,28 @@ class Sampler(object):
 	def probAdaptiveSampling(self, idx):
 		v = self.v_sample[idx]
 		if self.hard:
-			return math.exp(self.k_ex * -(v - self.v_mean) / self.v_mean) + 1e-10
+			return math.exp(self.k * -(v - self.v_mean) / self.v_mean) + 1e-10
 		else:
 			return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
 
 	def probTSSampling(self, idx):
 		v = self.v_sample[idx]
 		v_prev = self.v_prev_sample[idx]
-		slope = (v - v_prev) / v_prev * self.k_ex * 3
-
-		if self.hard:
-			slope = -slope
-		if slope > 10:
-			slope = 10
-		return math.exp(slope) + 1e-10
+		v = v - min(1.1, 0.3 * self.v_std_uniform + self.v_mean_uniform)
+		if v < 0:
+			v = 0.5 * abs(v)
+		else:
+			v = abs(v)
+		return math.exp(- v * 25) + 1e-10
+		
 
 	def probTS2Sampling(self, idx):
 		v = self.ns_slope_sample[idx]
 		mean = np.array(self.ns_slope_sample).mean() + 1e-8
 		if self.hard:
-			return math.exp(-(v - mean) / mean) + 1e-10
+			return math.exp(-(v - mean)) + 1e-10
 		else:
-			return math.exp((v - mean) / mean) + 1e-10
+			return math.exp(0.3 * abs(v - 0.85)) + 1e-10
 
 	def updateNumSampleDelta(self, idx):
 		if self.type_explore < 6:
@@ -121,6 +143,7 @@ class Sampler(object):
 			# self.state_batch.append(self.prev_action)
 			# self.progress_batch.append(slope * 2)
 			self.ns_mean += 0.05 * 2 * slope
+
 	def UpdateTrainingDataProgress(self):
 		to_delete = []
 		state_temp = []
@@ -144,6 +167,7 @@ class Sampler(object):
 		
 		self.ns_slope_sample = []
 		self.ns_slope_temp = []
+
 	def GetTrainingDataProgress(self, augment=False):
 		if not augment:
 			return np.array(copy(self.state_batch)), np.array(copy(self.progress_batch))
@@ -177,7 +201,7 @@ class Sampler(object):
 			self.state_batch = []
 			self.progress_batch = []
 
-	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=2, N=400):
+	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=4, N=400):
 		self.start += 1
 		if visited:
 			self.n_visit += 1
@@ -188,9 +212,59 @@ class Sampler(object):
 		if self.v_mean == 0:
 			self.v_mean = self.v_mean_cur
 		else:
-			self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
+			self.v_mean = 0.5 * self.v_mean + 0.5 * self.v_mean_cur
+
+		if self.start <= 2:
+			v_mean_sample_cur = [0] * len(self.sample)
+			count_sample_cur = [0] * len(self.sample)
+
+			for i in range(len(results)):
+				v_mean_sample_cur[idxs[i]] += results[i]
+				count_sample_cur[idxs[i]] += 1
+				
+			for i in range(len(self.sample)):
+				if count_sample_cur[i] != 0:
+					self.v_prev_sample[i] = copy(self.v_sample[i])
+					self.v_sample[i] = v_mean_sample_cur[i] / count_sample_cur[i]
+
+			if self.start == 2:
+				self.progress = []
+				for i in range(len(self.sample)):
+					self.progress.append(self.v_sample[i] - self.v_prev_sample[i])
+				x =  np.array(self.v_prev_sample).reshape(-1, 1)
+				self.regressor.fit(x, self.progress)
+				self.mode = 0
+
+				x = np.linspace(0.8, 1.2, num=10)
+				x_ = np.array(x).reshape(-1, 1)
+				y = self.regressor.predict(x_)
+				print(self.v_sample)
+				print(self.progress)
+				print('progress by regressor: ', y)
+		if self.start == 1:
+			return
+
+		if self.start >= 20:
+			self.mode = 2
+		if self.start == 21:
+			self.v_mean_uniform = self.v_mean_cur
+			self.v_std_uniform = np.std(np.array(results))
+			li = copy(results)
+			li = np.sort(np.array(li))
+			size = len(li)
+			mean_bottom = li[:int(size*0.2)].mean()
+			mean_top = li[int(size*0.8):].mean()
+			if not os.path.isfile(self.exploration_test_print):
+				out = open(self.exploration_test_print, "w")
+				out.write('v goals: '+str(self.v_mean_cur)+', '+str(mean_bottom)+','+str(mean_top)+','+str(self.v_std_uniform)+'\n')
+				out.close()
+			else:
+				out = open(self.exploration_test_print, "a")
+				out.write('v goals: '+str(self.v_mean_cur)+', '+str(mean_bottom)+','+str(mean_top)+','+str(self.v_std_uniform)+'\n')
+				out.close()	
 
 		if visited:
+
 			if self.type_visit == 0:
 				return
 			self.pool = []
@@ -207,8 +281,9 @@ class Sampler(object):
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
 		else:
-			if self.type_explore == 0 or self.type_explore == 5:
+			if self.type_explore == 0:
 				return
+			visited = True
 			self.pool_ex = []
 			self.idx_ex = []
 			if self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
@@ -223,39 +298,73 @@ class Sampler(object):
 						self.pool_ex.append(x_cur)
 						x_new = self.randomSample(visited)
 						if self.type_explore == 1 or self.type_explore == 8:
-							alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
+							alpha = min(1.0, self.probAdaptive(v_func, x_new, visited)/self.probAdaptive(v_func, x_cur, visited))
 						else:
-							alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, False)/self.probTS(v_func, v_func_prev, x_cur, False))
+							alpha = min(1.0, self.probAdaptive2(v_func, x_new)/self.probAdaptive2(v_func, x_cur))
+
+						#	alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, visited)/self.probTS(v_func, v_func_prev, x_cur, visited))
 
 						if np.random.rand() <= alpha:          
 							x_cur = x_new
 				# for i in range(len(self.pool_ex)):
-				# 	print(self.pool_ex[i], v_func.getValue([self.pool_ex[i]])[0], self.probAdaptive(v_func, self.pool_ex[i], False))
+				# 	print(self.pool_ex[i], v_func.getValue([self.pool_ex[i]])[0], self.probAdaptive2(v_func, self.pool_ex[i]))
 				self.ns_mean = 0
 			else:
-				if self.n_explore == 1:
-					return
+				if self.type_explore == 9:
+					if self.start == 1:
+						self.init_mean = self.v_mean_cur
+					elif self.start == 2:
+						progress_str = ''
+						for i in range(len(self.progress) - 1):
+							progress_str += str(self.progress[i+1] - self.progress[i]) +' '
+						if not os.path.isfile(self.exploration_test_print):
+							out = open(self.exploration_test_print, "w")
+							out.write(str(self.init_mean)+' / '+str(self.v_mean)+' / '+str(self.v_mean-self.init_mean)+'\n')
+							out.write(progress_str+'\n')
+							out.close()
+						else:
+							out = open(self.exploration_test_print, "a")
+							out.write(str(self.init_mean)+' / '+str(self.v_mean)+' / '+str(self.v_mean-self.init_mean)+'\n')
+							out.write(progress_str+'\n')
+							out.close()	
+			
 				v_mean_sample_cur = [0] * len(self.sample)
 				count_sample_cur = [0] * len(self.sample)
 
 				for i in range(len(results)):
 					v_mean_sample_cur[idxs[i]] += results[i]
 					count_sample_cur[idxs[i]] += 1
-					
+				
+				v_prev_sample_print = ""
+				v_sample_print = ""	
 				for i in range(len(self.sample)):
-					d = self.sim_env.GetDensity(self.sample[i]) 
-					if d > 0.3:
-						print(self.sample[i], d)
-						self.sample[i] = self.randomSample(visited)
-						self.v_prev_sample[i] = 0.8
-						self.v_sample[i] = 1.0
-					else:
-						if count_sample_cur[i] != 0:
-							self.v_prev_sample[i] = copy(self.v_sample[i])
-							self.v_sample[i] = v_mean_sample_cur[i] / count_sample_cur[i]
+					# d = self.sim_env.GetDensity(self.sample[i]) 
+					# if d > 0.3:
+					# 	print(self.sample[i], d)
+					# 	self.sample[i] = self.randomSample(visited)
+					# 	if self.type_explore == 2:
+					# 		self.v_sample[i] = 0.0
+					# 		self.v_prev_sample[i] = 0.0
+					# 	elif self.type_explore == 4:
+					# 		self.v_sample[i] = 0.0
+					# 		self.v_prev_sample[i] = 0.3
+					# 	else:
+					# 		self.v_sample[i] = 0.0
+					# 		self.v_prev_sample[i] = 0.8
+					# else:
+					if count_sample_cur[i] != 0:
+						self.v_prev_sample[i] = copy(self.v_sample[i])
+						self.v_sample[i] = v_mean_sample_cur[i] / count_sample_cur[i]
+					v_prev_sample_print += str(self.v_prev_sample[i]) +', '
+					v_sample_print += str(self.v_sample[i]) +', '
 
 				print('v prev goals: ', self.v_prev_sample)
 				print('v goals: ', self.v_sample)
+				if self.n_explore == 1:
+					return
+				if self.type_explore == 5:
+					return
+
 				if self.type_explore == 6 or self.type_explore == 7:
 					for i in range(len(self.sample)):
 						if self.ns_count_temp[i] != 0:
@@ -305,6 +414,17 @@ class Sampler(object):
 
 			return target, t
 		else:
+			####TO DELETE
+			visited = True
+			if self.start <= 1:
+				t = math.floor(self.sample_counter / 3.0) % len(self.sample)
+				target = self.sample[t]
+				self.sample_counter += 1
+				return target, t
+			if self.type_explore == 9:
+				t = 0
+				target = self.sample[0]
+				return target, t
 			if self.type_explore == 0:
 				return self.randomSample(visited), -1
 			elif self.type_explore == 5:
@@ -313,12 +433,8 @@ class Sampler(object):
 				idx = t
 				return target, t
 			elif self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
-				if self.n_explore <= 2:
-					target = self.randomSample(visited)
-					t = -1
-				else:
-					t = np.random.randint(len(self.pool_ex))
-					target = self.pool_ex[t]
+				t = np.random.randint(len(self.pool_ex))
+				target = self.pool_ex[t]
 				if self.type_explore == 8:
 					self.prev_nsample = self.sim_env.GetNumSamples()
 					self.prev_action = target
@@ -327,7 +443,7 @@ class Sampler(object):
 				if self.n_explore <= 2:
 					t = np.random.randint(len(self.sample))	
 					target = self.sample[t]
-					idx = t
+					idx = target
 				else:
 					t = np.random.rand()
 					if self.epsilon_greedy:
@@ -364,16 +480,32 @@ class Sampler(object):
 		self.n_visit = 0
 		self.n_learning += 1
 
-	def sampleGoals(self, m=10):
+	def sampleGoals(self, m=20):
 		self.sample = []
 		self.v_sample = []
 		self.v_prev_sample = []
 		self.ns_count_temp = []
+		while len(self.sample) < m:
+			r = self.randomSample(True)
+			flag = True
+			for s in self.sample:
+				if np.linalg.norm(s - r) < 0.1:
+					flag = False
+					break
+			if flag:
+				self.sample.append(r)
 		for i in range(m):
-			self.sample.append(self.randomSample(False))
-
-			self.v_sample.append(1.0)
-			self.v_prev_sample.append(0.8)
+			####TO MODIFY
+			#self.sample.append(self.randomSample(True))
+			if self.type_explore == 2:
+				self.v_sample.append(0.0)
+				self.v_prev_sample.append(0.0)
+			elif self.type_explore == 4:
+				self.v_sample.append(0.8)
+				self.v_prev_sample.append(0.8)
+			else:
+				self.v_sample.append(0.0)
+				self.v_prev_sample.append(0.8)
 
 			self.ns_slope_sample.append(0)
 			self.ns_slope_temp.append(0)
@@ -384,8 +516,7 @@ class Sampler(object):
 	def reset_explore(self):
 		self.ns_slope_sample = []
 		self.ns_slope_temp = []
-		if self.type_explore != 0 and self.type_explore != 1 and self.type_explore != 3 and self.type_explore != 8:
-			self.sampleGoals()
+		self.sampleGoals()
 		self.n_explore = 0
 
 	def isEnough(self, v_func):

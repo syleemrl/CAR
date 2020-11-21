@@ -132,7 +132,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
 	        std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
 	        this->mRegression.attr("initRun")(path, mReferenceManager->GetParamGoal().rows() + 1, mReferenceManager->GetDOF() + 1);
 			mRegressionMemory->LoadParamSpace(path + "param_space");
-			mRegressionMemory->GetVisitedRatio();
+			std::cout << mRegressionMemory->GetVisitedRatio() << std::endl;
 	        mParamRange = mReferenceManager->GetParamRange();
 	       
 	        path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");

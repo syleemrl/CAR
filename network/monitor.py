@@ -55,7 +55,7 @@ class Monitor(object):
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
 		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory,
-							   explore, visit, egreedy, hard)
+							   explore, visit, egreedy, hard, exploration_test_print)
 
 		self.mode = 0
 		self.mode_counter = 0
@@ -143,30 +143,41 @@ class Monitor(object):
 		self.mode_counter += 1
 		if self.mode_counter % 2 == 0:
 			self.sim_env.UpdateParamState()
-		if self.num_evaluation % 100 == 99:
+		if self.num_evaluation % 50 == 49:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
-		if self.num_evaluation % 10 == 0 and self.exploration_test_print != "":
-			self.v_ratio = self.sim_env.GetVisitedRatio()
-			if not os.path.isfile(self.exploration_test_print) :
-				out = open(self.exploration_test_print, "w")
-				out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
-				out.close()
-			else:
-				out = open(self.exploration_test_print, "a")
-				out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
-				out.close()		
+		# if self.num_evaluation % 10 == 0 and self.exploration_test_print != "":
+		# 	self.v_ratio = self.sim_env.GetVisitedRatio()
+		# 	if not os.path.isfile(self.exploration_test_print) :
+		# 		out = open(self.exploration_test_print, "w")
+		# 		out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+		# 		out.close()
+		# 	else:
+		# 		out = open(self.exploration_test_print, "a")
+		# 		out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+		# 		out.close()		
 		if self.mode == 0:
 			#if self.mode_counter % 10 == 0:
 			#	self.sim_env.SaveParamSpace(-1)
 			#	self.sampler.reset_explore()
-			if self.mode_counter >= 20 or self.v_ratio == 1:
-				if self.v_ratio == 1:
-					self.sampler.done = True
-				self.sim_env.TrainRegressionNetwork(20)
-				self.mode = 1
-				self.mode_counter = 0
-				self.sampler.reset_visit()
-				mode_change = 1
+			if self.mode_counter >= 21 or self.v_ratio == 1:
+				if self.exploration_test_print != "":
+					# if not os.path.isfile(self.exploration_test_print) :
+					# 	out = open(self.exploration_test_print, "w")
+					# 	out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+					# 	out.close()
+					# else:
+					# 	out = open(self.exploration_test_print, "a")
+					# 	out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+					# 	out.close()	
+					mode_change = 999
+				else:
+					if self.v_ratio == 1:
+						self.sampler.done = True
+					self.sim_env.TrainRegressionNetwork(20)
+					self.mode = 1
+					self.mode_counter = 0
+					self.sampler.reset_visit()
+					mode_change = 1
 		else:
 			if self.mode_counter % 10 == 0:
 			#	self.sim_env.SaveParamSpace(-1)

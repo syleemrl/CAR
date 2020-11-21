@@ -273,7 +273,7 @@ LoadParamSpace(std::string path) {
 		return;
 
 	is >> buffer;
-	mNumSamples = atoi(buffer);;
+	mNumSamples = atoi(buffer);
 
 	mParamGoalCur.resize(mDim);
 	for(int i = 0; i < mDim; i++) 
