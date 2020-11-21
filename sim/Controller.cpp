@@ -44,7 +44,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 	// this->mObject = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/jump_box.xml")).first;
 	// this->mWorld->addSkeleton(this->mObject);
-	this->placed_object = false;
 
 	#ifdef OBJECT_TYPE 
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
@@ -52,7 +51,28 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
 		this->mObject->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
-		this->placed_object = true;
+
+		this->mObject_base = new DPhy::Character(object_path);	
+		this->mWorld->addSkeleton(this->mObject_base->GetSkeleton());
+		this->mObject_base->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
+		this->mObject_base->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
+
+		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+		obj_pos.setZero();
+		obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
+		obj_pos[6] =-0.46;
+		mObject->GetSkeleton()->setPositions(obj_pos);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		
+		// place the base below its feet
+		mObject_base->GetSkeleton()->setPositions(obj_pos);
+		mObject_base->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
+		mObject_base->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
+		mObject_base->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+		this->placed_object = false;
 	#endif
 
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
@@ -212,7 +232,9 @@ Step()
 	}
 
 	if(mCurrentFrameOnPhase >= 40.5 && !(this->placed_object)){
-
+		// base stays the same, 
+		// obj moves from farfaraway to right below feet
+		Eigen::VectorXd prev_obj_pos = mObject->GetSkeleton()->getPositions();
 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
 		Eigen::Vector3d lf_pos = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
@@ -230,31 +252,17 @@ Step()
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-
 		this->placed_object = true;
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
-		
-		// Eigen::Vector6d newRootZero = mRootZero;
-		mRootZero[4] = 1.04059;
-		// mRootZero.segment<3>(3)= Eigen::Vector3d(-8.63835e-05 ,1.04059 ,0.016015);
-		mCharacter->GetSkeleton()->getJoint(0)->setPositions(mRootZero);
-		// Eigen::VectorXd prev_vel = mCharacter->GetSkeleton()->getVelocities();
-		mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
-		// Eigen::VectorXd vel = mCharacter->GetSkeleton()->getVelocities();
-		// std::cout<<"pv: "<<prev_vel.segment<6>(0).transpose()<<std::endl;
-		// std::cout<<"v:  "<<vel.segment<6>(0).transpose()<<std::endl;
-
-		// Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		// Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-		// mStartPosition = (lf+rf)/2.;
-
-		mStartPosition = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 	
-		jump_stepon = false;
+		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		this->mStartFoot =(lf+rf)/2.;
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
@@ -277,44 +285,33 @@ Step()
 			
 			// mEnergy.setZero();
 			// mVelocity = 0;
-			
-			#ifdef OBJECT_TYPE
-			// place the object far far away , so that it cannot affect the character now..
-			Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-			obj_pos.setZero();
-			obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
-			
-			mObject->GetSkeleton()->setPositions(obj_pos);
-			mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-			mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-			mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-			this->placed_object = false;
-			#endif
+
 		}
-		else{
-			#ifdef OBJECT_TYPE
-			Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-			obj_pos.setZero();
-			obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
-			
-			mObject->GetSkeleton()->setPositions(obj_pos);
-			mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-			mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-			mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-			this->placed_object = false;
-			// reset : Character :  3.20143e-05    -0.040131   -0.0131928 -8.63835e-05      1.04059     0.016015
-			// Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-			// obj_pos.setZero();
-			// obj_pos[5]= mRootZero[5]- 0.016015;
-			// // std::cout<<"NOT adaptive, after a cycle; "<<newRootZero.transpose()<<"/"<<obj_pos[5]<<std::endl;
-			
-			// mObject->GetSkeleton()->setPositions(obj_pos);
-			// mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-			// mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-			// mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-			// this->placed_object = true;
-			#endif
-		}
+
+		#ifdef OBJECT_TYPE
+		// place the object far far away , so that it cannot affect the character now..
+		Eigen::VectorXd prev_obj_pos= mObject->GetSkeleton()->getPositions();
+		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+		obj_pos.setZero();
+		obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
+		obj_pos[6]= -0.46;
+
+		mObject->GetSkeleton()->setPositions(obj_pos);
+		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		
+		// place the base below its feet
+		mObject_base->GetSkeleton()->setPositions(prev_obj_pos);
+		mObject_base->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
+		mObject_base->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
+		mObject_base->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+		this->placed_object = false;
+		this->jump_stepon = false;
+
+		#endif
+
 		// mReferenceManager->tmp_debug = Eigen::Vector3d::Zero();
 		// mReferenceManager->tmp_debug_frame = 0;
 
@@ -469,7 +466,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 }
 std::vector<std::pair<bool, Eigen::Vector3d>> 
 Controller::
-GetContactInfo(Eigen::VectorXd pos) 
+GetContactInfo(Eigen::VectorXd pos, double base_height) 
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 	Eigen::VectorXd p_save = skel->getPositions();
@@ -488,8 +485,7 @@ GetContactInfo(Eigen::VectorXd pos)
 	result.clear();
 	for(int i = 0; i < contact.size(); i++) {
 		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
-			double ground_or_box_baseline = (placed_object) ? 0.46+ this->mObject->GetSkeleton()->getPositions()[6] : 0; 
-			p[1]-= ground_or_box_baseline;
+			p[1]-= base_height;
 			if(p[1] < 0.07) {
 				result.push_back(std::pair<bool, Eigen::Vector3d>(true, p));
 			} else {
@@ -516,8 +512,13 @@ GetSimilarityReward()
 
 	delete p_v_target;
 
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
+	double ref_obj_height = (this->placed_object)? 0.46 : 0;
+	double cur_obj_height = (this->placed_object)? mObject->GetSkeleton()->getPositions()[6]+0.46 : mObject_base->GetSkeleton()->getPositions()[6]+0.46 ;
+
+	// std::cout<<mCurrentFrame<<"/ ref: "<<ref_obj_height<<" / cur: "<<cur_obj_height<<std::endl;
+
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
 	double con_diff = 0;
 
 	for(int i = 0; i < contacts_cur.size(); i++) {
@@ -654,10 +655,10 @@ GetParamReward()
 	if(mCurrentFrameOnPhase >= 45.5 && !(this->jump_stepon)){
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-		Eigen::Vector3d middle = (lf+rf)/2.;
-		Eigen::Vector3d jump = middle- mStartPosition; // y-axis, z-axis	
-		double height = std::min(lf[1], rf[1]);
-		double distance = jump[2];
+		
+		double height = std::min(lf[1], rf[1])- mStartFoot[1];
+		double distance = ((lf+rf)/2.- mStartRoot)[2];
+
 		// TODO/ DONE: set mStartPosition when resetting  & when a cycle is over
 		// std::cout<<mCurrentFrame<<"/ foot/controller : "<<middle.transpose()<<std::endl;
 		// mReferenceManager->tmp_debug = middle; //Eigen::Vector3d(0, height, jump[2]);
@@ -776,6 +777,15 @@ UpdateTerminalInfo()
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
 
+	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
+	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
+	Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
+	Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
+	Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
+	right_vector[1]= 0;
+	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
+	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
+
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
@@ -801,6 +811,11 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
+	if(std::abs(forward_angle) > M_PI/8.) {
+		mIsTerminal = true;
+		terminationReason = 9;
+		// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
+	}
 	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
@@ -942,47 +957,33 @@ Reset(bool RSI)
 	if(isAdaptive)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
-
-		#ifdef OBJECT_TYPE
-		// place the object far far away , so that it cannot affect the character now..
-		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-		obj_pos.setZero();
-		obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
-		
-		mObject->GetSkeleton()->setPositions(obj_pos);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		this->placed_object = false;
-		#endif
-
 	}
-	else{
 
-	#ifdef OBJECT_TYPE 
+	#ifdef OBJECT_TYPE
+	// place the object far far away , so that it cannot affect the character now..
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
 	obj_pos.segment<3>(3)=Eigen::Vector3d(10000, 0, 10000);
-		
-	mObject->GetSkeleton()->setPositions(obj_pos);
-	mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-	// std::cout<<"RESET / obj_pos: "<<obj_pos.transpose()<<std::endl;
-	// std::cout<<"Character : "<<mTargetPositions.segment<6>(0).transpose()<<std::endl;
+	obj_pos[6] = -0.46;
+	
+	this->mObject->GetSkeleton()->setPositions(obj_pos);
+	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 
-	//Character :  3.20143e-05    -0.040131   -0.0131928 -8.63835e-05      1.04059     0.016015
+	this->mObject_base->GetSkeleton()->setPositions(obj_pos);
+	this->mObject_base->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
+	this->mObject_base->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
+	this->mObject_base->GetSkeleton()->computeForwardKinematics(true,false,false);
 
-	placed_object = false;
+	this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	this->mStartFoot =(lf+rf)/2.;
+
+	this->jump_stepon =  false;
+	this->placed_object = false;
 	#endif
-	 // 0.547423  0.719404
-	}
-
-	// Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	// mStartPosition = (lf+rf)/2.;
-	mStartPosition = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-	jump_stepon =  false;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
