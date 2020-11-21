@@ -732,3 +732,18 @@ MotionWidget::
 togglePlay() {
 	mPlay = !mPlay;
 }
+
+void 
+MotionWidget::
+ResetController()
+{
+    try {
+    	if(mRunSim) {
+    		this->mController->Reset(false);
+			mController->SetGoalParameters(mReferenceManager->GetParamCur());
+			RunPPO();
+    	}    
+    } catch (const p::error_already_set&) {
+        PyErr_Print();
+    }    
+}

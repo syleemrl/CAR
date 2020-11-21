@@ -36,7 +36,7 @@ public slots:
 	void UpdatePrevParam(const bool& pressed);
 	void UpdateNextParam(const bool& pressed);
 	void updateIthParam(int i);
-
+	void ResetController();
 	void setValue(const int &x);
 	void toggleDrawBvh();
 	void toggleDrawSim();
