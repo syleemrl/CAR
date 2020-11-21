@@ -368,7 +368,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, idx = zip(*data)
 
-			if len(times) == self.env.phaselength * 4 + 10 + 1:
+			if len(times) == self.env.phaselength * 3 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:
@@ -414,9 +414,10 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					idx_batch.append(idx[i])
-					state_target_batch.append(param[i])
-					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
+					if TD_t_sparse != 0:
+						idx_batch.append(idx[i])
+						state_target_batch.append(param[i])
+						TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
 
 					TD_t_dense = 0
 					TD_t_sparse = 0

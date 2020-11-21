@@ -170,8 +170,8 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(1);
-		tp << v_param(0)*0.1;
-	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
+		tp << v_param(0)*0.1 + 0.02;
+	    //tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
@@ -432,6 +432,7 @@ paintGL()
 	DrawGround();
 	DrawSkeletons();
 
+	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
 void
 MotionWidget::

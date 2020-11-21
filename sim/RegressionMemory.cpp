@@ -329,7 +329,6 @@ LoadParamSpace(std::string path) {
 		p->update = false;
 		AddMapping(p);
 		mloadAllSamples.push_back(p);
-		mNumSamples += 1;
 	}
 
 	is.close();
@@ -637,10 +636,10 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.75 && d > 0.5)
+			if (d < 0.45 && d > 0.2)
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
-		if(visited && d > 0.8) {
+		if(visited && d > 0.5) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -758,7 +757,7 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::VectorXd l_diff = p_goal - p;
-	double r_param = exp_of_squared(l_diff, 1);
+	double r_param = exp_of_squared(l_diff, 0.5);
 
 	return r_param;
 }
@@ -817,8 +816,8 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	double r = 0;
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
-		double fitness = preward*pow(ps[i].second->reward, 2);
-		// std::cout << Denormalize(ps[i].second->param_normalized) << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
+		double fitness = preward * ps[i].second->reward; //*pow(ps[i].second->reward, 2);
+		//	std::cout << Denormalize(ps[i].second->param_normalized) << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		// } else {
@@ -856,6 +855,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
+	    std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
 	}
 
 

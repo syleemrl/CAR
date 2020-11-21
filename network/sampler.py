@@ -38,7 +38,13 @@ class Sampler(object):
 		target = np.reshape(target, (-1, self.dim))
 		v = v_func.getValue(target)[0]
 		if hard:
-			return math.exp(- self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+#			return math.exp(-self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+			v = v - min(1.1, self.v_mean)
+			if v < 0:
+				v = 0.5 * abs(v)
+			else:
+				v = abs(v)
+			return math.exp(- v * 20) + 1e-10
 		else:
 			return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 
@@ -67,7 +73,7 @@ class Sampler(object):
 		return math.exp(slope) + 1e-10
 
 
-	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
+	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=5, N=500):
 		self.start += 1
 		if visited:
 			self.n_visit += 1
@@ -80,6 +86,9 @@ class Sampler(object):
 			self.v_mean = self.v_mean_cur
 		else:
 			self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
+		print("===========================================")
+		print("mean reward : ", self.v_mean)
+		print("===========================================")
 
 		if visited:
 			if self.type_visit == 0:
@@ -97,6 +106,8 @@ class Sampler(object):
 
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
+			# for i in range(len(self.pool)):
+			# 	print(v_func.getValue([self.pool[i]])[0], self.probAdaptive(v_func, self.pool[i], True))
 		else:
 			if self.type_explore == 0:
 				return
@@ -222,24 +233,20 @@ class Sampler(object):
 		
 		self.random_start = False
 
-		print("===========================================")
-		print("mean reward : ", self.v_mean)
-		print("===========================================")
-
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.n_visit > 5 and self.v_mean_cur > 0.9 and not self.done:
+			if self.n_visit > 5 and self.v_mean_cur > 1.2 and not self.done:
 				return True
-			if self.v_mean_cur > 1.1 and self.done:
+			if self.v_mean_cur > 1.4 and self.done:
 				return True
 
-		if self.n_visit > 20 and not self.done:
-			return True
+		# if self.n_visit > 20 and not self.done:
+		# 	return True
 		
-		if self.n_visit > 5 and self.v_mean > 0.9 and not self.done:
+		if self.n_visit > 5 and self.v_mean > 1.2 and not self.done:
 			return True
 
-		if self.v_mean > 1.1 and self.done:
+		if self.v_mean > 1.4 and self.done:
 			return True	
 
 		self.total_iter += 1

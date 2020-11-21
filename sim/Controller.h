@@ -129,7 +129,7 @@ protected:
 	std::vector<std::string> mEndEffectors;
 	std::vector<std::string> mRewardLabels;
 	std::vector<double> mRewardParts;
-	std::vector<double> mRewardSimilarity;
+	Fitness mFitness;
 	// for foot collision, left, right foot, ground
 	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGOBJ; 
 
@@ -183,8 +183,8 @@ protected:
 /////////////////////////////////////////////////
 // for action parameter design
 	int mCount;
-	double mMomentum;
-	double mVelocity;
+	Eigen::Vector3d mMomentum;
+	Eigen::Vector3d mVelocity;
 //////////////////////////////////////////////////
 };
 }

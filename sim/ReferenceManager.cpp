@@ -425,13 +425,13 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
-	mThresholdTracking = 0.85;
+	mThresholdTracking = 0.8;
 
 	mParamCur.resize(1);
-	mParamCur << 6.4;
+	mParamCur << 6;
 
 	mParamGoal.resize(1);
-	mParamGoal << 6.4;
+	mParamGoal << 6;
 
 	if(adaptive) {
 
@@ -504,7 +504,7 @@ GetTimeStep(double t, bool adaptive) {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
-				 std::tuple<double, double, std::vector<double>> rewards,
+				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards)) || data_raw[0].second != 0) {
 		return;
@@ -512,11 +512,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
-
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards)[0] > 0.1) {
+	if(std::get<2>(rewards).sum_contact > 0.3) {
 		return;
 	}
 
@@ -590,12 +589,14 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
 	}
-	double r_con =  exp(-std::get<2>(rewards)[0]); //exp(-std::get<2>(rewards)[0]);
-	double r_slide = exp(-std::get<2>(rewards)[1] * 100); //exp(-std::get<2>(rewards)[0]);
-	double r_foot = r_con;
-	double r_delta = std::get<2>(rewards)[3];
-	double r_pos = std::get<2>(rewards)[2];
-	double reward_trajectory = r_foot * r_pos * r_delta;
+	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
+	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
+	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
+	// std::cout << std::get<2>(rewards).sum_contact << " / " << r_foot << std::endl; 
+	// std::cout << std::get<2>(rewards).sum_vel.transpose() << " / " << r_vel << std::endl; 
+	// std::cout << std::get<2>(rewards).sum_pos.transpose() << " / " << r_pos << std::endl; 
+
+	double reward_trajectory = r_foot * r_pos * r_vel;
 	mLock.lock();
 
 	if(isParametric) {
