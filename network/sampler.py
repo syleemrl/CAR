@@ -55,6 +55,8 @@ class Sampler(object):
 		self.mode = 2
 		self.sample_counter = 0
 		self.regressor = KNeighborsRegressor(n_neighbors=5, weights='distance')
+		self.regression_x = []
+		self.regression_y = []
 
 		print('=======================================')
 		print('curriculum option')
@@ -84,7 +86,7 @@ class Sampler(object):
 		v = v.reshape(-1, 1)
 		p_predict =	self.regressor.predict(v)[0]
 
-		return math.exp(p_predict*500)
+		return math.exp(p_predict*250)
 
 	def probTS(self, v_func, v_func_prev, target, hard=True):
 		target = np.reshape(target, (-1, self.dim))
@@ -241,6 +243,19 @@ class Sampler(object):
 				print(self.v_sample)
 				print(self.progress)
 				print('progress by regressor: ', y)
+
+				self.regression_x = copy(self.v_sample)
+				self.regression_y = copy(self.progress)
+		elif self.start % 5 == 0:
+			x =  np.array(self.regression_x).reshape(-1, 1)
+			self.regressor.fit(x, self.regression_y)
+
+			x = np.linspace(0.8, 1.2, num=10)
+			x_ = np.array(x).reshape(-1, 1)
+			y = self.regressor.predict(x_)
+			print(self.regression_x)
+			print(self.regression_y)
+			print('progress by regressor: ', y)
 		if self.start == 1:
 			return
 
@@ -281,12 +296,71 @@ class Sampler(object):
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
 		else:
+			visited = True
+
 			if self.type_explore == 0:
 				return
-			visited = True
 			self.pool_ex = []
 			self.idx_ex = []
-			if self.type_explore == 1 or self.type_explore == 3 or self.type_explore == 8:
+			if self.type_explore == 3:
+				if self.start % 2 == 1:
+					v_mean_sample_cur = [0] * len(self.sample)
+					count_sample_cur = [0] * len(self.sample)
+
+					for i in range(len(results)):
+						v_mean_sample_cur[idxs[i]] += results[i]
+						count_sample_cur[idxs[i]] += 1
+				
+					self.v_prev_sample = []
+					for i in range(len(self.sample)):
+						self.v_prev_sample.append(v_mean_sample_cur[i] / count_sample_cur[i])
+					return
+				elif self.start % 2 == 0:
+					if self.start != 2:
+						v_mean_sample_cur = [0] * len(self.sample)
+						count_sample_cur = [0] * len(self.sample)
+
+						for i in range(len(results)):
+							v_mean_sample_cur[idxs[i]] += results[i]
+							count_sample_cur[idxs[i]] += 1
+					
+						self.v_sample = []
+						v_diff = []
+						for i in range(len(self.sample)):
+							self.v_sample.append(v_mean_sample_cur[i] / count_sample_cur[i])
+							v_diff.append(self.v_sample[i] - self.v_prev_sample[i])
+							self.regression_x.append(self.v_prev_sample[i])
+							self.regression_y.append(v_diff[i])
+						print(self.v_prev_sample)
+						print(v_diff)
+						if len(self.regression_x) >= 50:
+							self.regression_x = self.regression_x[-50:]
+							self.regression_y = self.regression_y[-50:]
+					for i in range(m):
+						x_cur = self.randomSample(visited)
+
+						# while 1:
+						# 	x_cur = self.randomSample(visited)
+						# 	if v_func.getValue([x_cur])[0] > 0.5:
+						# 		break
+						for j in range(int(N/m)):
+							self.pool_ex.append(x_cur)
+							x_new = self.randomSample(visited)
+							alpha = min(1.0, self.probAdaptive2(v_func, x_new)/self.probAdaptive2(v_func, x_cur))
+
+							#	alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, visited)/self.probTS(v_func, v_func_prev, x_cur, visited))
+
+							if np.random.rand() <= alpha:          
+								x_cur = x_new
+
+					self.sample = []
+					for _ in range(10):
+						t = np.random.randint(len(self.pool_ex))	
+						self.sample.append(self.pool_ex[t])
+					self.sample_counter = 0
+					return
+
+			if self.type_explore == 1 or self.type_explore == 8:
 				for i in range(m):
 					x_cur = self.randomSample(visited)
 
@@ -417,7 +491,14 @@ class Sampler(object):
 			####TO DELETE
 			visited = True
 			if self.start <= 1:
-				t = math.floor(self.sample_counter / 3.0) % len(self.sample)
+				t = math.floor(self.sample_counter / 2.0) % len(self.sample)
+				target = self.sample[t]
+				self.sample_counter += 1
+				return target, t
+			elif self.mode == 2:
+				return self.randomSample(visited), -1
+			if self.type_explore == 3:
+				t = math.floor(self.sample_counter / 2.0) % len(self.sample)
 				target = self.sample[t]
 				self.sample_counter += 1
 				return target, t
