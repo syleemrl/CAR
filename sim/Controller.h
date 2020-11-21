@@ -84,7 +84,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	double GetParamReward();
 	double GetSimilarityReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
-	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
+	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos, double base_height=0);
 
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass);
@@ -110,6 +110,7 @@ protected:
 
 	Character* mCharacter;
 	Character* mObject;
+	Character* mObject_base;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 
@@ -186,7 +187,9 @@ protected:
 	// double mVelocity;
 	// Eigen::Vector3d mEnergy;
 
-	Eigen::Vector3d mStartPosition; //middle of two feet at 0th frame
+	Eigen::Vector3d mStartRoot; //root 0th frame
+	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
+
 	bool jump_stepon = false;
 };
 }
