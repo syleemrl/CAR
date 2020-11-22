@@ -777,6 +777,15 @@ UpdateTerminalInfo()
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
 
+	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
+	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
+	Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
+	Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
+	Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
+	right_vector[1]= 0;
+	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
+	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
+
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
@@ -802,6 +811,11 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
+	if(std::abs(forward_angle) > M_PI/8.) {
+		mIsTerminal = true;
+		terminationReason = 9;
+		// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
+	}
 	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
