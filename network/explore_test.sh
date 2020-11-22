@@ -3,9 +3,9 @@ explore=$1
 egreedy=$2
 hard=$3
 n=0
-print_file="/home/sonic/Projects/CAR/network/output/test_result${visit}${explore}${egreedy}${hard}"
-base_file="/home/sonic/Projects/CAR/network/output/punch_ue_t2"
-target_file="/home/sonic/Projects/CAR/network/output/punch_ue_t${visit}${explore}${egreedy}${hard}"
+print_file="/home/seyoung/Projects/CAR/network/output/test_result${visit}${explore}${egreedy}${hard}"
+base_file="/home/seyoung/Projects/CAR/network/output/punch_ue_t2"
+target_file="/home/seyoung/Projects/CAR/network/output/punch_ue_t${visit}${explore}${egreedy}${hard}"
 for iter in $(seq 1 50);
 do 
   target_file_full="${target_file}_${n}"

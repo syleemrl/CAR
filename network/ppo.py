@@ -552,10 +552,7 @@ class PPO(object):
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
 			if self.adaptive:
-				if self.env.sampler.type_explore == 8 and not self.env.mode:
-					p_idx = self.env.updateGoal(self.critic_progress, self.critic_target_prev)
-				else:
-					p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
+				p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -590,7 +587,7 @@ class PPO(object):
 					last_print = local_step
 				
 				states = self.env.getStates()
-			if self.adaptive and (self.env.mode == 0 or self.env.sampler.type_explore == 8):
+			if self.adaptive and self.env.mode == 0:
 				self.env.sampler.updateNumSampleDelta(p_idx)
 			print('')
 
@@ -622,15 +619,10 @@ class PPO(object):
 					if not self.parametric:
 						self.env.updateAdaptive()
 					else:
-						if self.env.sampler.type_explore == 8  and self.env.mode:
+						if self.env.mode:
 							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-						elif self.env.sampler.type_explore == 8  and not self.env.mode:
-								self.env.updateCurriculum(self.critic_progress, self.critic_target_prev, self.v_target, self.idx_target)
-						else :
-							if self.env.mode:
-								self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-							else:
-								self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+						else:
+							self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
 
 					epi_info_iter_hind = []
 
