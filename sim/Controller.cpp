@@ -231,7 +231,7 @@ Step()
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
 
-	if(mCurrentFrameOnPhase >= 40.5 && !(this->placed_object)){
+	if(mCurrentFrameOnPhase >= 33.5 && !(this->placed_object)){
 		// base stays the same, 
 		// obj moves from farfaraway to right below feet
 		Eigen::VectorXd prev_obj_pos = mObject->GetSkeleton()->getPositions();
@@ -652,7 +652,7 @@ GetParamReward()
 	double r_param = 0;
 
 	// TODO/ DONE: do this only after jumping (?)
-	if(mCurrentFrameOnPhase >= 45.5 && !(this->jump_stepon)){
+	if(mCurrentFrameOnPhase >= 38.5 && !(this->jump_stepon)){
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		
@@ -811,7 +811,7 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
-	if(std::abs(forward_angle) > M_PI/8.) {
+	if(std::abs(forward_angle) > M_PI/6.) {
 		mIsTerminal = true;
 		terminationReason = 9;
 		// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
