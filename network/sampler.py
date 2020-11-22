@@ -31,12 +31,16 @@ class Sampler(object):
 			self.epsilon_greedy = True
 		else:
 			self.epsilon_greedy = False
-		if hard:
-			self.hard = True
-		else:
-			self.hard = False
+		# if hard:
+		# 	self.hard = True
+		# else:
+		# 	self.hard = False
 		self.epsilon = 0.25
-
+		self.hard = hard
+		if self.hard == 0:
+			self.hard = 100
+		else:
+			self.hard = 25
 		self.state_batch = []
 		self.progress_batch = []
 
@@ -55,7 +59,7 @@ class Sampler(object):
 		# 0 : exploitation 1: exploration 2: evaluation
 		self.mode = 2
 		self.sample_counter = 0
-		self.regressor = KNeighborsRegressor(n_neighbors=5, weights='distance')
+		self.regressor = KNeighborsRegressor(n_neighbors=10, weights='distance')
 		self.regression_x = []
 		self.regression_y = []
 
@@ -87,7 +91,7 @@ class Sampler(object):
 		v = v.reshape(-1, 1)
 		p_predict =	self.regressor.predict(v)[0]
 
-		return math.exp(p_predict * 250)
+		return math.exp(p_predict * self.hard)
 
 	def probTS(self, v_func, v_func_prev, target, hard=True):
 		target = np.reshape(target, (-1, self.dim))
@@ -216,32 +220,6 @@ class Sampler(object):
 			self.v_mean = 0.5 * self.v_mean + 0.5 * self.v_mean_cur
 
 
-
-		if self.start % 20 == 0:
-			self.mode = 2
-		elif self.start % 20 == 1 and self.start != 1:
-			self.v_mean_uniform = self.v_mean_cur
-			self.v_std_uniform = np.std(np.array(results))
-			li = copy(results)
-			li = np.sort(np.array(li))
-			size = len(li)
-			mean_bottom = li[:int(size*0.2)].mean()
-			mean_top = li[int(size*0.8):].mean()
-			if not os.path.isfile(self.exploration_test_print):
-				out = open(self.exploration_test_print, "w")
-				out.write('ratio: '+str(self.sim_env.GetVisitedRatio())+'\n')
-				out.write('v goals: '+str(self.v_mean_cur)+', '+str(mean_bottom)+','+str(mean_top)+','+str(self.v_std_uniform)+'\n')
-				out.close()
-			else:
-				out = open(self.exploration_test_print, "a")
-				out.write('ratio: '+str(self.sim_env.GetVisitedRatio())+'\n')
-				out.write('v goals: '+str(self.v_mean_cur)+', '+str(mean_bottom)+','+str(mean_top)+','+str(self.v_std_uniform)+'\n')
-				out.close()	
-			self.mode = 0
-		if self.start == 2:
-			self.mode = 0
-
-
 		if self.start <= 2 and self.type_explore == 3:
 			v_mean_sample_cur = [0] * len(self.sample)
 			count_sample_cur = [0] * len(self.sample)
@@ -256,20 +234,26 @@ class Sampler(object):
 					self.v_sample[i] = v_mean_sample_cur[i] / count_sample_cur[i]
 
 			if self.start == 2:
-				self.progress = []
+				self.regression_x = []
+				self.regression_y = []
 				for i in range(len(self.sample)):
-					self.progress.append(self.v_sample[i] - self.v_prev_sample[i])
-				x =  np.array(self.v_prev_sample).reshape(-1, 1)
-				self.regressor.fit(x, self.progress)
+					progress = self.v_sample[i] - self.v_prev_sample[i]
+					if self.v_prev_sample[i] > self.v_mean_uniform - 0.5 * self.v_std_uniform:
+						self.regression_x.append(self.v_prev_sample[i])
+						self.regression_y.append(progress)
+				
+				x = copy(self.regression_x)
+				y = copy(self.regression_y)
+				x.append(self.v_mean_uniform - self.v_std_uniform)
+				y.append(-0.1)
+				x =  np.array(x).reshape(-1, 1)
+				self.regressor.fit(x, y)
 				self.mode = 0
 
 				x = np.linspace(0.8, 1.2, num=10)
 				x_ = np.array(x).reshape(-1, 1)
 				y = self.regressor.predict(x_)
 				print('progress by regressor: ', y)
-
-				self.regression_x = copy(self.v_sample)
-				self.regression_y = copy(self.progress)
 
 				self.pool_ex = []
 				self.idx_ex = []
@@ -283,10 +267,16 @@ class Sampler(object):
 						if np.random.rand() <= alpha:          
 							x_cur = x_new
 				for i in range(len(self.pool_ex)):
-					print(v_func.getValue([self.pool_ex[i]])[0], self.regressor.predict(v_func.getValue([self.pool_ex[i]]))[0], self.probAdaptive2(self.pool_ex[i], x_cur))
+					v = v_func.getValue([self.pool_ex[i]])
+					v = v.reshape(-1, 1)
+					print(v[0], self.regressor.predict(v)[0], self.probAdaptive2(v_func, self.pool_ex[i]))
 		elif self.start % 5 == 0 and self.type_explore == 3:
-			x =  np.array(self.regression_x).reshape(-1, 1)
-			self.regressor.fit(x, self.regression_y)
+			x = copy(self.regression_x)
+			y = copy(self.regression_y)
+			x.append(self.v_mean_uniform - self.v_std_uniform)
+			y.append(-0.1)
+			x =  np.array(x).reshape(-1, 1)
+			self.regressor.fit(x, y)
 
 			x = np.linspace(0.8, 1.2, num=10)
 			x_ = np.array(x).reshape(-1, 1)
@@ -303,9 +293,43 @@ class Sampler(object):
 
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
-		
+			for i in range(len(self.pool_ex)):
+				v = v_func.getValue([self.pool_ex[i]])
+				v = v.reshape(-1, 1)
+				print(v[0], self.regressor.predict(v)[0], self.probAdaptive2(v_func, self.pool_ex[i]))
 		if self.start == 1:
+			self.v_mean_uniform = self.v_mean_cur
+			self.v_std_uniform = np.std(np.array(results))
+			print(self.v_mean_uniform, self.v_std_uniform)
 			return
+
+		if self.start % 20 == 0:
+			self.mode = 2
+		elif self.start % 20 == 1 and self.start != 1:
+			self.v_mean_uniform = self.v_mean_cur
+			self.v_std_uniform = np.std(np.array(results))
+			print(self.v_mean_uniform, self.v_std_uniform)
+
+			li = copy(results)
+			li = np.sort(np.array(li))
+			size = len(li)
+			mean_bottom = li[:int(size*0.2)].mean()
+			mean_top = li[int(size*0.8):].mean()
+			if not os.path.isfile(self.exploration_test_print):
+				out = open(self.exploration_test_print, "w")
+				out.write('ratio: '+str(self.sim_env.GetVisitedRatio())+'\n')
+				out.write('v goals: '+str(self.v_mean_cur)+', '+str(mean_bottom)+','+str(mean_top)+','+str(self.v_std_uniform)+'\n')
+				out.close()
+			else:
+				out = open(self.exploration_test_print, "a")
+				out.write('ratio: '+str(self.sim_env.GetVisitedRatio())+'\n')
+				out.write('v goals: '+str(self.v_mean_cur)+', '+str(mean_bottom)+','+str(mean_top)+','+str(self.v_std_uniform)+'\n')
+				out.close()	
+			self.mode = 0
+			if self.type_explore == 3:
+				return
+		if self.start == 2:
+			self.mode = 0
 
 		if visited:
 			if self.type_visit == 0:
@@ -330,7 +354,7 @@ class Sampler(object):
 				return
 
 			if self.type_explore == 3:
-				if self.start % 2 == 1:
+				if self.n_count % 2 == 1:
 					v_mean_sample_cur = [0] * len(self.sample)
 					count_sample_cur = [0] * len(self.sample)
 
@@ -341,8 +365,11 @@ class Sampler(object):
 					self.v_prev_sample = []
 					for i in range(len(self.sample)):
 						self.v_prev_sample.append(v_mean_sample_cur[i] / count_sample_cur[i])
+					if self.start > 1 and self.start % 20 != 0:
+						self.n_count += 1
 					return
-				elif self.start % 2 == 0:
+
+				elif self.n_count % 2 == 0:
 					if self.start != 2:
 						v_mean_sample_cur = [0] * len(self.sample)
 						count_sample_cur = [0] * len(self.sample)
@@ -355,9 +382,10 @@ class Sampler(object):
 						v_diff = []
 						for i in range(len(self.sample)):
 							self.v_sample.append(v_mean_sample_cur[i] / count_sample_cur[i])
-							v_diff.append(self.v_sample[i] - self.v_prev_sample[i])
-							self.regression_x.append(self.v_prev_sample[i])
-							self.regression_y.append(v_diff[i])
+							v_diff.append(self.v_sample[i] - 0.5 * self.v_std_uniform)
+							if self.v_prev_sample[i] > self.v_mean_uniform - self.v_std_uniform:
+								self.regression_x.append(self.v_prev_sample[i])
+								self.regression_y.append(v_diff[i])
 						print(self.v_prev_sample)
 						print(v_diff)
 						if len(self.regression_x) >= 50:
@@ -369,6 +397,8 @@ class Sampler(object):
 						t = np.random.randint(len(self.pool_ex))	
 						self.sample.append(self.pool_ex[t])
 					self.sample_counter = 0
+					if self.start > 1 and self.start % 20 != 0:
+						self.n_count += 1
 					return
 
 			self.pool_ex = []
@@ -601,6 +631,7 @@ class Sampler(object):
 		self.ns_slope_temp = []
 		self.sampleGoals()
 		self.n_explore = 0
+		self.n_count = 0
 
 	def isEnough(self, v_func):
 		
