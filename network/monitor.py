@@ -143,8 +143,7 @@ class Monitor(object):
 		self.mode_counter += 1
 		if self.mode_counter % 2 == 0:
 			self.sim_env.UpdateParamState()
-		if self.num_evaluation % 50 == 49:
-			self.sim_env.SaveParamSpace(self.num_evaluation)
+		#
 		# if self.num_evaluation % 10 == 0 and self.exploration_test_print != "":
 		# 	self.v_ratio = self.sim_env.GetVisitedRatio()
 		# 	if not os.path.isfile(self.exploration_test_print) :
@@ -159,7 +158,7 @@ class Monitor(object):
 			#if self.mode_counter % 10 == 0:
 			#	self.sim_env.SaveParamSpace(-1)
 			#	self.sampler.reset_explore()
-			if self.mode_counter >= 101 or self.v_ratio == 1:
+			if self.mode_counter >= 201 or self.v_ratio == 1:
 				if self.exploration_test_print != "":
 					# if not os.path.isfile(self.exploration_test_print) :
 					# 	out = open(self.exploration_test_print, "w")
