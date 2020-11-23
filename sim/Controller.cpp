@@ -186,7 +186,7 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
 	// std::cout<<mAdaptiveStep<<std::endl;
-	// mAdaptiveStep = 0;
+	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -198,7 +198,11 @@ Step()
 	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
-	this->mTargetPositions = p_v_target->GetPosition();
+
+	Eigen::VectorXd p_now = p_v_target->GetPosition();
+	p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
+
+	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
 
@@ -246,7 +250,7 @@ Step()
 		double height = std::min(std::min(lf_pos[1], rf_pos[1]), std::min(lt_pos[1], rt_pos[1]));
 		Eigen::Vector3d default_pos(0.0104028, 0.547423, 0.719404); 		// 41 ; 0.0104028  0.547423  0.719404
 		obj_pos[5] = (middle - default_pos)[2]; // base : move z-axis
-		obj_pos[6] = height - 0.5; // prismatic joint: move y-axis //0.46+0.04-0.5
+		obj_pos[6] = height - 0.536756; // prismatic joint: move y-axis //0.46+0.04-0.5
 
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -258,7 +262,8 @@ Step()
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
-	
+		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
+		
 		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
@@ -828,7 +833,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 2+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 6+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -945,6 +950,7 @@ Reset(bool RSI)
 	}
 
 	mRootZero = mTargetPositions.segment<6>(0);
+	mDefaultRootZero = mRootZero; 
 
 	mTlPrev2 = mTlPrev;
 	mTlPrev = tl_cur;	
@@ -1180,7 +1186,10 @@ GetState()
 	double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
-	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
+	Eigen::VectorXd p_now = p_v_target->GetPosition();
+	p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
+	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
+	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
 	delete p_v_target;
 
