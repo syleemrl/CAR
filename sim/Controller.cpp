@@ -198,7 +198,9 @@ Step()
 	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
-	this->mTargetPositions = p_v_target->GetPosition();
+	Eigen::VectorXd p_now = p_v_target->GetPosition();
+	p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
+	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
 
@@ -258,6 +260,7 @@ Step()
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
+		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
 	
 		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
@@ -311,6 +314,10 @@ Step()
 		this->jump_stepon = false;
 
 		#endif
+
+		sum_jump_step_on = 0;
+		jump_step_cnt = 0; 
+
 
 		// mReferenceManager->tmp_debug = Eigen::Vector3d::Zero();
 		// mReferenceManager->tmp_debug_frame = 0;
@@ -651,52 +658,47 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	// TODO/ DONE: do this only after jumping (?)
+	// if(mCurrentFrameOnPhase >= 45.5 && !(this->jump_stepon)){
+	// 	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		
+	// 	double height = std::min(lf[1], rf[1])- mStartFoot[1];
+	// 	double distance = ((lf+rf)/2.- mStartRoot)[2];
+
+	// 	Eigen::VectorXd result(2); result << height, distance; // y-axis(height), z-axis(distance)
+	// 	Eigen::VectorXd diff = result- mParamGoal;
+	// 	r_param = exp_of_squared(diff, 0.04); //controller 0.1 regressionmemory 0.3 okok
+		
+	// 	mParamCur = result;
+
+	// 	// std::cout<<"height: "<<mParamCur[0]<<" / distance: "<<mParamCur[1]<<std::endl;
+	// 	this->jump_stepon = true;
+	// }
+
 	if(mCurrentFrameOnPhase >= 45.5 && !(this->jump_stepon)){
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		
 		double height = std::min(lf[1], rf[1])- mStartFoot[1];
-		double distance = ((lf+rf)/2.- mStartRoot)[2];
-
-		// TODO/ DONE: set mStartPosition when resetting  & when a cycle is over
-		// std::cout<<mCurrentFrame<<"/ foot/controller : "<<middle.transpose()<<std::endl;
-		// mReferenceManager->tmp_debug = middle; //Eigen::Vector3d(0, height, jump[2]);
-		// mReferenceManager->tmp_debug_frame= mCurrentFrame;
+		double distance = ((lf+rf)/2.- mStartFoot)[2];
 
 		Eigen::VectorXd result(2); result << height, distance; // y-axis(height), z-axis(distance)
 		Eigen::VectorXd diff = result- mParamGoal;
-		r_param = exp_of_squared(diff, 0.04); //controller 0.1 regressionmemory 0.3 okok
-		
-		mParamCur = result;
+
+		sum_jump_step_on += diff.norm();
+		jump_step_cnt++;
+
+		if(mCurrentFrameOnPhase >=55 && ! (this->jump_stepon)){
+			r_param = sum_jump_step_on/jump_step_cnt;
+			mParamCur = result;
+			this->jump_stepon = true;
+		}
 
 		if(mRecord){
 			std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
 		}
 
-		// std::cout<<"height: "<<mParamCur[0]<<" / distance: "<<mParamCur[1]<<std::endl;
-		this->jump_stepon = true;
 	}
-
-	// auto& skel = this->mCharacter->GetSkeleton();
-	// if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 1) {
-	// 	Eigen::Vector3d p;
-	// 	p << 6.5, mParamGoal(0), -3.5;
-	// 	Eigen::VectorXd l_diff = mEnergy - p;
-	// 	l_diff *= 0.1;
-	// 	l_diff(1) *= 2;
-	// 	r_param = exp_of_squared(l_diff, 1.5);
-
-	// 	if(mRecord) {
-	// 	 	std::cout << mEnergy(1) << " " << mParamGoal(0) << " " << r_param  << std::endl;
-	// 	}
-	// 	if(abs(6.5 - mEnergy(0)) > 5 || abs(-3.5 - mEnergy(2)) > 5) {
-	// 		mParamCur(0) = -1;
-	// 	} else {
-	// 		mParamCur(0) = mEnergy(1);
-	// 	}
-	// 	mControlFlag[0] = 2;		
-	// } 
 
 	return r_param;
 }
@@ -724,7 +726,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(5 * r_param);
+		mRewardParts.push_back(10 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -811,7 +813,7 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
-	if(std::abs(forward_angle) > M_PI/8.) {
+	if(std::abs(forward_angle) > M_PI/6.) {
 		mIsTerminal = true;
 		terminationReason = 9;
 		// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
@@ -945,6 +947,7 @@ Reset(bool RSI)
 	}
 
 	mRootZero = mTargetPositions.segment<6>(0);
+	mDefaultRootZero = mRootZero; 
 
 	mTlPrev2 = mTlPrev;
 	mTlPrev = tl_cur;	
@@ -985,6 +988,8 @@ Reset(bool RSI)
 	this->placed_object = false;
 	#endif
 
+	sum_jump_step_on = 0;
+	jump_step_cnt = 0; 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
 int
@@ -1180,7 +1185,10 @@ GetState()
 	double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
-	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
+	Eigen::VectorXd p_now = p_v_target->GetPosition();
+	p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
+	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
+	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
 	delete p_v_target;
 

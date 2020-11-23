@@ -164,6 +164,7 @@ protected:
 	double mPrevFrame;
 	double mPrevFrame2;
 	Eigen::Vector6d mRootZero;
+	Eigen::Vector6d mDefaultRootZero;
 
 	Eigen::VectorXd mPrevTargetPositions;
 	Eigen::VectorXd mControlFlag;
@@ -191,6 +192,8 @@ protected:
 	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
 
 	bool jump_stepon = false;
+	double sum_jump_step_on = 0;
+	int jump_step_cnt=0;
 };
 }
 #endif

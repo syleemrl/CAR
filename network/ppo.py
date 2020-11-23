@@ -599,6 +599,16 @@ class PPO(object):
 
 				epi_info_iter = []
 
+			if (it > 0) and (it % 200 == 0) and (self.directory is not None) :
+					save_it = it//5
+					self.env.RMS.save(self.directory+'rms-{}'.format(save_it))
+					os.system("cp {}/network-{}.data-00000-of-00001 {}/network-{}.data-00000-of-00001".format(self.directory, 0, self.directory, save_it))
+					os.system("cp {}/network-{}.index {}/network-{}.index".format(self.directory, 0, self.directory, save_it))
+					os.system("cp {}/network-{}.meta {}/network-{}.meta".format(self.directory, 0, self.directory, save_it))
+
+
+
+
 
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
