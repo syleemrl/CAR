@@ -7,7 +7,7 @@
 #include "Functions.h"
 #include "ReferenceManager.h"
 #include <tuple>
-
+#include <queue>
 namespace DPhy
 {
 /**
@@ -191,6 +191,10 @@ protected:
 	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
 
 	bool jump_stepon = false;
+
+	Fitness mFitness;
+	std::queue<Eigen::VectorXd> mPosQueue;
+	std::queue<double> mTimeQueue;
 };
 }
 #endif

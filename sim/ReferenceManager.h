@@ -12,6 +12,12 @@
 
 namespace DPhy
 {
+struct Fitness
+{
+	double sum_contact;
+	Eigen::VectorXd sum_pos;
+	Eigen::VectorXd sum_vel;
+};
 class Motion
 {
 public:
@@ -52,7 +58,7 @@ public:
 	int GetPhaseLength() {return mPhaseLength; }
 	double GetTimeStep(double t, bool adaptive);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, std::tuple<double, double, std::vector<double>> rewards, Eigen::VectorXd parameters);
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, std::tuple<double, double, Fitness> rewards, Eigen::VectorXd parameters);
 	void InitOptimization(int nslaves, std::string save_path, bool adaptive=false);
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);

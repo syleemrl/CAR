@@ -540,7 +540,7 @@ GetTimeStep(double t, bool adaptive) {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
-				 std::tuple<double, double, std::vector<double>> rewards,
+				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
 
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
@@ -553,7 +553,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards)[0] > 0.1) {
+	if(std::get<2>(rewards).sum_contact > 0.1) {
 		return;
 	}
 
@@ -640,12 +640,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		d.push_back(d_t);
 	
 	}
-	double r_con =  exp(-std::get<2>(rewards)[0]); //exp(-std::get<2>(rewards)[0]);
-	double r_slide = exp(-std::get<2>(rewards)[1] * 100); //exp(-std::get<2>(rewards)[0]);
-	double r_foot = r_con;
-	double r_delta = std::get<2>(rewards)[3];
-	double r_pos = std::get<2>(rewards)[2];
-	double reward_trajectory = r_foot * r_pos * r_delta;
+	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
+	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
+	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
+	double reward_trajectory = r_foot * r_pos * r_vel;
 	mLock.lock();
 
 	if(isParametric) {
