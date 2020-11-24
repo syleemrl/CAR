@@ -164,6 +164,7 @@ protected:
 	double mPrevFrame;
 	double mPrevFrame2;
 	Eigen::Vector6d mRootZero;
+	Eigen::Vector6d mDefaultRootZero;
 
 	Eigen::VectorXd mPrevTargetPositions;
 	Eigen::VectorXd mControlFlag;
