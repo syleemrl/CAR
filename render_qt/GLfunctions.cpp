@@ -587,6 +587,39 @@ DrawLine(const Eigen::Vector3d& p0,const Eigen::Vector3d& p1,const Eigen::Vector
 	glVertex3f(p1[0],p1[1],p1[2]);
 	glEnd();
 }
+
+void GUI::DrawRuler(Eigen::Vector3d p0, Eigen::Vector3d p1, Eigen::Vector3d gaugeDirection, double unit, int biggerUnitPer, double lineWidth, const Eigen::Vector3d& color)
+{
+    Eigen::Vector3d dir = p1-p0;
+    double v01= dir.norm();
+    int num = v01/unit +1;
+    dir.normalize();
+
+    glColor3f(color[0],color[1],color[2]);
+    
+    glLineWidth(lineWidth);
+    glBegin(GL_LINES);
+    glNormal3f(0.0, 1.0, 0.0);
+    glVertex3f(p0[0], p0[1], p0[2]);
+    glVertex3f(p1[0], p1[1], p1[2]);
+    glEnd();
+
+    glBegin(GL_LINES);
+    glNormal3f(0.0, 1.0, 0.0);
+    Eigen::Vector3d p = p0;
+    for(int i=0; i<num; i++){
+        double s = (i%biggerUnitPer == 0)? 1 : 0.5; 
+        Eigen::Vector3d u1= p-s*gaugeDirection ;
+        Eigen::Vector3d u2= p+s*gaugeDirection ;
+        glVertex3f(u1[0], u1[1], u1[2]);
+        glVertex3f(u2[0], u2[1], u2[2]);
+
+        p+= unit*dir;
+    }
+    glEnd();    
+}
+
+
 void
 GUI::
 DrawPoint(const Eigen::Vector3d& p0,const Eigen::Vector3d& color, const double scale)
