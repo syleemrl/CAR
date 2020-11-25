@@ -340,6 +340,25 @@ GetDensity(np::ndarray np_array) {
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
 	return mRegressionMemory->GetDensity(mRegressionMemory->Normalize(tp));
 }
+p::list 
+SimEnv::
+GetParamSpaceSummary() {
+	std::tuple<std::vector<Eigen::VectorXd>, 
+			   std::vector<double>, 
+			   std::vector<double>> x_y_z = mRegressionMemory->GetParamSpaceSummary();
+
+	np::ndarray x = DPhy::toNumPyArray(std::get<0>(x_y_z));
+	np::ndarray y = DPhy::toNumPyArray(std::get<1>(x_y_z));
+	np::ndarray z = DPhy::toNumPyArray(std::get<2>(x_y_z));
+
+	p::list l;
+	l.append(x);
+	l.append(y);
+	l.append(z);
+
+	return l;
+}
+
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -376,6 +395,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UpdateReference",&SimEnv::UpdateReference)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
 		.def("GetDensity",&SimEnv::GetDensity)
+		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
 		.def("UpdateParamState",&SimEnv::UpdateParamState);
 
 }

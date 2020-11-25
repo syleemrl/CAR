@@ -57,7 +57,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.35;
+	mRadiusNeighbor = 0.2;
 	mThresholdActivate = 3;
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
@@ -943,26 +943,9 @@ SaveContinuousParamSpace(std::string path) {
 double 
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
-	Eigen::VectorXd headRoot(6);
-	headRoot << -1.77697, -1.73886, 0.793543, 0.00431308, 0.820601, -0.000182682;
-
-	Eigen::Vector3d root_new = headRoot.segment<3>(0);
-	root_new = projectToXZ(root_new);
-	Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-	Eigen::Vector3d dir = Eigen::Vector3d(p(0), 0, - sqrt(1 - p(0)*p(0)));
-	dir *= p(2);
-	Eigen::Vector3d p_hand = aa * dir;
-	p_hand(1) = p(1);
-
-	dir = Eigen::Vector3d(p_goal(0), 0, - sqrt(1 - p_goal(0)*p_goal(0)));
-	dir *= p_goal(2);
-	Eigen::Vector3d goal_hand = aa * dir;
-	goal_hand(1) = p_goal(1);
-
-	Eigen::Vector3d hand_diff = goal_hand - p_hand;
-	double v_diff = p_goal(3) - p(3);
 	
-	double 	r_param = exp_of_squared(hand_diff,0.2) * exp(-pow(v_diff, 2)*20);
+	Eigen::VectorXd diff = p - p_goal;
+	double r_param = exp_of_squared(diff, 0.2);
 	return r_param;
 }
 void 
@@ -1145,5 +1128,78 @@ IsSpaceFullyExplored() {
 		return true;
 	}
 	return false;
+}
+double
+RegressionMemory::
+GetFitness(Eigen::VectorXd p) {
+	std::vector<std::pair<double, Param*>> ps = GetNearestParams(p, mNumElite * 5, false, true);
+	if(ps.size() < mNumElite) {
+		return 1;
+	}
+
+	double f_baseline = GetParamReward(Denormalize(mParamBVH->param_normalized), Denormalize(p));
+	std::vector<std::pair<double, Param*>> ps_elite;
+	for(int i = 0; i < ps.size(); i++) {
+		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), Denormalize(p));
+		double fitness = preward*pow(ps[i].second->reward, 2);
+		ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
+	}
+
+	std::stable_sort(ps_elite.begin(), ps_elite.end(), cmp_pair_param);
+	
+	double fitness = 0;
+	for(int i = 0; i < mNumElite; i++) {
+		fitness += ps_elite[i].second->reward;
+	}
+	return fitness / mNumElite;
+
+}
+std::tuple<std::vector<Eigen::VectorXd>, 
+		   std::vector<double>, 
+		   std::vector<double>>
+RegressionMemory::
+GetParamSpaceSummary() {
+	Eigen::VectorXd base = 0.05 * Eigen::VectorXd::Ones(mDim);
+	std::vector<Eigen::VectorXd> grids;
+	std::vector<double> fitness;
+	std::vector<double> density;
+
+	grids.push_back(base);
+	density.push_back(GetDensity(base));
+	if(density.back() > 0.1) {
+		fitness.push_back(GetFitness(base));
+	} else {
+		fitness.push_back(0);
+	}
+
+	for(int i = 0; i < mDim; i++) {
+		std::vector<Eigen::VectorXd> vecs;
+		double j = 0.05;
+		while(j < 1) {
+			auto iter = grids.begin();
+			while(iter != grids.end()) {
+				Eigen::VectorXd p = *iter;
+				p(i) = j;
+				vecs.push_back(p);
+				iter++;
+			}
+			j += 0.05;
+		}
+		for(int j = 0; j < vecs.size(); j++) {
+			grids.push_back(vecs[j]);
+			density.push_back(GetDensity(vecs[j]));
+			if(density.back() > 0.1) {
+				fitness.push_back(GetFitness(vecs[j]));
+			} else {
+				fitness.push_back(0);
+			}
+		}	
+	}
+	for(int i = 0; i < grids.size(); i++) {
+		grids[i] = Denormalize(grids[i]);
+	}
+	return std::tuple<std::vector<Eigen::VectorXd>, 
+		   std::vector<double>, 
+		   std::vector<double>>(grids, fitness, density);
 }
 };

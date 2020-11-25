@@ -75,9 +75,9 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = steps_per_iteration * 0.25
+		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.25]
 
-		self.optim_frequency = optim_frequency * 4
+		self.optim_frequency = [optim_frequency * 2, optim_frequency * 4]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -505,7 +505,7 @@ class PPO(object):
 		epi_info_iter_hind = []
 
 		update_counter = 0
-
+		self.env.sampler.reset_explore()
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -514,9 +514,11 @@ class PPO(object):
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
-			if self.parametric:
-				p_idx = self.env.updateGoal()
-
+			if self.adaptive:
+				if self.env.sampler.type_explore == 8 and not self.env.mode:
+					p_idx = self.env.updateGoal(self.critic_progress, self.critic_target_prev)
+				else:
+					p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -530,48 +532,70 @@ class PPO(object):
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
-							if self.parametric:
-								epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], p_idx])
-							else:
-								epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], -1])
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], p_idx])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if local_step < self.steps_per_iteration:
+							if local_step < self.steps_per_iteration[self.env.mode]:
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
 
-				if local_step >= self.steps_per_iteration:
+				if local_step >= self.steps_per_iteration[self.env.mode]:
 					if self.env.getAllTerminated():
-						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
 						break
 				if last_print + 100 < local_step: 
-					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
 					last_print = local_step
 				
 				states = self.env.getStates()
+			if self.adaptive and (self.env.mode == 0 or self.env.sampler.type_explore == 8):
+				self.env.sampler.updateNumSampleDelta(p_idx)
 			print('')
 
-			if it % self.optim_frequency== self.optim_frequency - 1:	
-				if self.parametric:
-					update_counter += 1
-					if update_counter >= 3:
+			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
+				update_counter += 1
+				if self.adaptive:
+					if not self.env.mode and update_counter >= 3:
 						self.updateCriticTarget(False)
 						update_counter = 0
-	
 					self.updateAdaptive(epi_info_iter)
-					t = self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
-					if t:
-						exit()
+
+					t = self.env.updateMode(self.critic_target)
+					if t == 0:
+						self.updateCriticTarget(True)
+						# self.state_old, self.progress_old = self.env.sampler.GetTrainingDataProgress(False)
+						# self.env.sampler.ClearTrainingDataProgress(True)
+						# self.updateCriticProgress(100)
+						update_counter = 0
+					# elif t == 1:
+						# self.env.sampler.ClearTrainingDataProgress(True)
+					# elif self.env.mode == 0:
+						# self.env.sampler.ClearTrainingDataProgress(False)
+						# self.env.sampler.UpdateTrainingDataProgress()
+						# self.updateCriticProgress(100)
+					if t == 999:
+						break
+
+					if not self.parametric:
+						self.env.updateAdaptive()
+					else:
+						if self.env.sampler.type_explore == 8  and self.env.mode:
+							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
+						elif self.env.sampler.type_explore == 8  and not self.env.mode:
+								self.env.updateCurriculum(self.critic_progress, self.critic_target_prev, self.v_target, self.idx_target)
+						else :
+							if self.env.mode:
+								self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
+							else:
+								self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
 
 					epi_info_iter_hind = []
-				elif self.adaptive:
-					self.updateAdaptive(epi_info_iter)
-					self.env.updateReference()
+
 				else:			
 					self.update(epi_info_iter) 
 

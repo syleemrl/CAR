@@ -470,24 +470,24 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-	mParamBVH.resize(4);
-	mParamBVH << 0.707107, 1.3, 1.2, 0.4;
+	mParamBVH.resize(2);
+	mParamBVH << 1.2, 0.4;
 
-	mParamCur.resize(4);
-	mParamCur << 0.707107, 1.3, 1.2, 0.4;
+	mParamCur.resize(2);
+	mParamCur << 1.2, 0.4;
 
-	mParamGoal.resize(4);
-	mParamGoal << 0.707107, 1.3, 1.2, 0.4;
+	mParamGoal.resize(2);
+	mParamGoal << 1.2, 0.4;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.1, 0.2;
+		Eigen::VectorXd paramUnit(2);
+		paramUnit<< 0.1, 0.1;
 
-		mParamBase.resize(4);
-		mParamBase << 0.2, 1.0, 0.8, 0.3;
+		mParamBase.resize(2);
+		mParamBase << 0.8, 0.2;
 
-		mParamEnd.resize(4);
-		mParamEnd << 0.8, 1.4, 1.3, 1.1;
+		mParamEnd.resize(2);
+		mParamEnd << 1.6, 1.2;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -651,12 +651,15 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
 	}
-	double r_con =  exp(-std::get<2>(rewards)[0] * 0.6); //exp(-std::get<2>(rewards)[0]);
-	double r_slide = exp(-std::get<2>(rewards)[1] * 100); //exp(-std::get<2>(rewards)[0]);
-	double r_foot = r_con;
-	double r_delta = std::get<2>(rewards)[3];
-	double r_pos = std::get<2>(rewards)[2];
-	double reward_trajectory = r_foot * r_pos * r_delta;
+
+	double r_foot =  exp(-std::get<2>(rewards)[0]); 
+	double r_vel = exp(-std::get<2>(rewards)[2]*0.01);
+	double r_pos = exp(-std::get<2>(rewards)[1]*8);
+	// std::cout << std::get<2>(rewards).sum_contact << " / " << r_foot << std::endl; 
+	// std::cout << std::get<2>(rewards).sum_vel.transpose() << " / " << r_vel << std::endl; 
+	// std::cout << std::get<2>(rewards).sum_pos.transpose() << " / " << r_pos << std::endl; 
+
+	double reward_trajectory = r_foot * r_pos * r_vel;
 	mLock.lock();
 
 	if(isParametric) {

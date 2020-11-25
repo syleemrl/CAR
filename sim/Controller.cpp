@@ -309,6 +309,12 @@ Step()
 
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
+	if(mPosQueue.size() >= 3)
+		mPosQueue.pop();
+	if(mTimeQueue.size() >= 3)
+		mTimeQueue.pop();
+	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
+	mTimeQueue.push(mCurrentFrame);
 
 	if(isAdaptive && mIsTerminal)
 		data_spline.clear();
@@ -472,17 +478,20 @@ double
 Controller::
 GetSimilarityReward()
 {
-	auto& skel = this->mCharacter->GetSkeleton();
+auto& skel = this->mCharacter->GetSkeleton();
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrameOnPhase, false);
 	Eigen::VectorXd pos = p_v_target->GetPosition();
-
+	Eigen::VectorXd vel = p_v_target->GetVelocity();
 	delete p_v_target;
+
+	// std::cout<<mCurrentFrame<<"/ ref: "<<ref_obj_height<<" / cur: "<<cur_obj_height<<std::endl;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
+
 	double con_diff = 0;
 
 	for(int i = 0; i < contacts_cur.size(); i++) {
@@ -491,121 +500,63 @@ GetSimilarityReward()
 		}
 	}
 	//double r_con = exp(-con_diff);
-	double r_con = abs(con_diff);
 	Eigen::VectorXd p_aligned = skel->getPositions();
 	std::vector<Eigen::VectorXd> p_with_zero;
 	p_with_zero.push_back(mRootZero);
 	p_with_zero.push_back(p_aligned.segment<6>(0));
 	p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
 	p_aligned.segment<6>(0) = p_with_zero[1];
-	Eigen::VectorXd p_diff = skel->getPositionDifferences(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false), p_aligned);
+
+	Eigen::VectorXd v = skel->getPositionDifferences(skel->getPositions(), mPosQueue.front()) / (mCurrentFrame - mTimeQueue.front() + 1e-10) / 0.033;
+	for(auto& jn : skel->getJoints()){
+		if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
+			double v_ = v[jn->getIndexInSkeleton(0)];
+			if(v_ > M_PI){
+				v_ -= 2*M_PI;
+			}
+			else if(v_ < -M_PI){
+				v_ += 2*M_PI;
+			}
+			v[jn->getIndexInSkeleton(0)] = v_;
+		}
+	}
+
+	Eigen::VectorXd p_diff = skel->getPositionDifferences(pos, p_aligned);
+	Eigen::VectorXd v_diff = skel->getVelocityDifferences(vel, v);
 
 	int num_body_nodes = skel->getNumBodyNodes();
+	for(int i =0 ; i < vel.rows(); i++) {
+		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
+	}
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 3;
-			p_diff.segment<3>(idx + 3) *= 5;
+			p_diff.segment<3>(idx + 3) *= 3;
+			v_diff.segment<3>(idx) *= 3;
+			v_diff.segment<3>(idx + 3) *= 3;
+		} else if(name.find("Spine") != std::string::npos) {
+			p_diff.segment<3>(idx) *= 3;
+			v_diff.segment<3>(idx) *= 3;
+
 		}
 	}
-
-	Eigen::VectorXd tl_cur(3 + mEndEffectors.size() * 3);
-	Eigen::Vector3d root_cur = skel->getPositions().segment<3>(0);
-	root_cur = projectToXZ(root_cur);
-	Eigen::AngleAxisd aa_cur(root_cur.norm(), root_cur.normalized());
-
-	tl_cur.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
-	for(int i = 0; i < mEndEffectors.size(); i++) {
-		tl_cur.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
-	}
-	
-	Eigen::VectorXd ee_v_diff(3 + mEndEffectors.size() * 3);
-	ee_v_diff.setZero();
-	
-	Eigen::VectorXd ee_v_bvh(3 + mEndEffectors.size() * 3);
-	Eigen::VectorXd ee_v_cur(3 + mEndEffectors.size() * 3);
-	ee_v_bvh.setZero();
-	ee_v_cur.setZero();
-
-	double slide = 0;
-	
-	if(mCurrentFrame != mPrevFrame && mPrevFrame != mPrevFrame2) {
-		skel->setPositions(pos);
-		skel->computeForwardKinematics(true,false,false);
-		
-		root_cur = skel->getPositions().segment<3>(0);
-		root_cur = projectToXZ(root_cur);
-		Eigen::AngleAxisd aa_bvh(root_cur.norm(), root_cur.normalized());
-
-		Eigen::VectorXd tl_cur_bvh(3 + mEndEffectors.size() * 3);
-		tl_cur_bvh.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
-		for(int i = 0; i < mEndEffectors.size(); i++) {
-			tl_cur_bvh.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
-		}
-
-		Eigen::VectorXd tl_prev_bvh(3 + mEndEffectors.size() * 3);
-		Eigen::VectorXd p_bvh_prev = mReferenceManager->GetPosition(mPrevFrame, false);
-
-		skel->setPositions(p_bvh_prev);
-		skel->computeForwardKinematics(true,false,false);
-
-		tl_prev_bvh.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
-		for(int i = 0; i < mEndEffectors.size(); i++) {
-			tl_prev_bvh.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
-		}
-
-		skel->setPositions(p_save);
-		skel->setVelocities(v_save);
-		skel->computeForwardKinematics(true,true,false);
-
-		for(int i = 0; i < mEndEffectors.size() + 1; i++) {
-			if(i == 0) {
-				ee_v_bvh.segment<3>(3*i) = tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i);
-				ee_v_cur.segment<3>(3*i) = tl_cur.segment<3>(3*i) - mTlPrev.segment<3>(3*i);
-
-			} else {
-				ee_v_bvh.segment<3>(3*i) = aa_bvh.inverse() * (tl_cur_bvh.segment<3>(3*i) - tl_prev_bvh.segment<3>(3*i));
-				ee_v_cur.segment<3>(3*i) = aa_cur.inverse() * (tl_cur.segment<3>(3*i) - mTlPrev.segment<3>(3*i));
-			}
-			ee_v_diff.segment<3>(3*i) = (ee_v_cur.segment<3>(3*i) - ee_v_bvh.segment<3>(3*i));
-		}
-		for(int i = 0; i < 3 * mEndEffectors.size() + 3; i++) {
-			ee_v_diff(i) /= std::max(0.03, abs(ee_v_bvh(i)));
-		}
-		ee_v_diff.segment<3>(0) *= 2;
-		for(int j = 0; j < 2; j++) {
-			if(tl_cur(3*(j+1) + 1) < 0.07 && mTlPrev(3*(j+1) + 1) < 0.07 && mTlPrev2(3*(j+1) + 1) < 0.07) {
-				Eigen::Vector2d cur, prev, prev2;
-				cur << tl_cur(3*(j+1)), tl_cur(3*(j+1) + 2);
-				prev << mTlPrev(3*(j+1)), mTlPrev(3*(j+1) + 2);
-				prev2 << mTlPrev2(3*(j+1)), mTlPrev2(3*(j+1) + 2);
-				slide += (prev - cur).dot(prev - cur) + (prev - prev2).dot(prev - prev2);
-			} 
-		}
-	}
-	
-	double r_slide = abs(slide); //exp(-slide*200);
-	double r_ee = exp_of_squared(ee_v_diff, 1.5);
+	double r_con = exp(-con_diff);
+	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff,0.3);
-
-	mTlPrev2 = mTlPrev;
-	mTlPrev = tl_cur;	
-	
 	mPrevFrame2 = mPrevFrame;
 	mPrevFrame = mCurrentFrame;
 
-
 	if(mRewardSimilarity.size() == 0) {
-		for(int i = 0; i < 4; i++) {
+		for(int i = 0; i < 3; i++) {
 			mRewardSimilarity.push_back(0);
 		}
 	}
 	
 	mRewardSimilarity[0] += r_con;
-	mRewardSimilarity[1] += r_slide;
-	mRewardSimilarity[2] += r_p;
-	mRewardSimilarity[3] += r_ee;
+	mRewardSimilarity[1] += p_diff.dot(p_diff) / p_diff.rows();
+	mRewardSimilarity[2] += v_diff.dot(v_diff) / v_diff.rows();
 
 	return exp(-r_con)  * r_p * r_ee;
 }
@@ -619,13 +570,13 @@ GetParamReward()
 		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
 		root_new = projectToXZ(root_new);
 		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-		Eigen::Vector3d dir = Eigen::Vector3d(mParamGoal(0), 0, - sqrt(1 - mParamGoal(0)*mParamGoal(0)));
+		Eigen::Vector3d dir = Eigen::Vector3d(0.7, 0, - sqrt(1 - 0.49));
 		dir.normalize();
-		dir *= mParamGoal(2);
+		dir *= mParamGoal(0);
 		Eigen::Vector3d goal_hand = aa * dir + mHeadRoot.segment<3>(3);
-		goal_hand(1) = mParamGoal(1);
+		goal_hand(1) = 1.3;
 		Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
-		double v_diff = mParamGoal(3) - maxSpeedObj;
+		double v_diff = mParamGoal(1) - maxSpeedObj;
 
 		r_param = exp_of_squared(hand_diff,0.1) * exp(-pow(v_diff, 2)*150);
 		
@@ -635,12 +586,17 @@ GetParamReward()
 		dir = aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-		mParamCur << dir(0), mHandPosition(1), norm, maxSpeedObj;
+
+		if(abs(0.7 - dir(0)) < 0.1 && abs(1.3 - mHandPosition(1)) < 0.05)
+			mParamCur << norm, maxSpeedObj;
+		else
+			mParamCur << -1, -1;
 		mControlFlag[0] = 4;
 
 		if(mRecord) {
 			std::cout << hand_diff.transpose() << " "<< exp_of_squared(hand_diff, 0.4)  << " "<< exp_of_squared(hand_diff,0.1) << std::endl;
 			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*150) << std::endl;
+			std::cout << dir.transpose() << " " << mHandPosition(1) << " " << mParamCur.transpose() << std::endl;
 		}
 	}
 	return r_param;
@@ -890,16 +846,16 @@ Reset(bool RSI)
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 	
-	Eigen::VectorXd tl_cur(3 + mEndEffectors.size() * 3);
-	tl_cur.segment<3>(0) = skel->getRootBodyNode()->getWorldTransform().translation();
-	for(int i = 0; i < mEndEffectors.size(); i++) {
-		tl_cur.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
-	}
-	mTlPrev = tl_cur;	
-	mTlPrev2 = mTlPrev;
-
 	mPrevFrame = mCurrentFrame;
 	mPrevFrame2 = mPrevFrame;
+	
+	while(!mPosQueue.empty())
+		mPosQueue.pop();
+	while(!mTimeQueue.empty())
+		mTimeQueue.pop();
+	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
+	mTimeQueue.push(0);
+
 
 	if(isAdaptive)
 	{

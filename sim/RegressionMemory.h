@@ -113,6 +113,10 @@ public:
 
 	int GetNumSamples();
 	int GetNewSamplesNearGoal() {return mNewSamplesNearGoal;}
+	std::tuple<std::vector<Eigen::VectorXd>, 
+		   std::vector<double>, 
+		   std::vector<double>> GetParamSpaceSummary();
+	double GetFitness(Eigen::VectorXd p);
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;

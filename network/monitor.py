@@ -8,6 +8,11 @@ import numpy as np
 import copy
 from utils import RunningMeanStd
 from IPython import embed
+def vector_to_str(vec):
+	s = ''
+	for v in vec:
+		s += str(v) + ' '
+	return s
 
 class Monitor(object):
 	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
@@ -51,12 +56,11 @@ class Monitor(object):
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
 		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
-
 		self.mode_counter = 0
 		self.flag_updated = False
 		self.exploration_done = False
 		self.v_ratio = 0
-
+		self.mode = 0
 		if self.plot:
 			plt.ion()
 
@@ -133,43 +137,86 @@ class Monitor(object):
 			self.env.sim_env.UpdateReference()
 			self.sim_env.TrainRegressionNetwork()
 	
-	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
-		if self.num_evaluation % 10 == 9:
+	def saveParamSpaceSummary(self, v_func):
+		self.sim_env.SaveParamSpace(self.num_evaluation)
+		li = self.sim_env.GetParamSpaceSummary()
+		grids = li[0]
+		fitness = li[1]
+		density = li[2]
+		v_values = v_func.getValue(grids)
+		
+		out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
+		out.write(str(len(grids[0]))+'\n')
+		for i in range(len(grids)):
+			out.write(vector_to_str(grids[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
+		out.close()		
+
+
+	def updateMode(self, v_func):
+		mode_change = -1
+		self.mode_counter += 1
+		if self.mode_counter % 10 == 0:
 			self.sim_env.UpdateParamState()
-		#	self.sim_env.SaveParamSpace(-1)
-		#	self.sim_env.TrainRegressionNetwork()
-			self.v_ratio = self.sim_env.GetVisitedRatio()
-			self.sampler.v_ratio = self.sim_env.GetVisitedRatio() 
-			if self.sampler.v_ratio == 1:
-				self.sampler.done = True
-			out = open(self.directory+"v_ratio", "a")
-			out.write(str(self.num_episodes)+' : '+str(self.v_ratio)+'\n')
-			out.close()
-			print('v_ratio', self.v_ratio)
+			self.saveParamSpaceSummary(v_func)
 
-		if self.num_evaluation % 50 == 49:
-			self.sim_env.SaveParamSpace(self.num_evaluation)
+		# if self.num_evaluation % 10 == 0 and self.exploration_test_print != "":
+		# 	self.v_ratio = self.sim_env.GetVisitedRatio()
+		# 	if not os.path.isfile(self.exploration_test_print) :
+		# 		out = open(self.exploration_test_print, "w")
+		# 		out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+		# 		out.close()
+		# 	else:
+		# 		out = open(self.exploration_test_print, "a")
+		# 		out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+		# 		out.close()		
 
-		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs)
-		if self.sampler.isEnough() and self.v_ratio == 1:
-			return True
+		if self.mode == 0:
+			#if self.mode_counter % 10 == 0:
+			#	self.sim_env.SaveParamSpace(-1)
+			#	self.sampler.reset_explore()
+			if self.mode_counter >= 20 or self.v_ratio == 1:
+				if self.v_ratio == 1:
+					self.sampler.done = True
+			#	self.sim_env.TrainRegressionNetwork(20)
+				self.mode = 1
+				self.mode_counter = 0
+				self.sampler.reset_visit()
+				mode_change = 1
 		else:
-			return False
+			#if self.mode_counter % 10 == 0:
+			#	self.sim_env.SaveParamSpace(-1)
+			#	self.sim_env.TrainRegressionNetwork(10)
+			enough = self.sampler.isEnough(v_func)
+			if enough and self.v_ratio != 1:
+				self.mode = 0
+				self.mode_counter = 0
+				self.sampler.reset_explore()
+				self.sim_env.UpdateParamState()
+				mode_change = 0
+			elif enough and self.v_ratio == 1:
+				mode_change = 999
+		return mode_change
+	
+	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
+		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
+		# if not self.mode and not self.sim_env.NeedExploration():
+		# 	self.sim_env.TrainRegressionNetwork(50)
+		# 	self.mode = 1
+		# 	self.mode_counter = 0
+		# 	self.sampler.reset_visit()
+		# 	self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
 
-	def updateGoal(self):
-		t, idx, mem_only = self.sampler.adaptiveSample()
+	def updateGoal(self, v_func, v_func_prev):
+		t, idx = self.sampler.adaptiveSample(self.mode)
 		t = np.array(t, dtype=np.float32) 
 
-		if self.num_evaluation < 30:
-			self.sim_env.SetGoalParameters(t, True)
-		else:
-			self.sim_env.SetGoalParameters(t, mem_only)
+		self.sim_env.SetGoalParameters(t, self.mode)
+		
+		t = np.reshape(t, (-1, self.dim_param))
+		v = v_func.getValue(t)[0]
+		v_prev = v_func_prev.getValue(t)[0]
 
-		if mem_only:
-			print('exploitation goal: ', t)
-		else:
-			print('exploration goal: ', t)
-
+		print(t[0], v, v - v_prev)
 		return idx
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):

@@ -7,7 +7,7 @@
 #include "Functions.h"
 #include "ReferenceManager.h"
 #include <tuple>
-
+#include <queue>
 namespace DPhy
 {
 /**
@@ -194,6 +194,9 @@ protected:
 
 	double maxSpeedObj;
 	Eigen::Vector3d mHandPosition;
+
+	std::queue<Eigen::VectorXd> mPosQueue;
+	std::queue<double> mTimeQueue;
 
 };
 }

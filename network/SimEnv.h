@@ -60,6 +60,7 @@ public:
 	double GetVisitedRatio();
 	double GetDensity(np::ndarray np_array);
 	void UpdateParamState();
+	p::list GetParamSpaceSummary();
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;
