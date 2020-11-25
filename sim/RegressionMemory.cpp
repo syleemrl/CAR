@@ -650,11 +650,13 @@ UniformSample(bool visited, bool far) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.2 && d > 0.1) {
+			if (d < 0.3 && d > 0.15) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
-			if(far && d < 0.1)
+			if(far && d < 0.1) {
+				std::cout << "far" << std::endl;
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
+			}
 		}
 		if(visited && d > 0.5) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);

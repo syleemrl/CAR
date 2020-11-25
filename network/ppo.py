@@ -1,6 +1,5 @@
 import warnings
 warnings.filterwarnings(action='ignore') 
-
 from network import Actor
 from network import Critic
 from monitor import Monitor
@@ -19,7 +18,6 @@ from utils import RunningMeanStd
 from tensorflow.python import pywrap_tensorflow
 import scipy.integrate as integrate
 import types
-
 np.set_printoptions(threshold=sys.maxsize)
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -67,7 +65,6 @@ class PPO(object):
 			self.load(self.pretrain)
 			li = pretrain.split("network")
 			suffix = li[-1]
-
 			self.RMS = RunningMeanStd(shape=(self.num_state))
 			self.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 			self.RMS.setNumStates(self.num_state)
@@ -78,8 +75,9 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25, steps_per_iteration * 0.25]
-		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4, optim_frequency * 12]
+		self.steps_per_iteration = steps_per_iteration * 0.25
+
+		self.optim_frequency = optim_frequency * 4
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -93,8 +91,6 @@ class PPO(object):
 
 		self.target_x_batch = []
 		self.target_y_batch = []
-		self.state_old = []
-		self.progress_old = []
 
 		self.last_target_update = 0
 
@@ -148,12 +144,9 @@ class PPO(object):
 			out = open(self.directory+"results", "w")
 			out.close()
 
-	def createCriticNetwork(self, name, input, TD, clip=True, critic_layer_size=-1):
-		if critic_layer_size == -1:
-			critic = Critic(self.sess, name, input)
-		else:	
-			critic = Critic(self.sess, name, input, critic_layer_size=critic_layer_size)
-
+	def createCriticNetwork(self, name, input, TD, clip=True):
+		critic = Critic(self.sess, name, input)
+			
 		with tf.variable_scope(name+'_Optimize'):
 			value_loss = tf.reduce_mean(tf.square(critic.value - TD))
 			loss = value_loss
@@ -206,7 +199,6 @@ class PPO(object):
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
 				self.critic_target_prev2, _, _ = self.createCriticNetwork(name+'_target_prev2', self.state_target, self.TD_target, False)
-				self.critic_progress, self.critic_progress_train_op, self.loss_critic_progress = self.createCriticNetwork(name+'_target_progress', self.state_target, self.TD_target, False, critic_layer_size=64)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -217,34 +209,6 @@ class PPO(object):
 		self.saver = tf.train.Saver(var_list=save_list, max_to_keep=1)
 		
 		self.sess.run(tf.global_variables_initializer())
-
-	def updateCriticProgress(self, n):
-		state_progress, progress_batch = self.env.sampler.GetTrainingDataProgress(True)
-		batch_size_progress = 20
-		if len(self.state_old) != 0:
-			state_progress = np.concatenate((state_progress, self.state_old))
-			progress_batch = np.concatenate((progress_batch, self.progress_old))
-
-		for _ in range(n):
-			ind = np.arange(len(state_progress))
-			np.random.shuffle(ind)
-
-			for s in range(int(len(ind)//batch_size_progress)):
-				selectedIndex = ind[s*batch_size_progress:(s+1)*batch_size_progress]
-				val = self.sess.run([self.critic_progress_train_op, self.loss_critic_progress], 
-					feed_dict={
-						self.state_target: state_progress[selectedIndex], 
-						self.TD_target: progress_batch[selectedIndex], 
-					}
-				)
-			selectedIndex = ind[(s+1)*batch_size_progress:]
-			if len(selectedIndex) != 0:
-				val = self.sess.run([self.critic_progress_train_op, self.loss_critic_progress], 
-					feed_dict={
-						self.state_target: state_progress[selectedIndex], 
-						self.TD_target: progress_batch[selectedIndex], 
-					}
-				)
 
 	def updateCriticTarget(self, update_all=False):
 		copy_op = []
@@ -365,31 +329,30 @@ class PPO(object):
 
 		self.lossvals.append(['loss actor', lossval_ac])
 		self.lossvals.append(['loss critic', lossval_c])
-		
-		if len(self.target_x_batch) == 0:
-			self.target_x_batch = state_target_batch
-			self.target_y_batch = TD_target_batch
-		else:
-			self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
-			self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
+		if self.parametric:
+			if len(self.target_x_batch) == 0:
+				self.target_x_batch = state_target_batch
+				self.target_y_batch = TD_target_batch
+			else:
+				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
+				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
-			if len(self.target_x_batch) > 5000:
-				self.target_x_batch = self.target_x_batch[-2000:]
-				self.target_y_batch = self.target_y_batch[-2000:]
-
-		for n in range(5):
-			ind = np.arange(len(self.target_x_batch))
-			np.random.shuffle(ind)
-			for s in range(int(len(ind)//self.batch_size_target)):
-				selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
-				val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
-					feed_dict={
-						self.state_target: self.target_x_batch[selectedIndex], 
-						self.TD_target: self.target_y_batch[selectedIndex]
-					}
-				)
-				lossval_ct += val[1]
-		self.lossvals.append(['loss critic target', lossval_ct / 5])
+				if len(self.target_x_batch) > 5000:
+					self.target_x_batch = self.target_x_batch[-2000:]
+					self.target_y_batch = self.target_y_batch[-2000:]
+			for n in range(50):
+				ind = np.arange(len(self.target_x_batch))
+				np.random.shuffle(ind)
+				for s in range(int(len(ind)//self.batch_size_target)):
+					selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
+					val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
+						feed_dict={
+							self.state_target: self.target_x_batch[selectedIndex], 
+							self.TD_target: self.target_y_batch[selectedIndex]
+						}
+					)
+					lossval_ct += val[1]
+			self.lossvals.append(['loss critic target', lossval_ct / 50])
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
@@ -467,7 +430,7 @@ class PPO(object):
 				TD_batch.append(TD[i])
 				neglogp_batch.append(neglogprobs[i])
 				GAE_batch.append(advantages[i])
-
+		
 		self.v_target = TD_target_batch
 		self.idx_target = idx_batch
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
@@ -542,7 +505,7 @@ class PPO(object):
 		epi_info_iter_hind = []
 
 		update_counter = 0
-		self.env.sampler.reset_explore()
+
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -551,8 +514,9 @@ class PPO(object):
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
-			if self.adaptive:
-				p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
+			if self.parametric:
+				p_idx = self.env.updateGoal()
+
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -566,66 +530,48 @@ class PPO(object):
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
-							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], p_idx])
+							if self.parametric:
+								epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], p_idx])
+							else:
+								epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], -1])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if local_step < self.steps_per_iteration[self.env.mode]:
+							if local_step < self.steps_per_iteration:
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
 
-				if local_step >= self.steps_per_iteration[self.env.mode]:
+				if local_step >= self.steps_per_iteration:
 					if self.env.getAllTerminated():
-						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
 						break
 				if last_print + 100 < local_step: 
-					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration),end='\r')
 					last_print = local_step
 				
 				states = self.env.getStates()
-			if self.adaptive and self.env.mode == 0:
-				self.env.sampler.updateNumSampleDelta(p_idx)
 			print('')
 
-			if it % self.optim_frequency[self.env.sampler.mode] == self.optim_frequency[self.env.sampler.mode] - 1:	
-				update_counter += 1
-				if self.adaptive:
-					if not self.env.mode and update_counter >= 3:
+			if it % self.optim_frequency== self.optim_frequency - 1:	
+				if self.parametric:
+					update_counter += 1
+					if update_counter >= 3:
 						self.updateCriticTarget(False)
 						update_counter = 0
+	
 					self.updateAdaptive(epi_info_iter)
-
-					t = self.env.updateMode(self.critic_target)
-					if t == 0:
-						self.updateCriticTarget(True)
-						# self.state_old, self.progress_old = self.env.sampler.GetTrainingDataProgress(False)
-						# self.env.sampler.ClearTrainingDataProgress(True)
-						# self.updateCriticProgress(100)
-						update_counter = 0
-					# elif t == 1:
-						# self.env.sampler.ClearTrainingDataProgress(True)
-					# elif self.env.mode == 0:
-						# self.env.sampler.ClearTrainingDataProgress(False)
-						# self.env.sampler.UpdateTrainingDataProgress()
-						# self.updateCriticProgress(100)
-					if t == 999:
-						self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
-						break
-
-					if not self.parametric:
-						self.env.updateAdaptive()
-					else:
-						if self.env.mode:
-							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-						else:
-							self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+					t = self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+					if t:
+						exit()
 
 					epi_info_iter_hind = []
-
+				elif self.adaptive:
+					self.updateAdaptive(epi_info_iter)
+					self.env.updateReference()
 				else:			
 					self.update(epi_info_iter) 
 
@@ -664,21 +610,15 @@ if __name__=="__main__":
 	parser.add_argument("--ref", type=str, default="")
 	parser.add_argument("--test_name", type=str, default="")
 	parser.add_argument("--pretrain", type=str, default="")
-	parser.add_argument("--evaluation", type=bool, default=False)
 	parser.add_argument("--nslaves", type=int, default=4)
 	parser.add_argument("--adaptive", dest='adaptive', action='store_true')
 	parser.add_argument("--parametric", dest='parametric', action='store_true')
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
-	parser.add_argument("--explore", type=int, default=0)
-	parser.add_argument("--visit", type=int, default=0)
-	parser.add_argument("--egreedy", type=int, default=0)
-	parser.add_argument("--hard", type=int, default=0)
-	parser.add_argument("--exploration_test_print", type=str, default="")
-
 	parser.set_defaults(plot=True)
 	parser.set_defaults(adaptive=False)
 	parser.set_defaults(parametric=False)
+
 	args = parser.parse_args()
 
 	directory = None
@@ -691,17 +631,13 @@ if __name__=="__main__":
 			os.mkdir(directory)
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, 
-					  adaptive=args.adaptive, parametric=args.parametric, 
-					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, hard=args.hard, exploration_test_print=args.exploration_test_print)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 	else:
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, 
-					  adaptive=args.adaptive, parametric=args.parametric, 
-					  explore=args.explore, visit=args.visit, egreedy=args.egreedy, hard=args.hard, exploration_test_print=arg.sexploration_test_print)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 
 	ppo = PPO()
 
-	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, evaluation=args.evaluation, 
+	ppo.initTrain(env=env, name=args.test_name, directory=directory, pretrain=args.pretrain, 
 		adaptive=args.adaptive, parametric=args.parametric)
 
 	ppo.train(args.ntimesteps)

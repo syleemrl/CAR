@@ -16,14 +16,13 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	DPhy::Character* character = new DPhy::Character(path);
 	mReferenceManager = new DPhy::ReferenceManager(character);
 	mReferenceManager->LoadMotionFromBVH(ref);
+	
 	if(adaptive) {
-		if(adaptive) {
-			mRegressionMemory = new DPhy::RegressionMemory();
-			mReferenceManager->SetRegressionMemory(mRegressionMemory);
-		}
+		mRegressionMemory = new DPhy::RegressionMemory();
+		mReferenceManager->SetRegressionMemory(mRegressionMemory);
 
 		mReferenceManager->InitOptimization(num_slaves, training_path, adaptive);
-		mReferenceManager->LoadAdaptiveMotion("ref_5");
+		mReferenceManager->LoadAdaptiveMotion("");
 
 		mRegressionMemory->LoadParamSpace(mPath + "param_space");
 		
@@ -44,7 +43,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 			PyErr_Print();
 		}
 	}
-
+	
 	for(int i =0;i<num_slaves;i++)
 	{
 		mSlaves.push_back(new DPhy::Controller(mReferenceManager, adaptive, parametric, false, i));
@@ -57,9 +56,6 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 	mNumState = mSlaves[0]->GetNumState();
 	mNumAction = mSlaves[0]->GetNumAction();
 	mExUpdate = 0;
-	isAdaptive = adaptive;
-	isParametric = parametric;
-	mNeedExploration = true;
 }
 
 //For general properties
@@ -214,79 +210,9 @@ GetRewardsByParts()
 
 	return DPhy::toNumPyArray(rewards);
 }
-bool
-SimEnv::
-Optimize()
-{
-	mRegressionMemory->EvalExplorationStep();
-	// mReferenceManager->OptimizeExReference();
-
-	// Eigen::VectorXd tp = mRegressionMemory->GetParamGoal();
-	// Eigen::VectorXd tp_normalized = mRegressionMemory->Normalize(tp);
-	
-	// int dof = mReferenceManager->GetDOF() + 1;
-	// int dof_input = 1 + mRegressionMemory->GetDim();
-	
-	// std::vector<Eigen::VectorXd> cps_reg;
-	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	// 	Eigen::VectorXd input(dof_input);
-	// 	input << j, tp_normalized;
-	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-	// 	np::ndarray na = np::from_object(a);
-	// 	cps_reg.push_back(DPhy::toEigenVector(na, dof));
-	// }
-	// mReferenceManager->SetCPSreg(cps_reg);
-
-
-	// int flag_sig = mReferenceManager->NeedUpdateSigTarget();
-	// if(flag_sig) {
-	// 	double sig = mSlaves[0]->GetSigTarget();
-	// 	double new_sig = sig;
-	// 	if(flag_sig > 0)
-	// 		new_sig *= 2;
-	// 	else if(flag_sig < 0 && sig > 0.3)
-	// 		new_sig /= 2;
-	// 	if(sig != new_sig) {
-	// 		mReferenceManager->UpdateTargetReward(sig, new_sig);
-	// 		for(int id = 0; id < mNumSlaves; ++id) {
-	// 			mSlaves[id]->SetSigTarget(new_sig);
-	// 		}		
-	// 	}
-
-	return true;
-}
-int
-SimEnv::
-GetNumSamples() 
-{
-	return mRegressionMemory->GetNumSamples();
-
-}
-void
-SimEnv::
-SelectNewGoal() 
-{
-	// mReferenceManager->SelectReference();
-	bool t = mRegressionMemory->SetNextCandidate();
-
-	if(t) {
-		Eigen::VectorXd tp =mRegressionMemory->GetParamGoal();
-		for(int i = 0; i < mNumSlaves; i++) {
-			mSlaves[i]->SetGoalParameters(tp);
-		}
-		std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCurrentCPS();
-		//std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->LoadAdaptiveMotion(cps);
-	}
-}
-void
-SimEnv::
-UpdateParamState() {
-	mRegressionMemory->UpdateParamState();
-}
 void 
 SimEnv::
-TrainRegressionNetwork(int n)
+TrainRegressionNetwork()
 {
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
@@ -302,7 +228,7 @@ TrainRegressionNetwork(int n)
 	l.append(y);
 
 	this->mRegression.attr("setRegressionData")(l);
-	this->mRegression.attr("train")(n);
+	this->mRegression.attr("train")();
 
 }
 void
@@ -325,50 +251,19 @@ GetDOF()
 }
 void 
 SimEnv::
-SetExplorationMode(bool t) {
+UpdateReference() {
+	Eigen::VectorXd tp = mReferenceManager->GetParamGoal();		
+		
+	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+	mReferenceManager->LoadAdaptiveMotion(cps);
 
-	mReferenceManager->SetExplorationMode(t);
-	if(t) {
-		// load cps
-		mReferenceManager->LoadAdaptiveMotion("updated");
-		Eigen::VectorXd tp = mReferenceManager->GetParamGoal();		
-		for(int id = 0; id < mNumSlaves; ++id) {
-			mSlaves[id]->SetGoalParameters(tp);
-			// mSlaves[id]->SetExplorationMode(true);
-		}
-		// if(isParametric) {
-		// 	mRegressionMemory->SelectNewParamGoalCandidate();
-		// 	mRegressionMemory->ResetExploration();
-		// } else 
+	mReferenceManager->SaveAdaptiveMotion("ref_"+std::to_string(mExUpdate));
+	mExUpdate += 1;
 
-		if(isAdaptive) {
-			mReferenceManager->OptimizeExReference();
-			mReferenceManager->SelectReference();
-
-			mReferenceManager->SaveAdaptiveMotion("ref_"+std::to_string(mExUpdate));
-			mExUpdate += 1;
-
-		}
-
-	} else {
-		mReferenceManager->SaveAdaptiveMotion("updated");
-		// mRegressionMemory->SaveGoalInfo(mPath + "goal_log");
-
-	}
-}
-bool 
-SimEnv::
-NeedExploration() {
-	return mNeedExploration;
-}
-bool 
-SimEnv::
-NeedParamTraining() {
-	return mRegressionMemory->IsSpaceExpanded();
 }
 void 
 SimEnv::
-SetGoalParameters(np::ndarray np_array, bool visited) {
+SetGoalParameters(np::ndarray np_array, bool mem_only) {
 
 	int dim = mRegressionMemory->GetDim();
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
@@ -376,88 +271,28 @@ SetGoalParameters(np::ndarray np_array, bool visited) {
 	int dof = mReferenceManager->GetDOF() + 1;
 	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
-	if(visited) {
-		for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-			Eigen::VectorXd input(dof_input);
-			input << j, tp_normalized;
-			p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-			np::ndarray na = np::from_object(a);
-			cps.push_back(DPhy::toEigenVector(na, dof));
-		}
-		mReferenceManager->SetCPSreg(cps);
+	if(mem_only) {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->SetCPSexp(cps);
-		mReferenceManager->SelectReference();
-	//	mReferenceManager->LoadAdaptiveMotion(cps);
-
+		mReferenceManager->LoadAdaptiveMotion(cps);
 	} else {
+		// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+		// 	Eigen::VectorXd input(dof_input);
+		// 	input << j, tp_normalized;
+		// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+		// 	np::ndarray na = np::from_object(a);
+		// 	cps.push_back(DPhy::toEigenVector(na, dof));
+		// }
+		// mReferenceManager->SetCPSreg(cps);
+		// cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		// mReferenceManager->SetCPSexp(cps);
+		// mReferenceManager->SelectReference();
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mRegressionMemory->SetParamGoal(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps);
 	}
 
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(tp);
 	}
-}
-int
-SimEnv::
-GetNewSamplesNearGoal() {
-	return mRegressionMemory->GetNewSamplesNearGoal();
-}
-double
-SimEnv::
-GetVisitedRatio() {
-	return mRegressionMemory->GetVisitedRatio();
-}
-void
-SimEnv::
-SetExGoalParameters(p::list p) {
-	p::object o = p.pop();
-	double v = static_cast<double>(p::extract<float>(o));
-	o = p.pop();
-	np::ndarray np_array = np::from_object(o);
-	int dim = mRegressionMemory->GetDim();
-	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
-	mReferenceManager->ResetOptimizationParameters(false);
-	mReferenceManager->SetParamGoal(tp);
-
-	mRegressionMemory->SetParamGoal(tp);
-	mRegressionMemory->SetGoalInfo(v);
-
-	mReferenceManager->OptimizeExReference();
-
-	Eigen::VectorXd tp_normalized = mRegressionMemory->Normalize(tp);
-	int dof = mReferenceManager->GetDOF() + 1;
-	int dof_input = 1 + mRegressionMemory->GetDim();
-	std::vector<Eigen::VectorXd> cps_reg;
-	for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-		Eigen::VectorXd input(dof_input);
-		input << j, tp_normalized;
-		p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-		np::ndarray na = np::from_object(a);
-		cps_reg.push_back(DPhy::toEigenVector(na, dof));
-	}
-	mReferenceManager->SetCPSreg(cps_reg);
-
-	std::vector<Eigen::VectorXd> cps_exp = mReferenceManager->GetCPSexp();
-	mReferenceManager->LoadAdaptiveMotion(cps_exp);
-	mReferenceManager->SaveAdaptiveMotion("ex_exp"+std::to_string(mExUpdate));
-
-	mReferenceManager->LoadAdaptiveMotion(cps_reg);
-	mReferenceManager->SaveAdaptiveMotion("ex_reg"+std::to_string(mExUpdate));
-
-	for(int id = 0; id < mNumSlaves; ++id) {
-		mSlaves[id]->SetGoalParameters(tp);
-	}
-
-	std::ofstream ofs;
-	ofs.open(mPath + "goal_ex", std::fstream::out | std::fstream::app);
-
-	ofs << mExUpdate << " " << tp.transpose() << std::endl;
-	ofs.close();
-	mExUpdate += 1;
-
 }
 np::ndarray 
 SimEnv::
@@ -466,11 +301,10 @@ GetParamGoal() {
 }
 np::ndarray 
 SimEnv::
-UniformSample(bool visited, bool far) {
-	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited, far);
+UniformSample(bool visited) {
+	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited);
 	if(!pair.second) {
 		std::cout << "exploration done" << std::endl;
-		mNeedExploration = false;
 	}
 	return DPhy::toNumPyArray(pair.first);
 }
@@ -489,29 +323,22 @@ SaveParamSpaceLog(int n) {
 	mRegressionMemory->SaveLog(mPath + "log");
 
 }
+void
+SimEnv::
+UpdateParamState() {
+	mRegressionMemory->UpdateParamState();
+}
+double
+SimEnv::
+GetVisitedRatio() {
+	return mRegressionMemory->GetVisitedRatio();
+}
 double
 SimEnv::
 GetDensity(np::ndarray np_array) {
 	int dim = mRegressionMemory->GetDim();
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
 	return mRegressionMemory->GetDensity(mRegressionMemory->Normalize(tp));
-}
-p::list
-SimEnv::
-GetParamGoalCandidate() {
-	mRegressionMemory->SelectNewParamGoalCandidate();
-	p::list li;
-	// for(int i = 0; i < ps.size(); i++) {
-	// 	p::list p;
-	// 	p.append(DPhy::toNumPyArray(ps[i].first));
-	// 	p::list p_near;
-	// 	for(int j = 0 ; j < ps[i].second.size(); j++) {
-	// 		p_near.append(DPhy::toNumPyArray((ps[i].second)[j]));
-	// 	}
-	// 	p.append(p_near);
-	// 	li.append(p);
-	// }
-	return li;
 }
 using namespace boost::python;
 
@@ -539,24 +366,16 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts)
 		.def("GetParamGoal",&SimEnv::GetParamGoal)
 		.def("UniformSample",&SimEnv::UniformSample)
-		.def("Optimize",&SimEnv::Optimize)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
-		.def("UpdateParamState",&SimEnv::UpdateParamState)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
 		.def("GetPhaseLength",&SimEnv::GetPhaseLength)
 		.def("GetDOF",&SimEnv::GetDOF)
 		.def("SetGoalParameters",&SimEnv::SetGoalParameters)
-		.def("SetExGoalParameters",&SimEnv::SetExGoalParameters)
-		.def("NeedExploration",&SimEnv::NeedExploration)
-		.def("NeedParamTraining",&SimEnv::NeedParamTraining)
-		.def("SetExplorationMode",&SimEnv::SetExplorationMode)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
-		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
-		.def("SelectNewGoal",&SimEnv::SelectNewGoal)
-		.def("GetNumSamples",&SimEnv::GetNumSamples)
-		.def("GetNewSamplesNearGoal",&SimEnv::GetNewSamplesNearGoal)
+		.def("UpdateReference",&SimEnv::UpdateReference)
+		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
 		.def("GetDensity",&SimEnv::GetDensity)
-		.def("GetParamGoalCandidate",&SimEnv::GetParamGoalCandidate);
+		.def("UpdateParamState",&SimEnv::UpdateParamState);
 
 }
