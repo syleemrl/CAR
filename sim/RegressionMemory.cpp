@@ -118,6 +118,53 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	// 	std::cout << it->first.transpose() << std::endl;
 	// }
 }
+double 
+RegressionMemory::
+GetVisitedRatio() {
+	Eigen::VectorXd base(mDim);
+	base = mParamGridUnit * 0.5;
+	std::vector<Eigen::VectorXd> vecs_to_check;
+
+	vecs_to_check.push_back(base);
+	for(int i = 0; i < mDim; i++) {
+		std::vector<Eigen::VectorXd> vecs;
+	
+		double range = std::floor(1.0 / mParamGridUnit(i) + 1e-8);
+		double j = 1;
+		while(j < range) {
+			for(int k = 0; k < vecs_to_check.size(); k++) {
+				Eigen::VectorXd p = vecs_to_check[k];
+				p(i) = j * mParamGridUnit(i);
+				vecs.push_back(p);
+			}
+			j += 0.5;
+		}
+		for(int j = 0; j < vecs.size(); j++) {
+			vecs_to_check.push_back(vecs[j]);
+		}	
+	}
+
+	double tot = vecs_to_check.size();
+	double result = 0;
+	for(int i = 0; i < vecs_to_check.size(); i++) {
+		if(GetDensity(vecs_to_check[i]) > 0.3)
+			result += 1;
+	}
+	result /= tot;
+
+	return result;
+}
+void
+RegressionMemory::
+UpdateParamState() {
+	auto iter = mParamNew.begin();
+	while(iter != mParamNew.end()) {
+		iter->second->update = false;
+		iter++;
+	}
+	mParamNew.clear();
+}
+
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>
 RegressionMemory::
 GetTrainingData(bool old) {
@@ -163,7 +210,7 @@ SaveParamSpace(std::string path, bool old) {
 
 	std::ofstream ofs(path);
 	
-	ofs << mNumActivatedPrev << std::endl;
+	ofs << r.size() << std::endl;
 	ofs << mParamGoalCur.transpose() << std::endl;
 
 	int count = 0;
@@ -878,6 +925,83 @@ IsSpaceFullyExplored() {
 		return true;
 	}
 	return false;
+}
+double
+RegressionMemory::
+GetFitness(Eigen::VectorXd p) {
+	std::vector<std::pair<double, Param*>> ps = GetNearestParams(p, mNumElite * 5, false, true);
+	if(ps.size() < mNumElite) {
+		return 1;
+	}
+
+	double f_baseline = GetParamReward(Denormalize(mParamBVH->param_normalized), Denormalize(p));
+	std::vector<std::pair<double, Param*>> ps_elite;
+	for(int i = 0; i < ps.size(); i++) {
+		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), Denormalize(p));
+		double fitness = preward*pow(ps[i].second->reward, 2);
+		ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
+	}
+
+	std::stable_sort(ps_elite.begin(), ps_elite.end(), cmp_pair_param);
+
+	double fitness = 0;
+	for(int i = 0; i < mNumElite; i++) {
+		fitness += ps_elite[i].second->reward;
+	}
+	return fitness / mNumElite;
+
+}
+std::tuple<std::vector<Eigen::VectorXd>, 
+			std::vector<Eigen::VectorXd>, 
+		   std::vector<double>, 
+		   std::vector<double>>
+RegressionMemory::
+GetParamSpaceSummary() {
+	Eigen::VectorXd base = 0.05 * Eigen::VectorXd::Ones(mDim);
+	std::vector<Eigen::VectorXd> grids;
+	std::vector<Eigen::VectorXd> grids_denorm;
+	std::vector<double> fitness;
+	std::vector<double> density;
+
+	grids.push_back(base);
+	density.push_back(GetDensity(base));
+	if(density.back() > 0.1) {
+		fitness.push_back(GetFitness(base));
+	} else {
+		fitness.push_back(0);
+	}
+
+	for(int i = 0; i < mDim; i++) {
+		std::vector<Eigen::VectorXd> vecs;
+		double j = 0.1;
+		while(j < 1.0) {
+			auto iter = grids.begin();
+			while(iter != grids.end()) {
+				Eigen::VectorXd p = *iter;
+				p(i) = j;
+				vecs.push_back(p);
+				iter++;
+			}
+			j += 0.05;
+		}
+		for(int j = 0; j < vecs.size(); j++) {
+			grids.push_back(vecs[j]);
+			density.push_back(GetDensity(vecs[j]));
+			if(density.back() > 0.1) {
+				fitness.push_back(GetFitness(vecs[j]));
+			} else {
+				fitness.push_back(0);
+			}
+		}	
+	}
+	for(int i = 0; i < grids.size(); i++) {
+		grids_denorm.push_back(Denormalize(grids[i]));
+	}
+	return std::tuple<std::vector<Eigen::VectorXd>, 
+		   std::vector<Eigen::VectorXd>, 
+		   std::vector<double>, 
+		   std::vector<double>>(grids_denorm, grids, fitness, density);
+
 }
 void
 RegressionMemory::

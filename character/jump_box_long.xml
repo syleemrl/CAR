@@ -3,7 +3,7 @@
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.00000005 0"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="PrismaticJoint" name="Jump_Box" parent_name="Ground" size="0.8 0.46 1.0" axis="0 1 0" mass="500.0">
+	<Joint type="PrismaticJoint" name="Jump_Box" parent_name="Ground" size="0.8 0.46 0.8" axis="0 1 0" mass="500.0">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 -0.23 0"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 -0.23 0"></JointPosition>
 	</Joint>

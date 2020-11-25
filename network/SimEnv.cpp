@@ -331,6 +331,46 @@ SaveParamSpaceLog(int n) {
 	mRegressionMemory->SaveLog(mPath + "log");
 
 }
+
+void
+SimEnv::
+UpdateParamState() {
+	mRegressionMemory->UpdateParamState();
+}
+double
+SimEnv::
+GetVisitedRatio() {
+	return mRegressionMemory->GetVisitedRatio();
+}
+double
+SimEnv::
+GetDensity(np::ndarray np_array) {
+	int dim = mRegressionMemory->GetDim();
+	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
+	return mRegressionMemory->GetDensity(mRegressionMemory->Normalize(tp));
+}
+p::list 
+SimEnv::
+GetParamSpaceSummary() {
+	std::tuple<std::vector<Eigen::VectorXd>,
+			   std::vector<Eigen::VectorXd>,  
+			   std::vector<double>, 
+			   std::vector<double>> summary = mRegressionMemory->GetParamSpaceSummary();
+
+	np::ndarray x = DPhy::toNumPyArray(std::get<0>(summary));
+	np::ndarray x_norm = DPhy::toNumPyArray(std::get<1>(summary));
+	np::ndarray y = DPhy::toNumPyArray(std::get<2>(summary));
+	np::ndarray z = DPhy::toNumPyArray(std::get<3>(summary));
+
+	p::list l;
+	l.append(x);
+	l.append(x_norm);
+	l.append(y);
+	l.append(z);
+
+	return l;
+}
+
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -365,5 +405,9 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("NeedExploration",&SimEnv::NeedExploration)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
-		.def("UpdateReference",&SimEnv::UpdateReference);
+		.def("UpdateReference",&SimEnv::UpdateReference)
+		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
+		.def("GetDensity",&SimEnv::GetDensity)
+		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
+		.def("UpdateParamState",&SimEnv::UpdateParamState);
 }
