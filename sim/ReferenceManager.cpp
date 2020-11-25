@@ -449,7 +449,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(2); // jump height, jump distance
-	mParamCur << 0.46, 1.0 ; //(0.495829 -  0.0441786) , (   0.710883 -  0.0267908 ); 	//foot 45th- foot 0th // foot 45 th frame - com 0th frame
+	mParamCur << 0.46, 0.8 ; //(0.495829 -  0.0441786) , (   0.710883 -  0.0267908 ); 	//foot 45th- foot 0th // foot 45 th frame - com 0th frame
 	// mParamCur << 0.46, (   0.614314 -  0.016015 ); 	// com, 81th frame
 	// mParamCur << 0.46, ( 0.378879 -  0.016015 ); // com , 41 th frame
 	// mParamCur << 0.46, (0.718014 - 0.0566185); 	// (lf+rf)/2.
