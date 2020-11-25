@@ -56,6 +56,8 @@ public:
 	bool NeedExploration();
 	void UpdateReference();
 	void SaveParamSpace(int n);
+	np::ndarray LoadParamSpace(int n);
+	np::ndarray LoadParamDensity();
 	void SaveParamSpaceLog(int n);
 private:
 	std::vector<DPhy::Controller*> mSlaves;

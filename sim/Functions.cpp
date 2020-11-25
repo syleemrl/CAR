@@ -940,7 +940,7 @@ std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::Vec
 	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
 
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
-	T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+	T01.linear() =  dart::math::expMapRot(p01);
 	T01.translation()[1] = 0;
 	Eigen::Isometry3d T0_gen = T01*T0_phase;
 

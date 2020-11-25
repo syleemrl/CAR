@@ -62,6 +62,7 @@ public:
 
 	Eigen::VectorXd GetParamGoal() {return mParamGoal; }
 	Eigen::VectorXd GetParamCur() {return mParamCur; }
+
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetParamRange() {return std::pair<Eigen::VectorXd, Eigen::VectorXd>(mParamBase, mParamEnd); }
 	void SetParamGoal(Eigen::VectorXd g) { mParamGoal = g; }
 	void ResetOptimizationParameters(bool reset_displacement=true);
@@ -101,6 +102,7 @@ protected:
 	Eigen::VectorXd mParamCur;
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamEnd;
+	//Eigen::VectorXd ParamUnit;
 
 	RegressionMemory* mRegressionMemory;
 	

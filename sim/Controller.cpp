@@ -149,7 +149,7 @@ Step()
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*0.1)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
-	// mAdaptiveStep = 0;
+	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -719,7 +719,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 2 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -1092,5 +1092,36 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	}
 	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
 	ofs.close();
+}
+
+Eigen::Isometry3d
+Controller::
+getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel){
+
+	//BodyNode* body = SkeletonPtr* -> getBodynode(joint_name);
+	// get JointGlobalPose : return (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode()).cast<float>();
+	dart::dynamics::BodyNode* lul_body = Skel->getBodyNode("LeftUpLeg");
+	dart::dynamics::BodyNode* rul_body = Skel->getBodyNode("RightUpLeg");
+
+	Eigen::Isometry3d lul = (lul_body->getWorldTransform() * lul_body->getParentJoint()->getTransformFromChildBodyNode());
+	Eigen::Isometry3d rul = (rul_body->getWorldTransform() * rul_body->getParentJoint()->getTransformFromChildBodyNode());
+
+	Eigen::Vector3d x = lul.translation() - rul.translation();
+	x.normalize();
+	Eigen::Vector3d z = x.cross(Eigen::Vector3d::UnitY());
+	z.normalize();
+	x = Eigen::Vector3d::UnitY().cross(z);
+
+	Eigen::Matrix3d mat;
+	mat.col(0) = z;
+	mat.col(1) = Eigen::Vector3d::UnitY();
+	mat.col(2) = -x;
+
+	Eigen::Isometry3d ret;
+	ret.setIdentity();
+	ret.linear() = mat;
+	ret.translation() = Skel->getBodyNode("Hips")->getWorldTransform().translation();
+
+	return ret;
 }
 }

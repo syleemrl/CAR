@@ -14,6 +14,10 @@
 #include "GLfunctions.h"
 #include "DART_interface.h"
 #include "Controller.h"
+#include <sys/socket.h>
+#include "unistd.h"
+#include <netinet/in.h>
+#include <errno.h>
 #pragma pop_macro("slots")
 namespace p = boost::python;
 namespace np = boost::python::numpy;
@@ -39,6 +43,11 @@ public slots:
 	void toggleDrawSim();
 	void toggleDrawReg();
 	void toggleDrawExp();
+
+	void connectionOpen();
+	void connectionClose();
+	int getCharacterTransformsForUE(char *buffer);
+	void sendMotion();
 
 protected:
 	void initializeGL() override;	
@@ -68,6 +77,7 @@ protected:
 	int 							mCurFrame;
 	int 							mTotalFrame;
 
+
 	std::vector<Eigen::VectorXd> 	mMotion_bvh;
 	std::vector<Eigen::VectorXd> 	mMotion_reg;
 	std::vector<Eigen::VectorXd> 	mMotion_sim;
@@ -93,6 +103,8 @@ protected:
 	bool 							mDrawExp;
 
 
+
+
 	p::object 						mRegression;
 	p::object 						mPPO;
 	DPhy::ReferenceManager*			mReferenceManager;
@@ -104,6 +116,16 @@ protected:
 
 	Eigen::Vector3d 				mPoints;
 	Eigen::Vector3d 				mPoints_exp;
+
+	std::vector<Eigen::VectorXd> mPoseRecords, mRefPoseRecords;
+	std::vector<std::string> mJointsUEOrder;
+
+	// for socket network
+	bool							mIsConnected;
+	int 							sockfd,clientfd;
+	struct sockaddr_in serveraddr, clientaddr;
+	char *mBuffer;
+	char *mBuffer2;
 
 };
 #endif

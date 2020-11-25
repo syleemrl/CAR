@@ -1004,6 +1004,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDimDOF));
 	}
 	double weight_sum = 0;
+	mNumElite = 1;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = log(mNumElite + 1) - log(i + 1);
 		weight_sum += w;
