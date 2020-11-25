@@ -141,14 +141,14 @@ class Monitor(object):
 		self.sim_env.SaveParamSpace(self.num_evaluation)
 		li = self.sim_env.GetParamSpaceSummary()
 		grids = li[0]
-		fitness = li[1]
-		density = li[2]
+		grids_norm = li[1]
+		fitness = li[2]
+		density = li[3]
 		v_values = v_func.getValue(grids)
 		
 		out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
-		out.write(str(len(grids[0]))+'\n')
 		for i in range(len(grids)):
-			out.write(vector_to_str(grids[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
+			out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
 		out.close()		
 
 

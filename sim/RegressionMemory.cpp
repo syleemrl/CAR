@@ -1155,12 +1155,14 @@ GetFitness(Eigen::VectorXd p) {
 
 }
 std::tuple<std::vector<Eigen::VectorXd>, 
+   		   std::vector<Eigen::VectorXd>,  
 		   std::vector<double>, 
 		   std::vector<double>>
 RegressionMemory::
 GetParamSpaceSummary() {
 	Eigen::VectorXd base = 0.05 * Eigen::VectorXd::Ones(mDim);
 	std::vector<Eigen::VectorXd> grids;
+	std::vector<Eigen::VectorXd> grids_denorm;
 	std::vector<double> fitness;
 	std::vector<double> density;
 
@@ -1174,8 +1176,8 @@ GetParamSpaceSummary() {
 
 	for(int i = 0; i < mDim; i++) {
 		std::vector<Eigen::VectorXd> vecs;
-		double j = 0.05;
-		while(j < 1) {
+		double j = 0.1;
+		while(j < 1.0) {
 			auto iter = grids.begin();
 			while(iter != grids.end()) {
 				Eigen::VectorXd p = *iter;
@@ -1196,10 +1198,11 @@ GetParamSpaceSummary() {
 		}	
 	}
 	for(int i = 0; i < grids.size(); i++) {
-		grids[i] = Denormalize(grids[i]);
+		grids_denorm.push_back(Denormalize(grids[i]));
 	}
 	return std::tuple<std::vector<Eigen::VectorXd>, 
+		   std::vector<Eigen::VectorXd>, 
 		   std::vector<double>, 
-		   std::vector<double>>(grids, fitness, density);
+		   std::vector<double>>(grids_denorm, grids, fitness, density);
 }
 };

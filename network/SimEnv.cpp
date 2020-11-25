@@ -343,16 +343,19 @@ GetDensity(np::ndarray np_array) {
 p::list 
 SimEnv::
 GetParamSpaceSummary() {
-	std::tuple<std::vector<Eigen::VectorXd>, 
+	std::tuple<std::vector<Eigen::VectorXd>,
+			   std::vector<Eigen::VectorXd>,  
 			   std::vector<double>, 
-			   std::vector<double>> x_y_z = mRegressionMemory->GetParamSpaceSummary();
+			   std::vector<double>> summary = mRegressionMemory->GetParamSpaceSummary();
 
-	np::ndarray x = DPhy::toNumPyArray(std::get<0>(x_y_z));
-	np::ndarray y = DPhy::toNumPyArray(std::get<1>(x_y_z));
-	np::ndarray z = DPhy::toNumPyArray(std::get<2>(x_y_z));
+	np::ndarray x = DPhy::toNumPyArray(std::get<0>(summary));
+	np::ndarray x_norm = DPhy::toNumPyArray(std::get<1>(summary));
+	np::ndarray y = DPhy::toNumPyArray(std::get<2>(summary));
+	np::ndarray z = DPhy::toNumPyArray(std::get<3>(summary));
 
 	p::list l;
 	l.append(x);
+	l.append(x_norm);
 	l.append(y);
 	l.append(z);
 
