@@ -198,9 +198,6 @@ Step()
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
-	// if(mRecord)
-	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
-	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
@@ -241,29 +238,6 @@ Step()
 	if(mCurrentFrameOnPhase >= 33.5 && !(this->placed_object)){
 		this->placed_object = true;
 	}
-	// if(mCurrentFrameOnPhase >= 33.5 && !(this->placed_object)){
-	// 	// base stays the same, 
-	// 	// obj moves from farfaraway to right below feet
-	// 	Eigen::VectorXd prev_obj_pos = mObject->GetSkeleton()->getPositions();
-	// 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-	// 	obj_pos.setZero();
-	// 	Eigen::Vector3d lf_pos = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rf_pos = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d lt_pos = mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rt_pos = mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
-
-	// 	Eigen::Vector3d middle= (lf_pos+rf_pos)/2.;
-	// 	double height = std::min(std::min(lf_pos[1], rf_pos[1]), std::min(lt_pos[1], rt_pos[1]));
-	// 	Eigen::Vector3d default_pos(0.0104028, 0.547423, 0.719404); 		// 41 ; 0.0104028  0.547423  0.719404
-	// 	obj_pos[5] = (middle - default_pos)[2]; // base : move z-axis
-	// 	obj_pos[6] = height - 0.536756; // prismatic joint: move y-axis //0.46+0.04-0.5
-
-	// 	mObject->GetSkeleton()->setPositions(obj_pos);
-	// 	mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	// 	mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	// 	mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-	// 	this->placed_object = true;
-	// }
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -551,7 +525,6 @@ GetSimilarityReward()
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
-
 	double con_diff = 0;
 
 	for(int i = 0; i < contacts_cur.size(); i++) {
@@ -559,6 +532,21 @@ GetSimilarityReward()
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 5, 2);
 		}
 	}
+
+	// for debugging
+	// if(con_diff > 0.01){
+	// 	std::cout<<mCurrentFrame<<", sum : "<<con_diff<<std::endl;
+	// 	double lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation()[1];
+	// 	double rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation()[1];
+	// 	std::cout<<ref_obj_height<<" "<<cur_obj_height<<" / foot : "<<lf<<" "<<rf<<std::endl;
+	
+	// 	for(int i = 0; i < contacts_cur.size(); i++) {
+	// 		if(contacts_ref[i].first || contacts_cur[i].first) {
+	// 		std::cout<<(contacts_cur[i].second)(1)<<" "<<(contacts_ref[i].second)(1)<<" : "<<((contacts_cur[i].second)(1)- (contacts_ref[i].second)(1))<<std::endl;
+	// 		}
+	// 	}
+	// }
+
 	//double r_con = exp(-con_diff);
 	Eigen::VectorXd p_aligned = skel->getPositions();
 	std::vector<Eigen::VectorXd> p_with_zero;

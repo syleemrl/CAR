@@ -449,7 +449,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(2); // jump height, jump distance
-	mParamCur << 0.46, 0.9 ; //(0.495829 -  0.0441786) , (   0.710883 -  0.0267908 ); 	//foot 45th- foot 0th // foot 45 th frame - com 0th frame
+	mParamCur << 0.46, 1.0 ; //(0.495829 -  0.0441786) , (   0.710883 -  0.0267908 ); 	//foot 45th- foot 0th // foot 45 th frame - com 0th frame
 	// mParamCur << 0.46, (   0.614314 -  0.016015 ); 	// com, 81th frame
 	// mParamCur << 0.46, ( 0.378879 -  0.016015 ); // com , 41 th frame
 	// mParamCur << 0.46, (0.718014 - 0.0566185); 	// (lf+rf)/2.
@@ -558,11 +558,13 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
 	if(std::get<0>(rewards) < mThresholdTracking) {
+		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
-	if(std::get<2>(rewards).sum_contact > 0.1) {
-		return;
-	}
+	// if(std::get<2>(rewards).sum_contact > 0.5) {
+	// 	// std::cout<<" sum_contact : "<<std::get<2>(rewards).sum_contact<<std::endl;
+	// 	return;
+	// }
 
 	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
 	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
@@ -572,8 +574,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	right_vector[1]= 0;
 	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
 	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
-	if(std::abs(forward_angle) > M_PI/8.) return;
-
+	if(std::abs(forward_angle) > M_PI/6.) {
+		// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
+		return;
+	}
 	if (std::abs(data_raw[0].second) > 1e-8) return ;
 	
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
@@ -660,6 +664,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	}
 	
 	mLock.unlock();
+
+	// std::cout<<"!!! successful SaveTrajectories !!! (t, c, fa) : "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).sum_contact <<" "<<forward_angle<<std::endl;
 
 
 }
