@@ -554,7 +554,7 @@ auto& skel = this->mCharacter->GetSkeleton();
 		}
 	}
 	
-	mRewardSimilarity[0] += r_con;
+	mRewardSimilarity[0] += con_diff;
 	mRewardSimilarity[1] += p_diff.dot(p_diff) / p_diff.rows();
 	mRewardSimilarity[2] += v_diff.dot(v_diff) / v_diff.rows();
 
@@ -587,7 +587,7 @@ GetParamReward()
 		double norm = dir.norm();
 		dir.normalize();
 
-		if(abs(0.7 - dir(0)) < 0.1 && abs(1.3 - mHandPosition(1)) < 0.05)
+		if(abs(0.7 - dir(0)) < 0.03 && abs(1.3 - mHandPosition(1)) < 0.03)
 			mParamCur << norm, maxSpeedObj;
 		else
 			mParamCur << -1, -1;

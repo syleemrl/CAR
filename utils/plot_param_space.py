@@ -9,8 +9,7 @@ from scipy.signal import butter, lfilter, filtfilt
 from scipy.interpolate import make_interp_spline, BSpline
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
-
-def plot(filename):
+def read_data(filename):
 	data = open(filename)
 	
 	xy = []
@@ -39,10 +38,10 @@ def plot(filename):
 		d = []
 		f = []
 		for i in range(19):
-			if value[count] > 1.5:
-				v.append(1.5)
-			else:
-				v.append(value[count])
+			# if density[count] > 0.1:
+			v.append(value[count])
+			# else:
+			# 	v.append(0)
 			d.append(density[count])
 			f.append(fitness[count])
 			count += 1
@@ -55,23 +54,57 @@ def plot(filename):
 	F = np.array(F)
 	D = np.array(D)
 
-	fig = plt.figure('value')
-	ax = fig.gca(projection='3d')
-	surf = ax.plot_surface(X, Y, V, cmap=cm.coolwarm,
-                linewidth=0, antialiased=True)
+	return X, Y, V, D, F
+def plot():
 
-	fig = plt.figure('density')
-	ax = fig.gca(projection='3d')
-	surf = ax.plot_surface(X, Y, D, cmap=cm.coolwarm,
-                linewidth=0, antialiased=True)
+	Xs = []
+	Ys = []
+	Vs = []
+	Ds = []
+	Fs = []
+	filelist = []
+	for i in range(16):
+		filelist.append('param_summary'+str(20 * (i+1)))
+	for i in range(len(filelist)):
+		X, Y, V, D, F = read_data('../network/output/punch_ue_2d_2/'+filelist[i])
+		Xs.append(X)
+		Ys.append(Y)
+		Vs.append(V)
+		Ds.append(D)
+		Fs.append(F)
 
+	fig = plt.figure('value', figsize=(30,10))
+	col_size = int(len(filelist) / 2)
+	for i in range(len(filelist)):
+		ax = fig.add_subplot(2, col_size, i+1, projection='3d')
+		surf = ax.plot_surface(Xs[i], Ys[i], Vs[i], cmap=cm.coolwarm,
+	                linewidth=0, antialiased=True)
+		ax.set_xlabel('x')
+		ax.set_ylabel('y')
+		ax.set_title(i)
+		ax.azim = 0
+		ax.elev = 90
+	fig.tight_layout()
 
-	fig = plt.figure('fitness')
-	ax = fig.gca(projection='3d')
-	surf = ax.plot_surface(X, Y, F, cmap=cm.coolwarm,
-                linewidth=0, antialiased=True)
+	fig = plt.figure('density', figsize=(30,10))
+
+	for i in range(len(filelist)):
+		ax = fig.add_subplot(2, col_size, i+1, projection='3d')
+		surf = ax.plot_surface(Xs[i], Ys[i], Ds[i], cmap=cm.coolwarm,
+	                linewidth=0, antialiased=True)
+		ax.set_xlabel('x')
+		ax.set_ylabel('y')
+		ax.set_title(i)
+		ax.azim = 0
+		ax.elev = 90
+	fig.tight_layout()
+
+	# fig = plt.figure('fitness')
+	# ax = fig.gca(projection='3d')
+	# surf = ax.plot_surface(X, Y, F, cmap=cm.coolwarm,
+ #                linewidth=0, antialiased=True)
 
 	plt.show()
 
 if __name__=="__main__":
-	plot(sys.argv[1])
+	plot()

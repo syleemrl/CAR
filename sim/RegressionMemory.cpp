@@ -62,7 +62,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mThresholdUpdate = 2 * mDim;
 	mNumGoalCandidate = 30;
 
-	for(int i = 0; i < 10; i++) {
+//	for(int i = 0; i < 10; i++) {
 		mParamBVH = new Param();
 		mParamBVH->cps.clear();
 		for(int i = 0; i < mNumKnots; i++) {
@@ -74,7 +74,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 		mParamBVH->reward = 1;
 		mParamBVH->update = false;
 		AddMapping(mParamBVH);
-	}
+//	}
 
 	mGoalInfo.rewards = -1;
 
@@ -650,7 +650,9 @@ UniformSample(bool visited, bool far) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if (d < 0.3 && d > 0.15) {
+			if(mNumSamples == 1 && d > 0.05 && d < 0.3) {
+				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
+			} else if (d < 0.3 && d > 0.15) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
 			if(far && d < 0.1) {

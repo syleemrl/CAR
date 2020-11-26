@@ -574,6 +574,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
+	if(std::get<2>(rewards)[0] > 0.2) {
+		return;
+	}
 	// if(std::get<0>(rewards) < mThresholdTracking) {
 	// 	flag.push_back(0);
 	// }
@@ -606,6 +609,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 			double weight = 1.0 - (mPhaseLength + i - data_spline[size-1].second) / (mPhaseLength + data_spline[count].second - data_spline[size-1].second);
 			double t1 = data_spline[count+1].second - data_spline[count].second;
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[size-1].first, data_spline[0].first, weight);
+			p_blend.segment<3>(3) = data_spline[0].first.segment<3>(3);
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
 		} else if(count == data_spline.size() - 1 && i > data_spline[count].second) {
@@ -614,6 +618,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 			double t1 = data_spline[1].second - data_spline[0].second;
 			
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[count].first, data_spline[0].first, weight);
+			p_blend.segment<3>(3) = data_spline[count].first.segment<3>(3);
+
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
 		} else if(i == data_spline[count].second) {

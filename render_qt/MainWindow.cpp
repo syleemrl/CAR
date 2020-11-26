@@ -83,8 +83,6 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
 
     QVBoxLayout *mParamlayout = new QVBoxLayout();
     std::vector<std::string> labels;
-    labels.push_back("angle");
-    labels.push_back("height");
     labels.push_back("distance");
     labels.push_back("force");
 
@@ -93,7 +91,7 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
         QSlider* param = new QSlider(Qt::Horizontal);
         param->setMinimum(0);
         param->setMaximum(10);
-        param->setSingleStep(1);
+        param->setSingleStep(0.5);
         param->setProperty("i", i);
         mParams.push_back(param);
         

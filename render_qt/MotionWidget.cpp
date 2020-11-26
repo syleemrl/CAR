@@ -253,7 +253,7 @@ UpdateParam(const bool& pressed) {
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
-	    std::cout << tp_denorm.transpose() << " " << d << std::endl;
+	    std::cout << tp.transpose() << " " << tp_denorm.transpose() << " " << d << std::endl;
 	    auto pairs = mRegressionMemory->GetNearestParams(tp, 10); 
 	    for(int i = 0; i < pairs.size(); i++) {
 	    	std::cout << "(" << pairs[i].first<< ", " << pairs[i].second->param_normalized.transpose() << ") " ;

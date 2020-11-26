@@ -155,7 +155,7 @@ class Monitor(object):
 	def updateMode(self, v_func):
 		mode_change = -1
 		self.mode_counter += 1
-		if self.mode_counter % 10 == 0:
+		if self.num_evaluation % 10 == 0:
 			self.sim_env.UpdateParamState()
 			self.saveParamSpaceSummary(v_func)
 

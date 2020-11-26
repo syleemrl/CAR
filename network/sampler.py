@@ -398,7 +398,7 @@ class Sampler(object):
 
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.n_visit > 5 and self.v_mean_cur > 0.95 and not self.done:
+			if self.n_visit > 5 and self.v_mean_cur > 0.85 and not self.done:
 				return True
 			if self.v_mean_cur > 1.3 and self.done:
 				return True
@@ -406,7 +406,7 @@ class Sampler(object):
 		# if self.n_visit > 20 and not self.done:
 		# 	return True
 		
-		if self.n_visit > 5 and self.v_mean > 0.95 and not self.done:
+		if self.n_visit > 5 and self.v_mean > 0.85 and not self.done:
 			return True
 
 		if self.v_mean > 1.3 and self.done:
