@@ -75,9 +75,9 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.25]
+		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.5]
 
-		self.optim_frequency = [optim_frequency * 2, optim_frequency * 4]
+		self.optim_frequency = [optim_frequency * 2, optim_frequency * 2]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -505,7 +505,8 @@ class PPO(object):
 		epi_info_iter_hind = []
 
 		update_counter = 0
-		self.env.sampler.reset_explore()
+	#	self.env.sampler.reset_explore()
+		self.env.sampler.sample_evaluation_points(self.critic_target, self.env.lb)
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -553,8 +554,7 @@ class PPO(object):
 					last_print = local_step
 				
 				states = self.env.getStates()
-			if self.adaptive and (self.env.mode == 0 or self.env.sampler.type_explore == 8):
-				self.env.sampler.updateNumSampleDelta(p_idx)
+			self.env.sampler.saveProgress()
 			print('')
 
 			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
@@ -581,18 +581,18 @@ class PPO(object):
 					if t == 999:
 						break
 
-					if not self.parametric:
-						self.env.updateAdaptive()
-					else:
-						if self.env.sampler.type_explore == 8  and self.env.mode:
-							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-						elif self.env.sampler.type_explore == 8  and not self.env.mode:
-								self.env.updateCurriculum(self.critic_progress, self.critic_target_prev, self.v_target, self.idx_target)
-						else :
-							if self.env.mode:
-								self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-							else:
-								self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+					# if not self.parametric:
+					# 	self.env.updateAdaptive()
+					# else:
+					# 	if self.env.sampler.type_explore == 8  and self.env.mode:
+					# 		self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
+					# 	elif self.env.sampler.type_explore == 8  and not self.env.mode:
+					# 			self.env.updateCurriculum(self.critic_progress, self.critic_target_prev, self.v_target, self.idx_target)
+					# 	else :
+					# 		if self.env.mode:
+					# 			self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
+					# 		else:
+					# 			self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
 
 					epi_info_iter_hind = []
 
@@ -639,6 +639,8 @@ if __name__=="__main__":
 	parser.add_argument("--parametric", dest='parametric', action='store_true')
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
+	parser.add_argument("--test_path", type=str, default="")
+	parser.add_argument("--lb",  type=float, default=0)
 	parser.set_defaults(plot=True)
 	parser.set_defaults(adaptive=False)
 	parser.set_defaults(parametric=False)
@@ -655,9 +657,11 @@ if __name__=="__main__":
 			os.mkdir(directory)
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric, 
+			test_path=args.test_path, lb=args.lb)
 	else:
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric,
+			test_path=args.test_path, lb=args.lb)
 
 	ppo = PPO()
 

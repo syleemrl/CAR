@@ -118,6 +118,7 @@ public:
 		   std::vector<double>, 
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
+	std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>> UniformSampleWithNearestParams();
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;

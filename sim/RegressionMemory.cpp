@@ -665,7 +665,7 @@ UniformSample(bool visited, bool far) {
 		}
 		count += 1;
 		if(!visited && count > 10000) {
-			return std::pair<Eigen::VectorXd, bool>(p, false);
+			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), false);
 		}
 	}
 }
@@ -740,9 +740,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
-		if(to_be_deleted.size() == 0) {
-			mNewSamplesNearGoal += 1;
-		}
+		mNewSamplesNearGoal += 1;
 	}
 	return flag;
 
@@ -1207,4 +1205,50 @@ GetParamSpaceSummary() {
 		   std::vector<double>, 
 		   std::vector<double>>(grids_denorm, grids, fitness, density);
 }
+std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>> 
+RegressionMemory::
+UniformSampleWithNearestParams() {
+	while(1) {
+		double r = mUniform(mMT);
+		r = std::floor(r * mGridMap.size());
+		if(r == mGridMap.size())
+			r -= 1;
+		auto it_grid = std::next(mGridMap.begin(), (int)r);
+		std::vector<Param*> params = it_grid->second->GetParams(); 
+		if(params.size() == 0)
+			continue;
+
+		r = mUniform(mMT);
+		r = std::floor(r * params.size());
+		if(r == params.size())
+			r -= 1;
+		if(params[r]->update)
+			continue;
+		Eigen::VectorXd p = params[r]->param_normalized;
+		Eigen::VectorXd dir(mDim);
+
+		for(int i = 0; i < mDim; i++) {
+			dir(i) =  mUniform(mMT) - 0.5;
+		}
+		dir.normalize();
+
+		for(int i = 0; i < mDim; i++) {
+			r = mUniform(mMT);
+			p(i) += dir(i) * r * mParamGridUnit(i);
+			if(p(i) > 1 || p(i) < 0) {
+				p(i) = std::min(1.0, std::max(0.0, p(i)));
+			} 
+		}
+		double d = GetDensity(p, true);
+		if (d < 0.3 && d > 0.2) {
+			std::vector<std::pair<double, Param*>> nearest = GetNearestParams(p, 5, true);
+			std::vector<Eigen::VectorXd> nearest_ps;
+			for(int i = 0; i < nearest.size(); i++) {
+				nearest_ps.push_back(Denormalize(nearest[i].second->param_normalized));
+			}
+			return std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>(Denormalize(p), nearest_ps);
+		}
+	}
+}
+
 };

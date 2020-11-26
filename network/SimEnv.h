@@ -61,6 +61,8 @@ public:
 	double GetDensity(np::ndarray np_array);
 	void UpdateParamState();
 	p::list GetParamSpaceSummary();
+	p::list UniformSampleWithNearestParams();
+	int GetProgressGoal();
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;

@@ -271,6 +271,7 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 	int dof = mReferenceManager->GetDOF() + 1;
 	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
+	mRegressionMemory->SetParamGoal(tp);
 	if(mem_only) {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps);
@@ -361,6 +362,26 @@ GetParamSpaceSummary() {
 
 	return l;
 }
+p::list 
+SimEnv::
+UniformSampleWithNearestParams() {
+	std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>> p = mRegressionMemory->UniformSampleWithNearestParams();
+	p::list l;
+	l.append(DPhy::toNumPyArray(p.first));
+
+	p::list l_;
+	for(int i = 0; i < p.second.size(); i++) {
+		l_.append(DPhy::toNumPyArray(p.second[i]));
+	}
+	l.append(l_);
+
+	return l;
+}
+int 
+SimEnv::
+GetProgressGoal() {
+	return mRegressionMemory->GetNewSamplesNearGoal();
+}
 
 using namespace boost::python;
 
@@ -399,6 +420,8 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
 		.def("GetDensity",&SimEnv::GetDensity)
 		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
-		.def("UpdateParamState",&SimEnv::UpdateParamState);
+		.def("UniformSampleWithNearestParams",&SimEnv::UniformSampleWithNearestParams)
+		.def("UpdateParamState",&SimEnv::UpdateParamState)
+		.def("GetProgressGoal",&SimEnv::GetProgressGoal);
 
 }

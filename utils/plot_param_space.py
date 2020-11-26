@@ -38,10 +38,10 @@ def read_data(filename):
 		d = []
 		f = []
 		for i in range(19):
-			# if density[count] > 0.1:
-			v.append(value[count])
-			# else:
-			# 	v.append(0)
+			if density[count] > 0.5:
+				v.append(value[count])
+			else:
+			 	v.append(0)
 			d.append(density[count])
 			f.append(fitness[count])
 			count += 1
@@ -63,10 +63,10 @@ def plot():
 	Ds = []
 	Fs = []
 	filelist = []
-	for i in range(16):
-		filelist.append('param_summary'+str(20 * (i+1)))
+	for i in range(6):
+		filelist.append('param_summary'+str(10 * (i+1)))
 	for i in range(len(filelist)):
-		X, Y, V, D, F = read_data('../network/output/punch_ue_2d_2/'+filelist[i])
+		X, Y, V, D, F = read_data('../network/output/punch_ue_2d_test/'+filelist[i])
 		Xs.append(X)
 		Ys.append(Y)
 		Vs.append(V)
@@ -74,7 +74,7 @@ def plot():
 		Fs.append(F)
 
 	fig = plt.figure('value', figsize=(30,10))
-	col_size = int(len(filelist) / 2)
+	col_size = int((len(filelist) + 1) / 2)
 	for i in range(len(filelist)):
 		ax = fig.add_subplot(2, col_size, i+1, projection='3d')
 		surf = ax.plot_surface(Xs[i], Ys[i], Vs[i], cmap=cm.coolwarm,
@@ -90,7 +90,7 @@ def plot():
 
 	for i in range(len(filelist)):
 		ax = fig.add_subplot(2, col_size, i+1, projection='3d')
-		surf = ax.plot_surface(Xs[i], Ys[i], Ds[i], cmap=cm.coolwarm,
+		surf = ax.plot_surface(Xs[i], Ys[i], Ds[i], cmap=cm.coolwarm, vmin=0, vmax=1.2,
 	                linewidth=0, antialiased=True)
 		ax.set_xlabel('x')
 		ax.set_ylabel('y')

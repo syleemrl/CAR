@@ -8,6 +8,7 @@ import numpy as np
 import copy
 from utils import RunningMeanStd
 from IPython import embed
+import os
 def vector_to_str(vec):
 	s = ''
 	for v in vec:
@@ -15,7 +16,7 @@ def vector_to_str(vec):
 	return s
 
 class Monitor(object):
-	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
+	def __init__(self, ref, num_slaves, directory, adaptive, parametric, test_path, lb, plot=True, verbose=True):
 		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
 		self.num_slaves = self.env.num_slaves
 		self.sim_env = self.env.sim_env
@@ -60,7 +61,9 @@ class Monitor(object):
 		self.flag_updated = False
 		self.exploration_done = False
 		self.v_ratio = 0
-		self.mode = 0
+		self.mode = 1
+		self.test_path = test_path
+		self.lb = lb
 		if self.plot:
 			plt.ion()
 
@@ -150,51 +153,76 @@ class Monitor(object):
 		for i in range(len(grids)):
 			out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
 		out.close()		
-
+		
+		if not os.path.isfile(self.directory+"v_ratio") :
+			out = open(self.directory+"v_ratio", "w")
+			out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+			out.close()
+		else:
+			out = open(self.directory+"v_ratio", "a")
+			out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
+			out.close()		
 
 	def updateMode(self, v_func):
 		mode_change = -1
 		self.mode_counter += 1
-		if self.num_evaluation % 10 == 0:
-			self.sim_env.UpdateParamState()
-			self.saveParamSpaceSummary(v_func)
+		if self.mode_counter >= 3:
+			ns = self.sampler.progress_sample
+			print(self.sampler.progress_sample)
+			mean = np.array(ns).mean()
+			if not os.path.isfile(self.test_path) :
+				out = open(self.test_path, "w")
+				out.write(str(mean)+'\n')
+				out.close()
+			else:
+				out = open(self.test_path, "a")
+				out.write(str(mean)+'\n')
+				out.close()	
+			mode_change = 999		
+		# if self.num_evaluation % 10 == 0:
+		# 	self.sim_env.UpdateParamState()
+		# 	self.saveParamSpaceSummary(v_func)
 
-		# if self.num_evaluation % 10 == 0 and self.exploration_test_print != "":
-		# 	self.v_ratio = self.sim_env.GetVisitedRatio()
-		# 	if not os.path.isfile(self.exploration_test_print) :
-		# 		out = open(self.exploration_test_print, "w")
-		# 		out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
-		# 		out.close()
+
+		# if self.mode == 0:
+		# 	if self.mode_counter % 5 == 0:
+		# 		self.v_ratio = self.sim_env.GetVisitedRatio() 
+		# 		v_diff = self.v_ratio - self.sampler.vr_prev_explore				
+		# 		if v_diff > self.sampler.vr_diff_exploit:
+		# 			self.sampler.vr_diff_explore = v_diff
+
+		# 		self.sampler.vr_prev_explore = self.v_ratio
+		# 		print("cur: ", v_diff, "exploit: ", self.sampler.vr_diff_exploit)
 		# 	else:
-		# 		out = open(self.exploration_test_print, "a")
-		# 		out.write(str(self.num_episodes)+':'+str(self.v_ratio)+'\n')
-		# 		out.close()		
+		# 		v_diff = 100
+		# 	if self.num_evaluation == 20 or v_diff <= self.sampler.vr_diff_exploit:
+		# 		if self.v_ratio == 1:
+		# 			self.sampler.done = True
+		# 		self.sampler.vr_prev_exploit = self.sampler.vr_prev_explore
+		# 		self.mode = 1
+		# 		self.mode_counter = 0
+		# 		self.sampler.reset_visit()
+		# 		mode_change = 1
+		# else:
+		# 	enough = self.sampler.isEnough(v_func)
+		# 	if self.mode_counter % 5 == 0:
+		# 		self.v_ratio = self.sim_env.GetVisitedRatio() 
+		# 		v_diff = self.v_ratio - self.sampler.vr_prev_exploit				
+		# 		if v_diff > self.sampler.vr_diff_explore:
+		# 			self.sampler.vr_diff_exploit = v_diff
+				
+		# 		self.sampler.vr_prev_exploit = self.v_ratio
+		# 		print("cur: ", v_diff, "explore: ", self.sampler.vr_diff_explore)
 
-		if self.mode == 0:
-			#if self.mode_counter % 10 == 0:
-			#	self.sim_env.SaveParamSpace(-1)
-			#	self.sampler.reset_explore()
-			if self.mode_counter >= 20 or self.v_ratio == 1:
-				if self.v_ratio == 1:
-					self.sampler.done = True
-			#	self.sim_env.TrainRegressionNetwork(20)
-				self.mode = 1
-				self.mode_counter = 0
-				self.sampler.reset_visit()
-				mode_change = 1
-		else:
-			#if self.mode_counter % 10 == 0:
-			#	self.sim_env.SaveParamSpace(-1)
-			#	self.sim_env.TrainRegressionNetwork(10)
-			enough = self.sampler.isEnough(v_func)
-			if enough and self.v_ratio != 1:
-				self.mode = 0
-				self.mode_counter = 0
-				self.sampler.reset_explore()
-				self.sim_env.UpdateParamState()
-				mode_change = 0
-			elif enough and self.v_ratio == 1:
-				mode_change = 999
+		# 	if enough:
+		# 		self.mode = 0
+		# 		self.mode_counter = 0
+		# 		self.sampler.reset_explore()
+		# 		self.sim_env.UpdateParamState()
+		# 		self.sampler.vr_prev_explore = self.sampler.vr_prev_exploit
+		# 		mode_change = 0
+		# 	# elif enough and self.v_ratio == 1:
+		# 	# 	mode_change = 999
 		return mode_change
 	
 	def updateCurriculum(self, v_func, v_func_prev, results, idxs):

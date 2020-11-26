@@ -140,7 +140,7 @@ def plot(filename):
 	# regressor.setTrainingData(initial, progress)
 	# regressor.train()
 	# initial = np.array(initial).reshape(-1, 1)
-	regressor = KNeighborsRegressor(n_neighbors=20, weights="uniform")
+	regressor = KNeighborsRegressor(n_neighbors=10, weights="uniform")
 	regressor.fit(initial, progress)
 
 	x = np.linspace(0.6, 1.2, num=60)

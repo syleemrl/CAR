@@ -20,7 +20,7 @@ class Sampler(object):
 
 		self.start = 0
 		# 0: uniform 1: adaptive 2: ts
-		self.type_visit = 1
+		self.type_visit = 0
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
 		# 6: num sample slope(sampling) 7:num sample near goal(sampling) 8: num sample slope (network)
 		self.type_explore = 0
@@ -42,6 +42,15 @@ class Sampler(object):
 		self.ns_mean = 0
 
 		self.done = False
+
+		self.vr_diff_explore = 0
+		self.vr_diff_exploit = 0
+
+		self.vr_prev_explore = 0
+		self.vr_prev_exploit = 0
+
+		self.test = True
+		self.test_counter = 0
 		print('=======================================')
 		print('curriculum option')
 		print('type visit', self.type_visit)
@@ -286,7 +295,16 @@ class Sampler(object):
 						self.bound_sample.append(self.bound_sample[-1] + self.prob[i] / prob_mean)
 				print(self.bound_sample)
 
+	def saveProgress(self):
+		t = self.test_counter % 10
+		self.progress_sample[t] += self.sim_env.GetProgressGoal()
+		self.test_counter += 1
 	def adaptiveSample(self, visited):
+		if self.test:
+			t = self.test_counter % 10
+			target = self.sample[t]
+			return target, t
+
 		if visited:
 			if self.n_visit < 1 or self.n_visit % 5 == 4:
 				target = self.randomSample(visited)
@@ -387,6 +405,20 @@ class Sampler(object):
 		if self.type_explore != 0 and self.type_explore != 1 and self.type_explore != 3 and self.type_explore != 8:
 			self.sampleGoals()
 		self.n_explore = 0
+
+	def sample_evaluation_points(self, v_func, lower_bound):
+		self.sample = []
+		self.progress_sample = []
+		while len(self.sample) < 10:
+			li = self.sim_env.UniformSampleWithNearestParams() 
+			params = li[1]
+			vs = v_func.getValue(params)
+			mean = np.array(vs).mean()
+			if mean > lower_bound and mean <= lower_bound + 0.05:
+				self.sample.append(li[0])
+				self.progress_sample.append(0)
+				print(li[0], vs)
+
 
 	def isEnough(self, v_func):
 		
