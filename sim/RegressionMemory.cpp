@@ -318,6 +318,64 @@ LoadParamSpace(std::string path) {
 	// 	std::cout << stats[i].first << " " << stats[i].second.cwiseProduct(mParamGridUnit).transpose() << std::endl;
 	// }
 }
+
+// std::vector<Eigen::VectorXd> 
+// RegressionMemory::
+// LoadParamSpace(int n, std::string path) {
+	
+// 	std::string temp;
+// 	Eigen::VectorXd paramgoal;
+
+// 	std::vector<Eigen::VectorXd> paramspace;
+
+// 	std::ifstream is;
+// 	char buffer[256];
+// 	is.open(path);
+
+	
+// 	if(is.fail()){
+// 		std::cout<<"Failed to load paramspace"<<std::endl;
+// 		return paramspace;
+// 	}
+// 	is >> buffer; //mNumActivatedPrev => skip
+
+// 	paramgoal.resize(mDim);
+// 	for(int i = 0; i < mDim; i++) 
+// 	{
+// 		is >> buffer;
+// 		paramgoal(i) = atof(buffer);  //Goal parameter -> First reference
+// 	}
+
+// 	paramspace.push_back(Normalize(paramgoal));
+
+// 	while(!is.eof()) 
+// 	{
+// 		//reward => skip
+// 		is >> buffer;
+// 		double reward = atof(buffer);
+
+// 		if(is.eof())
+// 			break;
+		
+// 		Eigen::VectorXd param(mDim);
+// 		is >> buffer;
+
+// 		for(int j = 0; j < mDim; j++) 
+// 		{
+// 			is >> buffer;
+// 			param(j) = atof(buffer);
+// 		}
+// 		paramspace.push_back(param);
+// 		// skip the rest action space
+// 		for(int j=0; j< mNumKnots;j++)
+// 			std::getline(is, temp);			
+// 	}
+
+// 	is.close();
+
+// 	return paramspace;
+// }
+
 Eigen::VectorXd
 RegressionMemory::
 GetNearestPointOnGrid(Eigen::VectorXd p) {
@@ -562,6 +620,29 @@ GetDensity(Eigen::VectorXd p, bool old) {
 	return density_gaussian;
 
 }
+
+// double 
+// RegressionMemory::
+// GetDensity(int n, Eigen::VectorXd p,std::string path, bool old) {
+// 	double density = 0;
+// 	double density_gaussian = 0;
+// 	std::vector<Eigen::VectorXd> neighborlist = GetNeighborPointsOnGrid(p, 1);
+
+// 	for(int j = 0; j < neighborlist.size(); j++) {
+// 		auto iter = mGridMap.find(neighborlist[j]);
+// 		if(iter != mGridMap.end()) {
+// 			std::vector<Eigen::VectorXd> ps = LoadParamSpace(n,path);
+// 			for(int k = 0; k < ps.size(); k++) {
+// 				double d = GetDistanceNorm(p, ps[k]);
+
+// 				density += 0.1 * std::max(0.0, 1 - d);
+// 				density_gaussian += 0.1 * exp( - pow(d, 2) * 5);	
+// 			}
+// 		}
+// 	}
+// 	return density_gaussian;
+
+// }
 std::pair<Eigen::VectorXd , bool>
 RegressionMemory::
 UniformSample(bool visited) {

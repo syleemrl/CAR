@@ -325,83 +325,26 @@ SaveParamSpace(int n) {
 		mRegressionMemory->SaveParamSpace(mPath + "param_space", true);
 	}
 }
+
 np::ndarray
 SimEnv::
-LoadParamSpace(int n) {
+LoadDensityPlot(int n) {
 	
 	std::string temp;
 	Eigen::VectorXd paramgoal;
 
 	int mDim = mRegressionMemory->GetDim();
 	int mNumKnots = mRegressionMemory->GetNumKnots();
+
 	std::vector<Eigen::VectorXd> paramspace;
-	std::pair<Eigen::VectorXd, Eigen::VectorXd> paramRange = mReferenceManager->GetParamRange();
 
 	std::ifstream is;
-	for(int k=0; k<100; k+=50)
-	{
-		char buffer[256];
-		is.open(mPath+"param_space"+std::to_string(k));
+	std::string param_path = mPath+"param_space"+std::to_string(n);
+	mRegressionMemory->LoadParamSpace(param_path);
+	
+	char buffer[256];
+	is.open(param_path);
 
-		
-		if(is.fail()){
-			std::cout<<"Failed to load paramspace"<<std::endl;
-			continue;
-		}
-
-		is >> buffer; //mNumActivatedPrev => skip
-
-		paramgoal.resize(mDim);
-		for(int i = 0; i < mDim; i++) 
-		{
-			is >> buffer;
-			paramgoal(i) = atof(buffer);  //Goal parameter -> First reference
-		}
-
-		
-		paramspace.push_back(paramgoal);
-
-		while(!is.eof()) 
-		{
-			//reward => skip
-			is >> buffer;
-			double reward = atof(buffer);
-
-			if(is.eof())
-				break;
-			
-			Eigen::VectorXd param(mDim);
-			
-
-			is >> buffer;
-
-			for(int j = 0; j < mDim; j++) 
-			{
-				is >> buffer;
-				param(j) = atof(buffer);
-			}
-			param = mRegressionMemory->Denormalize(param);
-			//std::cout<<param(0)<<"\t"<<param(1)<<std::endl;
-			paramspace.push_back(param);
-
-			
-			// comma
-			for(int j=0; j< mNumKnots;j++)
-				std::getline(is, temp);
-			
-			
-		}
-
-		is.close();
-	}
-	return DPhy::toNumPyArray(paramspace);
-}
-
-np::ndarray
-SimEnv::
-LoadParamDensity() {
-
-	int mDim = mRegressionMemory->GetDim();
 	Eigen::VectorXd base(mDim);
 	base.setZero();
 	std::vector<Eigen::VectorXd> points;
@@ -428,6 +371,7 @@ LoadParamDensity() {
 	}
 	for(int k = 0; k < points.size(); k++) 
 		ParamDensity.push_back(mRegressionMemory->GetDensity(points[k]));
+
 
 	return DPhy::toNumPyArray(ParamDensity);
 }
@@ -471,8 +415,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetGoalParameters",&SimEnv::SetGoalParameters)
 		.def("NeedExploration",&SimEnv::NeedExploration)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
-		.def("LoadParamSpace",&SimEnv::LoadParamSpace)
-		.def("LoadParamDensity",&SimEnv::LoadParamDensity)
+		.def("LoadDensityPlot",&SimEnv::LoadDensityPlot)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("UpdateReference",&SimEnv::UpdateReference);
 }

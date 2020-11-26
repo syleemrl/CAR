@@ -8,7 +8,10 @@ import numpy as np
 import copy
 from utils import RunningMeanStd
 from IPython import embed
+from scipy import interpolate
 from mpl_toolkits import mplot3d
+import matplotlib.tri as mtri
+
 
 class Monitor(object):
 	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
@@ -184,7 +187,7 @@ class Monitor(object):
 		print(t[0], v, v - v_prev)
 		return idx
 
-	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
+	def plotFig(self, y_list, title, num_fig=1, ylim = True, path=None):
 		if self.plot:
 			plt.figure(num_fig, clear=True, figsize=(5.5, 4))
 		else:
@@ -204,62 +207,56 @@ class Monitor(object):
 		if path is not None:
 			plt.savefig(path, format="png")
 
-	def plot2DParam(self, title, num_fig=1, ylim=True, path=None):
-		param = self.sim_env.LoadParamSpace(-1)
-		if self.plot:
-			plt.figure(num_fig, clear=True, figsize=(5.5, 4))
-		else:
-			plt.figure(num_fig, figsize=(5.5, 4))
+	def plot2DParam(self, title, num_fig=1,num_point=250,path=None):
+		#num_point = 250 # recommended to give numbers with 50 unit.
 
-		plt.title(title)
-
-		#color = np.chararray(len(param))
-		for i in range(30):
-			color = 'r' if i == 0 else ('g' if i <= 10 else 'b')
-
-			plt.scatter(param[i,0],param[i,1], c =color)
-		
-		if self.plot:
-			plt.show()
-			if ylim:
-				plt.ylim([0,1])
-			plt.pause(0.001)
-		if path is not None:
-			plt.savefig(path, format="png")
-
-
-	def plotParamDensity(self, title, num_fig=1, ylim=True, path=None):
-		param = self.sim_env.LoadParamDensity()
-
+		param = self.sim_env.LoadDensityPlot(num_point)
 		gridnum = int(np.sqrt(len(param))) 
 		gridunit = 1 / gridnum
 		param = np.reshape(param,(gridnum, gridnum))
+
 		if self.plot:
 			plt.figure(num_fig, clear=True, figsize=(5.5, 4))
 		else:
 			plt.figure(num_fig, figsize=(5.5, 4))
 
 		plt.title(title)
-
 
 		x,y=np.arange(0,1.0,gridunit),np.arange(0,1.0,gridunit)
 		X, Y = np.meshgrid(x, y)
 		ax = plt.axes(projection='3d')
-		ax.plot_surface(X,Y, param, rstride=1, cstride=1, cmap='coolwarm', edgecolor='none')
+		
+
 		plt.xlabel('driving distance')
 		plt.ylabel('maximum height')
-		#ax.plot_wireframe(X,Y,param, color='r', linewidth=0.01)
-		
-		#plt.colorbar(surf, shrink=0.5, aspect=5) # add color bar indicating the PDF
-		ax.view_init(45, 105)
 
+		ax.view_init(30, 120)
+		
+		#x,y,param_den= param[:,0],param[:,1],param[:,2]
+		#z = 2.0 * np.ones(len(param))
+		#ax.scatter(x,y, z, s=0.2,c ='b')
+
+		# Draw Parameter Density
+		
+		#triang = mtri.Triangulation(x, y)
+		#ax.scatter(x,y,den, marker='.', s=1, c="black", alpha=0.5)
+		#ax.plot_trisurf(triang,param_den, cmap='coolwarm')
+		
+		f = interpolate.interp2d(x,y, param, kind='cubic')
+
+		xnew, ynew = np.arange(0,1.0,gridunit/10),np.arange(0,1.0,gridunit/10)
+		Xnew,Ynew = np.meshgrid(xnew, ynew)
+		Znew = f(xnew,ynew)
+
+		ax.plot_surface(Xnew, Ynew, Znew, cmap='coolwarm', rstride=1, cstride=1, alpha=None, antialiased=True)
+		
 		if self.plot:
 			plt.show()
-			if ylim:
-				plt.ylim([0,1])
 			plt.pause(0.001)
 		if path is not None:
 			plt.savefig(path, format="png")
+
+
 
 	def printSummary(self, save=True):
 		t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
@@ -332,8 +329,11 @@ class Monitor(object):
 				self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
 				#if self.adaptive and self.parametric and self.num_evaluation > 10:
-				#self.plot2DParam("paramspace", 3, False, path=self.directory+"paramspace.png")
-				self.plotParamDensity("paramspace", 4, False, path=self.directory+"param_density.png")
+				#self.plot2DParam("paramspace", 3,250, path=self.directory+"paramspace_250.png")
+				#self.plot2DParam("paramspace", 4,500, path=self.directory+"paramspace_500.png")
+				#self.plot2DParam("paramspace", 5,1000, path=self.directory+"paramspace_1000.png")
+				#self.plot2DParam("paramspace", 6,2000, path=self.directory+"paramspace_2000.png")
+				
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0

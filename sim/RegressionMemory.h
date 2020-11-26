@@ -64,6 +64,7 @@ public:
 						double nDOF, double nknots);
 	void SaveParamSpace(std::string path, bool old);
 	void LoadParamSpace(std::string path);
+	//std::vector<Eigen::VectorXd> LoadParamSpace(int n, std::string path);
 
 	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
@@ -75,6 +76,7 @@ public:
 
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
 	double GetDensity(Eigen::VectorXd p, bool old=false);
+	double GetDensity(int n,Eigen::VectorXd p, std::string path, bool old=false);
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
 	Eigen::VectorXd GetNearestActivatedParam(Eigen::VectorXd p);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
