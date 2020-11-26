@@ -493,7 +493,6 @@ class PPO(object):
 		for s in print_list:
 			print(s)
 
-
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
@@ -599,15 +598,12 @@ class PPO(object):
 
 				epi_info_iter = []
 
-			if (it > 0) and (it % (5*50) == 0) and (self.directory is not None) :
-					save_it = it//5
-					self.env.RMS.save(self.directory+'rms-{}'.format(save_it))
-					os.system("cp {}/network-{}.data-00000-of-00001 {}/network-{}.data-00000-of-00001".format(self.directory, 0, self.directory, save_it))
-					os.system("cp {}/network-{}.index {}/network-{}.index".format(self.directory, 0, self.directory, save_it))
-					os.system("cp {}/network-{}.meta {}/network-{}.meta".format(self.directory, 0, self.directory, save_it))
-
-
-
+			if (self.env.num_evaluation > 0) and (self.env.num_evaluation % 100 == 0) and (self.directory is not None) :
+				save_it = self.env.num_evaluation #it//5
+				self.env.RMS.save(self.directory+'rms-{}'.format(save_it))
+				os.system("cp {}/network-{}.data-00000-of-00001 {}/network-{}.data-00000-of-00001".format(self.directory, 0, self.directory, save_it))
+				os.system("cp {}/network-{}.index {}/network-{}.index".format(self.directory, 0, self.directory, save_it))
+				os.system("cp {}/network-{}.meta {}/network-{}.meta".format(self.directory, 0, self.directory, save_it))
 
 
 	def run(self, state):
@@ -620,6 +616,10 @@ class PPO(object):
 
 		return action
 
+	# def saveAndShowParamSummary(self, grids):
+	# 	v_values = self.critic_target.getValue(grids)
+	# 	return v_values
+		
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--ntimesteps", type=int, default=1000000)

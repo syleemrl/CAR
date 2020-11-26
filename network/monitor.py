@@ -9,6 +9,12 @@ import copy
 from utils import RunningMeanStd
 from IPython import embed
 
+def vector_to_str(vec):
+	s = ''
+	for v in vec:
+		s += str(v) + ' '
+	return s
+
 class Monitor(object):
 	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
 		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
@@ -52,11 +58,12 @@ class Monitor(object):
 		self.dim_param = len(self.sim_env.GetParamGoal())
 		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
 
-		self.mode = 0
 		self.mode_counter = 0
 		self.flag_updated = False
 		self.exploration_done = False
+		self.v_ratio = 0
 
+		self.mode = 0
 		if self.plot:
 			plt.ion()
 
@@ -125,22 +132,40 @@ class Monitor(object):
 		return rewards, dones, curframes, params
 
 	def updateReference(self):
-		self.mode_counter += 1
-		if self.mode_counter % 10 == 0:
+		self.num_evaluation += 1
+		if self.num_evaluation % 2 == 0:
+			self.sim_env.UpdateParamState()
+		if self.num_evaluation % 10 == 0:
 			self.sim_env.SaveParamSpace(-1)
 			self.env.sim_env.UpdateReference()
 			self.sim_env.TrainRegressionNetwork()
+
+	def saveParamSpaceSummary(self, v_func):
+		self.sim_env.SaveParamSpace(self.num_evaluation)
+		li = self.sim_env.GetParamSpaceSummary()
+		grids = li[0]
+		grids_norm = li[1]
+		fitness = li[2]
+		density = li[3]
+		v_values = v_func.getValue(grids)
+		
+		out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
+		for i in range(len(grids)):
+			out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
+		out.close()	
 
 	def updateMode(self, v_func):
 		mode_change = -1
 		self.mode_counter += 1
 		if self.num_evaluation % 50 == 0:
-			self.sim_env.SaveParamSpace(self.num_evaluation)
+			# self.sim_env.SaveParamSpace(self.num_evaluation)
+			self.sim_env.UpdateParamState()
+			self.saveParamSpaceSummary(v_func)
 		if self.mode == 0:
 			if self.mode_counter % 10 == 0:
 				self.sim_env.SaveParamSpace(-1)
 				self.sampler.reset_explore()
-			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
+			if self.mode_counter >= 30 or not self.sim_env.NeedExploration():
 				self.sim_env.TrainRegressionNetwork()
 				self.mode = 1
 				self.mode_counter = 0
@@ -155,6 +180,7 @@ class Monitor(object):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.reset_explore()
+				self.sim_env.UpdateParamState()
 				mode_change = 0
 			elif enough and not self.sim_env.NeedExploration():
 				mode_change = 999

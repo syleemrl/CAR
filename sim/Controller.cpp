@@ -256,6 +256,7 @@ Step()
 			for(int i = 0; i < mRewardSimilarity.size(); i++) {
 				mRewardSimilarity[i] /= mCountTracking;
 			}
+			// std::cout<<mCurrentFrame<<" : "<<mFitness.sum_contact<<std::endl;
 			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
 				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
@@ -440,7 +441,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_p = 0.4 * scale; 
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
-	double sig_ee = 0.2 * scale;		
+	double sig_ee = 0.5 * scale;		
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -529,7 +530,7 @@ GetSimilarityReward()
 
 	for(int i = 0; i < contacts_cur.size(); i++) {
 		if(contacts_ref[i].first || contacts_cur[i].first) {
-			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 5, 2);
+			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1))*2, 2);
 		}
 	}
 
@@ -761,9 +762,19 @@ UpdateTerminalInfo()
 	}
 	//characterConfigration
 	if(std::abs(forward_angle) > M_PI/6.) {
-		mIsTerminal = true;
-		terminationReason = 9;
+		if(!mRecord){
+			mIsTerminal = true;
+			terminationReason = 9;
+		}
+		else std::cout<<"forward_angle : "<<forward_angle<<std::endl; 
 		// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
+	}
+	// if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+	// 	mIsTerminal = true;
+	// 	terminationReason = 2;
+	// }
+	if(mRecord && (root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD || root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT) ){
+		std::cout<<"root_pos_diff.norm() : "<<root_pos_diff.norm()<<std::endl; 
 	}
 	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
@@ -948,6 +959,8 @@ Reset(bool RSI)
 	// this->jump_stepon =  false;
 	this->placed_object = false;
 	#endif
+
+	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }

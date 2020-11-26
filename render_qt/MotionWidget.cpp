@@ -121,6 +121,34 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		root[0]+=0.75; left_foot[0]+=0.75; right_foot[0]+=0.75;
 		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/mid:"<<((left_foot+right_foot)/2.).transpose()<<std::endl;
 	}
+
+
+ //    std::string test_param_summary_path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/paramSummary_test");
+ //    // std::cout<<"path : "<<test_param_summary_path<<std::endl;
+ //    std::ofstream test_param_file;
+ //    test_param_file.open(test_param_summary_path);
+
+	// //grids_denorm, grids, fitness, density
+	// std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>, std::vector<double>> paramSummary = mRegressionMemory->GetParamSpaceSummary();
+	// auto& [gd, g, f, d] = paramSummary;
+	// for(int i=0; i<gd.size(); i++){
+	// 	test_param_file<<g[i].transpose()<<" "<<f[i]<<" "<<d[i]<<std::endl;
+	// }
+	// test_param_file.close();
+	
+	// try{
+ //    	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>, std::vector<double>> summary = mRegressionMemory->GetParamSpaceSummary();
+	// 	np::ndarray x_norm = DPhy::toNumPyArray(std::get<0>(summary));
+	// 	p::object a= this->mPPO.attr("saveAndShowParamSummary")(x_norm);
+ //        np::ndarray na = np::from_object(a);
+ //        Eigen::VectorXd v= DPhy::toEigenVector(na, std::get<1>(summary).size());
+
+ //        std::cout<<"v: "<<v.size()<<std::endl;
+ //        std::cout<<v.transpose()<<std::endl;
+	// }catch (const p::error_already_set&) {
+ //        PyErr_Print();
+ //    }
+
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
     for(int i = 0; i < p1.rows(); i++) {
@@ -235,8 +263,15 @@ UpdateParam(const bool& pressed) {
 		Eigen::VectorXd tp(2);
 		std::cout<<"MW / "<<v_param.transpose()<<std::endl;
 		tp << v_param(0)*0.1, v_param(1)*0.1;
+		std::cout<<tp.transpose()<<" / ";
+
+		Eigen::VectorXd tp_denorm_raw = mRegressionMemory->Denormalize(tp);
+
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
+	    
+	    // Eigen::VectorXd tp_denorm = tp_denorm_raw;
+
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
 	    std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
@@ -306,7 +341,9 @@ UpdateParam(const bool& pressed) {
 	   	 	UpdateMotion(pos, 3);
 	    } else {
 	     	mTotalFrame = 0;
-	     	mController->SetGoalParameters(tp_denorm);
+	     	// mController->SetGoalParameters(tp_denorm);
+	     	mController->SetGoalParameters(tp_denorm_raw);
+	     	
 		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 		    // mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
