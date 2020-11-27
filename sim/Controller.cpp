@@ -257,7 +257,7 @@ Step()
 			for(int i = 0; i < mRewardSimilarity.size(); i++) {
 				mRewardSimilarity[i] /= mCountTracking;
 			}
-			// std::cout<<mCurrentFrame<<" : "<<mFitness.sum_contact<<std::endl;
+			// std::cout<<mCurrentFrame<<" : "<<mTrackingRewardTrajectory<<std::endl;
 			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
 				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
@@ -600,7 +600,7 @@ GetSimilarityReward()
 	mFitness.sum_pos += p_diff.cwiseAbs(); 
 	mFitness.sum_vel += v_diff.cwiseAbs();
 	mFitness.sum_contact += abs(con_diff);
-	return r_con  * r_p * r_ee;
+	return r_con  * r_p ; //* r_ee;
 }
 double 
 Controller::

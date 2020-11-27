@@ -562,10 +562,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		return;
 	}
 	
-	if(std::get<2>(rewards).sum_contact > 0.5) {
-		// std::cout<<" sum_contact : "<<std::get<2>(rewards).sum_contact<<std::endl;
-		return;
-	}
+	// if(std::get<2>(rewards).sum_contact > 1.0) {
+	// 	// std::cout<<" sum_contact : "<<std::get<2>(rewards).sum_contact<<std::endl;
+	// 	return;
+	// }
 
 	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
 	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
@@ -575,7 +575,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	right_vector[1]= 0;
 	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
 	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
-	if(std::abs(forward_angle) > M_PI/6.) {
+	if(std::abs(forward_angle) > M_PI/4.) {
 		// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
 		return;
 	}
