@@ -1,8 +1,8 @@
 lb=$1
 n=0
-print_file="/home/seyoung/Projects/CAR/network/output/test_result${lb}"
-base_file="/home/seyoung/Projects/CAR/network/output/punch_ue_2d_test"
-target_file="/home/seyoung/Projects/CAR/network/output/punch_ue_2d_${lb}"
+print_file="/home/sonic/Projects/CAR/network/output/test_result${lb}"
+base_file="/home/sonic/Projects/CAR/network/output/punch_ue_2d_test"
+target_file="/home/sonic/Projects/CAR/network/output/punch_ue_2d_${lb}"
 for iter in $(seq 1 50);
 do 
   target_file_full="${target_file}_${n}"

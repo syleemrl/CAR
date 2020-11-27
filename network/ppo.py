@@ -75,9 +75,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.5]
-
-		self.optim_frequency = [optim_frequency * 2, optim_frequency * 2]
+		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.25,  steps_per_iteration * 0.5]
+		self.optim_frequency = [optim_frequency * 2, optim_frequency * 4, optim_frequency * 2]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -197,8 +196,6 @@ class PPO(object):
 
 			if self.parametric:
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
-				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
-				self.critic_target_prev2, _, _ = self.createCriticNetwork(name+'_target_prev2', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -210,22 +207,6 @@ class PPO(object):
 		
 		self.sess.run(tf.global_variables_initializer())
 
-	def updateCriticTarget(self, update_all=False):
-		copy_op = []
-
-		cur_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target')
-		prev_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target_prev')
-
-		for cur_var, prev_var in zip(cur_vars, prev_vars):
-			copy_op.append(prev_var.assign(cur_var.value()))
-		self.sess.run(copy_op)
-
-		if update_all:
-			prev_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target_prev2')
-
-			for cur_var, prev_var in zip(cur_vars, prev_vars):
-				copy_op.append(prev_var.assign(cur_var.value()))
-			self.sess.run(copy_op)
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -504,9 +485,8 @@ class PPO(object):
 		epi_info_iter = []
 		epi_info_iter_hind = []
 
-		update_counter = 0
-	#	self.env.sampler.reset_explore()
-		self.env.sampler.sample_evaluation_points(self.critic_target, self.env.lb)
+		self.env.sampler.resetExplore()
+		it_cur = 0
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -516,10 +496,7 @@ class PPO(object):
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
 			if self.adaptive:
-				if self.env.sampler.type_explore == 8 and not self.env.mode:
-					p_idx = self.env.updateGoal(self.critic_progress, self.critic_target_prev)
-				else:
-					p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
+				p_idx = self.env.updateGoal(self.critic_target)
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -554,45 +531,25 @@ class PPO(object):
 					last_print = local_step
 				
 				states = self.env.getStates()
-			self.env.sampler.saveProgress()
+			self.env.sampler.saveProgress(self.env.mode)
+			it_cur += 1
+
 			print('')
 
-			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
-				update_counter += 1
+			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1) or \
+			    (self.env.mode == 2 and it_cur % self.env.sampler.eval_frequency == self.env.sampler.eval_frequency - 1):	
 				if self.adaptive:
-					if not self.env.mode and update_counter >= 3:
-						self.updateCriticTarget(False)
-						update_counter = 0
 					self.updateAdaptive(epi_info_iter)
-
-					t = self.env.updateMode(self.critic_target)
-					if t == 0:
-						self.updateCriticTarget(True)
-						# self.state_old, self.progress_old = self.env.sampler.GetTrainingDataProgress(False)
-						# self.env.sampler.ClearTrainingDataProgress(True)
-						# self.updateCriticProgress(100)
-						update_counter = 0
-					# elif t == 1:
-						# self.env.sampler.ClearTrainingDataProgress(True)
-					# elif self.env.mode == 0:
-						# self.env.sampler.ClearTrainingDataProgress(False)
-						# self.env.sampler.UpdateTrainingDataProgress()
-						# self.updateCriticProgress(100)
-					if t == 999:
+					t = self.env.updateMode(self.critic_target, self.v_target)
+		
+					if t == -1:
 						break
-
-					# if not self.parametric:
-					# 	self.env.updateAdaptive()
-					# else:
-					# 	if self.env.sampler.type_explore == 8  and self.env.mode:
-					# 		self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-					# 	elif self.env.sampler.type_explore == 8  and not self.env.mode:
-					# 			self.env.updateCurriculum(self.critic_progress, self.critic_target_prev, self.v_target, self.idx_target)
-					# 	else :
-					# 		if self.env.mode:
-					# 			self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-					# 		else:
-					# 			self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
+					elif t == 1:
+						it_cur = 0
+					if not self.parametric:
+						self.env.updateAdaptive()
+					else:
+						self.env.updateCurriculum(self.critic_target)
 
 					epi_info_iter_hind = []
 
@@ -639,8 +596,6 @@ if __name__=="__main__":
 	parser.add_argument("--parametric", dest='parametric', action='store_true')
 	parser.add_argument("--save", type=bool, default=True)
 	parser.add_argument("--no-plot", dest='plot', action='store_false')
-	parser.add_argument("--test_path", type=str, default="")
-	parser.add_argument("--lb",  type=float, default=0)
 	parser.set_defaults(plot=True)
 	parser.set_defaults(adaptive=False)
 	parser.set_defaults(parametric=False)
@@ -657,11 +612,9 @@ if __name__=="__main__":
 			os.mkdir(directory)
 
 	if args.pretrain != "":
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric, 
-			test_path=args.test_path, lb=args.lb)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 	else:
-		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric,
-			test_path=args.test_path, lb=args.lb)
+		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 
 	ppo = PPO()
 
