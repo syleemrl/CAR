@@ -190,6 +190,7 @@ protected:
 
 	Eigen::Vector3d mStartRoot; //root 0th frame
 	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
+	std::vector<double> foot_diff;
 
 	bool jump_stepon = false;
 

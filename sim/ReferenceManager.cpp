@@ -561,10 +561,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
-	// if(std::get<2>(rewards).sum_contact > 0.5) {
-	// 	// std::cout<<" sum_contact : "<<std::get<2>(rewards).sum_contact<<std::endl;
-	// 	return;
-	// }
+	
+	if(std::get<2>(rewards).sum_contact > 0.5) {
+		// std::cout<<" sum_contact : "<<std::get<2>(rewards).sum_contact<<std::endl;
+		return;
+	}
 
 	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
 	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
