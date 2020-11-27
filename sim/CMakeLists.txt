@@ -15,7 +15,8 @@ include_directories(${TinyXML_INCLUDE_DIRS})
 include_directories(${PYTHON_INCLUDE_DIR})
 include_directories(${Boost_INCLUDE_DIRS})
 
-file(GLOB srcs "*.h" "*.cpp")
+# file(GLOB srcs "*.h" "*.cpp")
+file(GLOB srcs BVH.cpp Character.cpp Controller.cpp Functions.cpp MultilevelSpline.cpp ReferenceManager.cpp RegressionMemory.cpp SkeletonBuilder.cpp)
 
 add_library(sim ${srcs} )
 target_link_libraries(sim ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})
@@ -25,3 +26,6 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 #add_executable(xmlGen BVHToXML.cpp)
 #target_link_libraries(xmlGen ${TinyXML_LIBRARIES})
+
+add_executable(fc ${srcs} flair_cleanup.cpp)
+target_link_libraries(fc ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})

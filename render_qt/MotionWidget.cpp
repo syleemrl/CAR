@@ -484,22 +484,22 @@ DrawSkeletons()
 {
 	if(mDrawBvh){
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
-		if(this->mSkel_obj) {
-			glPushMatrix();
-			glTranslated(-0.75, 0, 0);
+		// if(this->mSkel_obj) {
+		// 	glPushMatrix();
+		// 	glTranslated(-0.75, 0, 0);
 		
-			Eigen::VectorXd save_p = this->mSkel_obj->getPositions();
-			Eigen::VectorXd obj_pos(7);
-			obj_pos.setZero();
-			obj_pos[5]=0.8; obj_pos[6]= 0.46;
-			mSkel_obj->setPositions(obj_pos);
+		// 	Eigen::VectorXd save_p = this->mSkel_obj->getPositions();
+		// 	Eigen::VectorXd obj_pos(7);
+		// 	obj_pos.setZero();
+		// 	obj_pos[5]=0.8; obj_pos[6]= 0.46;
+		// 	mSkel_obj->setPositions(obj_pos);
 
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			mSkel_obj->setPositions(save_p);
+		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// 	mSkel_obj->setPositions(save_p);
 			
-			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
-			glPopMatrix();
-		}
+		// 	GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
+		// 	glPopMatrix();
+		// }
 	}
 
 	if(mDrawSim) {
