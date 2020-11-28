@@ -575,10 +575,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	right_vector[1]= 0;
 	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
 	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
-	if(std::abs(forward_angle) > M_PI/4.) {
-		// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
-		return;
-	}
+	// if(std::abs(forward_angle) > M_PI/4.) {
+	// 	// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
+	// 	return;
+	// }
 	if (std::abs(data_raw[0].second) > 1e-8) return ;
 	
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);

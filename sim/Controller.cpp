@@ -187,7 +187,7 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*0.3)-1) * sign;
+	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
 	// std::cout<<mAdaptiveStep<<std::endl;
@@ -236,7 +236,7 @@ Step()
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
 
-	if(mCurrentFrameOnPhase >= 33.5 && !(this->placed_object)){
+	if(mCurrentFrameOnPhase >= 40.5 && !(this->placed_object)){
 		this->placed_object = true;
 	}
 
@@ -579,17 +579,17 @@ GetSimilarityReward()
 	for(int i =0 ; i < vel.rows(); i++) {
 		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
 	}
-	for(int i = 0; i < num_body_nodes; i++) {
-		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx) *= 5;
-			p_diff.segment<3>(idx + 3) *= 10;
-			v_diff.segment<3>(idx) *= 5;
-			v_diff.segment<3>(idx + 3) *= 10;
-			v_diff(5) *= 2;
-		} 
-	}
+	// for(int i = 0; i < num_body_nodes; i++) {
+	// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
+	// 	int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+	// 	if(name.compare("Hips") == 0 ) {
+	// 		p_diff.segment<3>(idx) *= 5;
+	// 		p_diff.segment<3>(idx + 3) *= 10;
+	// 		v_diff.segment<3>(idx) *= 5;
+	// 		v_diff.segment<3>(idx + 3) *= 10;
+	// 		v_diff(5) *= 2;
+	// 	} 
+	// }
 
 	double r_con = exp(-abs(con_diff));
 	double r_ee = exp_of_squared(v_diff, 3);
@@ -600,7 +600,7 @@ GetSimilarityReward()
 	mFitness.sum_pos += p_diff.cwiseAbs(); 
 	mFitness.sum_vel += v_diff.cwiseAbs();
 	mFitness.sum_contact += abs(con_diff);
-	return r_con  * r_p ; //* r_ee;
+	return r_con  * r_p * r_ee;
 }
 double 
 Controller::
@@ -608,7 +608,7 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	if(mCurrentFrameOnPhase >= 40.5 && !(this->jump_stepon)){
+	if(mCurrentFrameOnPhase >= 47.5 && !(this->jump_stepon)){
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		Eigen::Vector3d lt = this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
@@ -627,11 +627,11 @@ GetParamReward()
 		if(lt[2] > (obj_z+0.1)) distance_diff[2]= lt[2]-(obj_z+0.1);
 		if(rt[2] > (obj_z+0.1)) distance_diff[3]= rt[2]-(obj_z+0.1);
 
-		double r = exp_of_squared(distance_diff, 0.04);
+		double r = exp_of_squared(distance_diff, 0.035);
 		// std::cout<<mCurrentFrame<<", r: "<<r<<" , dist: "<<distance_diff.transpose()<<std::endl;
 		foot_diff.push_back(r);
 
-		if(mCurrentFrameOnPhase >=60.5){			
+		if(mCurrentFrameOnPhase >=67.5){			
 			r_param= std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0) / foot_diff.size();
 			// std::cout<<mCurrentFrameOnPhase<<"/ r_param: "<<r_param<<std::endl;
 			this->jump_stepon = true;
