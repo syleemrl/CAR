@@ -62,6 +62,7 @@ public:
 	void UpdateParamState();
 	p::list GetParamSpaceSummary();
 	p::list UniformSampleWithNearestParams();
+	p::list GetNearestParams(np::ndarray np_array);
 	int GetProgressGoal();
 
 private:

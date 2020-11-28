@@ -377,6 +377,26 @@ UniformSampleWithNearestParams() {
 
 	return l;
 }
+p::list 
+SimEnv::
+GetNearestParams(np::ndarray np_array) {
+	int dim = mRegressionMemory->GetDim();
+	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
+	Eigen::VectorXd tp_normalized = mRegressionMemory->Normalize(tp);
+
+	std::vector<std::pair<double, DPhy::Param*>> nearest = mRegressionMemory->GetNearestParams(tp_normalized, 5, true);
+	std::vector<Eigen::VectorXd> nearest_ps;
+	for(int i = 0; i < nearest.size(); i++) {
+		nearest_ps.push_back(mRegressionMemory->Denormalize(nearest[i].second->param_normalized));
+	}
+
+	p::list l;
+	for(int i = 0; i < nearest_ps.size(); i++) {
+		l.append(DPhy::toNumPyArray(nearest_ps[i]));
+	}
+
+	return l;
+}
 int 
 SimEnv::
 GetProgressGoal() {
@@ -422,6 +442,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
 		.def("UniformSampleWithNearestParams",&SimEnv::UniformSampleWithNearestParams)
 		.def("UpdateParamState",&SimEnv::UpdateParamState)
+		.def("GetNearestParams",&SimEnv::GetNearestParams)
 		.def("GetProgressGoal",&SimEnv::GetProgressGoal);
 
 }

@@ -11,7 +11,7 @@ class Sampler(object):
 		self.v_mean = 1.0
 		self.random = True
 
-		self.k = 10
+		self.k = 15
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -21,7 +21,7 @@ class Sampler(object):
 		self.type_exploit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
 		# 6: num sample slope(sampling) 7:num sample near goal(sampling) 8: num sample slope (network)
-		self.type_explore = 0
+		self.type_explore = 1
 		
 		self.prev_action = 0
 		self.prev_nsample = 0
@@ -57,10 +57,7 @@ class Sampler(object):
 		if hard:
 			return math.exp(- self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 		else:
-			if self.type_explore == 8:
-				return math.exp(3 *  (v- self.ns_mean) / self.ns_mean) + 1e-10
-			else:
-				return math.exp(5 * self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+			return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
 
 	def probTS(self, v_func, v_func_prev, target, hard=True):
 		target = np.reshape(target, (-1, self.dim))
@@ -123,19 +120,17 @@ class Sampler(object):
 				it += 1
 
 		if mode == 0:
-			if self.type_explore == 0:
+			if self.type_explore == 0 or self.total_iter < 5:
 				return
+			self.pool_ex = []
 			if self.type_explore == 1:
 				for i in range(m):
 					x_cur = self.randomSample(mode)
 					for j in range(int(N/m)):
 						self.pool_ex.append(x_cur)
 						x_new = self.randomSample(mode)
-						if self.type_explore == 1 or self.type_explore == 8:
-							alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
-						else:
-							alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, False)/self.probTS(v_func, v_func_prev, x_cur, False))
-
+						alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
+					
 						if np.random.rand() <= alpha:          
 							x_cur = x_new	
 		elif mode == 1:
@@ -206,7 +201,7 @@ class Sampler(object):
 				self.progress_queue_explore = self.progress_queue_explore[1:]
 			self.progress_queue_explore.append(self.progress_cur)
 		elif mode == 1:		
-			if len(self.progress_queue_exploit) >= 5:
+			if len(self.progress_queue_exploit) >= 10:
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
 			self.progress_queue_exploit.append(self.progress_cur)
 		else:
@@ -219,7 +214,7 @@ class Sampler(object):
 			if self.total_iter < 5:
 				target = self.randomSample(mode)
 				t = -1
-			else:
+			elif self.type_explore == 0:
 				li = self.sim_env.UniformSampleWithNearestParams() 
 				params = li[1]
 				vs = v_func.getValue(params)
@@ -227,7 +222,16 @@ class Sampler(object):
 				target = li[0]
 				self.eval_target_v = math.floor(v * self.scale) / self.scale
 				t = -1
+			else:
+				t = np.random.randint(len(self.pool_ex)) 
+				target = self.pool_ex[t] 
+				target_np = np.array(target, dtype=np.float32) 
+				params = self.sim_env.GetNearestParams(target_np) 
+				vs = v_func.getValue(params)
+				v = np.array(vs).mean()
+				self.eval_target_v = math.floor(v * self.scale) / self.scale
 			return target, t
+
 		elif mode == 1:
 			if self.n_exploit < 1 or self.n_exploit % 5 == 4:
 				target = self.randomSample(mode)
@@ -314,13 +318,12 @@ class Sampler(object):
 		print("exploration rate : ", p_mean)
 		print("===========================================")
 
-		if self.n_exploit < 5:
+		if self.n_exploit < 10:
 			return False
 
+		v = math.floor(self.v_mean * self.scale) / self.scale
 		for i in reversed(range(len(self.vp_table))):
-			if self.vp_table[i][0] <= self.v_mean and p_mean < self.vp_table[i][1]:
-				return True
-			if self.n_exploit % 5 == 4 and self.vp_table[i][0] <= self.v_mean_cur and p_mean < self.vp_table[i][1]:
+			if self.vp_table[i][0] <= v - self.scale and p_mean < self.vp_table[i][1]:
 				return True
 
 		return False
