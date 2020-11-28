@@ -141,9 +141,15 @@ class Monitor(object):
 		mean = np.array(li).mean()
 		print('evaluation mean: ', mean)
 		if self.mode == 0:
-			update_rate = np.array(self.sampler.progress_queue_explore).mean()
+			if len(self.sampler.progress_queue_explore) == 0:
+				update_rate = self.sampler.prev_progress
+			else:
+				update_rate = np.array(self.sampler.progress_queue_explore).mean()
 		else:
-			update_rate = np.array(self.sampler.progress_queue_exploit).mean()
+			if len(self.sampler.progress_queue_exploit) == 0:
+				update_rate = self.sampler.prev_progress
+			else:
+				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
 
 		self.v_ratio = self.sim_env.GetVisitedRatio()
 		if not os.path.isfile(self.directory+"curriculum_info") :

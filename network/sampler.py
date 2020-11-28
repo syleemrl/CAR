@@ -113,7 +113,10 @@ class Sampler(object):
 
 		it = 0
 		while it < len(self.vp_table):
-			self.vp_table[it][2] += 1
+			if mode == 0:
+				self.vp_table[it][2] += 4
+			else:
+				self.vp_table[it][2] += 1
 			if self.vp_table[it][2] >= 30:
 				self.vp_table = self.vp_table[:it] + self.vp_table[(it+1):]  
 			else:
@@ -179,7 +182,7 @@ class Sampler(object):
 				flag = False
 				for i in range(len(self.vp_table)):
 					if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
-						rate = min(0.5, 0.1 + 0.1 * self.vp_table[i][2])
+						rate = 0.1 + 0.02 * self.vp_table[i][2]
 						self.vp_table[i][1] = (1 - rate) * self.vp_table[i][1] + rate * p * 10
 						self.vp_table[i][2] = 0
 						flag = True
@@ -245,10 +248,12 @@ class Sampler(object):
 
 	def resetExploit(self):
 		self.n_exploit = 0
+		self.prev_progress = np.array(self.progress_queue_exploit).mean()
 		self.progress_queue_exploit = []
 
 	def resetExplore(self):
 		self.n_explore = 0
+		self.prev_progress = np.array(self.progress_queue_explore).mean()
 		self.progress_queue_explore = []
 
 	def resetEvaluation(self, v_func):
