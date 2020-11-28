@@ -570,13 +570,13 @@ GetParamReward()
 		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
 		root_new = projectToXZ(root_new);
 		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-		Eigen::Vector3d dir = Eigen::Vector3d(0.7, 0, - sqrt(1 - 0.49));
+		Eigen::Vector3d dir = Eigen::Vector3d(mParamGoal(0), 0, - sqrt(1 - mParamGoal(0)*mParamGoal(0)));
 		dir.normalize();
-		dir *= mParamGoal(0);
+		dir *= mParamGoal(2);
 		Eigen::Vector3d goal_hand = aa * dir + mHeadRoot.segment<3>(3);
-		goal_hand(1) = 1.3;
+		goal_hand(1) = mParamGoal(1);
 		Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
-		double v_diff = mParamGoal(1) - maxSpeedObj;
+		double v_diff = mParamGoal(3) - maxSpeedObj;
 
 		r_param = exp_of_squared(hand_diff,0.1) * exp(-pow(v_diff, 2)*150);
 		
@@ -586,20 +586,51 @@ GetParamReward()
 		dir = aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-
-		if(abs(0.7 - dir(0)) < 0.03 && abs(1.3 - mHandPosition(1)) < 0.03)
-			mParamCur << norm, maxSpeedObj;
-		else
-			mParamCur << -1, -1;
+		mParamCur << dir(0), mHandPosition(1), norm, maxSpeedObj;
 		mControlFlag[0] = 4;
 
 		if(mRecord) {
 			std::cout << hand_diff.transpose() << " "<< exp_of_squared(hand_diff, 0.4)  << " "<< exp_of_squared(hand_diff,0.1) << std::endl;
 			std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*150) << std::endl;
-			std::cout << dir.transpose() << " " << mHandPosition(1) << " " << mParamCur.transpose() << std::endl;
 		}
 	}
 	return r_param;
+	// double r_param = 0;
+	// auto& skel = this->mCharacter->GetSkeleton();
+	// if(mControlFlag[0] == 3) {
+	// 	Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
+	// 	root_new = projectToXZ(root_new);
+	// 	Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+	// 	Eigen::Vector3d dir = Eigen::Vector3d(0.7, 0, - sqrt(1 - 0.49));
+	// 	dir.normalize();
+	// 	dir *= mParamGoal(0);
+	// 	Eigen::Vector3d goal_hand = aa * dir + mHeadRoot.segment<3>(3);
+	// 	goal_hand(1) = 1.3;
+	// 	Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
+	// 	double v_diff = mParamGoal(1) - maxSpeedObj;
+
+	// 	r_param = exp_of_squared(hand_diff,0.1) * exp(-pow(v_diff, 2)*150);
+		
+	// 	Eigen::Vector3d hand = mHandPosition;
+	// 	hand = hand - mHeadRoot.segment<3>(3);
+	// 	hand(1) = 0;
+	// 	dir = aa.inverse() * hand;
+	// 	double norm = dir.norm();
+	// 	dir.normalize();
+
+	// 	if(abs(0.7 - dir(0)) < 0.03 && abs(1.3 - mHandPosition(1)) < 0.03)
+	// 		mParamCur << norm, maxSpeedObj;
+	// 	else
+	// 		mParamCur << -1, -1;
+	// 	mControlFlag[0] = 4;
+
+	// 	if(mRecord) {
+	// 		std::cout << hand_diff.transpose() << " "<< exp_of_squared(hand_diff, 0.4)  << " "<< exp_of_squared(hand_diff,0.1) << std::endl;
+	// 		std::cout << v_diff << " "<< exp(-pow(v_diff, 2)*10)  << " "<< exp(-pow(v_diff, 2)*150) << std::endl;
+	// 		std::cout << dir.transpose() << " " << mHandPosition(1) << " " << mParamCur.transpose() << std::endl;
+	// 	}
+	// }
+	// return r_param;
 }
 void
 Controller::

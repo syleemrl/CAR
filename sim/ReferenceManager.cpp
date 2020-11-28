@@ -470,25 +470,42 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdSurvival = 0.8;
 	mThresholdProgress = 10;
 
-	mParamBVH.resize(2);
-	mParamBVH << 1.2, 0.4;
+	// mParamBVH.resize(2);
+	// mParamBVH << 1.2, 0.4;
 
-	mParamCur.resize(2);
-	mParamCur << 1.2, 0.4;
+	// mParamCur.resize(2);
+	// mParamCur << 1.2, 0.4;
 
-	mParamGoal.resize(2);
-	mParamGoal << 1.2, 0.4;
+	// mParamGoal.resize(2);
+	// mParamGoal << 1.2, 0.4;
+
+	// if(isParametric) {
+	// 	Eigen::VectorXd paramUnit(2);
+	// 	paramUnit<< 0.1, 0.1;
+
+	// 	mParamBase.resize(2);
+	// 	mParamBase << 0.8, 0.2;
+
+	// 	mParamEnd.resize(2);
+	// 	mParamEnd << 1.6, 1.2;
+	mParamBVH.resize(4);
+	mParamBVH << 0.707107, 1.3, 1.2, 0.4;
+
+	mParamCur.resize(4);
+	mParamCur << 0.707107, 1.3, 1.2, 0.4;
+
+	mParamGoal.resize(4);
+	mParamGoal << 0.707107, 1.3, 1.2, 0.4;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(2);
-		paramUnit<< 0.1, 0.1;
+		Eigen::VectorXd paramUnit(4);
+		paramUnit<< 0.1, 0.1, 0.1, 0.2;
 
-		mParamBase.resize(2);
-		mParamBase << 0.8, 0.2;
+		mParamBase.resize(4);
+		mParamBase << 0.2, 1.0, 0.8, 0.3;
 
-		mParamEnd.resize(2);
-		mParamEnd << 1.6, 1.2;
-
+		mParamEnd.resize(4);
+		mParamEnd << 0.8, 1.4, 1.3, 1.1;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);

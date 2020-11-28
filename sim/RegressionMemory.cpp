@@ -943,10 +943,30 @@ SaveContinuousParamSpace(std::string path) {
 double 
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
+	Eigen::VectorXd headRoot(6);
+	headRoot << -1.77697, -1.73886, 0.793543, 0.00431308, 0.820601, -0.000182682;
+
+	Eigen::Vector3d root_new = headRoot.segment<3>(0);
+	root_new = projectToXZ(root_new);
+	Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+	Eigen::Vector3d dir = Eigen::Vector3d(p(0), 0, - sqrt(1 - p(0)*p(0)));
+	dir *= p(2);
+	Eigen::Vector3d p_hand = aa * dir;
+	p_hand(1) = p(1);
+
+	dir = Eigen::Vector3d(p_goal(0), 0, - sqrt(1 - p_goal(0)*p_goal(0)));
+	dir *= p_goal(2);
+	Eigen::Vector3d goal_hand = aa * dir;
+	goal_hand(1) = p_goal(1);
+
+	Eigen::Vector3d hand_diff = goal_hand - p_hand;
+	double v_diff = p_goal(3) - p(3);
 	
-	Eigen::VectorXd diff = p - p_goal;
-	double r_param = exp_of_squared(diff, 0.2);
-	return r_param;
+	double 	r_param = exp_of_squared(hand_diff,0.2) * exp(-pow(v_diff, 2)*20);
+	return r_param;	
+	// Eigen::VectorXd diff = p - p_goal;
+	// double r_param = exp_of_squared(diff, 0.2);
+	// return r_param;
 }
 void 
 RegressionMemory::

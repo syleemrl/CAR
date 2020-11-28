@@ -30,11 +30,11 @@ class Sampler(object):
 		self.done = False
 
 		# value, progress, updated
-		self.vp_table = [[1.0, 10]]
+		self.vp_table = [[1.0, 150]]
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
-		self.progress_queue_exploit = [10.0]
+		self.progress_queue_exploit = [250.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -214,7 +214,7 @@ class Sampler(object):
 
 	def resetEvaluation(self, v_func):
 		self.n_evaluation = 0
-		self.eval_target_v = max(0.75, self.v_mean - 0.1)
+		self.eval_target_v = max(0.75, self.v_mean - 0.15)
 		self.sample = []
 		self.sample_progress = []
 		self.evaluation_done = False
@@ -245,11 +245,11 @@ class Sampler(object):
 
 			if flag:
 				self.sample_progress.append([0, self.eval_target_v])
-			if not flag:
-				break
+			# if not flag:
+			# 	break
 
 			self.eval_target_v += 0.05
-			if self.eval_target_v > self.v_mean + 0.2:
+			if self.eval_target_v > self.v_mean + 0.15:
 				break
 		self.eval_frequency = len(self.sample) + 1
 		print(self.sample)

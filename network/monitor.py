@@ -141,36 +141,47 @@ class Monitor(object):
 	
 	def saveParamSpaceSummary(self, v_func):
 		self.sim_env.SaveParamSpace(self.num_evaluation)
-		li = self.sim_env.GetParamSpaceSummary()
-		grids = li[0]
-		grids_norm = li[1]
-		fitness = li[2]
-		density = li[3]
-		v_values = v_func.getValue(grids)
+		# li = self.sim_env.GetParamSpaceSummary()
+		# grids = li[0]
+		# grids_norm = li[1]
+		# fitness = li[2]
+		# density = li[3]
+		# v_values = v_func.getValue(grids)
 		
-		out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
-		for i in range(len(grids)):
-			out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
-		out.close()		
+		# out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
+		# for i in range(len(grids)):
+		# 	out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
+		# out.close()		
 
-		self.v_ratio = self.sim_env.GetVisitedRatio()
+		# self.v_ratio = self.sim_env.GetVisitedRatio()
 		
-		if not os.path.isfile(self.directory+"v_ratio") :
-			out = open(self.directory+"v_ratio", "w")
-			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-			out.close()
-		else:
-			out = open(self.directory+"v_ratio", "a")
-			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-			out.close()		
+		# if not os.path.isfile(self.directory+"v_ratio") :
+		# 	out = open(self.directory+"v_ratio", "w")
+		# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+		# 	out.close()
+		# else:
+		# 	out = open(self.directory+"v_ratio", "a")
+		# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+		# 	out.close()		
 
 	def updateMode(self, v_func, results):
 		mode_change = -1
 		self.mode_counter += 1
 		self.sampler.updateProgress(self.mode)
-
 		if self.num_evaluation % 10 == 0:
 			self.sim_env.UpdateParamState()
+			self.v_ratio = self.sim_env.GetVisitedRatio()
+			
+			if not os.path.isfile(self.directory+"v_ratio") :
+				out = open(self.directory+"v_ratio", "w")
+				out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+				out.close()
+			else:
+				out = open(self.directory+"v_ratio", "a")
+				out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+				out.close()	
+
+		if self.num_evaluation % 100 == 99:
 			self.saveParamSpaceSummary(v_func)
 
 		if self.num_evaluation % 100 == 30:
