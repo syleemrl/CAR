@@ -14,7 +14,11 @@ def vector_to_str(vec):
 	for v in vec:
 		s += str(v) + ' '
 	return s
-
+def matrix_to_str(mat):
+	s = ''
+	for m in mat:
+		s += '(' + vector_to_str(m) + ')'
+	return s
 class Monitor(object):
 	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
 		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
@@ -88,11 +92,6 @@ class Monitor(object):
 		self.terminated[i] = False
 		self.prevframes[i] = 0
 
-	def stepForEval(self, action, i):
-		s, r, t =  self.env.stepForEval(action, i)
-		states_updated = self.RMS.apply(s.reshape(1, -1))
-		return states_updated, r, t
-
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
 
@@ -120,14 +119,13 @@ class Monitor(object):
 
 						if frames[i] > self.max_episode_length:
 							self.max_episode_length = frames[i]
-
-			if self.adaptive:
-				rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
-			else:	
-				rewards = [rewards[i][0] for i in range(len(rewards))]
-				
 			self.prevframes = curframes
 
+		if self.adaptive:
+			rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
+		else:	
+			rewards = [rewards[i][0] for i in range(len(rewards))]
+				
 		return rewards, dones, curframes, params
 
 	def updateReference(self):
@@ -139,69 +137,102 @@ class Monitor(object):
 			self.env.sim_env.UpdateReference()
 			self.sim_env.TrainRegressionNetwork()
 	
+	def saveEvaluation(self, li):
+		mean = np.array(li).mean()
+		print('evaluation mean: ', mean)
+		if self.mode == 0:
+			update_rate = np.array(self.sampler.progress_queue_explore).mean()
+		else:
+			update_rate = np.array(self.sampler.progress_queue_exploit).mean()
+
+		self.v_ratio = self.sim_env.GetVisitedRatio()
+		if not os.path.isfile(self.directory+"curriculum_info") :
+			out = open(self.directory+"curriculum_info", "w")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			out.write(str(mean)+':'+str(update_rate)+':'+str(self.v_ratio)+'\n')
+			out.close()
+		else:
+			out = open(self.directory+"curriculum_info", "a")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			out.write(str(mean)+':'+str(update_rate)+':'+str(self.v_ratio)+'\n')
+			out.close()			
+
+	def saveVPtable(self):
+		if not os.path.isfile(self.directory+"vp_table") :
+			out = open(self.directory+"vp_table", "w")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			out.write(matrix_to_str(self.sampler.vp_table)+'\n')
+			out.close()
+		else:
+			out = open(self.directory+"vp_table", "a")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			out.write(matrix_to_str(self.sampler.vp_table)+'\n')
+			out.close()	
+
 	def saveParamSpaceSummary(self, v_func):
 		self.sim_env.SaveParamSpace(self.num_evaluation)
-		# li = self.sim_env.GetParamSpaceSummary()
-		# grids = li[0]
-		# grids_norm = li[1]
-		# fitness = li[2]
-		# density = li[3]
-		# v_values = v_func.getValue(grids)
+		li = self.sim_env.GetParamSpaceSummary()
+		grids = li[0]
+		grids_norm = li[1]
+		fitness = li[2]
+		density = li[3]
+		v_values = v_func.getValue(grids)
 		
-		# out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
-		# for i in range(len(grids)):
-		# 	out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
-		# out.close()		
+		out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
+		for i in range(len(grids)):
+			out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
+		out.close()		
 
-		# self.v_ratio = self.sim_env.GetVisitedRatio()
+		self.v_ratio = self.sim_env.GetVisitedRatio()
 		
-		# if not os.path.isfile(self.directory+"v_ratio") :
-		# 	out = open(self.directory+"v_ratio", "w")
-		# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-		# 	out.close()
-		# else:
-		# 	out = open(self.directory+"v_ratio", "a")
-		# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-		# 	out.close()		
+		if not os.path.isfile(self.directory+"v_ratio") :
+			out = open(self.directory+"v_ratio", "w")
+			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+			out.close()
+		else:
+			out = open(self.directory+"v_ratio", "a")
+			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+			out.close()		
 
 	def updateMode(self, v_func, results):
 		mode_change = -1
 		self.mode_counter += 1
 		self.sampler.updateProgress(self.mode)
-		if self.num_evaluation % 10 == 0:
+		if self.num_evaluation % 5 == 0:
 			self.sim_env.UpdateParamState()
-			self.v_ratio = self.sim_env.GetVisitedRatio()
+			# self.v_ratio = self.sim_env.GetVisitedRatio()
 			
-			if not os.path.isfile(self.directory+"v_ratio") :
-				out = open(self.directory+"v_ratio", "w")
-				out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-				out.close()
-			else:
-				out = open(self.directory+"v_ratio", "a")
-				out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-				out.close()	
+			# if not os.path.isfile(self.directory+"v_ratio") :
+			# 	out = open(self.directory+"v_ratio", "w")
+			# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+			# 	out.close()
+			# else:
+			# 	out = open(self.directory+"v_ratio", "a")
+			# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+			# 	out.close()	
 
 		if self.num_evaluation % 100 == 99:
-			self.saveParamSpaceSummary(v_func)
+			self.sim_env.SaveParamSpace(self.num_evaluation)
 
 		if self.mode == 0:
+			if self.mode_counter % 3 == 0:
+				self.saveVPtable()
 			print(self.sampler.vp_table)
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.num_evaluation >= 20 and len(self.sampler.progress_queue_explore) >= 3 and \
+			if self.num_evaluation >= 20 and self.sampler.n_explore >= 5 and \
 			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean():
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.resetExploit()
 				return 1
-
 		elif self.mode == 1:
 			if self.sampler.isEnough(results):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.resetExplore()
 				return 1
-			elif self.mode_counter % 50 == 30:
+			elif self.mode_counter % 30 == 29:
 				self.sampler.resetEvaluation(v_func)
 				self.prev_mode = self.mode
 				self.mode = 2
@@ -210,7 +241,11 @@ class Monitor(object):
 		if self.v_ratio == 1:
 			return -1		
 		return 0
-	
+
+	def needEvaluation(self):
+		if self.num_evaluation > 5 and self.mode_counter % 5 == 0:
+			return True
+
 	def updateCurriculum(self, v_func):
 		self.sampler.updateGoalDistribution(self.mode, v_func)
 		if self.mode == 2 and self.sampler.evaluation_done:
@@ -220,18 +255,24 @@ class Monitor(object):
 				self.sampler.resetExplore()
 			else:
 				self.sampler.resetExploit()
+			self.saveVPtable()
 			self.sampler.updateGoalDistribution(self.mode, v_func)
 
-	def updateGoal(self, v_func):
-		t, idx = self.sampler.adaptiveSample(self.mode, v_func)
+	def updateGoal(self, v_func, record=True):
+		if record:
+			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
+		else:
+			t = self.sampler.randomSample(True)
+			idx = -1
+		
 		t = np.array(t, dtype=np.float32) 
-
 		self.sim_env.SetGoalParameters(t, self.mode)
 		
-		t = np.reshape(t, (-1, self.dim_param))
-		v = v_func.getValue(t)[0]
+		if record:		
+			t = np.reshape(t, (-1, self.dim_param))
+			v = v_func.getValue(t)[0]
 
-		print(t[0], v)
+			print(t[0], v)
 		return idx
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):

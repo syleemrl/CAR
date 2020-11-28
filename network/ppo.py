@@ -541,17 +541,19 @@ class PPO(object):
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					t = self.env.updateMode(self.critic_target, self.v_target)
-		
 					if t == -1:
 						break
 					elif t == 1:
 						it_cur = 0
+					
 					if not self.parametric:
 						self.env.updateAdaptive()
 					else:
 						self.env.updateCurriculum(self.critic_target)
-
 					epi_info_iter_hind = []
+
+					if self.env.needEvaluation():
+						self.eval(30)
 
 				else:			
 					self.update(epi_info_iter) 
@@ -574,8 +576,48 @@ class PPO(object):
 
 				epi_info_iter = []
 
-	# def eval(self, eval):
+	def eval(self, num_samples):
+		value_total = []
+		for it in range(num_samples):
+			for i in range(self.num_slaves):
+				self.env.reset(i)
+			states = self.env.getStates()
+			local_step = 0
+	
+			self.env.updateGoal(self.critic_target, False)
+			value_d = [0 for _ in range(self.num_slaves)]	
+			value_s = [0 for _ in range(self.num_slaves)]	
+			dense_count = [0 for _ in range(self.num_slaves)]
+			while True:
+				# set action
+				actions, neglogprobs = self.actor.getAction(states)
+				values = self.critic.getValue(states)
 
+				rewards, dones, _, params = self.env.step(actions, False)
+				for j in range(self.num_slaves):
+					if not self.env.getTerminated(j):
+						if rewards[j][0] is not None:
+							if rewards[j][1] > 1e-2:
+								value_s[j] = rewards[j][1] * 1 / 10.
+							dense_count[j] += 1
+							value_d[j] += rewards[j][0]
+							local_step += 1
+						if dones[j]:
+							if value_s[j] != 0:
+								value_total.append(value_s[j] + value_d[j] / dense_count[j])
+							value_s[j] = 0
+							value_d[j] = 0
+							dense_count[j] = 0
+							
+							if local_step < 1000:
+								self.env.reset(j)
+							else:
+								self.env.setTerminated(j)
+				if self.env.getAllTerminated():
+					break
+				states = self.env.getStates()
+
+		self.env.saveEvaluation(value_total)
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)

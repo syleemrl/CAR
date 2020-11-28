@@ -505,7 +505,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamBase << 0.1, 1.0, 0.8, 0.3;
 
 		mParamEnd.resize(4);
-		mParamEnd << 0.8, 1.5, 1.5, 1.5;
+		mParamEnd << 0.8, 1.5, 1.3, 1.5;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);

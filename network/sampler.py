@@ -30,11 +30,11 @@ class Sampler(object):
 		self.done = False
 
 		# value, progress, updated
-		self.vp_table = [[1.0, 150]]
+		self.vp_table = [[1.0, 100, 0]]
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
-		self.progress_queue_exploit = [250.0]
+		self.progress_queue_exploit = [100.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -109,6 +109,15 @@ class Sampler(object):
 		else:
 			self.n_evaluation += 1
 		self.total_iter += 1
+		
+
+		it = 0
+		while it < len(self.vp_table):
+			self.vp_table[it][2] += 1
+			if self.vp_table[it][2] >= 30:
+				self.vp_table = self.vp_table[:it] + self.vp_table[(it+1):]  
+			else:
+				it += 1
 
 		if mode == 0:
 			if self.type_explore == 0:
@@ -147,7 +156,7 @@ class Sampler(object):
 				vp_table_tmp = []
 				vp_table_max = 0
 				for i in range(len(self.sample_progress)):
-					vp_table_tmp.append([self.sample_progress[i][1], self.sample_progress[i][0] / 2.0])
+					vp_table_tmp.append([self.sample_progress[i][1], self.sample_progress[i][0] / 2.0, 0])
 					if self.sample_progress[i][1] > vp_table_max:
 						vp_table_max = self.sample_progress[i][1]
 				for i in range(len(self.vp_table)):
@@ -165,15 +174,17 @@ class Sampler(object):
 			self.progress_cur += p
 			if self.eval_target_v < 0.7:
 				return
-				
+
 			if self.total_iter >= 5:
 				flag = False
 				for i in range(len(self.vp_table)):
 					if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
-						self.vp_table[i][1] = 0.9 * self.vp_table[i][1] + 0.1 * p * 10
+						rate = min(0.5, 0.1 + 0.1 * self.vp_table[i][2])
+						self.vp_table[i][1] = (1 - rate) * self.vp_table[i][1] + rate * p * 10
+						self.vp_table[i][2] = 0
 						flag = True
 				if not flag:
-					self.vp_table.append([self.eval_target_v, 0.5 * p * 10])
+					self.vp_table.append([self.eval_target_v, 0.5 * p * 10, 0])
 
 		elif mode == 2:
 			t = self.evaluation_counter % len(self.sample)
@@ -298,7 +309,7 @@ class Sampler(object):
 		print("exploration rate : ", p_mean)
 		print("===========================================")
 
-		if self.n_exploit < 4:
+		if self.n_exploit < 5:
 			return False
 
 		for i in reversed(range(len(self.vp_table))):
