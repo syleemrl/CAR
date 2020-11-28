@@ -686,6 +686,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 
 	std::vector<Eigen::VectorXd> checklist = GetNeighborPointsOnGrid(candidate_scaled, nearest, mRadiusNeighbor);
 	int n_compare = 0;
+	double prev_max = 0;
 	bool flag = true;
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Param*>>> to_be_deleted;
 	for(int i = 0 ; i < checklist.size(); i++) {
@@ -699,7 +700,8 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 				double dist = GetDistanceNorm(candidate_scaled, ps[j]->param_normalized);
 				if(dist < mRadiusNeighbor) {
 					n_compare += 1;
-
+					if(prev_max < ps[j]->reward)
+						prev_max = ps[j]->reward;
 					if(ps[j]->reward < std::get<2>(candidate)) {
 						p_delete.push_back(ps[j]);
 					} else {
@@ -740,7 +742,8 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
-		mNewSamplesNearGoal += 1;
+		if(to_be_deleted.size() == 0 || p->reward >= prev_max + 0.01)
+			mNewSamplesNearGoal += 1;
 	}
 	return flag;
 

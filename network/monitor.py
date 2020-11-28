@@ -184,16 +184,11 @@ class Monitor(object):
 		if self.num_evaluation % 100 == 99:
 			self.saveParamSpaceSummary(v_func)
 
-		if self.num_evaluation % 100 == 30:
-			self.sampler.resetEvaluation(v_func)
-			self.prev_mode = self.mode
-			self.mode = 2
-			return 1
-
 		if self.mode == 0:
+			print(self.sampler.vp_table)
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if len(self.sampler.progress_queue_explore) >= 3 and \
+			if self.num_evaluation >= 20 and len(self.sampler.progress_queue_explore) >= 3 and \
 			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean():
 				self.mode = 1
 				self.mode_counter = 0
@@ -206,6 +201,11 @@ class Monitor(object):
 				self.mode_counter = 0
 				self.sampler.resetExplore()
 				return 1
+			elif self.mode_counter % 50 == 30:
+				self.sampler.resetEvaluation(v_func)
+				self.prev_mode = self.mode
+				self.mode = 2
+			return 1
 
 		if self.v_ratio == 1:
 			return -1		
@@ -223,7 +223,7 @@ class Monitor(object):
 			self.sampler.updateGoalDistribution(self.mode, v_func)
 
 	def updateGoal(self, v_func):
-		t, idx = self.sampler.adaptiveSample(self.mode)
+		t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		t = np.array(t, dtype=np.float32) 
 
 		self.sim_env.SetGoalParameters(t, self.mode)

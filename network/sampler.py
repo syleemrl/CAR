@@ -41,6 +41,7 @@ class Sampler(object):
 		self.evaluation_counter = 0
 		self.evaluation_done = False
 		self.eval_frequency = 0
+		self.scale = 1.0 / 0.05
 		print('=======================================')
 		print('curriculum option')
 		print('type exploit', self.type_exploit)
@@ -107,6 +108,7 @@ class Sampler(object):
 			self.n_exploit += 1
 		else:
 			self.n_evaluation += 1
+		self.total_iter += 1
 
 		if mode == 0:
 			if self.type_explore == 0:
@@ -141,11 +143,11 @@ class Sampler(object):
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
 		else:
-			if self.n_evaluation == 4:
+			if self.n_evaluation == 3:
 				vp_table_tmp = []
 				vp_table_max = 0
 				for i in range(len(self.sample_progress)):
-					vp_table_tmp.append([self.sample_progress[i][1], self.sample_progress[i][0] / 3.0])
+					vp_table_tmp.append([self.sample_progress[i][1], self.sample_progress[i][0] / 2.0])
 					if self.sample_progress[i][1] > vp_table_max:
 						vp_table_max = self.sample_progress[i][1]
 				for i in range(len(self.vp_table)):
@@ -158,7 +160,22 @@ class Sampler(object):
 
 
 	def saveProgress(self, mode):
-		if mode == 2:
+		if mode == 0:
+			p = self.sim_env.GetProgressGoal()
+			self.progress_cur += p
+			if self.eval_target_v < 0.7:
+				return
+				
+			if self.total_iter >= 5:
+				flag = False
+				for i in range(len(self.vp_table)):
+					if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
+						self.vp_table[i][1] = 0.9 * self.vp_table[i][1] + 0.1 * p * 10
+						flag = True
+				if not flag:
+					self.vp_table.append([self.eval_target_v, 0.5 * p * 10])
+
+		elif mode == 2:
 			t = self.evaluation_counter % len(self.sample)
 			lb = self.sample[t][1]
 			for i in range(len(self.sample_progress)):
@@ -183,9 +200,20 @@ class Sampler(object):
 
 		self.progress_cur = 0
 
-	def adaptiveSample(self, mode):
+	def adaptiveSample(self, mode, v_func):
 		if mode == 0:
-			return self.randomSample(mode), -1
+			if self.total_iter < 5:
+				target = self.randomSample(mode)
+				t = -1
+			else:
+				li = self.sim_env.UniformSampleWithNearestParams() 
+				params = li[1]
+				vs = v_func.getValue(params)
+				v = np.array(vs).mean()
+				target = li[0]
+				self.eval_target_v = math.floor(v * self.scale) / self.scale
+				t = -1
+			return target, t
 		elif mode == 1:
 			if self.n_exploit < 1 or self.n_exploit % 5 == 4:
 				target = self.randomSample(mode)
@@ -214,7 +242,7 @@ class Sampler(object):
 
 	def resetEvaluation(self, v_func):
 		self.n_evaluation = 0
-		self.eval_target_v = max(0.75, self.v_mean - 0.15)
+		self.eval_target_v = max(0.75, math.floor((self.v_mean - 0.1) * self.scale) / self.scale)
 		self.sample = []
 		self.sample_progress = []
 		self.evaluation_done = False

@@ -574,6 +574,7 @@ class PPO(object):
 
 				epi_info_iter = []
 
+	# def eval(self, eval):
 
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
