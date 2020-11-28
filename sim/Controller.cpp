@@ -191,7 +191,7 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
 	// std::cout<<mAdaptiveStep<<std::endl;
-	// mAdaptiveStep = 0;
+	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);
@@ -226,19 +226,40 @@ Step()
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
 	
+	head_force.setZero(); leftToe_force.setZero(); rightToe_force.setZero(), leftHand_force.setZero(); rightHand_force.setZero();
+
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			mWorld->step(false);
+
+			head_force+= this->mCharacter->GetSkeleton()->getBodyNode("Head")->getConstraintImpulse();
+			leftToe_force+= this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getConstraintImpulse();
+			rightToe_force+= this->mCharacter->GetSkeleton()->getBodyNode("RightToe")->getConstraintImpulse();
+			leftHand_force+= this->mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getConstraintImpulse();
+			rightHand_force+= this->mCharacter->GetSkeleton()->getBodyNode("RightHand")->getConstraintImpulse();
+
 		}
 
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
 
+		// std::cout<<"isImpulseApplied : "<<this->mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getConstraintImpulse().transpose()<<std::endl;
+
+		// // Eigen::VectorXd total_force = this->mCharacter->GetSkeleton()->getExternalForceGlobal();
+		// // std::cout<<mCurrentFrame<<" "<<total_force.transpose()<<std::endl;
+		// if(head_force.norm() > 1e-4) std::cout<<mCurrentFrame<<" / HEAD :  "<<head_force.norm()<<std::endl;
+		// if(leftToe_force.norm() > 1e-4) std::cout<<mCurrentFrame<<" / left Toe :  "<<leftToe_force.norm()<<std::endl;
+		// if(rightToe_force.norm() > 1e-4) std::cout<<mCurrentFrame<<" / right Toe :  "<<rightToe_force.norm()<<std::endl;
+		// std::cout<<mCurrentFrame<<", "<<leftHand_force.norm()<<" "<<rightHand_force.norm()<<std::endl;
+
+
+	#ifdef OBJECT_TYPE
 	if(mCurrentFrameOnPhase >= 33.5 && !(this->placed_object)){
 		this->placed_object = true;
 	}
+	#endif
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -443,8 +464,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_p = 0.4 * scale; 
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
-	double sig_ee = 0.5 * scale;		
-
+	double sig_ee = 0.1 * scale;
+	
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
 	if(useVelocity)
@@ -754,15 +775,21 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 4;
 	}
-	//characterConfigration
-	if(std::abs(forward_angle) > M_PI/6.) {
-		if(!mRecord){
-			mIsTerminal = true;
-			terminationReason = 9;
-		}
-		else std::cout<<"forward_angle : "<<forward_angle<<std::endl; 
-		// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
+
+	if(head_force.norm() >=10 || leftToe_force.norm() >=10 || rightToe_force.norm() >=10) {
+		mIsTerminal = true;
+		terminationReason = 11; 
 	}
+
+	//characterConfigration
+	// if(std::abs(forward_angle) > M_PI/6.) {
+	// 	if(!mRecord){
+	// 		mIsTerminal = true;
+	// 		terminationReason = 9;
+	// 	}
+	// 	else std::cout<<"forward_angle : "<<forward_angle<<std::endl; 
+	// 	// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
+	// }
 	// if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 	// 	mIsTerminal = true;
 	// 	terminationReason = 2;
@@ -776,7 +803,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 2;
 	}
-	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT){// || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+	if(!mRecord && (root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT)){
 		mIsTerminal = true;
 		terminationReason = 1;
 	}
@@ -784,7 +811,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 2+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 6+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}

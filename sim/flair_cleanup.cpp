@@ -80,7 +80,7 @@ void lift_foot_up()
 	DPhy::ReferenceManager* refM_raw = new DPhy::ReferenceManager(ref);
 	refM_raw->LoadMotionFromBVH(std::string("/motion/mxm_flair_raw.bvh"));
 
-	for(int i=0; i<mReferenceManager->GetPhaseLength(); i++){
+	for(int i=0; i<refM->GetPhaseLength(); i++){
 		Eigen::VectorXd p = refM->GetPosition(i, false);
 		ref->GetSkeleton()->setPositions(p);
 		ref->GetSkeleton()->computeForwardKinematics(true, false, false);

@@ -197,6 +197,9 @@ protected:
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+
+	Eigen::Vector6d head_force, leftToe_force, rightToe_force, leftHand_force, rightHand_force;
+
 };
 }
 #endif
