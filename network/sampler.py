@@ -21,7 +21,7 @@ class Sampler(object):
 		self.type_exploit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
 		# 6: num sample slope(sampling) 7:num sample near goal(sampling) 8: num sample slope (network)
-		self.type_explore = 0
+		self.type_explore = 1
 		
 		self.prev_action = 0
 		self.prev_nsample = 0
@@ -59,45 +59,6 @@ class Sampler(object):
 		else:
 			return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
 
-	def probTS(self, v_func, v_func_prev, target, hard=True):
-		target = np.reshape(target, (-1, self.dim))
-		v = v_func.getValue(target)[0]
-		v_prev = v_func_prev.getValue(target)[0]
-		if hard:
-			slope = (v_prev - v) / v_prev * self.k * 2
-		else:
-			slope = (v - v_prev) / v_prev * self.k * 2
-		if slope > 10:
-			slope = 10
-		return math.exp(slope) + 1e-10
-
-
-	def probAdaptiveSampling(self, idx):
-		v = self.v_sample[idx]
-		if self.hard:
-			return math.exp(self.k_ex * -(v - self.v_mean) / self.v_mean) + 1e-10
-		else:
-			return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
-
-	def probTSSampling(self, idx):
-		v = self.v_sample[idx]
-		v_prev = self.v_prev_sample[idx]
-		slope = (v - v_prev) / v_prev * self.k_ex * 3
-
-		if self.hard:
-			slope = -slope
-		if slope > 10:
-			slope = 10
-		return math.exp(slope) + 1e-10
-
-	def probTS2Sampling(self, idx):
-		v = self.ns_slope_sample[idx]
-		mean = np.array(self.ns_slope_sample).mean() + 1e-8
-		if self.hard:
-			return math.exp(-(v - mean) / mean) + 1e-10
-		else:
-			return math.exp((v - mean) / mean) + 1e-10
-
 	def updateGoalDistribution(self, mode, v_func, m=2, N=400):
 		if mode == 0:
 			self.n_explore += 1
@@ -111,7 +72,8 @@ class Sampler(object):
 		it = 0
 		while it < len(self.vp_table):
 			if mode == 0:
-				self.vp_table[it][2] += 4
+				self.vp_table[it][2] += 3
+				self.vp_table[it][1] *= 0.95
 			else:
 				self.vp_table[it][2] += 1
 			if self.vp_table[it][2] >= 30:
@@ -120,19 +82,23 @@ class Sampler(object):
 				it += 1
 
 		if mode == 0:
-			if self.type_explore == 0 or self.total_iter < 5:
+			if self.total_iter < 3:
 				return
-			self.pool_ex = []
-			if self.type_explore == 1:
+			if self.type_explore == 0 and self.n_explore % 2 == 1:
+				self.sampleBatch(v_func, self.type_explore)
+			elif self.type_explore == 1 and self.n_explore % 2 == 1:
+				self.pool_ex = []
 				for i in range(m):
 					x_cur = self.randomSample(mode)
 					for j in range(int(N/m)):
 						self.pool_ex.append(x_cur)
 						x_new = self.randomSample(mode)
 						alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
-					
+						
 						if np.random.rand() <= alpha:          
-							x_cur = x_new	
+							x_cur = x_new
+				self.sampleBatch(v_func, self.type_explore)
+	
 		elif mode == 1:
 			if self.type_exploit == 0:
 				return
@@ -173,11 +139,11 @@ class Sampler(object):
 			if self.eval_target_v < 0.7:
 				return
 
-			if self.total_iter >= 5:
+			if self.total_iter >= 3:
 				flag = False
 				for i in range(len(self.vp_table)):
 					if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
-						rate = 0.1 + 0.02 * self.vp_table[i][2]
+						rate = 0.2 + 0.02 * self.vp_table[i][2]
 						self.vp_table[i][1] = (1 - rate) * self.vp_table[i][1] + rate * p * 10
 						self.vp_table[i][2] = 0
 						flag = True
@@ -211,25 +177,33 @@ class Sampler(object):
 
 	def adaptiveSample(self, mode, v_func):
 		if mode == 0:
-			if self.total_iter < 5:
+			if self.total_iter < 3:
 				target = self.randomSample(mode)
 				t = -1
 			elif self.type_explore == 0:
-				li = self.sim_env.UniformSampleWithNearestParams() 
-				params = li[1]
-				vs = v_func.getValue(params)
-				v = np.array(vs).mean()
-				target = li[0]
-				self.eval_target_v = round(v * self.scale) / self.scale
+				# li = self.sim_env.UniformSampleWithNearestParams() 
+				# params = li[1]
+				# vs = v_func.getValue(params)
+				# v = np.array(vs).mean()
+				# target = li[0]
+				# self.eval_target_v = round(v * self.scale) / self.scale
+				target = self.sample[self.sample_counter % len(self.sample)]
+				self.eval_target_v = self.v_sample[self.sample_counter % len(self.sample)]
+				self.sample_counter += 1
 				t = -1
 			else:
-				t = np.random.randint(len(self.pool_ex)) 
-				target = self.pool_ex[t] 
-				target_np = np.array(target, dtype=np.float32) 
-				params = self.sim_env.GetNearestParams(target_np) 
-				vs = v_func.getValue(params)
-				v = np.array(vs).mean()
-				self.eval_target_v = round(v * self.scale) / self.scale
+				# t = np.random.randint(len(self.pool_ex)) 
+				# target = self.pool_ex[t] 
+				# target_np = np.array(target, dtype=np.float32) 
+				# params = self.sim_env.GetNearestParams(target_np) 
+				# vs = v_func.getValue(params)
+				# v = np.array(vs).mean()
+				# self.eval_target_v = round(v * self.scale) / self.scale
+				target = self.sample[self.sample_counter % len(self.sample)]
+				self.eval_target_v = self.v_sample[self.sample_counter % len(self.sample)]
+				self.sample_counter += 1
+				t = -1
+
 			return target, t
 
 		elif mode == 1:
@@ -259,6 +233,28 @@ class Sampler(object):
 		self.n_explore = 0
 		self.prev_progress = np.array(self.progress_queue_explore).mean()
 		self.progress_queue_explore = []
+
+	def sampleBatch(self, v_func, type_explore):
+		self.sample = []
+		self.v_sample = []
+		self.sample_counter = 0
+		for _ in range(10):
+			if type_explore == 0:
+				li = self.sim_env.UniformSampleWithNearestParams() 
+				params = li[1]
+				vs = v_func.getValue(params)
+				v = np.array(vs).mean()
+				target = li[0]
+			else:
+				t = np.random.randint(len(self.pool_ex)) 
+				target = self.pool_ex[t] 
+				target_np = np.array(target, dtype=np.float32) 
+				params = self.sim_env.GetNearestParams(target_np) 
+				vs = v_func.getValue(params)
+				v = np.array(vs).mean()
+			self.v_sample.append(round(v * self.scale) / self.scale)
+			self.sample.append(target)
+
 
 	def resetEvaluation(self, v_func):
 		self.n_evaluation = 0
@@ -297,7 +293,7 @@ class Sampler(object):
 			# 	break
 
 			self.eval_target_v += 0.05
-			if self.eval_target_v > self.v_mean + 0.15:
+			if self.eval_target_v > self.v_mean + 0.1:
 				break
 		self.eval_frequency = len(self.sample) + 1
 		print(self.sample)
@@ -324,9 +320,9 @@ class Sampler(object):
 
 		v = round(self.v_mean_cur * self.scale) / self.scale
 		for i in reversed(range(len(self.vp_table))):
-			if self.n_exploit % 5 == 4 and self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1]:
+			if self.n_exploit % 5 == 4 and self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1] * 1.0:
 				return True
-			if self.n_exploit % 5 != 4 and self.vp_table[i][0] <= v and p_mean < self.vp_table[i][1]:
+			if self.n_exploit % 5 != 4 and self.vp_table[i][0] <= v and p_mean < self.vp_table[i][1] * 1.0:
 				return True
 		return False
 

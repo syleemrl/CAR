@@ -80,7 +80,7 @@ public:
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborParams(Eigen::VectorXd p);
-	std::vector<std::pair<double, Param*>> GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor=false, bool old=false);
+	std::vector<std::pair<double, Param*>> GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor=false, bool old=false, bool inside=false);
 
 	Eigen::VectorXd Normalize(Eigen::VectorXd p);
 	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
@@ -139,6 +139,9 @@ private:
 	double mPrevReward;
 
 	double mRadiusNeighbor;
+	double mThresholdInside;
+	double mRangeExplore;
+
 	int mDim;
 	int mDimDOF;
 	int mNumKnots;

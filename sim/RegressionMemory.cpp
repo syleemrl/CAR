@@ -58,9 +58,10 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	mNumElite = 5;
 	mRadiusNeighbor = 0.35;
+	mThresholdInside = 0.6;
+	mRangeExplore = 0.2;
 	mThresholdActivate = 3;
-	mThresholdUpdate = 2 * mDim;
-	mNumGoalCandidate = 30;
+
 
 //	for(int i = 0; i < 10; i++) {
 		mParamBVH = new Param();
@@ -468,7 +469,7 @@ GetNeighborParams(Eigen::VectorXd p) {
 }
 std::vector<std::pair<double, Param*>> 
 RegressionMemory::
-GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor, bool old) {
+GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor, bool old, bool inside) {
 	std::vector<std::pair<double, Param*>> params;
 	if(search_neighbor) {
 		std::vector<Eigen::VectorXd> grids = GetNeighborPointsOnGrid(p, 1);
@@ -478,10 +479,16 @@ GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor, bool old) {
 				std::vector<Param*> ps = iter->second->GetParams();
 				for(int j = 0; j < ps.size(); j++) {
 					if(old) {
-						if(!ps[j]->update)
+						if(!ps[j]->update && !inside)
 							params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));
-					} else 
-						params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));
+						else if(!ps[j]->update && inside && GetDensity(ps[j]->param_normalized) >= mThresholdInside)
+							params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));
+					} else {
+						if(!inside)
+							params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));			
+						else if(inside && GetDensity(ps[j]->param_normalized) >= mThresholdInside)
+							params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));			
+					}
 				}
 			}
 		}
@@ -491,10 +498,17 @@ GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor, bool old) {
 			std::vector<Param*> ps = iter->second->GetParams();
 			for(int j = 0; j < ps.size(); j++) {
 				if(old) {
-					if(!ps[j]->update)
+					if(!ps[j]->update && !inside)
 						params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));
-				} else 
-					params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));			
+					else if(!ps[j]->update && inside && GetDensity(ps[j]->param_normalized) >= mThresholdInside)
+						params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));
+
+				} else {
+					if(!inside)
+						params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));			
+					else if(inside && GetDensity(ps[j]->param_normalized) >= mThresholdInside)
+						params.push_back(std::pair<double, Param*>(GetDistanceNorm(p, ps[j]->param_normalized), ps[j]));			
+				}
 			}
 			iter++;
 		}
@@ -650,9 +664,9 @@ UniformSample(bool visited, bool far) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if(mNumSamples == 1 && d > 0.05 && d < 0.3) {
+			if(mNumSamples == 1 && d > 0.05 && d < mThresholdInside - 0.1 ) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
-			} else if (d < 0.3 && d > 0.15) {
+			} else if (d < mThresholdInside - 0.1 && d > mThresholdInside - 0.1 - mRangeExplore) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
 			if(far && d < 0.1) {
@@ -660,7 +674,7 @@ UniformSample(bool visited, bool far) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
 		}
-		if(visited && d > 0.4) {
+		if(visited && d > mThresholdInside) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -743,8 +757,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	//	if(to_be_deleted.size() == 0 || p->reward >= prev_max + 0.01)
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01)
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
 			mNewSamplesNearGoal += 1;
+		}
 	}
 	return flag;
 
@@ -1264,8 +1279,8 @@ UniformSampleWithNearestParams() {
 			} 
 		}
 		double d = GetDensity(p, true);
-		if (d < 0.35 && d > 0.2) {
-			std::vector<std::pair<double, Param*>> nearest = GetNearestParams(p, 5, true);
+		if (d < mThresholdInside - 0.1 && d > mThresholdInside - 0.1 - mRangeExplore) {
+			std::vector<std::pair<double, Param*>> nearest = GetNearestParams(p, 5, true, false, false);
 			std::vector<Eigen::VectorXd> nearest_ps;
 			for(int i = 0; i < nearest.size(); i++) {
 				nearest_ps.push_back(Denormalize(nearest[i].second->param_normalized));

@@ -142,12 +142,12 @@ class Monitor(object):
 		print('evaluation mean: ', mean)
 		if self.mode == 0:
 			if len(self.sampler.progress_queue_explore) == 0:
-				update_rate = self.sampler.prev_progress
+				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
 			else:
 				update_rate = np.array(self.sampler.progress_queue_explore).mean()
 		else:
 			if len(self.sampler.progress_queue_exploit) == 0:
-				update_rate = self.sampler.prev_progress
+				update_rate = np.array(self.sampler.progress_queue_explore).mean()
 			else:
 				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
 
@@ -227,8 +227,8 @@ class Monitor(object):
 			print(self.sampler.vp_table)
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.num_evaluation >= 20 and self.sampler.n_explore >= 5 and \
-			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean():
+			if self.sampler.n_explore >= 5 and \
+			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 1.0:
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.resetExploit()
