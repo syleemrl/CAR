@@ -743,6 +743,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	//	if(to_be_deleted.size() == 0 || p->reward >= prev_max + 0.01)
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 0.8)
 			mNewSamplesNearGoal += 1;
 	}
 	return flag;

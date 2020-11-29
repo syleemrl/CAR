@@ -11,7 +11,7 @@ class Sampler(object):
 		self.v_mean = 1.0
 		self.random = True
 
-		self.k = 15
+		self.k = 10
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -21,7 +21,7 @@ class Sampler(object):
 		self.type_exploit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
 		# 6: num sample slope(sampling) 7:num sample near goal(sampling) 8: num sample slope (network)
-		self.type_explore = 1
+		self.type_explore = 0
 		
 		self.prev_action = 0
 		self.prev_nsample = 0
@@ -30,11 +30,11 @@ class Sampler(object):
 		self.done = False
 
 		# value, progress, updated
-		self.vp_table = [[1.0, 100, 0]]
+		self.vp_table = [[1.0, 10, 0]]
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
-		self.progress_queue_exploit = [100.0]
+		self.progress_queue_exploit = [10.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -318,12 +318,13 @@ class Sampler(object):
 		print("exploration rate : ", p_mean)
 		print("===========================================")
 
-		if self.n_exploit < 10:
+
+		if self.n_exploit < 5:
 			return False
 
 		v = math.floor(self.v_mean * self.scale) / self.scale
 		for i in reversed(range(len(self.vp_table))):
-			if self.vp_table[i][0] <= v - self.scale and p_mean < self.vp_table[i][1]:
+			if self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1]:
 				return True
 
 		return False
