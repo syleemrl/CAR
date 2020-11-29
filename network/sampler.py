@@ -30,11 +30,11 @@ class Sampler(object):
 		self.done = False
 
 		# value, progress, updated
-		self.vp_table = [[1.0, 10, 0]]
+		self.vp_table = [[1.0, 5, 0]]
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
-		self.progress_queue_exploit = [10.0]
+		self.progress_queue_exploit = [5.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -220,7 +220,7 @@ class Sampler(object):
 				vs = v_func.getValue(params)
 				v = np.array(vs).mean()
 				target = li[0]
-				self.eval_target_v = math.floor(v * self.scale) / self.scale
+				self.eval_target_v = round(v * self.scale) / self.scale
 				t = -1
 			else:
 				t = np.random.randint(len(self.pool_ex)) 
@@ -229,11 +229,11 @@ class Sampler(object):
 				params = self.sim_env.GetNearestParams(target_np) 
 				vs = v_func.getValue(params)
 				v = np.array(vs).mean()
-				self.eval_target_v = math.floor(v * self.scale) / self.scale
+				self.eval_target_v = round(v * self.scale) / self.scale
 			return target, t
 
 		elif mode == 1:
-			if self.n_exploit < 1 or self.n_exploit % 5 == 4:
+			if self.n_exploit % 5 == 4:
 				target = self.randomSample(mode)
 				t = -1
 			elif self.type_exploit == 0:
@@ -262,7 +262,7 @@ class Sampler(object):
 
 	def resetEvaluation(self, v_func):
 		self.n_evaluation = 0
-		self.eval_target_v = max(0.75, math.floor((self.v_mean - 0.1) * self.scale) / self.scale)
+		self.eval_target_v = max(0.75, round((self.v_mean - 0.1) * self.scale) / self.scale)
 		self.sample = []
 		self.sample_progress = []
 		self.evaluation_done = False
@@ -322,11 +322,12 @@ class Sampler(object):
 		if self.n_exploit < 5:
 			return False
 
-		v = math.floor(self.v_mean * self.scale) / self.scale
+		v = round(self.v_mean_cur * self.scale) / self.scale
 		for i in reversed(range(len(self.vp_table))):
-			if self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1]:
+			if self.n_exploit % 5 == 4 and self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1]:
 				return True
-
+			if self.n_exploit % 5 != 4 and self.vp_table[i][0] <= v and p_mean < self.vp_table[i][1]:
+				return True
 		return False
 
 	def printSummary(self, v_func):

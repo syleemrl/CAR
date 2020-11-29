@@ -202,9 +202,10 @@ class Monitor(object):
 
 	def updateMode(self, v_func, results):
 		mode_change = -1
-		self.mode_counter += 1
+		if self.mode != 2:
+			self.mode_counter += 1
 		self.sampler.updateProgress(self.mode)
-		if self.num_evaluation % 5 == 0:
+		if self.num_evaluation % 2 == 0:
 			self.sim_env.UpdateParamState()
 			# self.v_ratio = self.sim_env.GetVisitedRatio()
 			
@@ -249,18 +250,13 @@ class Monitor(object):
 		return 0
 
 	def needEvaluation(self):
-		if self.num_evaluation > 5 and self.mode_counter % 5 == 0:
+		if self.num_evaluation > 5 and self.mode_counter % 5 == 0 and self.mode != 2:
 			return True
 
 	def updateCurriculum(self, v_func):
 		self.sampler.updateGoalDistribution(self.mode, v_func)
 		if self.mode == 2 and self.sampler.evaluation_done:
-			self.mode = self.prev_mode
-			self.mode_counter = 0	
-			if self.mode == 0:
-				self.sampler.resetExplore()
-			else:
-				self.sampler.resetExploit()
+			self.mode = 1
 			self.saveVPtable()
 			self.sampler.updateGoalDistribution(self.mode, v_func)
 

@@ -660,7 +660,7 @@ UniformSample(bool visited, bool far) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
 		}
-		if(visited && d > 0.5) {
+		if(visited && d > 0.4) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -743,7 +743,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	//	if(to_be_deleted.size() == 0 || p->reward >= prev_max + 0.01)
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 0.8)
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01)
 			mNewSamplesNearGoal += 1;
 	}
 	return flag;
@@ -1264,7 +1264,7 @@ UniformSampleWithNearestParams() {
 			} 
 		}
 		double d = GetDensity(p, true);
-		if (d < 0.3 && d > 0.2) {
+		if (d < 0.35 && d > 0.2) {
 			std::vector<std::pair<double, Param*>> nearest = GetNearestParams(p, 5, true);
 			std::vector<Eigen::VectorXd> nearest_ps;
 			for(int i = 0; i < nearest.size(); i++) {
