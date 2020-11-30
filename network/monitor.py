@@ -207,10 +207,11 @@ class Monitor(object):
 		if path is not None:
 			plt.savefig(path, format="png")
 
-	def plot2DParam(self, title, num_fig=1,num_point=250,path=None):
+	def plot2DParam(self, title, num_fig=1,num_iter=250,path=None):
 		#num_point = 250 # recommended to give numbers with 50 unit.
+		paramspace = self.sim_env.LoadParamSpace(num_iter)
 
-		param = self.sim_env.LoadDensityPlot(num_point)
+		param = self.sim_env.LoadDensityPlot(num_iter)
 		gridnum = int(np.sqrt(len(param))) 
 		gridunit = 1 / gridnum
 		param = np.reshape(param,(gridnum, gridnum))
@@ -230,11 +231,11 @@ class Monitor(object):
 		plt.xlabel('driving distance')
 		plt.ylabel('maximum height')
 
-		ax.view_init(30, 120)
+		ax.view_init(30, 60)
 		
-		#x,y,param_den= param[:,0],param[:,1],param[:,2]
-		#z = 2.0 * np.ones(len(param))
-		#ax.scatter(x,y, z, s=0.2,c ='b')
+		x_paramspace,y_paramspace= paramspace[:,0],paramspace[:,1]
+		z_paramspace = 3.0 * np.ones(len(paramspace))
+		ax.scatter(x_paramspace,y_paramspace, z_paramspace, s=0.2,c ='b')
 
 		# Draw Parameter Density
 		
@@ -329,11 +330,17 @@ class Monitor(object):
 				self.plotFig(y_list, "rewards_per_step", 2, False, path=self.directory+"result_per_step.png")
 
 				#if self.adaptive and self.parametric and self.num_evaluation > 10:
-				#self.plot2DParam("paramspace", 3,250, path=self.directory+"paramspace_250.png")
-				#self.plot2DParam("paramspace", 4,500, path=self.directory+"paramspace_500.png")
-				#self.plot2DParam("paramspace", 5,1000, path=self.directory+"paramspace_1000.png")
-				#self.plot2DParam("paramspace", 6,2000, path=self.directory+"paramspace_2000.png")
-				
+				#self.plot2DParam("paramspace", 3,50, path=self.directory+"paramspace_50.png")
+				# self.plot2DParam("paramspace", 4,100, path=self.directory+"paramspace_100.png")
+				# self.plot2DParam("paramspace", 5,150, path=self.directory+"paramspace_150.png")
+				# self.plot2DParam("paramspace", 6,200, path=self.directory+"paramspace_200.png")
+				# self.plot2DParam("paramspace", 3,250, path=self.directory+"paramspace_250.png")
+				# self.plot2DParam("paramspace", 4,300, path=self.directory+"paramspace_300.png")
+				# self.plot2DParam("paramspace", 5,350, path=self.directory+"paramspace_350.png")
+				# self.plot2DParam("paramspace", 6,500, path=self.directory+"paramspace_500.png")
+				# self.plot2DParam("paramspace", 6,1000, path=self.directory+"paramspace_1000.png")
+				# self.plot2DParam("paramspace", 6,1700, path=self.directory+"paramspace_1700.png")
+
 
 		self.num_nan_per_iteration = 0
 		self.num_episodes_per_iteration = 0

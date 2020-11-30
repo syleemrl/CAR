@@ -211,6 +211,7 @@ RegressionMemory::
 LoadParamSpace(std::string path) {
 	mNumSamples = 1;
 	mRecordLog.clear();
+	mGridMap.clear();
 
 	char buffer[256];
 
@@ -222,7 +223,6 @@ LoadParamSpace(std::string path) {
 
 	is >> buffer;
 	mNumActivatedPrev = atoi(buffer);
-
 	mParamGoalCur.resize(mDim);
 	for(int i = 0; i < mDim; i++) 
 	{

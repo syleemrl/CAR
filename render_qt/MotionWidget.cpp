@@ -8,7 +8,7 @@
 #include <QSlider>
 #include <chrono>
 #include <algorithm>
-
+#include <fcntl.h>
 
 MotionWidget::
 MotionWidget()
@@ -136,6 +136,9 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	this->mJointsUEOrder.emplace_back("LeftHand");
 	this->mJointsUEOrder.emplace_back("Neck");
 	this->mJointsUEOrder.emplace_back("Head");
+
+	this->mBuffer = new char[(this->mJointsUEOrder.size()+1)*4*4*sizeof(double)];
+	this->mBuffer2 = new char[128];
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
@@ -339,7 +342,7 @@ connectionOpen()
 	this->serveraddr.sin_port = htons(9801);
 
 	struct timeval tv;
-	tv.tv_sec = 10;
+	tv.tv_sec = 50;
 	tv.tv_usec = 0;
 	setsockopt(this->sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
 
@@ -359,7 +362,7 @@ connectionOpen()
 	listen(this->sockfd, 1);
 	std::cout << "listen start" << std::endl;
 
-	socklen_t cli_addr_size = sizeof(struct sockaddr_in);
+	socklen_t cli_addr_size = sizeof(struct sockaddr_in); //=16
 	this->clientfd = accept(this->sockfd, (struct sockaddr*)&this->clientaddr, &cli_addr_size);
 	if (this->clientfd == -1) {
 		std::cout << "accept() error: " << strerror(errno) << std::endl;
@@ -588,7 +591,7 @@ SetFrame(int n)
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
-    	//sendMotion();
+    	sendMotion();
     	// mPoints = mMotion_points[n];
 	}
 	if(mDrawExp && n < mMotion_exp.size()) {
@@ -843,6 +846,13 @@ Reset()
 {
 	this->mCurFrame = 0;
 	this->SetFrame(this->mCurFrame);
+}
+
+void
+MotionWidget::
+SendtoUE()
+{
+	MotionWidget::connectionOpen();
 }
 void 
 MotionWidget::

@@ -56,6 +56,7 @@ public:
 	bool NeedExploration();
 	void UpdateReference();
 	void SaveParamSpace(int n);
+	np::ndarray LoadParamSpace(int n);
 	np::ndarray LoadDensityPlot(int n);
 
 	void SaveParamSpaceLog(int n);

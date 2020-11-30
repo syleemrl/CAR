@@ -35,6 +35,7 @@ public slots:
 	void NextFrame();
 	void PrevFrame();
 	void Reset();
+	void SendtoUE();
 	void UpdateParam(const bool& pressed);
 	void UpdateRandomParam(const bool& pressed);
 

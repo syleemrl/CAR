@@ -325,10 +325,9 @@ SaveParamSpace(int n) {
 		mRegressionMemory->SaveParamSpace(mPath + "param_space", true);
 	}
 }
-
 np::ndarray
 SimEnv::
-LoadDensityPlot(int n) {
+LoadParamSpace(int n) {
 	
 	std::string temp;
 	Eigen::VectorXd paramgoal;
@@ -340,16 +339,80 @@ LoadDensityPlot(int n) {
 
 	std::ifstream is;
 	std::string param_path = mPath+"param_space"+std::to_string(n);
-	mRegressionMemory->LoadParamSpace(param_path);
-	
+
 	char buffer[256];
 	is.open(param_path);
+
+	// Load parameters from file
+	is >> buffer; //mNumActivatedPrev => skip
+
+	paramgoal.resize(mDim);
+	for(int i = 0; i < mDim; i++) 
+	{
+		is >> buffer;
+		paramgoal(i) = atof(buffer);  //Goal parameter -> First reference
+	}
+	
+	//paramspace.push_back(mRegressionMemory->Normalize(paramgoal));
+
+	while(!is.eof()) 
+	{
+		//reward => skip
+		is >> buffer;
+		double reward = atof(buffer);
+
+		if(is.eof())
+			break;
+		
+		Eigen::VectorXd param(mDim);
+		
+
+		is >> buffer;
+
+		for(int j = 0; j < mDim; j++) 
+		{
+			is >> buffer;
+			param(j) = atof(buffer);
+		}
+		//param = mRegressionMemory->Denormalize(param);
+		//std::cout<<param(0)<<"\t"<<param(1)<<std::endl;
+		paramspace.push_back(param);
+
+		
+		// comma
+		for(int j=0; j< mNumKnots;j++)
+			std::getline(is, temp);
+		
+	}
+
+	is.close();
+
+	return DPhy::toNumPyArray(paramspace);
+}
+
+np::ndarray
+SimEnv::
+LoadDensityPlot(int n) {
+	
+	std::string temp;
+	//Eigen::VectorXd paramgoal;
+
+	int mDim = mRegressionMemory->GetDim();
+	//int mNumKnots = mRegressionMemory->GetNumKnots();
+
+	//std::ifstream is;
+	std::string param_path = mPath+"param_space"+std::to_string(n);
+	mRegressionMemory->LoadParamSpace(param_path);
+
+	//char buffer[256];
+	//is.open(param_path);
 
 	Eigen::VectorXd base(mDim);
 	base.setZero();
 	std::vector<Eigen::VectorXd> points;
 	points.push_back(base);
 
+	// Get Density
 	std::vector<double> ParamDensity;
 	for(int i = 0; i < mDim; i++) {
 		std::vector<Eigen::VectorXd> vecs;
@@ -415,6 +478,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SetGoalParameters",&SimEnv::SetGoalParameters)
 		.def("NeedExploration",&SimEnv::NeedExploration)
 		.def("SaveParamSpace",&SimEnv::SaveParamSpace)
+		.def("LoadParamSpace",&SimEnv::LoadParamSpace)
 		.def("LoadDensityPlot",&SimEnv::LoadDensityPlot)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("UpdateReference",&SimEnv::UpdateReference);
