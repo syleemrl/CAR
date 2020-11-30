@@ -75,8 +75,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.25,  steps_per_iteration * 0.5]
-		self.optim_frequency = [optim_frequency * 2, optim_frequency * 4, optim_frequency * 2]
+		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25,  steps_per_iteration * 0.5]
+		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4, optim_frequency * 2]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128

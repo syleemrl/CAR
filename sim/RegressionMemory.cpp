@@ -58,7 +58,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	mNumElite = 5;
 	mRadiusNeighbor = 0.35;
-	mThresholdInside = 0.6;
+	mThresholdInside = 0.5;
 	mRangeExplore = 0.2;
 	mThresholdActivate = 3;
 

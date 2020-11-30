@@ -3,6 +3,8 @@ import math
 from regression import Regression
 from IPython import embed
 from copy import copy
+from sklearn.linear_model import LinearRegression
+
 class Sampler(object):
 	def __init__(self, sim_env, dim, path):
 		self.sim_env = sim_env
@@ -21,7 +23,7 @@ class Sampler(object):
 		self.type_exploit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling) 5: uniform(sampling)
 		# 6: num sample slope(sampling) 7:num sample near goal(sampling) 8: num sample slope (network)
-		self.type_explore = 1
+		self.type_explore = 0
 		
 		self.prev_action = 0
 		self.prev_nsample = 0
@@ -31,6 +33,7 @@ class Sampler(object):
 
 		# value, progress, updated
 		self.vp_table = [[1.0, 5, 0]]
+		self.vp_list_explore = []
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
@@ -42,6 +45,8 @@ class Sampler(object):
 		self.evaluation_done = False
 		self.eval_frequency = 0
 		self.scale = 1.0 / 0.05
+
+		self.reg = LinearRegression()
 		print('=======================================')
 		print('curriculum option')
 		print('type exploit', self.type_exploit)
@@ -128,10 +133,20 @@ class Sampler(object):
 						vp_table_tmp.append(self.vp_table[i])
 
 				self.vp_table = copy(vp_table_tmp)
-				print(self.vp_table)
 				self.evaluation_done = True
 
+				x = np.array(self.vp_list_explore)[:,0]
+				y = np.array(self.vp_list_explore)[:,1]
 
+				x = x.reshape((-1, 1))
+				y = np.array(y)
+				self.reg.fit(x, y)
+
+				x_predict = np.array([0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2])
+				x_predict = x_predict.reshape((-1, 1))
+				y_predict = self.reg.predict(x_predict)
+
+				print(y_predict)
 	def saveProgress(self, mode):
 		if mode == 0:
 			p = self.sim_env.GetProgressGoal()
@@ -143,21 +158,26 @@ class Sampler(object):
 				flag = False
 				for i in range(len(self.vp_table)):
 					if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
-						rate = 0.2 + 0.02 * self.vp_table[i][2]
+						rate = 0.1 + 0.02 * self.vp_table[i][2]
 						self.vp_table[i][1] = (1 - rate) * self.vp_table[i][1] + rate * p * 10
 						self.vp_table[i][2] = 0
 						flag = True
 				if not flag:
 					self.vp_table.append([self.eval_target_v, 0.5 * p * 10, 0])
 
+				if len(self.vp_list_explore) >= 50:
+					self.vp_list_explore = self.vp_list_explore[5:]
+				self.vp_list_explore.append([self.eval_target_v, p * 10])
 		elif mode == 2:
+			p = self.sim_env.GetProgressGoal()
 			t = self.evaluation_counter % len(self.sample)
 			lb = self.sample[t][1]
 			for i in range(len(self.sample_progress)):
 				if abs(self.sample_progress[i][1] - lb) < 1e-2:
-					self.sample_progress[i][0] += self.sim_env.GetProgressGoal()
+					self.sample_progress[i][0] += p
 					break 
 			self.evaluation_counter += 1
+			self.vp_list_explore.append([self.eval_target_v, p * 10])
 		else:
 			self.progress_cur += self.sim_env.GetProgressGoal()
 
@@ -229,16 +249,30 @@ class Sampler(object):
 		self.prev_progress = np.array(self.progress_queue_exploit).mean()
 		self.progress_queue_exploit = []
 
+		x = np.array(self.vp_list_explore)[:,0]
+		y = np.array(self.vp_list_explore)[:,1]
+
+		x = x.reshape((-1, 1))
+		y = np.array(y)
+		self.reg.fit(x, y)
+
+		x_predict = np.array([0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2])
+		x_predict = x_predict.reshape((-1, 1))
+		y_predict = self.reg.predict(x_predict)
+
+		print(y_predict)
+
 	def resetExplore(self):
 		self.n_explore = 0
 		self.prev_progress = np.array(self.progress_queue_explore).mean()
 		self.progress_queue_explore = []
-
+		self.vp_list_explore = []
+	
 	def sampleBatch(self, v_func, type_explore):
 		self.sample = []
 		self.v_sample = []
 		self.sample_counter = 0
-		for _ in range(10):
+		for _ in range(20):
 			if type_explore == 0:
 				li = self.sim_env.UniformSampleWithNearestParams() 
 				params = li[1]
@@ -258,9 +292,10 @@ class Sampler(object):
 
 	def resetEvaluation(self, v_func):
 		self.n_evaluation = 0
-		self.eval_target_v = max(0.75, round((self.v_mean - 0.1) * self.scale) / self.scale)
+		self.eval_target_v = max(0.75, round((self.v_mean - 0.05) * self.scale) / self.scale)
 		self.sample = []
 		self.sample_progress = []
+		self.vp_list_explore = []
 		self.evaluation_done = False
 		self.evaluation_counter = 0
 
@@ -315,15 +350,26 @@ class Sampler(object):
 		print("===========================================")
 
 
-		if self.n_exploit < 5:
+		if self.n_exploit < 10:
 			return False
 
 		v = round(self.v_mean_cur * self.scale) / self.scale
-		for i in reversed(range(len(self.vp_table))):
-			if self.n_exploit % 5 == 4 and self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1] * 1.0:
+		y0 = self.reg.predict([[v]])
+		y1 = self.reg.predict([[v -  1 / self.scale]])
+		print(v, y0, v -  1 / self.scale, y1)
+		if y1 > y0:
+			if p_mean < np.array(self.progress_queue_explore).mean() * 0.8:
 				return True
-			if self.n_exploit % 5 != 4 and self.vp_table[i][0] <= v and p_mean < self.vp_table[i][1] * 1.0:
+		else:
+			if self.n_exploit % 5 == 4 and p_mean < y1 * 0.8:
 				return True
+			if self.n_exploit % 5 != 4 and p_mean < y0 * 0.8:
+				return True
+		# for i in reversed(range(len(self.vp_table))):
+		# 	if self.n_exploit % 5 == 4 and self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1] * 0.8:
+		# 		return True
+		# 	if self.n_exploit % 5 != 4 and self.vp_table[i][0] <= v and p_mean < self.vp_table[i][1] * 0.8:
+		# 		return True
 		return False
 
 	def printSummary(self, v_func):
