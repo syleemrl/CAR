@@ -168,6 +168,7 @@ protected:
 
 	Eigen::VectorXd mPrevTargetPositions;
 	Eigen::VectorXd mControlFlag;
+	bool ground_object;
 	bool placed_object;
 
 	Eigen::VectorXd mParamGoal;
@@ -189,10 +190,15 @@ protected:
 	// Eigen::Vector3d mEnergy;
 
 	Eigen::Vector3d mStartRoot; //root 0th frame
+	Eigen::Vector3d mRootZeroDiff; //root 0th frame
 	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
 	std::vector<double> foot_diff;
 
 	bool jump_stepon = false;
+
+	Eigen::Vector3d stickLeftFoot;
+	Eigen::Vector3d stickRightFoot;
+	bool stickFoot;
 
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;

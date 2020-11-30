@@ -544,6 +544,7 @@ GetTimeStep(double t, bool adaptive) {
 	} else 
 		return 1.0;
 }
+
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
@@ -653,9 +654,14 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	
 	}
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
+	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.1, 2.0));
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
-	double reward_trajectory = r_foot * r_pos * r_vel;
+	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;
+
+	// std::cout<<"sum_slide : "<<std::get<2>(rewards).sum_slide<<", r_slide : "<<r_slide<<"/ r_foot: "<<r_foot<<std::endl;
+	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
+
 	mLock.lock();
 
 	if(isParametric) {
@@ -734,4 +740,22 @@ SelectReference(){
 		LoadAdaptiveMotion(mCPS_exp);
 	}
 }
+
+Eigen::Isometry3d
+ReferenceManager::
+getBodyGlobalTransform(Character* character, std::string bodyName, double t){//, Eigen::Vector3d mDefaultRootZero, Eigen::Vector3d mRootZero){
+	Eigen::VectorXd save_p = character->GetSkeleton()->getPositions();
+
+	Eigen::VectorXd p = this->GetMotion(t, false)->GetPosition();
+	// p.segment<3>(3) = p.segment<3>(3)- (mDefaultRootZero- mRootZero);
+	character->GetSkeleton()->setPositions(p);
+	character->GetSkeleton()->computeForwardKinematics(true, false, false);
+	
+	Eigen::Isometry3d T= character->GetSkeleton()->getBodyNode(bodyName)->getWorldTransform();
+	character->GetSkeleton()->setPositions(save_p);
+	character->GetSkeleton()->computeForwardKinematics(true, false, false);
+
+	return T;
+}
+
 };

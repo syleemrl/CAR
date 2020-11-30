@@ -279,22 +279,23 @@ SetGoalParameters(np::ndarray np_array, bool visited) {
 	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
 	if(visited) {
-		for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-			Eigen::VectorXd input(dof_input);
-			input << j, tp_normalized;
-			p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-			np::ndarray na = np::from_object(a);
-			cps.push_back(DPhy::toEigenVector(na, dof));
-		}
-		// regression 일때 reg result, blend 중에 random select
-		mReferenceManager->SetCPSreg(cps);
-		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->SetCPSexp(cps);
-		mReferenceManager->SelectReference();
+		// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+		// 	Eigen::VectorXd input(dof_input);
+		// 	input << j, tp_normalized;
+		// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+		// 	np::ndarray na = np::from_object(a);
+		// 	cps.push_back(DPhy::toEigenVector(na, dof));
+		// }
+		// // regression 일때 reg result, blend 중에 random select
+		// mReferenceManager->SetCPSreg(cps);
+		// cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		// mReferenceManager->SetCPSexp(cps);
+		// mReferenceManager->SelectReference();
 
 		// regrssion 일때, 꼭 reg result
 		// mReferenceManager->LoadAdaptiveMotion(cps);
-
+		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		mReferenceManager->LoadAdaptiveMotion(cps);
 	} else {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps);

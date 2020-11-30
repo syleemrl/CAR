@@ -17,6 +17,7 @@ struct Fitness
 	double sum_contact;
 	Eigen::VectorXd sum_pos;
 	Eigen::VectorXd sum_vel;
+	double sum_slide;
 };
 class Motion
 {
@@ -77,6 +78,8 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSreg() { return mCPS_reg; }
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
+
+	Eigen::Isometry3d getBodyGlobalTransform(Character* character, std::string bodyName, double t); //, Eigen::Vector3d mDefaultRootZero, Eigen::Vector3d mRootZero);
 
 	// Eigen::Vector3d tmp_debug= Eigen::Vector3d::Zero();
 	// double tmp_debug_frame=0;
