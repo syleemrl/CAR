@@ -236,11 +236,11 @@ Step()
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
 
-	if(mCurrentFrameOnPhase >= 40.5 && !(this->ground_object)){
+	if(mCurrentFrameOnPhase >= 33.5 && !(this->ground_object)){ //40.5
 		this->ground_object = true;
 	}
 
-	if(mCurrentFrameOnPhase >= 30.5 && !(this->placed_object)){
+	if(mCurrentFrameOnPhase >= 23.5 && !(this->placed_object)){ //30.5
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		Eigen::Vector3d lf_default= mReferenceManager->getBodyGlobalTransform(this->mCharacter, "LeftFoot", mCurrentFrameOnPhase).translation();
@@ -574,7 +574,7 @@ GetSimilarityReward()
 	// sliding prevention //TODO
 	double footSlide = 0;
 	double r_footSlide = 1;
-	if(mCurrentFrameOnPhase <=29 || (mCurrentFrameOnPhase >=50 && stickFoot)){
+	if(mCurrentFrameOnPhase <=22 || (mCurrentFrameOnPhase >=43 && stickFoot)){ // 29, 50
 		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
@@ -584,8 +584,8 @@ GetSimilarityReward()
 		footSlide = foot_diff.norm();
 		r_footSlide = exp_of_squared(foot_diff, 0.1);
 		// std::cout<<mCurrentFrame<<" : "<<r_footSlide<<" ( "<<foot_diff.transpose()<<") \n";
-	}else if (mCurrentFrameOnPhase >29 && stickFoot) stickFoot = false;
-	else if(mCurrentFrameOnPhase>= 50 && !stickFoot){
+	}else if (mCurrentFrameOnPhase >22 && stickFoot) stickFoot = false;
+	else if(mCurrentFrameOnPhase>= 43 && !stickFoot){
 
 		stickLeftFoot = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		stickRightFoot = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
@@ -667,7 +667,7 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	if(mCurrentFrameOnPhase >= 47.5 && !(this->jump_stepon)){
+	if(mCurrentFrameOnPhase >= 40.5 && !(this->jump_stepon)){ //47.5
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		Eigen::Vector3d lt = this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
@@ -690,7 +690,7 @@ GetParamReward()
 		// std::cout<<mCurrentFrame<<", r: "<<r<<" , dist: "<<distance_diff.transpose()<<std::endl;
 		foot_diff.push_back(r);
 
-		if(mCurrentFrameOnPhase >=67.5){			
+		if(mCurrentFrameOnPhase >=60.5){ //67.5
 			r_param= std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0) / foot_diff.size();
 			// std::cout<<mCurrentFrameOnPhase<<"/ r_param: "<<r_param<<std::endl;
 			this->jump_stepon = true;
