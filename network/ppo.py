@@ -387,7 +387,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 1 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 					flag = True
@@ -435,14 +435,15 @@ class PPO(object):
 		marginal_vs = []
 
 		for data in tuples:
-			size = len(rewards)
 			rewards, times = zip(*data)
+
+			size = len(rewards)
 
 			count_V = 0
 			sum_V = 0
 			V = 0
 			flag = False
-			for i in reversed(range(rewards)):
+			for i in reversed(range(len(rewards))):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
 				elif times[i] > times[i+1]:
@@ -647,7 +648,7 @@ class PPO(object):
 							tuples_iter[j].append([rewards[j], times[j]])
 							local_step += 1
 						if dones[j]:
-							if len(epi_info[j]) != 0:
+							if len(tuples_iter[j]) != 0:
 								tuples.append(deepcopy(tuples_iter[j]))
 							
 							if local_step < 1000:

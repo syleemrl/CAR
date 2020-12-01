@@ -34,7 +34,7 @@ class Sampler(object):
 		# value, progress, updated
 		self.v_list_explore = []
 		self.p_list_explore = []
-		self.scale = 0.2
+		self.scale = 0.1
 
 		self.eval_target_v = 0
 
@@ -136,7 +136,7 @@ class Sampler(object):
 			if self.total_iter >= 3:
 				flag = False
 
-				if mode != 2 and len(self.v_list_explore) >= 60:
+				if mode != 2 and len(self.v_list_explore) >= 80:
 					self.v_list_explore = self.v_list_explore[5:]
 					self.p_list_explore = self.p_list_explore[5:]
 
@@ -276,7 +276,7 @@ class Sampler(object):
 		v_min = np.array(self.v_list_explore).min() + self.scale
 		v_max = np.array(self.v_list_explore).max() - self.scale
 
-		v_predict = np.linspace(v_min, v_max, 5)
+		v_predict = np.linspace(v_min, v_max, 10)
 		for v in v_predict:
 			mean, count = self.predictWindow(v, self.scale)
 			if count < 5:
@@ -323,8 +323,7 @@ class Sampler(object):
 
 		mean, count = self.predictWindow(self.v_mean, self.scale)
 		if count < 5:
-			scale *= 2
-			mean, count = self.predictWindow(self.v_mean, scale)
+			mean, count = self.predictWindow(self.v_mean,  self.scale * 2)
 
 			if count < 5:
 				mean = np.array(self.p_list_explore).mean()
@@ -332,7 +331,7 @@ class Sampler(object):
 				mean /= count		
 		else:
 			mean /= count
-		
+		print(p_mean, mean)
 		if p_mean < mean * 0.8:
 			return True
 	
