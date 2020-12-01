@@ -188,17 +188,19 @@ protected:
 	// double mVelocity;
 	// Eigen::Vector3d mEnergy;
 
-	Eigen::Vector3d mStartRoot; //root 0th frame
-	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
-	std::vector<double> foot_diff;
-
 	bool jump_stepon = false;
 
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
 
+	// flair
+	int mCount;
+	Eigen::Vector3d mMomentum;
+	Eigen::Vector3d mVelocity;
+	
 	Eigen::Vector6d head_force, leftToe_force, rightToe_force, leftHand_force, rightHand_force;
+	bool cycle_done;
 
 };
 }

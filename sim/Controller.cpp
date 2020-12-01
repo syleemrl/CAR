@@ -43,42 +43,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mCharacter = new DPhy::Character(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
-	// this->mObject = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/jump_box.xml")).first;
-	// this->mWorld->addSkeleton(this->mObject);
-
-	#ifdef OBJECT_TYPE 
-		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
-		this->mObject = new DPhy::Character(object_path);	
-		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
-		this->mObject->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
-
-		this->mObject_base = new DPhy::Character(object_path);	
-		this->mWorld->addSkeleton(this->mObject_base->GetSkeleton());
-		this->mObject_base->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
-		this->mObject_base->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
-
-		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-		obj_pos.setZero();
-		obj_pos[5]= mParamGoal[1];
-		obj_pos[6]= mParamGoal[0];
-
-		mObject->GetSkeleton()->setPositions(obj_pos);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		
-		// place the base below its feet
-		obj_pos.setZero();
-		mObject_base->GetSkeleton()->setPositions(obj_pos);
-		mObject_base->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
-		mObject_base->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
-		mObject_base->GetSkeleton()->computeForwardKinematics(true,false,false);
-	
-
-		this->placed_object = false;
-	#endif
-
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
 	
 	this->mMass = mBaseMass;
@@ -106,9 +70,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mCGHR = collisionEngine->createCollisionGroup(this->mCharacter->GetSkeleton()->getBodyNode("RightHand"));
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
-#ifdef OBJECT_TYPE
-	this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton()->getBodyNode("Jump_Box"));
-#endif
 	int num_body_nodes = mInterestedDof / 3;
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
 	
@@ -159,7 +120,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	// 	this->mObject = new DPhy::Character(path);	
 	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	// }
-	foot_diff = std::vector<double>();
+	cycle_done = false;
 
 }
 const dart::dynamics::SkeletonPtr& 
@@ -245,42 +206,52 @@ Step()
 		mTimeElapsed += 2 * (1 + mAdaptiveStep);
 	}
 
-		// std::cout<<"isImpulseApplied : "<<this->mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getConstraintImpulse().transpose()<<std::endl;
+	// flair 
+	Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
+	Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+	// V(1) = 0;
+	Eigen::Vector3d momentum;
+	momentum.setZero();
+	for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
+		auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+		Eigen::Matrix3d R = bn->getWorldTransform().linear();
+		double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
+		bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
+		Eigen::Matrix3d I;
+		I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
+		I = R * I * R.transpose();
+		Eigen::AngleAxisd aa(I); 
+		Eigen::Vector3d aa_v = aa.axis() * aa.angle();
+		Eigen::Vector3d m= aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+		Eigen::Vector3d m_dart = bn->getAngularMomentum(COM);
 
-		// // Eigen::VectorXd total_force = this->mCharacter->GetSkeleton()->getExternalForceGlobal();
-		// // std::cout<<mCurrentFrame<<" "<<total_force.transpose()<<std::endl;
-		// if(head_force.norm() > 1e-4) std::cout<<mCurrentFrame<<" / HEAD :  "<<head_force.norm()<<std::endl;
-		// if(leftToe_force.norm() > 1e-4) std::cout<<mCurrentFrame<<" / left Toe :  "<<leftToe_force.norm()<<std::endl;
-		// if(rightToe_force.norm() > 1e-4) std::cout<<mCurrentFrame<<" / right Toe :  "<<rightToe_force.norm()<<std::endl;
-		// std::cout<<mCurrentFrame<<", "<<leftHand_force.norm()<<" "<<rightHand_force.norm()<<std::endl;
-
-
-	#ifdef OBJECT_TYPE
-	if(mCurrentFrameOnPhase >= 33.5 && !(this->placed_object)){
-		this->placed_object = true;
+		std::cout<<bn->getName()<<" "<<m.transpose()<<" , m_dart : "<<m_dart.transpose()<<std::endl;
+		momentum += m;
 	}
-	#endif
+	// std::cout<<mCurrentFrame<<", v: "<<V.segment<3>(0).transpose()<<", m: "<<momentum.transpose()<<std::endl;
+	mVelocity += V.segment<3>(0);
+	mMomentum += momentum;
+	mCount += 1;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mParamCur = mParamGoal;
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
-	
-		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-		Eigen::Vector3d mf = (lf+rf)/2.; 
-		this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
+		
+		std::cout<<mCount<<"/ M : "<<(mMomentum/ mCount).transpose()<<" / v : "<<(mVelocity/mCount).transpose()<<" r: "<<(mTrackingRewardTrajectory/mReferenceManager->GetPhaseLength())<<std::endl;
+		cycle_done = false;
+
+		mTrackingRewardTrajectory = 0;
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
-			for(int i = 0; i < mRewardSimilarity.size(); i++) {
-				mRewardSimilarity[i] /= mCountTracking;
-			}
-			// std::cout<<mCurrentFrame<<" : "<<mFitness.sum_contact<<std::endl;
-			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
-				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
+
+			mFitness.sum_contact /= mCountTracking;
+			mFitness.sum_pos /= mCountTracking;
+			mFitness.sum_vel /= mCountTracking;
+
+			if(mCurrentFrame < 6*mReferenceManager->GetPhaseLength() ){
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			}
 			data_raw.clear();
@@ -299,45 +270,12 @@ Step()
 			mCountParam = 0;
 			mCountTracking = 0;
 			
+			mMomentum.setZero();
+			mVelocity.setZero();
+			mCount = 0;
 			// mEnergy.setZero();
 			// mVelocity = 0;
-			foot_diff.clear();	
-
 		}
-
-		#ifdef OBJECT_TYPE
-		// place the object according to the paramGoal
-		Eigen::VectorXd prev_obj_pos= mObject->GetSkeleton()->getPositions();
-		Eigen::Vector3d root_diff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
-
-		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-		obj_pos.setZero();
-		obj_pos[5] = root_diff[2]+mParamGoal[1]; // distance (z);
-		obj_pos[6] = root_diff[1]+mParamGoal[0]; // height (y)
-
-		mObject->GetSkeleton()->setPositions(obj_pos);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		
-		// place the base below its feet
-		mObject_base->GetSkeleton()->setPositions(prev_obj_pos);
-		mObject_base->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
-		mObject_base->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
-		mObject_base->GetSkeleton()->computeForwardKinematics(true,false,false);
-
-		// std::cout<<mObject->GetSkeleton()->getPositions().segment<2>(5).transpose()<<" / base : "<<mObject_base->GetSkeleton()->getPositions().segment<2>(5).transpose()<<std::endl;
-		
-		// std::cout<<root_diff.transpose()<<std::endl;
-		// std::cout<<"root : "<<mStartRoot.transpose()<<" / foot : "<<mStartFoot.transpose()<<" / obj : "<<obj_pos[5]<<" "<<obj_pos[6]<<std::endl;
-
-		this->placed_object = false;
-		this->jump_stepon = false;
-
-		#endif
-
-		// mReferenceManager->tmp_debug = Eigen::Vector3d::Zero();
-		// mReferenceManager->tmp_debug_frame = 0;
 
 	}
 	if(isAdaptive) {
@@ -386,9 +324,6 @@ SaveStepInfo()
 
 	mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
 
-	#ifdef OBJECT_TYPE
-	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
-	#endif
 }
 void 
 Controller::
@@ -409,6 +344,10 @@ ClearRecord()
 	mCountParam = 0;
 	mCountTracking = 0;
 	data_raw.clear();
+
+	mMomentum.setZero();
+	mVelocity.setZero();
+	mCount = 0;
 
 	// mEnergy.setZero();
 	// mVelocity = 0;
@@ -542,13 +481,8 @@ GetSimilarityReward()
 	vel *= (mCurrentFrame - mPrevFrame); 
 	delete p_v_target;
 
-	double ref_obj_height = (this->placed_object)? 0.46 : 0;
-	double cur_obj_height = (this->placed_object)? mObject->GetSkeleton()->getPositions()[6]: mObject_base->GetSkeleton()->getPositions()[6];
-
-	// std::cout<<mCurrentFrame<<"/ ref: "<<ref_obj_height<<" / cur: "<<cur_obj_height<<std::endl;
-
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, 0);
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), 0);
 	double con_diff = 0;
 
 	for(int i = 0; i < contacts_cur.size(); i++) {
@@ -556,20 +490,6 @@ GetSimilarityReward()
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1))*3, 2);
 		}
 	}
-
-	// for debugging
-	// if(con_diff > 0.01){
-	// 	std::cout<<mCurrentFrame<<", sum : "<<con_diff<<std::endl;
-	// 	double lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation()[1];
-	// 	double rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation()[1];
-	// 	std::cout<<ref_obj_height<<" "<<cur_obj_height<<" / foot : "<<lf<<" "<<rf<<std::endl;
-	
-	// 	for(int i = 0; i < contacts_cur.size(); i++) {
-	// 		if(contacts_ref[i].first || contacts_cur[i].first) {
-	// 		std::cout<<(contacts_cur[i].second)(1)<<" "<<(contacts_ref[i].second)(1)<<" : "<<((contacts_cur[i].second)(1)- (contacts_ref[i].second)(1))<<std::endl;
-	// 		}
-	// 	}
-	// }
 
 	//double r_con = exp(-con_diff);
 	Eigen::VectorXd p_aligned = skel->getPositions();
@@ -629,38 +549,48 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	if(mCurrentFrameOnPhase >= 40.5 && !(this->jump_stepon)){
-		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-		Eigen::Vector3d lt = this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
-		Eigen::Vector3d rt = this->mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
+	auto& skel = this->mCharacter->GetSkeleton();
+	//TODO
+	if(mCurrentFrameOnPhase >= 30 && !cycle_done) {
+		Eigen::Vector3d meanMomentum = mMomentum / mCount;
+		Eigen::Vector3d meanVelocity = mVelocity / mCount;
 
-		//z distance
-		//0.8 : foot: 0.7~, toe: ~0.9
-		double obj_z = this->mObject->GetSkeleton()->getPositions()[5];
+	// M : 2.34691 31.4297 1.28811 				/ v : 0.0547328   4.33922 -0.439232 / r: 0.827127
+	// M :  3.91392   31.134 0.680306 			/ v :   0.27747   4.22689 -0.479612 / r: 0.867831
+	// M :  4.29733     30.7 0.332039 			/ v :  0.326194   4.16994 -0.527147 / r: 0.86816
+	// M :  4.42289  30.5048 0.112141 			/ v :  0.352003   4.13973 -0.556732 / r: 0.865361
+	// M :     4.56922     30.4445 -0.00803169 	/ v : 0.371849  4.13279  -0.5754 	/ r: 0.867926
+	// M :   4.60989   30.3883 -0.105409 		/ v :   0.37354   4.12674 -0.593139 / r: 0.866343
 
-		Eigen::VectorXd distance_diff(4);
-		distance_diff.setZero();
+	//187: M :   4.60989   30.3883 -0.105409 / v :   0.37354   4.12674 -0.593139 / r: 0.866343
 
-		if(lf[2] < (obj_z-0.1)) distance_diff[0]= (obj_z-0.1)-lf[2];
-		if(rf[2] < (obj_z-0.1)) distance_diff[1]= (obj_z-0.1)-rf[2];
+		meanMomentum(1) = 0;
+		meanVelocity(1) = 0;
+		
+		Eigen::Vector3d targetVelocity = mParamGoal(0) * Eigen::Vector3d(-1, 0, -0.24);
+		Eigen::Vector3d targetMomentum = Eigen::Vector3d(-40, 0, -6);
 
-		if(lt[2] > (obj_z+0.1)) distance_diff[2]= lt[2]-(obj_z+0.1);
-		if(rt[2] > (obj_z+0.1)) distance_diff[3]= rt[2]-(obj_z+0.1);
+		Eigen::Vector3d v_diff = meanVelocity - targetVelocity;
+		Eigen::Vector3d m_diff = meanMomentum - targetMomentum;
+		m_diff(2) *= 0.0;
+		v_diff(2) *= 0.0;
 
-		double r = exp_of_squared(distance_diff, 0.04);
-		// std::cout<<mCurrentFrame<<", r: "<<r<<" , dist: "<<distance_diff.transpose()<<std::endl;
-		foot_diff.push_back(r);
+		r_param = 0.75 * exp_of_squared(v_diff, 0.3);
+		r_param += 0.25 * exp_of_squared(m_diff, 3);
 
-		if(mCurrentFrameOnPhase >=60.5){			
-			r_param= std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0) / foot_diff.size();
-			// std::cout<<mCurrentFrameOnPhase<<"/ r_param: "<<r_param<<std::endl;
-			this->jump_stepon = true;
-			mParamCur = mParamGoal;
-			foot_diff.clear();
-
-			if(mRecord) std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
+		if(mRecord) {
+			std::cout << meanMomentum.transpose() << " " << m_diff.transpose() << " " << exp_of_squared(m_diff, 3)  <<  std::endl; // <<  meanMomentum - mInputTargetParameters(0) << " " <<  exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075) << std::endl;
+			std::cout << meanVelocity.transpose() << " " << v_diff.transpose() << " " << exp_of_squared(v_diff, 0.3) << std::endl; // meanVelocity - mInputTargetParameters(1) << " " << exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) << std::endl;
 		}
+
+		if(exp_of_squared(m_diff, 3) > 0.4) // && abs(meanVelocity(2) - targetVelocity(2)) < 1.5)
+			mParamCur(0) = -meanVelocity(0);
+		else
+			mParamCur(0) = -1;
+	 
+		mControlFlag[0] = 1;		
+
+		cycle_done = true;
 	}
 
 	return r_param;
@@ -728,6 +658,7 @@ UpdateReward()
 		mRewardParts.push_back(tracking_rewards_bvh[3]);
 		mRewardParts.push_back(r_time);
 	}
+	mTrackingRewardTrajectory+= accum_bvh;
 }
 void
 Controller::
@@ -780,21 +711,6 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 11; 
 	}
-
-	//characterConfigration
-	// if(std::abs(forward_angle) > M_PI/6.) {
-	// 	if(!mRecord){
-	// 		mIsTerminal = true;
-	// 		terminationReason = 9;
-	// 	}
-	// 	else std::cout<<"forward_angle : "<<forward_angle<<std::endl; 
-	// 	// std::cout<<"terminationReason : 9  @ "<<mCurrentFrame<<std::endl;
-	// }
-	// if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
-	// 	mIsTerminal = true;
-	// 	terminationReason = 2;
-	// }
-	// std::cout<<mCurrentFrame<<" "<<(v.segment<3>(0)).norm()<<" "<<(v.segment<3>(3).norm())<<std::endl;
 
 	if(mRecord && (root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD || root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT) ){
 		std::cout<<mCurrentFrame<<", root_pos_diff.norm() : "<<root_pos_diff.norm()<<std::endl; 
@@ -954,38 +870,10 @@ Reset(bool RSI)
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
 	}
 
-	#ifdef OBJECT_TYPE
-	// place the object according to current Param Goal
-	
-	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-	obj_pos.setZero();
-	obj_pos[5]= mParamGoal[1];
-	obj_pos[6]= mParamGoal[0];
-
-	this->mObject->GetSkeleton()->setPositions(obj_pos);
-	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-
-	obj_pos.setZero();	
-	this->mObject_base->GetSkeleton()->setPositions(obj_pos);
-	this->mObject_base->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
-	this->mObject_base->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_base->GetSkeleton()->getNumDofs()));
-	this->mObject_base->GetSkeleton()->computeForwardKinematics(true,false,false);
-
-	this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	Eigen::Vector3d mf = (lf+rf)/2.; 
-	this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
-
-	this->jump_stepon =  false;
-	this->placed_object = false;
-	#endif
-
-	foot_diff.clear();
-
-	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
+	cycle_done= false;
+	mMomentum.setZero();
+	mVelocity.setZero();
+	mCount = 0;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
@@ -1217,12 +1105,6 @@ GetState()
 	// 	std::cout<< "mParamGoal: "<<mParamGoal.transpose() <<std::endl;
 	// 	std::cout<<std::endl;
 		
-	// 	// bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe");
-	// 	// bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe") ||  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe");
-
-	// 	bool contactWithObj =  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe") ||CheckCollisionWithObject("LeftHand") || CheckCollisionWithObject("RightHand") ;
-	// 	if(contactWithObj) std::cout<<" COLLISION WITH OBJECT ----------------------------------------------- "<<std::endl;
-	// }
 
 	return state;
 }
