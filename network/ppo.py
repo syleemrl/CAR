@@ -75,8 +75,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25,  steps_per_iteration * 0.5]
-		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4, optim_frequency * 2]
+		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25,  steps_per_iteration * 0.25]
+		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4, optim_frequency * 4]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -371,9 +371,11 @@ class PPO(object):
 			advantages = np.zeros(size)
 			ad_t = 0
 
-			TD_t_dense = 0
-			TD_t_sparse = 0
-
+			# TD_t_dense = 0
+			# TD_t_sparse = 0
+			count_V = 0
+			sum_V = 0
+			V = 0
 			for i in reversed(range(size)):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -384,25 +386,32 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-
+				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
-				TD_t_dense = rewards[i][0] + TD_t_dense
-				TD_t_sparse = rewards[i][1] + TD_t_sparse
-
+				# TD_t_dense = rewards[i][0] + TD_t_dense
+				# TD_t_sparse = rewards[i][1] + TD_t_sparse
+				sum_V += V
+				count_V += 1
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					if TD_t_sparse != 0:
-						idx_batch.append(idx[i])
-						state_target_batch.append(param[i])
-						TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
+					# if TD_t_sparse != 0:
+					# 	idx_batch.append(idx[i])
+					# 	state_target_batch.append(param[i])
+					# 	TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
 
-					TD_t_dense = 0
-					TD_t_sparse = 0
+					# TD_t_dense = 0
+					# TD_t_sparse = 0
+					idx_batch.append(idx[i])
+					state_target_batch.append(param[i])
+					TD_target_batch.append(sum_V / count_V)
 
+					count_V = 0
+					sum_V = 0
+					V = 0
 			TD = values[:size] + advantages
 
 			for i in range(size):

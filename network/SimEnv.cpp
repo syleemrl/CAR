@@ -397,7 +397,7 @@ GetNearestParams(np::ndarray np_array) {
 
 	return l;
 }
-int 
+double 
 SimEnv::
 GetProgressGoal() {
 	return mRegressionMemory->GetNewSamplesNearGoal();

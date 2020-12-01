@@ -112,7 +112,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCurrentCPS();
 
 	int GetNumSamples();
-	int GetNewSamplesNearGoal() {return mNewSamplesNearGoal;}
+	double GetNewSamplesNearGoal() {return mNewSamplesNearGoal;}
 	std::tuple<std::vector<Eigen::VectorXd>, 
 	   	   std::vector<Eigen::VectorXd>,  
 		   std::vector<double>, 
@@ -168,7 +168,7 @@ private:
 
 	std::vector<std::string> mRecordLog;
 	double mEliteGoalDistance;
-	int mNewSamplesNearGoal;
+	double mNewSamplesNearGoal;
 
 	GoalInfo mGoalInfo; 
 };

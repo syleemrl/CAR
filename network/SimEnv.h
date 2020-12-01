@@ -63,7 +63,7 @@ public:
 	p::list GetParamSpaceSummary();
 	p::list UniformSampleWithNearestParams();
 	p::list GetNearestParams(np::ndarray np_array);
-	int GetProgressGoal();
+	double GetProgressGoal();
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;

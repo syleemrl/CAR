@@ -58,8 +58,8 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	mNumElite = 5;
 	mRadiusNeighbor = 0.35;
-	mThresholdInside = 0.5;
-	mRangeExplore = 0.2;
+	mThresholdInside = 0.6;
+	mRangeExplore = 0.25;
 	mThresholdActivate = 3;
 
 
@@ -757,9 +757,11 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	//	if(to_be_deleted.size() == 0 || p->reward >= prev_max + 0.01)
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
-			mNewSamplesNearGoal += 1;
-		}
+		// if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
+		// 	mNewSamplesNearGoal += 1;
+		// }
+		if(p->reward >= prev_max + 0.01)
+			mNewSamplesNearGoal += exp(-2.0 * GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)));
 	}
 	return flag;
 

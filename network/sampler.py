@@ -32,8 +32,9 @@ class Sampler(object):
 		self.done = False
 
 		# value, progress, updated
-		self.vp_table = [[1.0, 5, 0]]
-		self.vp_list_explore = []
+		self.v_list_explore = []
+		self.p_list_explore = []
+
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
@@ -44,7 +45,6 @@ class Sampler(object):
 		self.evaluation_counter = 0
 		self.evaluation_done = False
 		self.eval_frequency = 0
-		self.scale = 1.0 / 0.05
 
 		self.reg = LinearRegression()
 		print('=======================================')
@@ -74,17 +74,17 @@ class Sampler(object):
 		self.total_iter += 1
 		
 
-		it = 0
-		while it < len(self.vp_table):
-			if mode == 0:
-				self.vp_table[it][2] += 3
-				self.vp_table[it][1] *= 0.95
-			else:
-				self.vp_table[it][2] += 1
-			if self.vp_table[it][2] >= 30:
-				self.vp_table = self.vp_table[:it] + self.vp_table[(it+1):]  
-			else:
-				it += 1
+		# it = 0
+		# while it < len(self.vp_table):
+		# 	if mode == 0:
+		# 		self.vp_table[it][2] += 3
+		# 		self.vp_table[it][1] *= 0.95
+		# 	else:
+		# 		self.vp_table[it][2] += 1
+		# 	if self.vp_table[it][2] >= 30:
+		# 		self.vp_table = self.vp_table[:it] + self.vp_table[(it+1):]  
+		# 	else:
+		# 		it += 1
 
 		if mode == 0:
 			if self.total_iter < 3:
@@ -122,33 +122,46 @@ class Sampler(object):
 						x_cur = x_new
 		else:
 			if self.n_evaluation == 3:
-				vp_table_tmp = []
-				vp_table_max = 0
-				for i in range(len(self.sample_progress)):
-					vp_table_tmp.append([self.sample_progress[i][1], self.sample_progress[i][0] / 2.0, 0])
-					if self.sample_progress[i][1] > vp_table_max:
-						vp_table_max = self.sample_progress[i][1]
-				for i in range(len(self.vp_table)):
-					if vp_table_max < self.vp_table[i][0]:
-						vp_table_tmp.append(self.vp_table[i])
+				# vp_table_tmp = []
+				# vp_table_max = 0
+				# for i in range(len(self.sample_progress)):
+				# 	vp_table_tmp.append([self.sample_progress[i][1], self.sample_progress[i][0] / 2.0, 0])
+				# 	if self.sample_progress[i][1] > vp_table_max:
+				# 		vp_table_max = self.sample_progress[i][1]
+				# for i in range(len(self.vp_table)):
+				# 	if vp_table_max < self.vp_table[i][0]:
+				# 		vp_table_tmp.append(self.vp_table[i])
 
-				self.vp_table = copy(vp_table_tmp)
+				# self.vp_table = copy(vp_table_tmp)
 				self.evaluation_done = True
+				for v, p in zip(self.v_list_explore, self.p_list_explore): 
+					print(v, p, end=' ')
+				print()
 
-				x = np.array(self.vp_list_explore)[:,0]
-				y = np.array(self.vp_list_explore)[:,1]
+				v_min = np.array(self.v_list_explore).min()
+				v_max = np.array(self.v_list_explore).max()
+				
+				for i in range(2):
+					self.v_list_explore.append(v_min - 1)
+					self.p_list_explore.append(0)
+
+				x = np.array(self.v_list_explore)
+				y = np.array(self.p_list_explore)
 
 				x = x.reshape((-1, 1))
 				y = np.array(y)
+				
 				self.reg.fit(x, y)
 
-				x_predict = np.array([0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2])
+				x_predict = np.linspace(v_min, v_max, 10)
 				x_predict = x_predict.reshape((-1, 1))
 				y_predict = self.reg.predict(x_predict)
-
-				print(y_predict)
+				for x_p, y_p in zip(x_predict, y_predict): 
+					print(x_p, y_p, end=' ')
+				print() 
+				# print(self.vp_table)
 	def saveProgress(self, mode):
-		if mode == 0:
+		if mode == 0 or mode == 2:
 			p = self.sim_env.GetProgressGoal()
 			self.progress_cur += p
 			if self.eval_target_v < 0.7:
@@ -156,28 +169,31 @@ class Sampler(object):
 
 			if self.total_iter >= 3:
 				flag = False
-				for i in range(len(self.vp_table)):
-					if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
-						rate = 0.1 + 0.02 * self.vp_table[i][2]
-						self.vp_table[i][1] = (1 - rate) * self.vp_table[i][1] + rate * p * 10
-						self.vp_table[i][2] = 0
-						flag = True
-				if not flag:
-					self.vp_table.append([self.eval_target_v, 0.5 * p * 10, 0])
+				# for i in range(len(self.vp_table)):
+				# 	if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
+				# 		rate = 0.1 + 0.02 * self.vp_table[i][2]
+				# 		self.vp_table[i][1] = (1 - rate) * self.vp_table[i][1] + rate * p * 10
+				# 		self.vp_table[i][2] = 0
+				# 		flag = True
+				# if not flag:
+				# 	self.vp_table.append([self.eval_target_v, 0.5 * p * 10, 0])
 
-				if len(self.vp_list_explore) >= 50:
-					self.vp_list_explore = self.vp_list_explore[5:]
-				self.vp_list_explore.append([self.eval_target_v, p * 10])
-		elif mode == 2:
-			p = self.sim_env.GetProgressGoal()
-			t = self.evaluation_counter % len(self.sample)
-			lb = self.sample[t][1]
-			for i in range(len(self.sample_progress)):
-				if abs(self.sample_progress[i][1] - lb) < 1e-2:
-					self.sample_progress[i][0] += p
-					break 
-			self.evaluation_counter += 1
-			self.vp_list_explore.append([self.eval_target_v, p * 10])
+				if mode != 2 and len(self.v_list_explore) >= 50:
+					self.v_list_explore = self.v_list_explore[5:]
+					self.p_list_explore = self.p_list_explore[5:]
+
+				self.v_list_explore.append(self.eval_target_v)
+				self.p_list_explore.append(p * 10)
+		# elif mode == 2:
+		# 	p = self.sim_env.GetProgressGoal()
+		# 	t = self.evaluation_counter % len(self.sample)
+		# 	lb = self.sample[t][1]
+		# 	for i in range(len(self.sample_progress)):
+		# 		if abs(self.sample_progress[i][1] - lb) < 1e-2:
+		# 			self.sample_progress[i][0] += p
+		# 			break 
+		# 	self.evaluation_counter += 1
+		# 	self.vp_list_explore.append([self.eval_target_v_real, p * 10])
 		else:
 			self.progress_cur += self.sim_env.GetProgressGoal()
 
@@ -240,7 +256,9 @@ class Sampler(object):
 			return target, t
 		else:
 			t = self.evaluation_counter % len(self.sample)
-			target = self.sample[t][0]
+			target = self.sample[t]
+			self.eval_target_v = self.v_sample[t]
+			self.evaluation_counter += 1
 
 			return target, t
 
@@ -249,25 +267,40 @@ class Sampler(object):
 		self.prev_progress = np.array(self.progress_queue_exploit).mean()
 		self.progress_queue_exploit = []
 
-		x = np.array(self.vp_list_explore)[:,0]
-		y = np.array(self.vp_list_explore)[:,1]
+		for v, p in zip(self.v_list_explore, self.p_list_explore): 
+			print(v, p, end=' ')
+		print()
+
+
+		v_min = np.array(self.v_list_explore).min()
+		v_max = np.array(self.v_list_explore).max()
+
+		for i in range(2):
+			self.v_list_explore.append(v_min - 1)
+			self.p_list_explore.append(0)
+
+		x = np.array(self.v_list_explore)
+		y = np.array(self.p_list_explore)
 
 		x = x.reshape((-1, 1))
 		y = np.array(y)
+				
 		self.reg.fit(x, y)
 
-		x_predict = np.array([0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2])
+		x_predict = np.linspace(v_min, v_max, 10)
 		x_predict = x_predict.reshape((-1, 1))
 		y_predict = self.reg.predict(x_predict)
-
-		print(y_predict)
+		for x_p, y_p in zip(x_predict, y_predict): 
+			print(x_p, y_p, end=' ')
+		print() 
 
 	def resetExplore(self):
 		self.n_explore = 0
 		self.prev_progress = np.array(self.progress_queue_explore).mean()
 		self.progress_queue_explore = []
-		self.vp_list_explore = []
-	
+		self.v_list_explore = []
+		self.p_list_explore = []
+
 	def sampleBatch(self, v_func, type_explore):
 		self.sample = []
 		self.v_sample = []
@@ -286,53 +319,30 @@ class Sampler(object):
 				params = self.sim_env.GetNearestParams(target_np) 
 				vs = v_func.getValue(params)
 				v = np.array(vs).mean()
-			self.v_sample.append(round(v * self.scale) / self.scale)
+			self.v_sample.append(v)
 			self.sample.append(target)
 
 
 	def resetEvaluation(self, v_func):
 		self.n_evaluation = 0
-		self.eval_target_v = max(0.75, round((self.v_mean - 0.05) * self.scale) / self.scale)
 		self.sample = []
-		self.sample_progress = []
-		self.vp_list_explore = []
+		self.v_sample  = []
+		self.v_list_explore = []
+		self.p_list_explore = []
 		self.evaluation_done = False
 		self.evaluation_counter = 0
 
-		while True:
-			it = 0
-			add = 0
-			flag = True
-			while add < 10:
-				it += 1
+		while len(self.sample) < 40:
+			li = self.sim_env.UniformSampleWithNearestParams() 
+			params = li[1]
+			vs = v_func.getValue(params)
+			v = np.array(vs).mean()
+			t = li[0]
+			self.sample.append(t)
+			self.v_sample.append(v)
 
-				li = self.sim_env.UniformSampleWithNearestParams() 
-				params = li[1]
-				vs = v_func.getValue(params)
-				v = np.array(vs).mean()
-				t = li[0]
-				# t = self.randomSample(False)
-				# v = v_func.getValue([t])[0]
-				if v >= self.eval_target_v  and v < self.eval_target_v + 0.05:
-					self.sample.append([t, self.eval_target_v ])
-					add += 1
-					it = 0
 
-				if it > 1000:
-					flag = False
-					break
-
-			if flag:
-				self.sample_progress.append([0, self.eval_target_v])
-			# if not flag:
-			# 	break
-
-			self.eval_target_v += 0.05
-			if self.eval_target_v > self.v_mean + 0.1:
-				break
 		self.eval_frequency = len(self.sample) + 1
-		print(self.sample)
-		print(self.eval_frequency)
 
 	def isEnough(self, results):
 		self.v_mean_cur = np.array(results).mean()
@@ -353,12 +363,13 @@ class Sampler(object):
 		if self.n_exploit < 10:
 			return False
 
-		v = round(self.v_mean_cur * self.scale) / self.scale
-		y0 = self.reg.predict([[v]])
-		y1 = self.reg.predict([[v -  1 / self.scale]])
-		print(v, y0, v -  1 / self.scale, y1)
+		#v = round(self.v_mean_cur * self.scale) / self.scale
+		y0 = self.reg.predict([[self.v_mean_cur]])
+		y1 = self.reg.predict([[self.v_mean_cur - 0.5]])
+		print(y0, y1, np.array(self.v_list_explore).mean())
+
 		if y1 > y0:
-			if p_mean < np.array(self.progress_queue_explore).mean() * 0.8:
+			if p_mean < np.array(self.v_list_explore).mean() * 0.8:
 				return True
 		else:
 			if self.n_exploit % 5 == 4 and p_mean < y1 * 0.8:

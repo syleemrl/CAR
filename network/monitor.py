@@ -163,16 +163,23 @@ class Monitor(object):
 			out.write(str(mean)+':'+str(update_rate)+':'+str(self.v_ratio)+'\n')
 			out.close()			
 
-	def saveVPtable(self):
+	def saveVPlist(self):
 		if not os.path.isfile(self.directory+"vp_table") :
 			out = open(self.directory+"vp_table", "w")
 			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
-			out.write(matrix_to_str(self.sampler.vp_table)+'\n')
+			for v, p in zip(self.sampler.v_list_explore, self.sampler.p_list_explore): 
+				out.write(str(v)+' '+str(p)+' , ')
+			out.write('\n')
+
+			#out.write(matrix_to_str(self.sampler.vp_table)+'\n')
 			out.close()
 		else:
 			out = open(self.directory+"vp_table", "a")
 			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
-			out.write(matrix_to_str(self.sampler.vp_table)+'\n')
+			for v, p in zip(self.sampler.v_list_explore, self.sampler.p_list_explore): 
+				out.write(str(v)+' '+str(p)+' , ')
+			out.write('\n')
+		#	out.write(matrix_to_str(self.sampler.vp_table)+'\n')
 			out.close()	
 
 	def saveParamSpaceSummary(self, v_func):
@@ -223,8 +230,7 @@ class Monitor(object):
 
 		if self.mode == 0:
 			if self.mode_counter % 3 == 0:
-				self.saveVPtable()
-			print(self.sampler.vp_table)
+				self.saveVPlist()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
 			if self.sampler.n_explore >= 10 and \
@@ -257,7 +263,7 @@ class Monitor(object):
 		self.sampler.updateGoalDistribution(self.mode, v_func)
 		if self.mode == 2 and self.sampler.evaluation_done:
 			self.mode = 1
-			self.saveVPtable()
+			self.saveVPlist()
 			self.sampler.updateGoalDistribution(self.mode, v_func)
 
 	def updateGoal(self, v_func, record=True):
