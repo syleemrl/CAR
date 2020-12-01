@@ -36,12 +36,16 @@ class Sampler(object):
 		# value, progress, updated
 		self.v_list_explore = []
 		self.p_list_explore = []
-		self.scale = 0.8
+		self.progress_cur_list = []
+		self.distance = 0.8
+		self.unit = 0.5
+		# keep if added recently or data is rare ( <= 5)
+		self.vp_dict = dict()
 
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
-		self.progress_queue_exploit = [15.0]
+		self.progress_queue_exploit = [5.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -132,18 +136,7 @@ class Sampler(object):
 		if mode == 0 or mode == 2:
 			p = self.sim_env.GetProgressGoal()
 			self.progress_cur += p
-			if self.eval_target_v < 0.7:
-				return
-
-			if self.total_iter >= 3:
-				flag = False
-
-				if mode != 2 and len(self.v_list_explore) >= 80:
-					self.v_list_explore = self.v_list_explore[5:]
-					self.p_list_explore = self.p_list_explore[5:]
-
-				self.v_list_explore.append(self.eval_target_v)
-				self.p_list_explore.append(p * 10)
+			self.progress_cur_list.append(p * 10)
 		else:
 			self.progress_cur += self.sim_env.GetProgressGoal()
 
@@ -165,30 +158,17 @@ class Sampler(object):
 		if mode == 0:
 			if self.total_iter < 3:
 				target = self.randomSample(mode)
-				t = -1
+				self.sample_counter += 1
+				t = self.sample_counter-1
+
 			elif self.type_explore == 0:
-				# li = self.sim_env.UniformSampleWithNearestParams() 
-				# params = li[1]
-				# vs = v_func.getValue(params)
-				# v = np.array(vs).mean()
-				# target = li[0]
-				# self.eval_target_v = round(v * self.scale) / self.scale
 				target = self.sample[self.sample_counter % len(self.sample)]
-				self.eval_target_v = self.v_sample[self.sample_counter % len(self.sample)]
 				self.sample_counter += 1
-				t = -1
+				t = self.sample_counter-1
 			else:
-				# t = np.random.randint(len(self.pool_ex)) 
-				# target = self.pool_ex[t] 
-				# target_np = np.array(target, dtype=np.float32) 
-				# params = self.sim_env.GetNearestParams(target_np) 
-				# vs = v_func.getValue(params)
-				# v = np.array(vs).mean()
-				# self.eval_target_v = round(v * self.scale) / self.scale
 				target = self.sample[self.sample_counter % len(self.sample)]
-				self.eval_target_v = self.v_sample[self.sample_counter % len(self.sample)]
 				self.sample_counter += 1
-				t = -1
+				t = self.sample_counter-1
 
 			return target, t
 
@@ -210,7 +190,6 @@ class Sampler(object):
 		else:
 			t = self.evaluation_counter % len(self.sample)
 			target = self.sample[t]
-			self.eval_target_v = self.v_sample[t]
 			self.evaluation_counter += 1
 
 			return target, t
@@ -228,6 +207,7 @@ class Sampler(object):
 		self.progress_queue_explore = []
 		self.v_list_explore = []
 		self.p_list_explore = []
+		self.sample_counter = 0 
 
 	def sampleBatch(self, v_func, type_explore):
 		self.sample = []
@@ -273,28 +253,32 @@ class Sampler(object):
 		self.eval_frequency = len(self.sample) + 1
 
 	def printExplorationRateData(self):
-		self.v_list_explore, self.p_list_explore = (list(t) for t in zip(*sorted(zip(self.v_list_explore, self.p_list_explore))))
-		# for v, p in zip(self.v_list_explore, self.p_list_explore): 
-		# 	print(v, p, end=' ')
+		for k, v in zip(self.vp_dict.keys(), self.vp_dict.values()):
+			print('(', k * self.unit, ',', (k+1)*self.unit,') : ',v, ' ', np.array(v).mean(axis=0)[1])
+
+		# self.v_list_explore, self.p_list_explore = (list(t) for t in zip(*sorted(zip(self.v_list_explore, self.p_list_explore))))
+		# # for v, p in zip(self.v_list_explore, self.p_list_explore): 
+		# # 	print(v, p, end=' ')
+		# # print()
+
+		# v_min = np.array(self.v_list_explore).min() + self.distance
+		# v_max = np.array(self.v_list_explore).max() - self.distance
+
+		# v_predict = np.linspace(v_min, v_max, 10)
+		# for v in v_predict:
+		# 	mean, count = self.predictWindow(v, self.distance)
+		# 	if count < 5:
+		# 		mean, count = self.predictWindow(v, self.distance * 2)
+
+		# 		if count < 5:
+		# 			mean = -1
+		# 		else:
+		# 			mean /= count		
+		# 	else:
+		# 		mean /= count	
+		# 	print(v, ':', mean, end='; ')
 		# print()
 
-		v_min = np.array(self.v_list_explore).min() + self.scale
-		v_max = np.array(self.v_list_explore).max() - self.scale
-
-		v_predict = np.linspace(v_min, v_max, 10)
-		for v in v_predict:
-			mean, count = self.predictWindow(v, self.scale)
-			if count < 5:
-				mean, count = self.predictWindow(v, self.scale * 2)
-
-				if count < 5:
-					mean = -1
-				else:
-					mean /= count		
-			else:
-				mean /= count	
-			print(v, ':', mean, end='; ')
-		print()
 	def predictWindow(self, v, scale):
 		v_min = v - scale
 		v_max = v + scale
@@ -306,6 +290,31 @@ class Sampler(object):
 				mean += p
 				count += 1
 		return mean, count
+
+	def updateVPlist(self, results, info):
+		self.value_cur_list = []
+		self.count = []
+		for i in range(len(self.progress_cur_list)):
+			self.value_cur_list.append(0)
+			self.count.append(0)
+		for i in range(len(results)):
+			self.value_cur_list[info[i]] += results[i]
+			self.count[info[i]] += 1
+
+
+		for i in range(len(self.progress_cur_list)):
+			if self.count[i] != 0:	
+				v = self.value_cur_list[i] / self.count[i]
+				v_key = math.floor(v * 1 / self.unit)
+				if v_key in self.vp_dict:
+					while len( self.vp_dict[v_key]) >= 5 and (self.vp_dict[v_key][-1][2] - self.vp_dict[v_key][0][2]) > 3:
+						 self.vp_dict[v_key] = self.vp_dict[v_key][1:]
+					self.vp_dict[v_key].append([v, self.progress_cur_list[i], self.total_iter])
+				else:
+					self.vp_dict[v_key] = [[v, self.progress_cur_list[i], self.total_iter]] 
+
+		self.progress_cur_list = []
+		self.sample_counter = 0
 
 	def isEnough(self, results, density):
 		self.v_mean_cur = np.array(results).mean()
@@ -344,18 +353,32 @@ class Sampler(object):
 		if self.n_exploit < 10:
 			return False
 
-		mean, count = self.predictWindow(self.v_mean_boundary, self.scale)
-		if count < 5:
-			mean, count = self.predictWindow(self.v_mean_boundary,  self.scale * 2)
+		v_key = math.floor(self.v_mean_boundary * 1 / self.unit) - 1
+		mean = np.array(self.vp_dict[v_key]).mean(axis=0)[1] * len(self.vp_dict[v_key])
+		count = 0
+		if v_key - 1 in self.vp_dict:
+			for i in range(len(self.vp_dict[v_key - 1])):
+				if abs(v_key - self.vp_dict[v_key - 1][i][0]) < self.distance:
+					mean += self.vp_dict[v_key - 1][i][1]
+					count += 1
+		if v_key + 1 in self.vp_dict:
+			for i in range(len(self.vp_dict[v_key + 1])):
+				if abs(v_key - self.vp_dict[v_key + 1][i][0]) < self.distance:
+					mean += self.vp_dict[v_key + 1][i][1]
+					count += 1
+		mean /= (count + len(self.vp_dict[v_key]))
+		# mean, count = self.predictWindow(self.v_mean_boundary - 0.5, self.distance)
+		# if count < 5:
+		# 	mean, count = self.predictWindow(self.v_mean_boundary - 0.5,  self.distance * 2)
 
-			if count < 5:
-				mean = np.array(self.p_list_explore).mean()
-			else:
-				mean /= count		
-		else:
-			mean /= count
+		# 	if count < 5:
+		# 		mean = np.array(self.p_list_explore).mean()
+		# 	else:
+		# 		mean /= count		
+		# else:
+		# 	mean /= count
 		print(p_mean, mean)
-		if p_mean < mean * 0.8:
+		if p_mean < mean * 0.9:
 			return True
 	
 		# for i in reversed(range(len(self.vp_table))):
