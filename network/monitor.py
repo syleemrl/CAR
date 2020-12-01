@@ -65,7 +65,7 @@ class Monitor(object):
 		self.mode_counter = 0
 		self.v_ratio = 0
 		self.mode = 0
-		self.prev_mode = 0
+		self.mode_eval = False
 
 		if self.plot:
 			plt.ion()
@@ -209,7 +209,7 @@ class Monitor(object):
 
 	def updateMode(self, v_func, results):
 		mode_change = -1
-		if self.mode != 2:
+		if not self.mode_eval:
 			self.mode_counter += 1
 		self.sampler.updateProgress(self.mode)
 		if self.num_evaluation % 2 == 0:
@@ -229,7 +229,8 @@ class Monitor(object):
 			self.sim_env.SaveParamSpace(self.num_evaluation)
 
 		if self.mode == 0:
-			if self.mode_counter % 3 == 0:
+			if self.mode_counter % 3 == 0 and self.num_evaluation > 3:
+				self.sampler.printExplorationRateData()
 				self.saveVPlist()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
@@ -239,16 +240,24 @@ class Monitor(object):
 				self.mode_counter = 0
 				self.sampler.resetExploit()
 				return 1
+			elif self.mode_counter % 30 == 29:
+				self.mode = 1
+				self.mode_eval = True
+				self.sampler.resetExploit()
 		elif self.mode == 1:
-			if self.sampler.isEnough(results):
+			if self.mode_eval and len(self.sampler.progress_queue_exploit) >= 2:
+				self.mode = 0
+				self.mode_eval = False
+				return 0
+			if not self.mode_eval and self.sampler.isEnough(results):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.resetExplore()
 				return 1
-			elif self.mode_counter % 30 == 29:
+			elif not self.mode_eval and self.mode_counter % 30 == 29:
 				self.sampler.resetEvaluation(v_func)
-				self.prev_mode = self.mode
 				self.mode = 2
+				self.mode_eval = True
 			return 1
 
 		if self.v_ratio == 1:
@@ -256,12 +265,13 @@ class Monitor(object):
 		return 0
 
 	def needEvaluation(self):
-		if self.num_evaluation > 5 and self.mode_counter % 5 == 0 and self.mode != 2:
+		if self.num_evaluation > 5 and self.mode_counter % 5 == 0 and not self.mode_eval:
 			return True
 
 	def updateCurriculum(self, v_func):
 		self.sampler.updateGoalDistribution(self.mode, v_func)
 		if self.mode == 2 and self.sampler.evaluation_done:
+			self.mode_eval = False
 			self.mode = 1
 			self.saveVPlist()
 			self.sampler.updateGoalDistribution(self.mode, v_func)

@@ -387,7 +387,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 					flag = True
@@ -431,7 +431,43 @@ class PPO(object):
 			   np.array(TD_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
 
+	def computeValue(self, tuples):
+		marginal_vs = []
 
+		for data in tuples:
+			size = len(rewards)
+			rewards, times = zip(*data)
+
+			count_V = 0
+			sum_V = 0
+			V = 0
+			flag = False
+			for i in reversed(range(rewards)):
+				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
+					timestep = 0
+				elif times[i] > times[i+1]:
+					timestep = self.env.phaselength - times[i] + times[i+1]
+				else:
+					timestep = times[i+1]  - times[i]
+				
+				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
+				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
+				if rewards[i][1] != 0:
+					flag = True
+
+				sum_V += V
+				count_V += 1
+				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
+					if flag:
+						marginal_vs.append(sum_V / count_V)
+
+					count_V = 0
+					sum_V = 0
+					V = 0
+					flag = False
+
+		return marginal_vs
+					
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms-0')
@@ -590,47 +626,40 @@ class PPO(object):
 				epi_info_iter = []
 
 	def eval(self, num_samples):
-		value_total = []
+		tuples = []
 		for it in range(num_samples):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 			states = self.env.getStates()
 			local_step = 0
+			tuples_iter = [[] for _ in range(self.num_slaves)]	
 	
 			self.env.updateGoal(self.critic_target, False)
-			value_d = [0 for _ in range(self.num_slaves)]	
-			value_s = [0 for _ in range(self.num_slaves)]	
-			dense_count = [0 for _ in range(self.num_slaves)]
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
 				values = self.critic.getValue(states)
 
-				rewards, dones, _, params = self.env.step(actions, False)
+				rewards, dones, times, params = self.env.step(actions, False)
 				for j in range(self.num_slaves):
 					if not self.env.getTerminated(j):
 						if rewards[j][0] is not None:
-							if rewards[j][1] > 1e-2:
-								value_s[j] = rewards[j][1] * 1 / 10.
-							dense_count[j] += 1
-							value_d[j] += rewards[j][0]
+							tuples_iter[j].append([rewards[j], times[j]])
 							local_step += 1
 						if dones[j]:
-							if value_s[j] != 0:
-								value_total.append(value_s[j] + value_d[j] / dense_count[j])
-							value_s[j] = 0
-							value_d[j] = 0
-							dense_count[j] = 0
+							if len(epi_info[j]) != 0:
+								tuples.append(deepcopy(tuples_iter[j]))
 							
 							if local_step < 1000:
+								tuples_iter[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
 				if self.env.getAllTerminated():
 					break
 				states = self.env.getStates()
-
-		self.env.saveEvaluation(value_total)
+		marginal_vs = self.computeValue(tuples)
+		self.env.saveEvaluation(marginal_vs)
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)

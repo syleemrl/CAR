@@ -34,6 +34,7 @@ class Sampler(object):
 		# value, progress, updated
 		self.v_list_explore = []
 		self.p_list_explore = []
+		self.scale = 0.2
 
 		self.eval_target_v = 0
 
@@ -46,7 +47,6 @@ class Sampler(object):
 		self.evaluation_done = False
 		self.eval_frequency = 0
 
-		self.reg = LinearRegression()
 		print('=======================================')
 		print('curriculum option')
 		print('type exploit', self.type_exploit)
@@ -122,44 +122,10 @@ class Sampler(object):
 						x_cur = x_new
 		else:
 			if self.n_evaluation == 3:
-				# vp_table_tmp = []
-				# vp_table_max = 0
-				# for i in range(len(self.sample_progress)):
-				# 	vp_table_tmp.append([self.sample_progress[i][1], self.sample_progress[i][0] / 2.0, 0])
-				# 	if self.sample_progress[i][1] > vp_table_max:
-				# 		vp_table_max = self.sample_progress[i][1]
-				# for i in range(len(self.vp_table)):
-				# 	if vp_table_max < self.vp_table[i][0]:
-				# 		vp_table_tmp.append(self.vp_table[i])
-
-				# self.vp_table = copy(vp_table_tmp)
 				self.evaluation_done = True
-				for v, p in zip(self.v_list_explore, self.p_list_explore): 
-					print(v, p, end=' ')
-				print()
 
-				v_min = np.array(self.v_list_explore).min()
-				v_max = np.array(self.v_list_explore).max()
-				
-				for i in range(2):
-					self.v_list_explore.append(v_min - 1)
-					self.p_list_explore.append(0)
+				self.printExplorationRateData()
 
-				x = np.array(self.v_list_explore)
-				y = np.array(self.p_list_explore)
-
-				x = x.reshape((-1, 1))
-				y = np.array(y)
-				
-				self.reg.fit(x, y)
-
-				x_predict = np.linspace(v_min, v_max, 10)
-				x_predict = x_predict.reshape((-1, 1))
-				y_predict = self.reg.predict(x_predict)
-				for x_p, y_p in zip(x_predict, y_predict): 
-					print(x_p, y_p, end=' ')
-				print() 
-				# print(self.vp_table)
 	def saveProgress(self, mode):
 		if mode == 0 or mode == 2:
 			p = self.sim_env.GetProgressGoal()
@@ -169,31 +135,13 @@ class Sampler(object):
 
 			if self.total_iter >= 3:
 				flag = False
-				# for i in range(len(self.vp_table)):
-				# 	if abs(self.vp_table[i][0] - self.eval_target_v) < 1e-2:
-				# 		rate = 0.1 + 0.02 * self.vp_table[i][2]
-				# 		self.vp_table[i][1] = (1 - rate) * self.vp_table[i][1] + rate * p * 10
-				# 		self.vp_table[i][2] = 0
-				# 		flag = True
-				# if not flag:
-				# 	self.vp_table.append([self.eval_target_v, 0.5 * p * 10, 0])
 
-				if mode != 2 and len(self.v_list_explore) >= 50:
+				if mode != 2 and len(self.v_list_explore) >= 60:
 					self.v_list_explore = self.v_list_explore[5:]
 					self.p_list_explore = self.p_list_explore[5:]
 
 				self.v_list_explore.append(self.eval_target_v)
 				self.p_list_explore.append(p * 10)
-		# elif mode == 2:
-		# 	p = self.sim_env.GetProgressGoal()
-		# 	t = self.evaluation_counter % len(self.sample)
-		# 	lb = self.sample[t][1]
-		# 	for i in range(len(self.sample_progress)):
-		# 		if abs(self.sample_progress[i][1] - lb) < 1e-2:
-		# 			self.sample_progress[i][0] += p
-		# 			break 
-		# 	self.evaluation_counter += 1
-		# 	self.vp_list_explore.append([self.eval_target_v_real, p * 10])
 		else:
 			self.progress_cur += self.sim_env.GetProgressGoal()
 
@@ -267,32 +215,7 @@ class Sampler(object):
 		self.prev_progress = np.array(self.progress_queue_exploit).mean()
 		self.progress_queue_exploit = []
 
-		for v, p in zip(self.v_list_explore, self.p_list_explore): 
-			print(v, p, end=' ')
-		print()
-
-
-		v_min = np.array(self.v_list_explore).min()
-		v_max = np.array(self.v_list_explore).max()
-
-		for i in range(2):
-			self.v_list_explore.append(v_min - 1)
-			self.p_list_explore.append(0)
-
-		x = np.array(self.v_list_explore)
-		y = np.array(self.p_list_explore)
-
-		x = x.reshape((-1, 1))
-		y = np.array(y)
-				
-		self.reg.fit(x, y)
-
-		x_predict = np.linspace(v_min, v_max, 10)
-		x_predict = x_predict.reshape((-1, 1))
-		y_predict = self.reg.predict(x_predict)
-		for x_p, y_p in zip(x_predict, y_predict): 
-			print(x_p, y_p, end=' ')
-		print() 
+		self.printExplorationRateData()
 
 	def resetExplore(self):
 		self.n_explore = 0
@@ -344,6 +267,41 @@ class Sampler(object):
 
 		self.eval_frequency = len(self.sample) + 1
 
+	def printExplorationRateData(self):
+		self.v_list_explore, self.p_list_explore = (list(t) for t in zip(*sorted(zip(self.v_list_explore, self.p_list_explore))))
+		# for v, p in zip(self.v_list_explore, self.p_list_explore): 
+		# 	print(v, p, end=' ')
+		# print()
+
+		v_min = np.array(self.v_list_explore).min() + self.scale
+		v_max = np.array(self.v_list_explore).max() - self.scale
+
+		v_predict = np.linspace(v_min, v_max, 5)
+		for v in v_predict:
+			mean, count = self.predictWindow(v, self.scale)
+			if count < 5:
+				mean, count = self.predictWindow(v, self.scale * 2)
+
+				if count < 5:
+					mean = -1
+				else:
+					mean /= count		
+			else:
+				mean /= count	
+			print(v, ':', mean, end='; ')
+		print()
+	def predictWindow(self, v, scale):
+		v_min = v - scale
+		v_max = v + scale
+		mean = 0
+		count = 0
+
+		for v, p in zip(self.v_list_explore, self.p_list_explore):
+			if v >= v_min and v <= v_max:
+				mean += p
+				count += 1
+		return mean, count
+
 	def isEnough(self, results):
 		self.v_mean_cur = np.array(results).mean()
 		if self.v_mean == 0:
@@ -363,19 +321,21 @@ class Sampler(object):
 		if self.n_exploit < 10:
 			return False
 
-		#v = round(self.v_mean_cur * self.scale) / self.scale
-		y0 = self.reg.predict([[self.v_mean_cur]])
-		y1 = self.reg.predict([[self.v_mean_cur - 0.5]])
-		print(y0, y1, np.array(self.p_list_explore).mean())
+		mean, count = self.predictWindow(self.v_mean, self.scale)
+		if count < 5:
+			scale *= 2
+			mean, count = self.predictWindow(self.v_mean, scale)
 
-		if y1 > y0:
-			if p_mean < np.array(self.p_list_explore).mean() * 0.8:
-				return True
+			if count < 5:
+				mean = np.array(self.p_list_explore).mean()
+			else:
+				mean /= count		
 		else:
-			if self.n_exploit % 5 == 4 and p_mean < y1 * 0.8:
-				return True
-			if self.n_exploit % 5 != 4 and p_mean < y0 * 0.8:
-				return True
+			mean /= count
+		
+		if p_mean < mean * 0.8:
+			return True
+	
 		# for i in reversed(range(len(self.vp_table))):
 		# 	if self.n_exploit % 5 == 4 and self.vp_table[i][0] <= v - 1 / self.scale and p_mean < self.vp_table[i][1] * 0.8:
 		# 		return True
