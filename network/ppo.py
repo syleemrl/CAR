@@ -343,11 +343,11 @@ class PPO(object):
 		TD_target_batch = []
 		neglogp_batch = []
 		GAE_batch = []
-		idx_batch = []
+		density_batch = []
 
 		for data in tuples:
 			# get values
-			states, actions, rewards, values, neglogprobs, times, param, idx = zip(*data)
+			states, actions, rewards, values, neglogprobs, times, param, density = zip(*data)
 
 			if len(times) == self.env.phaselength * 3 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
@@ -362,7 +362,7 @@ class PPO(object):
 					neglogprobs = neglogprobs[:count+1]
 					times = times[:count+1]
 					param = param[:count+1]
-					idx = idx[:count+1]
+					density = density[:count+1]
 
 			size = len(times)		
 
@@ -387,7 +387,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + 1 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 					flag = True
@@ -407,7 +407,7 @@ class PPO(object):
 					# TD_t_dense = 0
 					# TD_t_sparse = 0
 					if flag:
-						idx_batch.append(idx[i])
+						density_batch.append(density[i])
 						state_target_batch.append(param[i])
 						TD_target_batch.append(sum_V / count_V)
 
@@ -426,7 +426,7 @@ class PPO(object):
 				GAE_batch.append(advantages[i])
 		
 		self.v_target = TD_target_batch
-		self.idx_target = idx_batch
+		self.d_target = density_batch
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
 			   np.array(TD_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
@@ -452,7 +452,7 @@ class PPO(object):
 					timestep = times[i+1]  - times[i]
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
-				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					flag = True
 
@@ -546,7 +546,7 @@ class PPO(object):
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
 			if self.adaptive:
-				p_idx = self.env.updateGoal(self.critic_target)
+				d = self.env.updateGoal(self.critic_target)
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -560,7 +560,7 @@ class PPO(object):
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
-							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], p_idx])
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], d])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
@@ -590,7 +590,7 @@ class PPO(object):
 			    (self.env.mode == 2 and it_cur % self.env.sampler.eval_frequency == self.env.sampler.eval_frequency - 1):	
 				if self.adaptive:
 					self.updateAdaptive(epi_info_iter)
-					t = self.env.updateMode(self.critic_target, self.v_target)
+					t = self.env.updateMode(self.critic_target, self.v_target, self.d_target)
 					if t == -1:
 						break
 					elif t == 1:
@@ -603,7 +603,7 @@ class PPO(object):
 					epi_info_iter_hind = []
 
 					if self.env.needEvaluation():
-						self.eval(30)
+						self.eval(40)
 
 				else:			
 					self.update(epi_info_iter) 

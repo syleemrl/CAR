@@ -309,6 +309,12 @@ UniformSample(bool visited) {
 	}
 	return DPhy::toNumPyArray(pair.first);
 }
+np::ndarray
+SimEnv::
+UniformSampleWithConstraints(double d0, double d1) {
+	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(d0, d1);
+	return DPhy::toNumPyArray(pair.first);
+}
 void
 SimEnv::
 SaveParamSpace(int n) {
@@ -429,6 +435,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetRewardsByParts",&SimEnv::GetRewardsByParts)
 		.def("GetParamGoal",&SimEnv::GetParamGoal)
 		.def("UniformSample",&SimEnv::UniformSample)
+		.def("UniformSampleWithConstraints",&SimEnv::UniformSampleWithConstraints)
 		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
 		.def("GetPhaseLength",&SimEnv::GetPhaseLength)

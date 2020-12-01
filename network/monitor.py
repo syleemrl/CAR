@@ -139,6 +139,7 @@ class Monitor(object):
 	
 	def saveEvaluation(self, li):
 		mean = np.array(li).mean()
+		self.sampler.v_mean_boundary = 0.6 * self.sampler.v_mean_boundary + 0.4 * mean
 		print('evaluation mean: ', mean)
 		if self.mode == 0:
 			if len(self.sampler.progress_queue_explore) == 0:
@@ -207,7 +208,7 @@ class Monitor(object):
 			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
 			out.close()		
 
-	def updateMode(self, v_func, results):
+	def updateMode(self, v_func, results, density):
 		mode_change = -1
 		if not self.mode_eval:
 			self.mode_counter += 1
@@ -249,7 +250,7 @@ class Monitor(object):
 				self.mode = 0
 				self.mode_eval = False
 				return 0
-			if not self.mode_eval and self.sampler.isEnough(results):
+			if not self.mode_eval and self.sampler.isEnough(results, density):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.resetExplore()
@@ -280,7 +281,7 @@ class Monitor(object):
 		if record:
 			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		else:
-			t = self.sampler.randomSample(True)
+			t = self.sim_env.UniformSampleWithConstraints(0.6, 0.75)
 			idx = -1
 		
 		t = np.array(t, dtype=np.float32) 

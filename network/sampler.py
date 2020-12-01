@@ -11,6 +11,8 @@ class Sampler(object):
 		self.dim = dim
 		
 		self.v_mean = 1.0
+		self.v_mean_boundary = 0.0
+		self.d_cur = 0
 		self.random = True
 
 		self.k = 10
@@ -34,12 +36,12 @@ class Sampler(object):
 		# value, progress, updated
 		self.v_list_explore = []
 		self.p_list_explore = []
-		self.scale = 0.1
+		self.scale = 0.8
 
 		self.eval_target_v = 0
 
 		self.progress_queue_evaluation = []
-		self.progress_queue_exploit = [5.0]
+		self.progress_queue_exploit = [15.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -193,14 +195,17 @@ class Sampler(object):
 		elif mode == 1:
 			if self.n_exploit % 5 == 4:
 				target = self.randomSample(mode)
-				t = -1
+				target_np = np.array(target, dtype=np.float32) 
+				t = self.sim_env.GetDensity(target_np)				
 			elif self.type_exploit == 0:
 				target = self.randomSample(mode)
-				t = -1
+				target_np = np.array(target, dtype=np.float32) 
+				t = self.sim_env.GetDensity(target_np)
 			else:
 				t = np.random.randint(len(self.pool)) 
 				target = self.pool[t] 
-
+				target_np = np.array(target, dtype=np.float32) 
+				t = self.sim_env.GetDensity(target_np)
 			return target, t
 		else:
 			t = self.evaluation_counter % len(self.sample)
@@ -302,7 +307,7 @@ class Sampler(object):
 				count += 1
 		return mean, count
 
-	def isEnough(self, results):
+	def isEnough(self, results, density):
 		self.v_mean_cur = np.array(results).mean()
 		if self.v_mean == 0:
 			self.v_mean = self.v_mean_cur
@@ -311,9 +316,27 @@ class Sampler(object):
 
 		p_mean = np.array(self.progress_queue_exploit).mean()
 
+		v_mean_boundary_cur = 0
+		count = 0
+		for i in range(len(results)):
+			if density[i] > 0.6 and density[i] < 0.75:
+				count += 1
+				v_mean_boundary_cur += results[i]
+				
+		if count != 0:
+			v_mean_boundary_cur /= count
+			if self.v_mean_boundary == 0:
+				self.v_mean_boundary = v_mean_boundary_cur
+			else:
+				rate = min(1, count * 0.001)
+				self.v_mean_boundary = (1- rate) * self.v_mean_boundary + rate * v_mean_boundary_cur
+
+
 		print(self.progress_queue_exploit)
 		print("===========================================")
 		print("mean reward : ", self.v_mean)
+		print("current mean boundary reward: ", v_mean_boundary_cur, count)
+		print("mean boundary reward : ", self.v_mean_boundary)
 		print("exploration rate : ", p_mean)
 		print("===========================================")
 
@@ -321,9 +344,9 @@ class Sampler(object):
 		if self.n_exploit < 10:
 			return False
 
-		mean, count = self.predictWindow(self.v_mean, self.scale)
+		mean, count = self.predictWindow(self.v_mean_boundary, self.scale)
 		if count < 5:
-			mean, count = self.predictWindow(self.v_mean,  self.scale * 2)
+			mean, count = self.predictWindow(self.v_mean_boundary,  self.scale * 2)
 
 			if count < 5:
 				mean = np.array(self.p_list_explore).mean()

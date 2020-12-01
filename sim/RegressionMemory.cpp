@@ -683,7 +683,51 @@ UniformSample(bool visited, bool far) {
 		}
 	}
 }
+std::pair<Eigen::VectorXd , bool>
+RegressionMemory::
+UniformSample(double d0, double d1) {
+	int count = 0;
+	while(1) {
+		double r = mUniform(mMT);
+		r = std::floor(r * mGridMap.size());
+		if(r == mGridMap.size())
+			r -= 1;
+		auto it_grid = std::next(mGridMap.begin(), (int)r);
+		std::vector<Param*> params = it_grid->second->GetParams(); 
+		if(params.size() == 0)
+			continue;
 
+		r = mUniform(mMT);
+		r = std::floor(r * params.size());
+		if(r == params.size())
+			r -= 1;
+		if(params[r]->update)
+			continue;
+		Eigen::VectorXd p = params[r]->param_normalized;
+		Eigen::VectorXd dir(mDim);
+
+		for(int i = 0; i < mDim; i++) {
+			dir(i) =  mUniform(mMT) - 0.5;
+		}
+		dir.normalize();
+
+		for(int i = 0; i < mDim; i++) {
+			r = mUniform(mMT);
+			p(i) += dir(i) * r * mParamGridUnit(i);
+			if(p(i) > 1 || p(i) < 0) {
+				p(i) = std::min(1.0, std::max(0.0, p(i)));
+			} 
+		}
+		double d = GetDensity(p, true);
+		if(d >= d0 && d <= d1) {
+			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
+		}
+		count += 1;
+		if(count > 10000) {
+			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), false);
+		}
+	}
+}
 bool 
 RegressionMemory::
 UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate) {
