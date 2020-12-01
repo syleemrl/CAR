@@ -366,10 +366,10 @@ class Sampler(object):
 		#v = round(self.v_mean_cur * self.scale) / self.scale
 		y0 = self.reg.predict([[self.v_mean_cur]])
 		y1 = self.reg.predict([[self.v_mean_cur - 0.5]])
-		print(y0, y1, np.array(self.v_list_explore).mean())
+		print(y0, y1, np.array(self.p_list_explore).mean())
 
 		if y1 > y0:
-			if p_mean < np.array(self.v_list_explore).mean() * 0.8:
+			if p_mean < np.array(self.p_list_explore).mean() * 0.8:
 				return True
 		else:
 			if self.n_exploit % 5 == 4 and p_mean < y1 * 0.8:

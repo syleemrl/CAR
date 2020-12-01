@@ -376,6 +376,7 @@ class PPO(object):
 			count_V = 0
 			sum_V = 0
 			V = 0
+			flag = False
 			for i in reversed(range(size)):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -389,7 +390,7 @@ class PPO(object):
 				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
-
+					flag = True
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
@@ -405,13 +406,16 @@ class PPO(object):
 
 					# TD_t_dense = 0
 					# TD_t_sparse = 0
-					idx_batch.append(idx[i])
-					state_target_batch.append(param[i])
-					TD_target_batch.append(sum_V / count_V)
+					if flag:
+						idx_batch.append(idx[i])
+						state_target_batch.append(param[i])
+						TD_target_batch.append(sum_V / count_V)
 
 					count_V = 0
 					sum_V = 0
 					V = 0
+					flag = False
+					
 			TD = values[:size] + advantages
 
 			for i in range(size):
