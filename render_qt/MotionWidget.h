@@ -35,7 +35,8 @@ public slots:
 	void NextFrame();
 	void PrevFrame();
 	void Reset();
-	void SendtoUE();
+	void UEconnect();
+	void UEclose();
 	void UpdateParam(const bool& pressed);
 	void UpdateRandomParam(const bool& pressed);
 
@@ -120,6 +121,7 @@ protected:
 
 	std::vector<Eigen::VectorXd> mPoseRecords, mRefPoseRecords;
 	std::vector<std::string> mJointsUEOrder;
+	std::vector<std::string> mObjectsUEOrder;
 
 	// for socket network
 	bool							mIsConnected;

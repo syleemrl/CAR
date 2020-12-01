@@ -15,4 +15,6 @@
 
 #define CHARACTER_TYPE "humanoid_ue"
 #define REF_CHARACTER_TYPE "humanoid_ue"
+
+#define OBJECT_TYPE "jump_box"
 #endif

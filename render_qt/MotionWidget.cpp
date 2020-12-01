@@ -31,8 +31,22 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
-	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
-	mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+
+	// path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
+	// mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+
+	// mSkel_obj = nullptr;
+	// #ifdef OBJECT_TYPE 
+	// 	std::cout<<"\nMotionWidget OBJ"<<std::endl;
+	// 	std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
+	// 	mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
+
+	// 	Eigen::VectorXd obj_pos(7);
+	// 	obj_pos.setZero();
+	// 	obj_pos[5]=0.8; obj_pos[6]= 0.46;
+	// 	mSkel_obj->setPositions(obj_pos);
+	// #endif
+
 
 	mIsConnected = false;
 	
@@ -137,7 +151,10 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	this->mJointsUEOrder.emplace_back("Neck");
 	this->mJointsUEOrder.emplace_back("Head");
 
-	this->mBuffer = new char[(this->mJointsUEOrder.size()+1)*4*4*sizeof(double)];
+	// Add this part when add any objects in UE.
+	//this->mObjectsUEOrder.emplace_back("Jump_box");
+
+	this->mBuffer = new char[(this->mJointsUEOrder.size()+3)*4*4*sizeof(double)];
 	this->mBuffer2 = new char[128];
 
 }
@@ -467,6 +484,36 @@ getCharacterTransformsForUE(char *buffer)
 		res.emplace_back(1);
 	}
 
+	#ifdef OBJECT_TYPE
+
+		//Eigen::Isometry3d box_space_transform = mController->getLocalSpaceTransform(mSkel_obj);
+		Eigen::Isometry3d box_space_transform;
+		box_space_transform.linear() <<  1, 0, 0,
+							  			0, 1, 0,
+							  			0, 0, 1;
+		Eigen::VectorXd box_param = mRegressionMemory->Denormalize(v_param * 0.1);
+		box_space_transform.translation()<< 0, 0, local_space_transform.translation()[2];
+		Eigen::Isometry3d box_pos = axis_operator*box_space_transform*axis_operator;
+
+		root_ue.translation()*=100;
+		res.emplace_back(box_pos.linear()(0,0));
+		res.emplace_back(box_pos.linear()(0,1));
+		res.emplace_back(box_pos.linear()(0,2));
+		res.emplace_back(box_pos.translation()[0]);
+		res.emplace_back(box_pos.linear()(1,0));
+		res.emplace_back(box_pos.linear()(1,1));
+		res.emplace_back(box_pos.linear()(1,2));
+		res.emplace_back(box_pos.translation()[1]);
+		res.emplace_back(box_pos.linear()(2,0));
+		res.emplace_back(box_pos.linear()(2,1));
+		res.emplace_back(box_pos.linear()(2,2));
+		res.emplace_back(box_pos.translation()[2]);
+		res.emplace_back(0);
+		res.emplace_back(0);
+		res.emplace_back(0);
+		res.emplace_back(1);
+	#endif
+
 	//// External Condition or Environment such as external forces.
 	// Eigen::Isometry3f force_start, force_end;
 	// force_start.setIdentity();
@@ -591,6 +638,10 @@ SetFrame(int n)
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
+
+    	// #ifdef OBJECT_TYPE
+	    // 	mSkel_obj->setPositions(mMotion_obj[n]);
+    	// #endif
     	sendMotion();
     	// mPoints = mMotion_points[n];
 	}
@@ -614,6 +665,14 @@ DrawSkeletons()
 		// if(!mRunSim) {
 		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 	//	}
+		// #ifdef OBJECT_TYPE
+		// if(this->mSkel_obj) {
+		// 	glPushMatrix();
+		// 	glTranslated(0.75, 0, 0);
+		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// 	glPopMatrix();
+		// }
+		// #endif
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
@@ -850,10 +909,18 @@ Reset()
 
 void
 MotionWidget::
-SendtoUE()
+UEconnect()
 {
 	MotionWidget::connectionOpen();
 }
+
+void
+MotionWidget::
+UEclose()
+{
+	MotionWidget::connectionClose();
+}
+
 void 
 MotionWidget::
 togglePlay() {
