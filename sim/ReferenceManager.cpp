@@ -11,7 +11,7 @@ ReferenceManager::ReferenceManager(Character* character)
 :mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	mCharacter = character;
-	mBlendingInterval = 10;
+	mBlendingInterval = 3;
 	
 	mMotions_gen.clear();
 	mMotions_raw.clear();
@@ -63,7 +63,7 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
 	}
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -329,9 +329,9 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 			p_gen.back()->SetVelocity(vel);
 			p_gen.push_back(new Motion(pos, vel));
 
-			if(blend && phase == 0) {
-				for(int j = mBlendingInterval; j > 0; j--) {
-					double weight = 1.0 - j / (double)(mBlendingInterval+1);
+			if(blend && phase == mBlendingInterval) {
+				for(int j = 2 * mBlendingInterval - 1; j > 0; j--) {
+					double weight = 1.0 - j / (double)(2 * mBlendingInterval);
 					Eigen::VectorXd oldPos = p_gen[i - j]->GetPosition();
 					p_gen[i - j]->SetPosition(DPhy::BlendPosition(oldPos, pos, weight));
 					vel = skel->getPositionDifferences(p_gen[i - j]->GetPosition(), p_gen[i - j - 1]->GetPosition()) / 0.033;
@@ -425,25 +425,24 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
-	mThresholdTracking = 0.8;
+	mThresholdTracking = 0.85;
 
-	mParamCur.resize(1);
-	mParamCur << 6;
+	mParamCur.resize(4);
+	mParamCur << 0.707107, 1.3, 1.2, 0.4;
 
-	mParamGoal.resize(1);
-	mParamGoal << 6;
+	mParamGoal.resize(4);
+	mParamGoal << 0.707107, 1.3, 1.2, 0.4;
 
-	if(adaptive) {
+	if(isParametric) {
+		Eigen::VectorXd paramUnit(4);
+		paramUnit<< 0.1, 0.1, 0.1, 0.2;
 
-		Eigen::VectorXd paramUnit(1);
-		paramUnit << 1;
+		mParamBase.resize(4);
+		mParamBase << 0.1, 1.0, 0.8, 0.3;
 
-		mParamBase.resize(1);
-		mParamBase << 3;
 
-		mParamEnd.resize(1);
-		mParamEnd << 11;
-
+		mParamEnd.resize(4);
+		mParamEnd << 0.8, 1.5, 1.3, 1.5;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -506,20 +505,23 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards)) || data_raw[0].second != 0) {
+	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
 
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
+
+
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards).sum_contact > 0.3) {
+	if(std::get<2>(rewards).sum_contact > 0.2) {
 		return;
 	}
 
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
+
 	std::vector<Eigen::VectorXd> trajectory;
 	for(int i = 0; i < data_raw.size(); i++) {
 		trajectory.push_back(data_raw[i].first);
@@ -535,6 +537,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		while(count + 1 < data_raw.size() && i >= data_raw[count+1].second)
 			count += 1;
 		Eigen::VectorXd p(mDOF + 1);
+
 		if(i < data_raw[count].second) {
 			int size = data_raw.size();
 			double t0 = data_raw[size-1].second - data_raw[size-2].second;
@@ -589,12 +592,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
 	}
+
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
-	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
-	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
-	// std::cout << std::get<2>(rewards).sum_contact << " / " << r_foot << std::endl; 
-	// std::cout << std::get<2>(rewards).sum_vel.transpose() << " / " << r_vel << std::endl; 
-	// std::cout << std::get<2>(rewards).sum_pos.transpose() << " / " << r_pos << std::endl; 
+	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
+	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 
 	double reward_trajectory = r_foot * r_pos * r_vel;
 	mLock.lock();

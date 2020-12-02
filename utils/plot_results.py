@@ -90,6 +90,7 @@ def plot(filename):
 	plot_data_double(w, filename, 'w')
 	plot_data1d_joint(w_j, filename, 'wj')
 	plot_data1d_joint(t_j, filename, 'tj')
+	
 	plt.show()
 
 if __name__=="__main__":

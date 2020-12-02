@@ -130,6 +130,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
 	        std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
 	        this->mRegression.attr("initRun")(path, mReferenceManager->GetParamGoal().rows() + 1, mReferenceManager->GetDOF() + 1);
 			mRegressionMemory->LoadParamSpace(path + "param_space");
+			std::cout << mRegressionMemory->GetVisitedRatio() << std::endl;
 	        mParamRange = mReferenceManager->GetParamRange();
 	       
 	        path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
@@ -169,13 +170,13 @@ void
 MotionWidget::
 UpdateParam(const bool& pressed) {
 	if(mRunReg) {
-		Eigen::VectorXd tp(1);
-		tp << v_param(0)*0.1 + 0.02;
-	    //tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
+		Eigen::VectorXd tp(mRegressionMemory->GetDim());
+		tp = v_param*0.1;
+	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
-	    std::cout << tp_denorm.transpose() << " " << d << std::endl;
+	    std::cout << tp.transpose() << " " << tp_denorm.transpose() << " " << d << std::endl;
 
 	    std::vector<Eigen::VectorXd> cps;
 	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
@@ -236,8 +237,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
-		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    // mReferenceManager->LoadAdaptiveMotion(cps);
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}

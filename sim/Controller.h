@@ -7,7 +7,7 @@
 #include "Functions.h"
 #include "ReferenceManager.h"
 #include <tuple>
-
+#include <queue>
 namespace DPhy
 {
 /**
@@ -79,7 +79,6 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	std::tuple<double, double, double> GetRescaleParameter() { return mRescaleParameter; }
 	
 	void UpdateAdaptiveReward();
-	void UpdateRewardTrajectory();
 	double GetParamReward();
 	double GetSimilarityReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
@@ -154,8 +153,6 @@ protected:
 
 	int terminationReason;
 
-	Eigen::VectorXd mTlPrev;
-	Eigen::VectorXd mTlPrev2;
 	Eigen::VectorXd mPrevPositions;
 
 	double mPrevFrame;
@@ -180,11 +177,15 @@ protected:
 	double mBaseMass;
 
 
+	std::queue<Eigen::VectorXd> mPosQueue;
+	std::queue<double> mTimeQueue;
 /////////////////////////////////////////////////
 // for action parameter design
-	int mCount;
-	Eigen::Vector3d mMomentum;
-	Eigen::Vector3d mVelocity;
+	Eigen::Vector6d mHeadRoot;
+	int mCountHead;
+	double maxSpeedObj;
+	Eigen::Vector3d mHandPosition;
+
 //////////////////////////////////////////////////
 };
 }

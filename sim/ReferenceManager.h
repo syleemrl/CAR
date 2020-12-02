@@ -15,8 +15,8 @@ namespace DPhy
 struct Fitness
 {
 	double sum_contact;
-	Eigen::VectorXd sum_pos;
-	Eigen::VectorXd sum_vel;
+	double sum_pos;
+	double sum_vel;
 };
 class Motion
 {
