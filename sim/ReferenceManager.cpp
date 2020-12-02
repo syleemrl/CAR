@@ -414,10 +414,6 @@ ResetOptimizationParameters(bool reset_displacement) {
 		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 	}
-	
-	if(isParametric) {
-		mRegressionMemory->ResetExploration();
-	}
 
 	mMeanTrackingReward = 0;
 	mMeanParamReward = 0;
@@ -429,24 +425,24 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
-	mThresholdTracking = 0.85;
+	mThresholdTracking = 0.8;
 
 	mParamCur.resize(1);
-	mParamCur << 185;
+	mParamCur << 6;
 
 	mParamGoal.resize(1);
-	mParamGoal << 185;
+	mParamGoal << 6;
 
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(1);
-		paramUnit << 10;
+		paramUnit << 1;
 
 		mParamBase.resize(1);
-		mParamBase << 185;
+		mParamBase << 3;
 
 		mParamEnd.resize(1);
-		mParamEnd << 300;
+		mParamEnd << 11;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -508,19 +504,18 @@ GetTimeStep(double t, bool adaptive) {
 void 
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
-				 std::tuple<double, double, std::vector<double>> rewards,
+				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
+	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards)) || data_raw[0].second != 0) {
 		return;
 	}
 
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
-
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards)[0] > 0.2) {
+	if(std::get<2>(rewards).sum_contact > 0.3) {
 		return;
 	}
 
@@ -546,6 +541,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 			double weight = 1.0 - (mPhaseLength + i - data_raw[size-1].second) / (mPhaseLength + data_raw[count].second - data_raw[size-1].second);
 			double t1 = data_raw[count+1].second - data_raw[count].second;
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[size-1].first, data_raw[0].first, weight);
+			p_blend.segment<3>(3) = data_raw[0].first.segment<3>(3);
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
 		} else if(count == data_raw.size() - 1 && i > data_raw[count].second) {
@@ -554,6 +550,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 			double t1 = data_raw[1].second - data_raw[0].second;
 			
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[0].first, weight);
+			p_blend.segment<3>(3) = data_raw[count].first.segment<3>(3);
+
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
 		} else if(i == data_raw[count].second) {
@@ -591,12 +589,14 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
 	}
-	double r_con =  exp(-std::get<2>(rewards)[0]); //exp(-std::get<2>(rewards)[0]);
-	double r_slide = exp(-std::get<2>(rewards)[1] * 100); //exp(-std::get<2>(rewards)[0]);
-	double r_foot = r_con;
-	double r_delta = std::get<2>(rewards)[3];
-	double r_pos = std::get<2>(rewards)[2];
-	double reward_trajectory = r_foot * r_pos * r_delta;
+	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
+	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
+	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
+	// std::cout << std::get<2>(rewards).sum_contact << " / " << r_foot << std::endl; 
+	// std::cout << std::get<2>(rewards).sum_vel.transpose() << " / " << r_vel << std::endl; 
+	// std::cout << std::get<2>(rewards).sum_pos.transpose() << " / " << r_pos << std::endl; 
+
+	double reward_trajectory = r_foot * r_pos * r_vel;
 	mLock.lock();
 
 	if(isParametric) {

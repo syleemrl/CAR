@@ -11,8 +11,8 @@ class Sampler(object):
 		self.v_mean = 0
 		self.random = True
 
-		self.k = 5
-		self.k_ex = 10
+		self.k = 15
+		self.k_ex = 20
 
 		self.total_iter = 0
 		self.n_learning = 0
@@ -23,6 +23,13 @@ class Sampler(object):
 		self.type_visit = 1
 		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling)
 		self.type_explore = 0
+		self.done = False
+		print('=======================================')
+		print('curriculum option')
+		print('type visit', self.type_visit)
+		print('type explore', self.type_explore)
+		print('=======================================')
+
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)
@@ -31,7 +38,13 @@ class Sampler(object):
 		target = np.reshape(target, (-1, self.dim))
 		v = v_func.getValue(target)[0]
 		if hard:
-			return math.exp(- self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+#			return math.exp(-self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+			v = v - min(1.1, self.v_mean)
+			if v < 0:
+				v = 0.5 * abs(v)
+			else:
+				v = abs(v)
+			return math.exp(- v * 20) + 1e-10
 		else:
 			return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 
@@ -54,13 +67,13 @@ class Sampler(object):
 	def probTSSampling(self, idx):
 		v = self.v_sample[idx]
 		v_prev = self.v_prev_sample[idx]
-		slope = (v - v_prev) / v_prev * self.k * 2
+		slope = (v - v_prev) / v_prev * self.k_ex
 		if slope > 10:
 			slope = 10
 		return math.exp(slope) + 1e-10
 
 
-	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
+	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=5, N=500):
 		self.start += 1
 		if visited:
 			self.n_visit += 1
@@ -68,7 +81,14 @@ class Sampler(object):
 			self.n_explore += 1
 			
 		self.v_mean_cur = np.array(results).mean()
-		self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
+		
+		if self.v_mean == 0:
+			self.v_mean = self.v_mean_cur
+		else:
+			self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
+		print("===========================================")
+		print("mean reward : ", self.v_mean)
+		print("===========================================")
 
 		if visited:
 			if self.type_visit == 0:
@@ -86,6 +106,8 @@ class Sampler(object):
 
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
+			# for i in range(len(self.pool)):
+			# 	print(v_func.getValue([self.pool[i]])[0], self.probAdaptive(v_func, self.pool[i], True))
 		else:
 			if self.type_explore == 0:
 				return
@@ -115,6 +137,18 @@ class Sampler(object):
 					count_sample_cur[idxs[i]] += 1
 				
 				for i in range(len(self.sample)):
+					d = self.sim_env.GetDensity(self.sample[i]) 
+					if d > 0.3:
+						print(self.sample[i], d)
+						self.sample[i] = self.randomSample(visited)
+						self.v_prev_sample[i] = 0.8
+						self.v_sample[i] = 1.0
+					else:
+						if count_sample_cur[i] != 0:
+							self.v_prev_sample[i] = copy(self.v_sample[i])
+							self.v_sample[i] = v_mean_sample_cur[i] / count_sample_cur[i]
+
+				for i in range(len(self.sample)):
 					if count_sample_cur[i] != 0:
 						self.v_prev_sample[i] = copy(self.v_sample[i])
 						self.v_sample[i] = 0.6 * self.v_sample[i] + 0.4 * v_mean_sample_cur[i] / count_sample_cur[i]
@@ -140,7 +174,7 @@ class Sampler(object):
 
 	def adaptiveSample(self, visited):
 		if visited:
-			if self.n_explore < 2 or self.n_visit % 5 == 4:
+			if self.n_explore < 1 or self.n_visit % 5 == 4:
 				return self.randomSample(visited), -1
 
 			if self.type_visit == 0:
@@ -153,13 +187,13 @@ class Sampler(object):
 			if self.type_explore == 0:
 				return self.randomSample(visited), -1
 			elif self.type_explore == 1 or self.type_explore == 3:
-				if self.start < 5:
+				if self.n_explore <= 2:
 					return self.randomSample(visited), -1
 				t = np.random.randint(len(self.pool_ex))
 				target = self.pool_ex[t]
 				return target, t 
 			else:
-				if self.n_explore < 2:
+				if self.n_explore <= 2:
 					t = np.random.randint(len(self.sample))	
 					target = self.sample[t]
 					idx = t
@@ -181,7 +215,7 @@ class Sampler(object):
 		self.v_mean = 0
 		self.n_visit = 0
 
-	def sampleGoals(self, m=5):
+	def sampleGoals(self, m=10):
 		self.sample = []
 		self.v_sample = []
 		for i in range(m):
@@ -199,16 +233,21 @@ class Sampler(object):
 		
 		self.random_start = False
 
-		print("===========================================")
-		print("mean reward : ", self.v_mean)
-		print("===========================================")
-
 		if self.n_visit % 5 == 4:
 			self.printSummary(v_func)
-			if self.v_mean_cur > 1.2:
+			if self.n_visit > 5 and self.v_mean_cur > 1.2 and not self.done:
 				return True
-		if self.v_mean > 1.2:
+			if self.v_mean_cur > 1.4 and self.done:
+				return True
+
+		# if self.n_visit > 20 and not self.done:
+		# 	return True
+		
+		if self.n_visit > 5 and self.v_mean > 1.2 and not self.done:
 			return True
+
+		if self.v_mean > 1.4 and self.done:
+			return True	
 
 		self.total_iter += 1
 		return False

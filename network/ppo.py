@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings(action='ignore') 
 from network import Actor
 from network import Critic
 from monitor import Monitor
@@ -17,7 +19,7 @@ from tensorflow.python import pywrap_tensorflow
 import scipy.integrate as integrate
 import types
 np.set_printoptions(threshold=sys.maxsize)
-
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
 if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
 	tf.contrib._warning = None
@@ -73,9 +75,9 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.25]
+		self.steps_per_iteration = [steps_per_iteration * 0.5, steps_per_iteration * 0.25]
 
-		self.optim_frequency = [optim_frequency, optim_frequency * 4]
+		self.optim_frequency = [optim_frequency * 2, optim_frequency * 4]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -104,7 +106,11 @@ class PPO(object):
 			self.load(self.pretrain)
 			li = pretrain.split("network")
 			suffix = li[-1]
-			self.env.RMS.load(li[0]+'rms'+suffix)
+
+			if len(li) == 2:
+				self.env.RMS.load(li[0]+'rms'+suffix)
+			else:
+				self.env.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 			self.env.RMS.setNumStates(self.num_state)
 		
 		self.printSetting()
@@ -362,7 +368,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, idx = zip(*data)
 
-			if len(times) == self.env.phaselength * 6 + 10 + 1:
+			if len(times) == self.env.phaselength * 3 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:
@@ -408,9 +414,10 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					idx_batch.append(idx[i])
-					state_target_batch.append(param[i])
-					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 5.0 * TD_t_sparse)
+					if TD_t_sparse != 0:
+						idx_batch.append(idx[i])
+						state_target_batch.append(param[i])
+						TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
 
 					TD_t_dense = 0
 					TD_t_sparse = 0

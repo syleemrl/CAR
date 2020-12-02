@@ -56,6 +56,7 @@ class Monitor(object):
 		self.mode_counter = 0
 		self.flag_updated = False
 		self.exploration_done = False
+		self.v_ratio = 0
 
 		if self.plot:
 			plt.ion()
@@ -125,8 +126,10 @@ class Monitor(object):
 		return rewards, dones, curframes, params
 
 	def updateReference(self):
-		self.mode_counter += 1
-		if self.mode_counter % 10 == 0:
+		self.num_evaluation += 1
+		if self.num_evaluation % 2 == 0:
+			self.sim_env.UpdateParamState()
+		if self.num_evaluation % 10 == 0:
 			self.sim_env.SaveParamSpace(-1)
 			self.env.sim_env.UpdateReference()
 			self.sim_env.TrainRegressionNetwork()
@@ -134,13 +137,23 @@ class Monitor(object):
 	def updateMode(self, v_func):
 		mode_change = -1
 		self.mode_counter += 1
-		if self.num_evaluation % 50 == 0:
+
+		if self.num_evaluation % 10 == 9:
+			self.sim_env.UpdateParamState()
+			self.sim_env.SaveParamSpace(-1)
+
+		if self.num_evaluation % 50 == 49:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
+
 		if self.mode == 0:
+
 			if self.mode_counter % 10 == 0:
-				self.sim_env.SaveParamSpace(-1)
-				self.sampler.reset_explore()
-			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
+				self.v_ratio = self.sim_env.GetVisitedRatio()
+				if self.v_ratio == 1:
+					self.sampler.done = True
+
+			if self.mode_counter >= 20 or self.v_ratio == 1:
+
 				self.sim_env.TrainRegressionNetwork()
 				self.mode = 1
 				self.mode_counter = 0
@@ -148,28 +161,21 @@ class Monitor(object):
 				mode_change = 1
 		else:
 			if self.mode_counter % 10 == 0:
-				self.sim_env.SaveParamSpace(-1)
 				self.sim_env.TrainRegressionNetwork()
 			enough = self.sampler.isEnough(v_func)
-			if enough and self.sim_env.NeedExploration():
+			if enough and self.v_ratio != 1:
 				self.mode = 0
 				self.mode_counter = 0
+				self.sim_env.UpdateParamState()
 				self.sampler.reset_explore()
 				mode_change = 0
-			elif enough and not self.sim_env.NeedExploration():
+			elif enough and self.v_ratio == 1:
 				mode_change = 999
 				print("training done")
 		return mode_change
 	
 	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
 		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
-		if not self.mode and not self.sim_env.NeedExploration():
-			self.sim_env.TrainRegressionNetwork()
-			self.mode = 1
-			self.mode_counter = 0
-			self.sampler.reset_visit()
-			self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
-
 	def updateGoal(self, v_func, v_func_prev):
 		t, idx = self.sampler.adaptiveSample(self.mode)
 		t = np.array(t, dtype=np.float32) 

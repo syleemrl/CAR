@@ -62,12 +62,11 @@ public:
 	RegressionMemory();
 	void InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::VectorXd> paramSpace , Eigen::VectorXd paramUnit, 
 						double nDOF, double nknots);
-	void SaveParamSpace(std::string path, bool old);
+	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
 	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
-	void SelectNewParamGoalCandidate();
 
 	void AddMapping(Param* p);
 	void AddMapping(Eigen::VectorXd nearest, Param* p);
@@ -86,30 +85,26 @@ public:
 	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
 	void SaveContinuousParamSpace(std::string path);
 
-	bool IsSpaceExpanded();
-	bool IsSpaceFullyExplored();
-
 	Eigen::VectorXd GetParamGoal() {return mParamGoalCur; }
 	void SetParamGoal(Eigen::VectorXd paramGoal);
 	void SetGoalInfo(double v);
 	void SetRadius(double rn) { mRadiusNeighbor = rn; }
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
-	void ResetExploration();
+
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
-			   std::vector<double>> GetTrainingData(bool old=false);
-	int GetTimeFromLastUpdate() { return mTimeFromLastUpdate; }
+			   std::vector<double>> GetTrainingData();
 
 	double GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal);
 	std::vector<Eigen::VectorXd> GetCPSFromNearestParams(Eigen::VectorXd p_goal);
 	void SaveLog(std::string path);
-	double GetTrainedRatio() {return (double)mParamActivated.size() / (mParamDeactivated.size() + mParamActivated.size()); }
 	void SaveGoalInfo(std::string path);
-	void EvalExplorationStep();
-	bool SetNextCandidate();
-	std::vector<Eigen::VectorXd> GetCurrentCPS();
+	
 	std::vector<Param*> mloadAllSamples;
+
+	double GetVisitedRatio();
+	void UpdateParamState();
 
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
@@ -137,7 +132,6 @@ private:
 	int mNumActivatedPrev;
 	int mThresholdUpdate;
 	int mThresholdActivate;
-	int mTimeFromLastUpdate;
 	int mNumElite;
 	int mNumSamples;
 
