@@ -46,6 +46,7 @@ public:
 	np::ndarray GetParamGoal();
 	np::ndarray UniformSample(bool visited);
 	np::ndarray UniformSampleWithConstraints(double d0, double d1);
+
 	void LoadAdaptiveMotion();
 	void TrainRegressionNetwork();
 
@@ -60,10 +61,11 @@ public:
 	double GetVisitedRatio();
 	double GetDensity(np::ndarray np_array);
 	void UpdateParamState();
+
 	p::list GetParamSpaceSummary();
-	p::list UniformSampleWithNearestParams();
 	p::list GetNearestParams(np::ndarray np_array);
 	double GetProgressGoal();
+
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;

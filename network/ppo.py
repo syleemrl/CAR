@@ -75,8 +75,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration * 0.25, steps_per_iteration * 0.25,  steps_per_iteration * 0.25]
-		self.optim_frequency = [optim_frequency * 4, optim_frequency * 4, optim_frequency * 4]
+		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.25]
+		self.optim_frequency = [optim_frequency, optim_frequency * 4]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -343,11 +343,11 @@ class PPO(object):
 		TD_target_batch = []
 		neglogp_batch = []
 		GAE_batch = []
-		density_batch = []
+		param_info_batch = []
 
 		for data in tuples:
 			# get values
-			states, actions, rewards, values, neglogprobs, times, param, density = zip(*data)
+			states, actions, rewards, values, neglogprobs, times, param, param_info = zip(*data)
 
 			if len(times) == self.env.phaselength * 3 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
@@ -362,7 +362,7 @@ class PPO(object):
 					neglogprobs = neglogprobs[:count+1]
 					times = times[:count+1]
 					param = param[:count+1]
-					density = density[:count+1]
+					param_info = param_info[:count+1]
 
 			size = len(times)		
 
@@ -371,8 +371,6 @@ class PPO(object):
 			advantages = np.zeros(size)
 			ad_t = 0
 
-			# TD_t_dense = 0
-			# TD_t_sparse = 0
 			count_V = 0
 			sum_V = 0
 			V = 0
@@ -394,20 +392,12 @@ class PPO(object):
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
-				# TD_t_dense = rewards[i][0] + TD_t_dense
-				# TD_t_sparse = rewards[i][1] + TD_t_sparse
+
 				sum_V += V
 				count_V += 1
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					# if TD_t_sparse != 0:
-					# 	idx_batch.append(idx[i])
-					# 	state_target_batch.append(param[i])
-					# 	TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
-
-					# TD_t_dense = 0
-					# TD_t_sparse = 0
 					if flag:
-						density_batch.append(density[i])
+						param_info_batch.append(param_info[i])
 						state_target_batch.append(param[i])
 						TD_target_batch.append(sum_V / count_V)
 
@@ -426,7 +416,7 @@ class PPO(object):
 				GAE_batch.append(advantages[i])
 		
 		self.v_target = TD_target_batch
-		self.d_target = density_batch
+		self.info_target = param_info_batch
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
 			   np.array(TD_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
@@ -536,6 +526,7 @@ class PPO(object):
 		epi_info_iter_hind = []
 		self.env.sampler.resetExplore()
 		it_cur = 0
+
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -544,8 +535,11 @@ class PPO(object):
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
-			if self.adaptive:
-				d = self.env.updateGoal(self.critic_target)
+			if self.parametric:
+				param_info = self.env.updateGoal(self.critic_target)
+			else:
+				param_info = -1
+
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -559,51 +553,47 @@ class PPO(object):
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
-							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], d])
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], param_info])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if local_step < self.steps_per_iteration[self.env.mode]:
+							if local_step < self.steps_per_iteration[self.parametric]:
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
-
-				if local_step >= self.steps_per_iteration[self.env.mode]:
+				if local_step >= self.steps_per_iteration[self.parametric]:
 					if self.env.getAllTerminated():
-						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.parametric]),end='\r')
 						break
 				if last_print + 100 < local_step: 
-					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.parametric]),end='\r')
 					last_print = local_step
 				
 				states = self.env.getStates()
-			self.env.sampler.saveProgress(self.env.mode)
+			if self.parametric:
+				self.env.sampler.saveProgress(self.env.mode)
 			it_cur += 1
 
 			print('')
 
-			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1) or \
+			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.parametric] == self.optim_frequency[self.parametric] - 1) or \
 			    (self.env.mode == 2 and it_cur % self.env.sampler.eval_frequency == self.env.sampler.eval_frequency - 1):	
-				if self.adaptive:
+				if self.parametric:
 					self.updateAdaptive(epi_info_iter)
-					t = self.env.updateMode(self.critic_target, self.v_target, self.d_target)
+					t = self.env.updateCurriculum(self.critic_target, self.v_target, self.info_target)
 					if t == -1:
 						break
 					elif t == 1:
 						it_cur = 0
 					
-					if not self.parametric:
-						self.env.updateAdaptive()
-					else:
-						self.env.updateCurriculum(self.critic_target)
-					epi_info_iter_hind = []
-
 					if self.env.needEvaluation():
-						self.eval(40)
-
+						self.eval(30)
+				elif self.adaptive:
+					self.updateAdaptive(epi_info_iter)
+					self.env.updateReference()
 				else:			
 					self.update(epi_info_iter) 
 

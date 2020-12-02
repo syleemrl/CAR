@@ -25,7 +25,6 @@ IsEqualParam(Param* p0, Param* p1) {
 }
 RegressionMemory::
 RegressionMemory() :mRD(), mMT(mRD()), mUniform(0.0, 1.0) {
-	mNumActivatedPrev = 0;
 }
 void
 RegressionMemory::
@@ -62,7 +61,6 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mRangeExplore = 0.25;
 	mThresholdActivate = 3;
 
-
 //	for(int i = 0; i < 10; i++) {
 		mParamBVH = new Param();
 		mParamBVH->cps.clear();
@@ -71,13 +69,12 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 			cps.setZero();
 			mParamBVH->cps.push_back(cps);
 		}
+
 		mParamBVH->param_normalized = Normalize(paramBvh);
 		mParamBVH->reward = 1;
 		mParamBVH->update = false;
 		AddMapping(mParamBVH);
 //	}
-
-	mGoalInfo.rewards = -1;
 
 
 	Eigen::VectorXd base(mDim);
@@ -104,7 +101,6 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 		}	
 	}
 
-	ResetExploration();
 
 	std::cout << "Regression memory init done: " << std::endl;
 	std::cout << "Param min: " << mParamMin.transpose() << std::endl;
@@ -264,7 +260,7 @@ void
 RegressionMemory::
 LoadParamSpace(std::string path) {
 	mRecordLog.clear();
-
+	mloadAllSamples= std::vector<Param*>();
 	char buffer[256];
 
 	std::ifstream is;
@@ -343,10 +339,11 @@ LoadParamSpace(std::string path) {
 		p->reward = reward;
 		p->update = false;
 		AddMapping(p);
+		mloadAllSamples.push_back(p);
+
 	}
 
 	is.close();
-//	mNumActivatedPrev = mParamActivated.size();
 
 	std::cout << "Regression memory load done: " << std::endl;
 	std::cout << "Param min: " << mParamMin.transpose() << std::endl;
@@ -629,7 +626,7 @@ GetDensity(Eigen::VectorXd p, bool old) {
 }
 std::pair<Eigen::VectorXd , bool>
 RegressionMemory::
-UniformSample(bool visited, bool far) {
+UniformSample(bool visited) {
 	int count = 0;
 	while(1) {
 		double r = mUniform(mMT);
@@ -667,10 +664,6 @@ UniformSample(bool visited, bool far) {
 			if(mNumSamples == 1 && d > 0.05 && d < mThresholdInside - 0.1 ) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			} else if (d < mThresholdInside - 0.1 && d > mThresholdInside - 0.1 - mRangeExplore) {
-				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
-			}
-			if(far && d < 0.1) {
-				std::cout << "far" << std::endl;
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
 		}
@@ -804,178 +797,15 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		// if(p->reward >= prev_max + 0.01)
 		// 	mNewSamplesNearGoal += 1;
 
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.02) {
 			mNewSamplesNearGoal += 1;
 		}
 		// if(p->reward >= prev_max + 0.01)
 		// 	mNewSamplesNearGoal += exp(-2.0 * GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)));
+
 	}
 	return flag;
 
-}
-void
-RegressionMemory::
-SelectNewParamGoalCandidate() {
-	mGoalCandidate.clear();
-	while(mGoalCandidate.size() < mNumGoalCandidate) {
-		double r = mUniform(mMT);
-		r = std::floor(r * mGridMap.size());
-		if(r == mGridMap.size())
-			r -= 1;
-		auto it_grid = std::next(mGridMap.begin(), (int)r);
-		std::vector<Param*> params = it_grid->second->GetParams(); 
-		if(params.size() == 0)
-			continue;
-
-		r = mUniform(mMT);
-		r = std::floor(r * params.size());
-		if(r == params.size())
-			r -= 1;
-
-		Eigen::VectorXd p = params[r]->param_normalized;
-		Eigen::VectorXd dir(mDim);
-
-		for(int i = 0; i < mDim; i++) {
-			dir(i) =  mUniform(mMT) - 0.5;
-		}
-		// dir = p - mParamBVH->param_normalized;
-		dir.normalize();
-
-		for(int i = 0; i < mDim; i++) {
-			p(i) += dir(i) * 1.0 * mParamGridUnit(i);
-			if(p(i) > 1 || p(i) < 0) {
-				p(i) = std::min(1.0, std::max(0.0, p(i)));
-			} 
-		}
-		double d = GetDensity(p, true);
-
-		if(d < 0.1) {
-			mGoalCandidate.push_back(Denormalize(p));
-		}
-	}
-
-}
-void
-RegressionMemory::
-ResetExploration() {
-	mNumActivatedPrev = mParamActivated.size();
-	mTimeFromLastUpdate = 0;
-	mPrevReward = 0;
-	mPrevElite.clear();
-	mPrevCPS.clear();
-	mExplorationStep = 0;
-	mIdxCandidate = -1;
-
-	mGoalProgress.clear();
-	for(int i = 0; i < mNumGoalCandidate; i++) {
-		mGoalProgress.push_back(0);
-	}
-	mGoalExplored.clear();
-	for(int i = 0; i < mNumGoalCandidate; i++) {
-		mGoalExplored.push_back(false);
-	}
-	mGoalReward.clear();
-	mGoalUpdate.clear();
-	mCPSCandidate.clear();
-	if(mGoalCandidate.size() != mNumGoalCandidate)
-		return;
-	for(int i = 0; i < mNumGoalCandidate; i++) {
-		std::vector<std::pair<double, Param*>> ps = GetNearestParams(Normalize(mGoalCandidate[i]), mNumElite * 5);
-		std::vector<std::pair<double, int>> ps_preward;
-		for(int j = 0; j < ps.size(); j++) {
-			double preward = GetParamReward(Denormalize(ps[j].second->param_normalized), mGoalCandidate[i]);
-			ps_preward.push_back(std::pair<double, int>(preward, j));
-		}
-
-		std::stable_sort(ps_preward.begin(), ps_preward.end(), cmp_pair_int);
-
-		double r = 0;
-		int size = ps.size();
-		size = std::min(mNumElite, size);		
-		for(int j = 0; j < size; j++) {
-			r += ps_preward[j].first;
-		}
-
-		double currentReward = r / size;
-		mGoalReward.push_back(currentReward);
-		mCPSCandidate.push_back(GetCPSFromNearestParams(mGoalCandidate[i]));
-		mGoalUpdate.push_back(0);
-	}
-
-}
-void
-RegressionMemory::
-EvalExplorationStep() {
-
-	// if(mGoalCandidate.size() != mNumGoalCandidate)
-	// 	return;
-	// mExplorationStep += 1;
-	// std::cout << "current progress: ";
-	// for(int i = 0; i < mNumGoalCandidate; i++) {
-	// 	if(mGoalExplored[i]) {
-	// 		std::vector<std::pair<double, Param*>> ps = GetNearestParams(Normalize(mGoalCandidate[i]), mNumElite * 5);
-	// 		std::vector<std::pair<double, int>> ps_preward;
-	// 		for(int j = 0; j < ps.size(); j++) {
-	// 			double preward = GetParamReward(Denormalize(ps[j].second->param_normalized), mGoalCandidate[i]);
-	// 			ps_preward.push_back(std::pair<double, int>(preward, j));
-	// 		}
-	// 		std::stable_sort(ps_preward.begin(), ps_preward.end(), cmp_pair_int);
-
-	// 		double r = 0;
-	// 		int size = ps.size();
-	// 		size = std::min(mNumElite, size);
-	// 		for(int j = 0; j < size; j++) {
-	// 			r += ps_preward[j].first;
-	// 		}
-
-	// 		double currentReward = r / size;
-	// 		mGoalProgress[i] = currentReward - mGoalReward[i];
-	// 		std::cout << "(" << currentReward << ", " <<  mGoalReward[i] << ", " <<  mGoalProgress[i] << ") ";
-
-	// 		mGoalReward[i] = currentReward;
-	// 		mGoalExplored[i] = false;
-	// 	}
-	// }
-	// std::cout << std::endl;
-	// mIdxCandidate = -1;
-}
-std::vector<Eigen::VectorXd>
-RegressionMemory::
-GetCurrentCPS() {
-	if(mIdxCandidate == -1)
-		return mCPSCandidate[0];
-	return mCPSCandidate[mIdxCandidate];
-}
-bool
-RegressionMemory::
-SetNextCandidate() {
-
-	if(mGoalCandidate.size() != mNumGoalCandidate)
-		return false;
-	int prevIdx = mIdxCandidate;
-	//if(mExplorationStep < 5) {
-		mIdxCandidate += 1;
-		if(mIdxCandidate >= mNumGoalCandidate)
-			mIdxCandidate = 0;
-	// } else {
-	// 	if(mIdxCandidate == -1) {
-	// 		mIdxCandidate = 0;
-	// 	}
-	// 	for(int i = 0; i < mNumGoalCandidate; i++) {
-	// 		if(mGoalProgress[i] > mGoalProgress[mIdxCandidate])
-	// 			mIdxCandidate = i;
-	// 	}
-	// 	if(mGoalProgress[mIdxCandidate] <= 0) {
-	// 		double r = mUniform(mMT) * mNumGoalCandidate;
-	// 		mIdxCandidate = (int) std::floor(r);
-	// 		if(mIdxCandidate >= mNumGoalCandidate)
-	// 			mIdxCandidate -= 1;
-	// 	}
-	// }
-	mGoalExplored[mIdxCandidate] = true;
-	mParamGoalCur = mGoalCandidate[mIdxCandidate];
-
-	return true;
 }
 void
 RegressionMemory::
@@ -1052,32 +882,6 @@ SetParamGoal(Eigen::VectorXd paramGoal) {
 	mNewSamplesNearGoal = 0;
 	mRecordLog.push_back(result);
 }
-void
-RegressionMemory::
-SetGoalInfo(double v) {
-	mGoalInfo.param = mParamGoalCur;
-	mGoalInfo.density = GetDensity(Normalize(mParamGoalCur));
-	mGoalInfo.value = v;
-	mGoalInfo.numSamples = mNumSamples;
-
-	std::vector<std::pair<double, Param*>> ps = GetNearestParams(Normalize(mParamGoalCur), -1);
-	
-	std::vector<std::pair<double, int>> ps_preward;
-	for(int i = 0; i < ps.size(); i++) {
-		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), mParamGoalCur);
-		ps_preward.push_back(std::pair<double, int>(preward, i));
-	}
-
-	std::stable_sort(ps_preward.begin(), ps_preward.end(), cmp_pair_int);
-	std::vector<std::pair<double, Param*>> ps_elite;
-
-	double r = 0;
-	for(int i = 0; i < mNumElite; i++) {
-		r += ps_preward[i].first;
-	}
-	mGoalInfo.rewards = r / mNumElite;
-
-}
 std::vector<Eigen::VectorXd> 
 RegressionMemory::
 GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
@@ -1095,6 +899,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*pow(ps[i].second->reward, 2);
 		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << GetDistanceNorm(ps[i].second->param_normalized, Normalize(p_goal)) << std::endl;
+
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		// } else {
@@ -1119,7 +924,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
    	for(int i = 0; i < mNumKnots; i++) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDimDOF));
 	}
-   
 	double weight_sum = 0;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = log(mNumElite + 1) - log(i + 1);
@@ -1132,22 +936,9 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
+	    // std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
 	}
-	if(mPrevElite.size() == 0) {
-		for(int i = 0; i < mNumElite; i++) {
-			mPrevElite.push_back(ps_elite[i]);
-		}
-		for(int i = 0; i < mNumKnots; i++) {
-		    mPrevCPS.push_back(mean_cps[i]);
-		}
-	} else {
-		for(int i = 0; i < mNumElite; i++) {
-			mPrevElite[i] = ps_elite[i];
-		}
-		for(int i = 0; i < mNumKnots; i++) {
-		    mPrevCPS[i] = mean_cps[i];
-		}
-	}
+
 
 	return mean_cps;
 }
@@ -1162,60 +953,6 @@ SaveLog(std::string path) {
 	}
 	ofs.close();
 	mRecordLog.clear();
-}
-void 
-RegressionMemory::
-SaveGoalInfo(std::string path) {
-
-	if(mGoalInfo.rewards == -1)
-		return;
-
-	std::ofstream ofs;
-	ofs.open(path, std::fstream::out | std::fstream::app);
-	ofs << mGoalInfo.param.transpose() << std::endl;
-	ofs << mGoalInfo.density << " " << mGoalInfo.value << " " << mGoalInfo.rewards << std::endl;
-
-
-	std::vector<std::pair<double, Param*>> ps = GetNearestParams(Normalize(mParamGoalCur), -1);
-	
-	std::vector<std::pair<double, int>> ps_preward;
-	for(int i = 0; i < ps.size(); i++) {
-		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), mParamGoalCur);
-		ps_preward.push_back(std::pair<double, int>(preward, i));
-	}
-
-	std::stable_sort(ps_preward.begin(), ps_preward.end(), cmp_pair_int);
-	std::vector<std::pair<double, Param*>> ps_elite;
-
-	double r = 0;
-	for(int i = 0; i < mNumElite; i++) {
-		r += ps_preward[i].first;
-	}
-	ofs << r / mNumElite - mGoalInfo.rewards << " " << mNumSamples - mGoalInfo.numSamples << std::endl;
-	ofs.close();
-}
-bool 
-RegressionMemory::
-IsSpaceExpanded() { 
-	std::cout << "ac: " << mParamActivated.size() <<", prev ac:" << mNumActivatedPrev << std::endl;
-	int size = mParamActivated.size();
-	if((size - mNumActivatedPrev) > mThresholdUpdate && size > 4 * mDim) {
-		std::cout << "space expanded by " << mParamActivated.size() - mNumActivatedPrev << std::endl;
-		mNumActivatedPrev = mParamActivated.size();
-		mTimeFromLastUpdate = 0;
-		return true;
-	} 
-	mTimeFromLastUpdate += 1;
-	return false;
-}
-bool
-RegressionMemory::
-IsSpaceFullyExplored() {
-	std::cout << "deac: " << mParamDeactivated.size() << ", ac: " << mParamActivated.size() << std::endl;
-	if(mParamDeactivated.size() <= mThresholdUpdate) {
-		return true;
-	}
-	return false;
 }
 double
 RegressionMemory::
@@ -1293,50 +1030,4 @@ GetParamSpaceSummary() {
 		   std::vector<double>, 
 		   std::vector<double>>(grids_denorm, grids, fitness, density);
 }
-std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>> 
-RegressionMemory::
-UniformSampleWithNearestParams() {
-	while(1) {
-		double r = mUniform(mMT);
-		r = std::floor(r * mGridMap.size());
-		if(r == mGridMap.size())
-			r -= 1;
-		auto it_grid = std::next(mGridMap.begin(), (int)r);
-		std::vector<Param*> params = it_grid->second->GetParams(); 
-		if(params.size() == 0)
-			continue;
-
-		r = mUniform(mMT);
-		r = std::floor(r * params.size());
-		if(r == params.size())
-			r -= 1;
-		if(params[r]->update)
-			continue;
-		Eigen::VectorXd p = params[r]->param_normalized;
-		Eigen::VectorXd dir(mDim);
-
-		for(int i = 0; i < mDim; i++) {
-			dir(i) =  mUniform(mMT) - 0.5;
-		}
-		dir.normalize();
-
-		for(int i = 0; i < mDim; i++) {
-			r = mUniform(mMT);
-			p(i) += dir(i) * r * mParamGridUnit(i);
-			if(p(i) > 1 || p(i) < 0) {
-				p(i) = std::min(1.0, std::max(0.0, p(i)));
-			} 
-		}
-		double d = GetDensity(p, true);
-		if (d < mThresholdInside - 0.1 && d > mThresholdInside - 0.1 - mRangeExplore) {
-			std::vector<std::pair<double, Param*>> nearest = GetNearestParams(p, 5, true, false, false);
-			std::vector<Eigen::VectorXd> nearest_ps;
-			for(int i = 0; i < nearest.size(); i++) {
-				nearest_ps.push_back(Denormalize(nearest[i].second->param_normalized));
-			}
-			return std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>>(Denormalize(p), nearest_ps);
-		}
-	}
-}
-
 };

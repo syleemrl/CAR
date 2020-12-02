@@ -12,6 +12,12 @@
 
 namespace DPhy
 {
+struct Fitness
+{
+	double sum_contact;
+	double sum_pos;
+	double sum_vel;
+};
 class Motion
 {
 public:
@@ -52,27 +58,20 @@ public:
 	int GetPhaseLength() {return mPhaseLength; }
 	double GetTimeStep(double t, bool adaptive);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, std::tuple<double, double, std::vector<double>> rewards, Eigen::VectorXd parameters);
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, std::tuple<double, double, Fitness> rewards, Eigen::VectorXd parameters);
 	void InitOptimization(int nslaves, std::string save_path, bool adaptive=false);
-	bool Optimize();
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
 	std::vector<double> GetContacts(double t);
 	int GetDOF() {return mDOF; }
 	int GetNumCPS() {return mPhaseLength;}
-	std::vector<double> GetKnots() {return mKnots;}
-	void SetExplorationMode(bool on) { mExplorationMode = on; }
+
 	Eigen::VectorXd GetParamGoal() {return mParamGoal; }
 	Eigen::VectorXd GetParamCur() {return mParamCur; }
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetParamRange() {return std::pair<Eigen::VectorXd, Eigen::VectorXd>(mParamBase, mParamEnd); }
-
 	void SetParamGoal(Eigen::VectorXd g) { mParamGoal = g; }
-	void ResetOptimizationParameters(bool reset_cps=true);
-	bool UpdateParamManually();
-	bool CheckExplorationProgress();
-	void ReportEarlyTermination();
+	void ResetOptimizationParameters(bool reset_displacement=true);
 	void SetRegressionMemory(RegressionMemory* r) {mRegressionMemory = r; }
-	void OptimizeExReference();
 	void SetCPSreg(std::vector<Eigen::VectorXd> cps) {mCPS_reg = cps; }
 	void SetCPSexp(std::vector<Eigen::VectorXd> cps) {mCPS_exp = cps; }
 	std::vector<Eigen::VectorXd> GetCPSreg() { return mCPS_reg; }
@@ -96,36 +95,16 @@ protected:
 	std::vector<Eigen::VectorXd> mCPS_reg;
 	std::vector<Eigen::VectorXd> mCPS_exp;
 
-	//cps, target, similarity
-	std::vector<std::tuple<std::pair<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>>, 
-						   std::pair<double, double>, 
-						   double>> mSamples;
-	
-	std::vector<Eigen::VectorXd> mPrevCps;
-	std::vector<Eigen::VectorXd> mPrevCps_t;
-	std::vector<Eigen::VectorXd> mDisplacement;
-	std::vector<double> mKnots;
-	std::vector<double> mKnots_t;
-	std::vector<std::string> mInterestedBodies;
-	std::vector<Eigen::VectorXd> mSampleParams;
-
 	double mSlaves;
 	std::mutex mLock;
-	std::mutex mLock_ET;
 
-	bool mSaveTrajectory;
 	std::string mPath;
-	double mPrevRewardTrajectory;
-	double mPrevRewardParam;
 	
-	bool mExplorationMode;
 	bool isParametric;
 	int mDOF;
-	int nOp;
 
 	Eigen::VectorXd mParamGoal;
 	Eigen::VectorXd mParamCur;
-	Eigen::VectorXd mParamBVH;
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamEnd;
 
@@ -133,15 +112,8 @@ protected:
 	
 	double mMeanTrackingReward;
 	double mMeanParamReward;
-	double mPrevMeanParamReward;
 
 	double mThresholdTracking;
-	double mThresholdSurvival;
-	int mThresholdProgress;
-
-	int nET;
-	int nT;
-	int nProgress;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

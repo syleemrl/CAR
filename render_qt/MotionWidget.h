@@ -33,7 +33,10 @@ public slots:
 	void Reset();
 	void UpdateParam(const bool& pressed);
 	void UpdateRandomParam(const bool& pressed);
-
+	void UpdatePrevParam(const bool& pressed);
+	void UpdateNextParam(const bool& pressed);
+	void UpdateIthParam(int i);
+	
 	void setValue(const int &x);
 	void toggleDrawBvh();
 	void toggleDrawSim();
@@ -104,6 +107,6 @@ protected:
 
 	Eigen::Vector3d 				mPoints;
 	Eigen::Vector3d 				mPoints_exp;
-
+	int regMemShow_idx= 0;
 };
 #endif

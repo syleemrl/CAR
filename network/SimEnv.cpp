@@ -370,21 +370,6 @@ GetParamSpaceSummary() {
 }
 p::list 
 SimEnv::
-UniformSampleWithNearestParams() {
-	std::pair<Eigen::VectorXd, std::vector<Eigen::VectorXd>> p = mRegressionMemory->UniformSampleWithNearestParams();
-	p::list l;
-	l.append(DPhy::toNumPyArray(p.first));
-
-	p::list l_;
-	for(int i = 0; i < p.second.size(); i++) {
-		l_.append(DPhy::toNumPyArray(p.second[i]));
-	}
-	l.append(l_);
-
-	return l;
-}
-p::list 
-SimEnv::
 GetNearestParams(np::ndarray np_array) {
 	int dim = mRegressionMemory->GetDim();
 	Eigen::VectorXd tp = DPhy::toEigenVector(np_array, dim);
@@ -436,7 +421,10 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetParamGoal",&SimEnv::GetParamGoal)
 		.def("UniformSample",&SimEnv::UniformSample)
 		.def("UniformSampleWithConstraints",&SimEnv::UniformSampleWithConstraints)
-		.def("LoadAdaptiveMotion",&SimEnv::LoadAdaptiveMotion)
+		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
+		.def("UpdateParamState",&SimEnv::UpdateParamState)
+		.def("GetNearestParams",&SimEnv::GetNearestParams)
+		.def("GetProgressGoal",&SimEnv::GetProgressGoal)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
 		.def("GetPhaseLength",&SimEnv::GetPhaseLength)
 		.def("GetDOF",&SimEnv::GetDOF)
@@ -445,11 +433,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("UpdateReference",&SimEnv::UpdateReference)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
-		.def("GetDensity",&SimEnv::GetDensity)
-		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
-		.def("UniformSampleWithNearestParams",&SimEnv::UniformSampleWithNearestParams)
-		.def("UpdateParamState",&SimEnv::UpdateParamState)
-		.def("GetNearestParams",&SimEnv::GetNearestParams)
-		.def("GetProgressGoal",&SimEnv::GetProgressGoal);
+		.def("GetDensity",&SimEnv::GetDensity);
 
 }

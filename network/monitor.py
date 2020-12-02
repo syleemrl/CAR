@@ -60,7 +60,7 @@ class Monitor(object):
 
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
-		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
+		self.sampler = Sampler(self.sim_env, self.dim_param)
 
 		self.mode_counter = 0
 		self.v_ratio = 0
@@ -211,31 +211,21 @@ class Monitor(object):
 			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
 			out.close()		
 
-	def updateMode(self, v_func, results, density):
-		mode_change = -1
+	def updateCurriculum(self, v_func, results, info):
+		self.sampler.updateCurrentStatus(self.mode, results, info)
+
+		mode_change = 0
 		if not self.mode_eval:
 			self.mode_counter += 1
-		self.sampler.updateProgress(self.mode)
+		
 		if self.num_evaluation % 2 == 0:
 			self.sim_env.UpdateParamState()
-			# self.v_ratio = self.sim_env.GetVisitedRatio()
-			
-			# if not os.path.isfile(self.directory+"v_ratio") :
-			# 	out = open(self.directory+"v_ratio", "w")
-			# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-			# 	out.close()
-			# else:
-			# 	out = open(self.directory+"v_ratio", "a")
-			# 	out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
-			# 	out.close()	
-
-		if self.num_evaluation % 100 == 99:
+			# self.saveParamSpaceSummary(v_func)
+		if self.num_evaluation % 50 == 49:
 			self.sim_env.SaveParamSpace(self.num_evaluation)
 
 		if self.mode == 0:
-			self.sampler.updateVPlist(results, density)
 			if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
-				#self.sampler.printExplorationRateData()
 				self.saveVPtable()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
@@ -246,7 +236,7 @@ class Monitor(object):
 				self.sampler.resetExploit()
 				if self.mode_counter % 5 != 0:
 					self.saveVPtable()
-				return 1
+				mode_change = 1
 			elif self.mode_counter % 30 == 29:
 				self.mode = 1
 				self.mode_eval = True
@@ -255,35 +245,32 @@ class Monitor(object):
 			if self.mode_eval and len(self.sampler.progress_queue_exploit) >= 2:
 				self.mode = 0
 				self.mode_eval = False
-				return 0
-			if not self.mode_eval and self.sampler.isEnough(results, density):
+
+			if not self.mode_eval and self.sampler.isEnough():
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.resetExplore()
-				return 1
+				mode_change = 1
 			elif not self.mode_eval and self.mode_counter % 30 == 29:
-				self.sampler.resetEvaluation(v_func)
+				self.sampler.resetEvaluation()
 				self.mode = 2
 				self.mode_eval = True
-			return 1
-		else:
-			self.sampler.updateVPlist(results, density)
+				mode_change = 1
+		elif self.mode == 2 and self.sampler.evaluation_done:
+			self.mode_eval = False
+			self.mode = 1
+			self.saveVPtable()
 
 		if self.v_ratio == 1:
-			return -1		
-		return 0
+			mode_change = -1	
+
+		self.sampler.updateGoalDistribution(self.mode, v_func)
+
+		return mode_change
 
 	def needEvaluation(self):
 		if self.num_evaluation > 5 and self.mode_counter % 5 == 0 and not self.mode_eval:
 			return True
-
-	def updateCurriculum(self, v_func):
-		self.sampler.updateGoalDistribution(self.mode, v_func)
-		if self.mode == 2 and self.sampler.evaluation_done:
-			self.mode_eval = False
-			self.mode = 1
-			self.saveVPtable()
-			self.sampler.updateGoalDistribution(self.mode, v_func)
 
 	def updateGoal(self, v_func, record=True):
 		if record:
@@ -365,7 +352,8 @@ class Monitor(object):
 			if self.num_transitions_per_iteration is not 0:
 				te_per_t = self.total_frames_elapsed / self.num_transitions_per_iteration;
 			print_list.append('frame elapsed per transition : {:.2f}'.format(te_per_t))
-			print_list.append('param goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetParamGoal()]))			
+			if self.adaptive:
+				print_list.append('param goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetParamGoal()]))			
 			if self.num_nan_per_iteration != 0:
 				print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
 			print_list.append('===============================================================')

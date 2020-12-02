@@ -33,37 +33,6 @@ SaveAdaptiveMotion(std::string postfix) {
 		ofs << mMotions_phase_adaptive[i]->GetPosition().transpose() << std::endl;
 		ofs << mMotions_phase_adaptive[i]->GetVelocity().transpose() << std::endl;
 		ofs << mTimeStep_adaptive[i] << std::endl;
-
-	}
-	ofs.close();
-	
-	path = mPath + std::string("cp") + postfix;
-	ofs.open(path);
-	ofs << mKnots.size() << std::endl;
-	for(auto t: mKnots) {	
-		ofs << t << std::endl;
-	}
-		
-	for(auto t: mPrevCps) {	
-		ofs << t.transpose() << std::endl;
-	}
-	ofs << mKnots_t.size() << std::endl;
-	for(auto t: mKnots_t) {	
-		ofs << t << std::endl;
-	}
-	for(auto t: mPrevCps_t) {	
-		ofs << t.transpose() << std::endl;
-	}
-	ofs.close();
-
-	path = mPath + std::string("time") + postfix;
-	std::cout << "save results to" << path << std::endl;
-	
-	ofs.open(path);
-	ofs << mPhaseLength << std::endl;
-
-	for(int i = 0; i < mPhaseLength; i++) {
-		ofs << i << " " << i << " " << mTimeStep_adaptive[i] << std::endl;
 	}
 	ofs.close();
 
@@ -143,6 +112,7 @@ LoadMotionFromBVH(std::string filename)
 	BVH* bvh = new BVH();
 	std::string path = std::string(CAR_DIR) + filename;
 	bvh->Parse(path);
+
 	std::cout << "load trained data from: " << path << std::endl;
 
 	std::vector<std::string> contact;
@@ -430,8 +400,8 @@ GetMotion(double t, bool adaptive)
 }
 void
 ReferenceManager::
-ResetOptimizationParameters(bool reset_cps) {
-	if(reset_cps) {
+ResetOptimizationParameters(bool reset_displacement) {
+	if(reset_displacement) {
 		mTimeStep_adaptive.clear();
 		for(int i = 0; i < mPhaseLength; i++) {
 			mTimeStep_adaptive.push_back(1.0);
@@ -445,19 +415,9 @@ ResetOptimizationParameters(bool reset_cps) {
 
 	}
 
-	nOp = 0;
-	
-	if(isParametric) {
-		mRegressionMemory->ResetExploration();
-	}
-
 	mMeanTrackingReward = 0;
 	mMeanParamReward = 0;
-	mPrevMeanParamReward = 0;
 
-	nET = 0;
-	nT = 0;
-	nProgress = 0;
 }
 void
 ReferenceManager::
@@ -465,31 +425,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
-
 	mThresholdTracking = 0.85;
-	mThresholdSurvival = 0.8;
-	mThresholdProgress = 10;
-
-	// mParamBVH.resize(2);
-	// mParamBVH << 1.2, 0.4;
-
-	// mParamCur.resize(2);
-	// mParamCur << 1.2, 0.4;
-
-	// mParamGoal.resize(2);
-	// mParamGoal << 1.2, 0.4;
-
-	// if(isParametric) {
-	// 	Eigen::VectorXd paramUnit(2);
-	// 	paramUnit<< 0.1, 0.1;
-
-	// 	mParamBase.resize(2);
-	// 	mParamBase << 0.8, 0.2;
-
-	// 	mParamEnd.resize(2);
-	// 	mParamEnd << 1.6, 1.2;
-	mParamBVH.resize(4);
-	mParamBVH << 0.707107, 1.3, 1.2, 0.4;
 
 	mParamCur.resize(4);
 	mParamCur << 0.707107, 1.3, 1.2, 0.4;
@@ -503,6 +439,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 		mParamBase.resize(4);
 		mParamBase << 0.1, 1.0, 0.8, 0.3;
+
 
 		mParamEnd.resize(4);
 		mParamEnd << 0.8, 1.5, 1.3, 1.5;
@@ -563,99 +500,80 @@ GetTimeStep(double t, bool adaptive) {
 	} else 
 		return 1.0;
 }
-void
-ReferenceManager::
-ReportEarlyTermination() {
-	mLock_ET.lock();
-	nET +=1;
-	mLock_ET.unlock();
-}
 void 
 ReferenceManager::
-SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline, 
-				 std::tuple<double, double, std::vector<double>> rewards,
+SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
+				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
-		mLock_ET.lock();
-		nET +=1;
-		mLock_ET.unlock();
 		return;
 	}
-	mLock_ET.lock();
-	nT += 1;
-	mLock_ET.unlock();
+
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
-	std::vector<int> flag;
+
 
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards)[0] > 0.2) {
+	if(std::get<2>(rewards).sum_contact > 0.2) {
 		return;
 	}
-	// if(std::get<0>(rewards) < mThresholdTracking) {
-	// 	flag.push_back(0);
-	// }
-	// else {
-	// 	flag.push_back(1);
-	// }
 
-	// if(flag[0] == 0)
-	// 	return;
+	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 
-	double start_phase = std::fmod(data_spline[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;
-	for(int i = 0; i < data_spline.size(); i++) {
-		trajectory.push_back(data_spline[i].first);
+	for(int i = 0; i < data_raw.size(); i++) {
+		trajectory.push_back(data_raw[i].first);
 	}
 	trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
-	for(int i = 0; i < data_spline.size(); i++) {
-		data_spline[i].first = trajectory[i];
+	for(int i = 0; i < data_raw.size(); i++) {
+		data_raw[i].first = trajectory[i];
 	}
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_uniform;
 	int count = 0;
 	for(int i = 0; i < mPhaseLength; i++) {
-		while(count + 1 < data_spline.size() && i >= data_spline[count+1].second)
+		while(count + 1 < data_raw.size() && i >= data_raw[count+1].second)
 			count += 1;
 		Eigen::VectorXd p(mDOF + 1);
-		if(i < data_spline[count].second) {
-			int size = data_spline.size();
-			double t0 = data_spline[size-1].second - data_spline[size-2].second;
-			double weight = 1.0 - (mPhaseLength + i - data_spline[size-1].second) / (mPhaseLength + data_spline[count].second - data_spline[size-1].second);
-			double t1 = data_spline[count+1].second - data_spline[count].second;
-			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[size-1].first, data_spline[0].first, weight);
-			p_blend.segment<3>(3) = data_spline[0].first.segment<3>(3);
+
+		if(i < data_raw[count].second) {
+			int size = data_raw.size();
+			double t0 = data_raw[size-1].second - data_raw[size-2].second;
+			double weight = 1.0 - (mPhaseLength + i - data_raw[size-1].second) / (mPhaseLength + data_raw[count].second - data_raw[size-1].second);
+			double t1 = data_raw[count+1].second - data_raw[count].second;
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[size-1].first, data_raw[0].first, weight);
+			p_blend.segment<3>(3) = data_raw[0].first.segment<3>(3);
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
-		} else if(count == data_spline.size() - 1 && i > data_spline[count].second) {
-			double t0 = data_spline[count].second - data_spline[count-1].second;
-			double weight = 1.0 - (data_spline[0].second + mPhaseLength - i) / (data_spline[0].second + mPhaseLength - data_spline[count].second);
-			double t1 = data_spline[1].second - data_spline[0].second;
+		} else if(count == data_raw.size() - 1 && i > data_raw[count].second) {
+			double t0 = data_raw[count].second - data_raw[count-1].second;
+			double weight = 1.0 - (data_raw[0].second + mPhaseLength - i) / (data_raw[0].second + mPhaseLength - data_raw[count].second);
+			double t1 = data_raw[1].second - data_raw[0].second;
 			
-			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[count].first, data_spline[0].first, weight);
-			p_blend.segment<3>(3) = data_spline[count].first.segment<3>(3);
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[0].first, weight);
+			p_blend.segment<3>(3) = data_raw[count].first.segment<3>(3);
 
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
-		} else if(i == data_spline[count].second) {
-			if(count < data_spline.size())
-				p << data_spline[count].first, log(data_spline[count+1].second - data_spline[count].second);
+		} else if(i == data_raw[count].second) {
+			if(count < data_raw.size())
+				p << data_raw[count].first, log(data_raw[count+1].second - data_raw[count].second);
 			else
-				p << data_spline[count].first, log(data_spline[0].second + mPhaseLength - data_spline[count].second);
+				p << data_raw[count].first, log(data_raw[0].second + mPhaseLength - data_raw[count].second);
 
 		} else {
-			double weight = 1.0 - (data_spline[count+1].second - i) / (data_spline[count+1].second - data_spline[count].second);
-			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_spline[count].first, data_spline[count+1].first, weight);
+			double weight = 1.0 - (data_raw[count+1].second - i) / (data_raw[count+1].second - data_raw[count].second);
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[count+1].first, weight);
 			double t_blend;
-			if(count + 2 >= data_spline.size()) {
-				double t0 = data_spline[count+1].second - data_spline[count].second;
-				double t1 = data_spline[1].second - data_spline[0].second;
+			if(count + 2 >= data_raw.size()) {
+				double t0 = data_raw[count+1].second - data_raw[count].second;
+				double t1 = data_raw[1].second - data_raw[0].second;
 				t_blend = (1 - weight) * t0 + weight * t1;
 			} else {
-				double t0 = data_spline[count+1].second - data_spline[count].second;
-				double t1 = data_spline[count+2].second - data_spline[count+1].second;
+				double t0 = data_raw[count+1].second - data_raw[count].second;
+				double t1 = data_raw[count+2].second - data_raw[count+1].second;
 				t_blend = (1 - weight) * t0 + weight * t1;
 			}
 			p << p_blend, log(t_blend);
@@ -675,12 +593,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_spline,
 		d.push_back(d_t);
 	}
 
-	double r_foot =  exp(-std::get<2>(rewards)[0]); 
-	double r_vel = exp(-std::get<2>(rewards)[2]*0.01);
-	double r_pos = exp(-std::get<2>(rewards)[1]*8);
-	// std::cout << std::get<2>(rewards).sum_contact << " / " << r_foot << std::endl; 
-	// std::cout << std::get<2>(rewards).sum_vel.transpose() << " / " << r_vel << std::endl; 
-	// std::cout << std::get<2>(rewards).sum_pos.transpose() << " / " << r_pos << std::endl; 
+	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
+	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
+	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 
 	double reward_trajectory = r_foot * r_pos * r_vel;
 	mLock.lock();
@@ -749,53 +664,14 @@ GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position,
 		displacement.push_back(std::pair<Eigen::VectorXd,double>(d, phase));
 	}
 }
-void
-ReferenceManager::
-OptimizeExReference(){
-	mCPS_exp = mRegressionMemory->GetCPSFromNearestParams(mParamGoal);
-}
 void 
 ReferenceManager::
 SelectReference(){
-	double r = 0.6;
+	double r = 0.4;
 	if(mUniform(mMT) < r) {
 		LoadAdaptiveMotion(mCPS_reg);
 	} else {
 		LoadAdaptiveMotion(mCPS_exp);
 	}
 }
-bool
-ReferenceManager::
-UpdateParamManually() {
-
-	double survival_ratio = (double)nT / (nET + nT);
-	std::cout << "current mean tracking reward :" << mMeanTrackingReward  << ", survival ratio: " << survival_ratio << std::endl;
-
-	if(survival_ratio > mThresholdSurvival && mMeanTrackingReward > mThresholdTracking - 0.05) {
-		return true;
-	}
-	return false;
-}
-bool 
-ReferenceManager::
-CheckExplorationProgress() {
-	if(nET + nT == 0)
-		return true;
-	double survival_ratio = (double)nT / (nET + nT);
-	nT = 0;
-	nET = 0;
-	std::cout << survival_ratio << " " << (mMeanParamReward - mPrevMeanParamReward) <<std::endl;
-	if(survival_ratio > mThresholdSurvival && (mMeanParamReward - mPrevMeanParamReward) < 2 * 1e-2) {
-		nProgress += 1;
-	} else {
-		nProgress = 0;
-	}
-	mPrevMeanParamReward = mMeanParamReward;
-	if((nProgress >= mThresholdProgress && mRegressionMemory->GetTimeFromLastUpdate() > mThresholdProgress) || 
-	   (mRegressionMemory->GetTimeFromLastUpdate() > mThresholdProgress)) {
-		return false;
-	}
-	return true;
-}
-
 };
