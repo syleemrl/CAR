@@ -388,10 +388,14 @@ GetNearestParams(np::ndarray np_array) {
 
 	return l;
 }
-double 
+p::list  
 SimEnv::
-GetProgressGoal() {
-	return mRegressionMemory->GetNewSamplesNearGoal();
+GetExplorationRate() {
+	std::pair<double, double> n = mRegressionMemory->GetExplorationRate();
+	p::list l;
+	l.append(n.first);
+	l.append(n.second);
+	return l;
 }
 
 using namespace boost::python;
@@ -424,7 +428,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
 		.def("UpdateParamState",&SimEnv::UpdateParamState)
 		.def("GetNearestParams",&SimEnv::GetNearestParams)
-		.def("GetProgressGoal",&SimEnv::GetProgressGoal)
+		.def("GetExplorationRate",&SimEnv::GetExplorationRate)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
 		.def("GetPhaseLength",&SimEnv::GetPhaseLength)
 		.def("GetDOF",&SimEnv::GetDOF)

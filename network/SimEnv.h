@@ -64,7 +64,7 @@ public:
 
 	p::list GetParamSpaceSummary();
 	p::list GetNearestParams(np::ndarray np_array);
-	double GetProgressGoal();
+	p::list GetExplorationRate();
 
 
 private:
