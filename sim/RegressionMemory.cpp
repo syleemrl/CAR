@@ -661,9 +661,9 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
-			if(mNumSamples == 1 && d > 0.05 && d < mThresholdInside - 0.1 ) {
+			if(mNumSamples == 1 && d > 0.05 && d < mThresholdInside) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
-			} else if (d < mThresholdInside - 0.1 && d > mThresholdInside - 0.1 - mRangeExplore) {
+			} else if (d < mThresholdInside && d > mThresholdInside - mRangeExplore) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
 		}
@@ -796,9 +796,10 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	
 		// if(p->reward >= prev_max + 0.01)
 		// 	mNewSamplesNearGoal += 1;
-
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.02) {
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && to_be_deleted.size() == 0) {
 			mNewSamplesNearGoal += 1;
+		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && p->reward >= prev_max + 0.01) {
+			mUpdatedSamplesNearGoal += 1;
 		}
 		// if(p->reward >= prev_max + 0.01)
 		// 	mNewSamplesNearGoal += exp(-2.0 * GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)));
@@ -880,6 +881,8 @@ SetParamGoal(Eigen::VectorXd paramGoal) {
 	}
 	mEliteGoalDistance /= pairs.size();
 	mNewSamplesNearGoal = 0;
+	mUpdatedSamplesNearGoal = 0;
+
 	mRecordLog.push_back(result);
 }
 std::vector<Eigen::VectorXd> 

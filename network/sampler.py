@@ -13,7 +13,7 @@ class Sampler(object):
 		self.v_mean_boundary = 0.0
 		self.random = True
 
-		self.k = 10
+		self.k = 5
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -36,13 +36,16 @@ class Sampler(object):
 
 		self.eval_target_v = 0
 
-		self.progress_queue_exploit = [5.0]
+		self.progress_queue_exploit = [20.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
 		self.evaluation_counter = 0
 		self.evaluation_done = False
 		self.eval_frequency = 0
+
+		self.progress_cur_new = 0
+		self.progress_cur_update = 0
 
 		print('=======================================')
 		print('curriculum option')
@@ -74,9 +77,9 @@ class Sampler(object):
 		if mode == 0:
 			if self.total_iter < 3:
 				return
-			if self.type_explore == 0 and self.n_explore % 2 == 1:
+			if self.type_explore == 0:
 				self.sampleBatch(self.type_explore)
-			elif self.type_explore == 1 and self.n_explore % 2 == 1:
+			elif self.type_explore == 1:
 				self.pool_ex = []
 				for i in range(m):
 					x_cur = self.randomSample(mode)
@@ -105,14 +108,21 @@ class Sampler(object):
 
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
+		elif mode == 2:
+			self.sample = []
+			self.evaluation_counter = 0
 
+			while len(self.sample) < 40:
+				t = self.randomSample(False) 
+				self.sample.append(t)
 	def saveProgress(self, mode):
+		plist = self.sim_env.GetExplorationRate()
+		p = plist[0] + plist[1]
+		self.progress_cur += p
+		self.progress_cur_new += plist[0]
+		self.progress_cur_update += plist[1]
 		if mode == 0 or mode == 2:
-			p = self.sim_env.GetProgressGoal()
-			self.progress_cur += p
 			self.progress_cur_list.append(p * 10)
-		else:
-			self.progress_cur += self.sim_env.GetProgressGoal()
 
 	def updateCurrentStatus(self, mode, results, info):
 		if mode == 0 or mode == 2:
@@ -171,17 +181,21 @@ class Sampler(object):
 				if self.v_mean_boundary == 0:
 					self.v_mean_boundary = v_mean_boundary_cur
 				else:
-					rate = min(1, count * 0.001)
+					rate = min(0.2, count * 0.0006)
 					self.v_mean_boundary = (1- rate) * self.v_mean_boundary + rate * v_mean_boundary_cur
 
 
 			print(self.progress_queue_exploit)
 			print("===========================================")
 			print("mean reward : ", self.v_mean)
-			print("current mean boundary reward: ", v_mean_boundary_cur, count)
+			print("current mean boundary reward: ", v_mean_boundary_cur, rate)
 			print("mean boundary reward : ", self.v_mean_boundary)
 			print("exploration rate : ", p_mean)
 			print("===========================================")
+		
+		print(self.progress_cur_new, self.progress_cur_update)
+		self.progress_cur_new = 0
+		self.progress_cur_update = 0
 		self.progress_cur = 0
 
 	def adaptiveSample(self, mode, v_func):
@@ -263,7 +277,7 @@ class Sampler(object):
 			t = self.randomSample(False) 
 			self.sample.append(t)
 
-		self.eval_frequency = len(self.sample) + 1
+		self.eval_frequency = len(self.sample)
 
 	def printExplorationRateData(self):
 		for k, v in zip(self.vp_dict.keys(), self.vp_dict.values()):
@@ -287,20 +301,18 @@ class Sampler(object):
 		if self.n_exploit < 10:
 			return False
 
-		v_key = math.floor(self.v_mean_boundary * 1 / self.unit)
-		mean = np.array(self.vp_dict[v_key]).mean(axis=0)[1] * len(self.vp_dict[v_key])
+		v_key = math.floor(self.v_mean * 1 / self.unit) - 2
 		count = 0
-		if v_key - 1 in self.vp_dict:
-			for i in range(len(self.vp_dict[v_key - 1])):
-				if abs(v_key - self.vp_dict[v_key - 1][i][0]) < self.distance:
-					mean += self.vp_dict[v_key - 1][i][1]
-					count += 1
-		if v_key + 1 in self.vp_dict:
-			for i in range(len(self.vp_dict[v_key + 1])):
-				if abs(v_key - self.vp_dict[v_key + 1][i][0]) < self.distance:
-					mean += self.vp_dict[v_key + 1][i][1]
-					count += 1
-		mean /= (count + len(self.vp_dict[v_key]))
+		mean = 0
+		for n in range(5):
+			if v_key + n in self.vp_dict:
+				for i in range(len(self.vp_dict[v_key + n])):
+					if abs(self.v_mean - self.vp_dict[v_key + n][i][0]) < self.distance:
+						mean += self.vp_dict[v_key + n][i][1]
+						count += 1
+		
+		if count != 0:
+			mean /= count
 
 		print(p_mean, mean)
 		if p_mean < mean * 0.9:

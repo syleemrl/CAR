@@ -97,7 +97,7 @@ public:
 	std::vector<Param*> mloadAllSamples;
 
 	int GetNumSamples();
-	double GetNewSamplesNearGoal() {return mNewSamplesNearGoal;}
+	std::pair<double, double> GetExplorationRate() {return std::pair<double, double>(mNewSamplesNearGoal, mUpdatedSamplesNearGoal);}
 	std::tuple<std::vector<Eigen::VectorXd>, 
 	   	   std::vector<Eigen::VectorXd>,  
 		   std::vector<double>, 
@@ -153,6 +153,7 @@ private:
 	std::vector<std::string> mRecordLog;
 	double mEliteGoalDistance;
 	double mNewSamplesNearGoal;
+	double mUpdatedSamplesNearGoal;
 
 };
 }
