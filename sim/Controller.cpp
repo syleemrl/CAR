@@ -207,31 +207,31 @@ Step()
 	}
 
 	// flair 
-	Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-	Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
-	// V(1) = 0;
-	Eigen::Vector3d momentum;
-	momentum.setZero();
-	for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
-		auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
-		Eigen::Matrix3d R = bn->getWorldTransform().linear();
-		double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
-		bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
-		Eigen::Matrix3d I;
-		I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
-		I = R * I * R.transpose();
-		Eigen::AngleAxisd aa(I); 
-		Eigen::Vector3d aa_v = aa.axis() * aa.angle();
-		Eigen::Vector3d m= aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
-		Eigen::Vector3d m_dart = bn->getAngularMomentum(COM);
+	// Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
+	// Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+	// // V(1) = 0;
+	// Eigen::Vector3d momentum;
+	// momentum.setZero();
+	// for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
+	// 	auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+	// 	Eigen::Matrix3d R = bn->getWorldTransform().linear();
+	// 	double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
+	// 	bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
+	// 	Eigen::Matrix3d I;
+	// 	I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
+	// 	I = R * I * R.transpose();
+	// 	Eigen::AngleAxisd aa(I); 
+	// 	Eigen::Vector3d aa_v = aa.axis() * aa.angle();
+	// 	Eigen::Vector3d m= aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+	// 	Eigen::Vector3d m_dart = bn->getAngularMomentum(COM);
 
-		std::cout<<bn->getName()<<" "<<m.transpose()<<" , m_dart : "<<m_dart.transpose()<<std::endl;
-		momentum += m;
-	}
-	// std::cout<<mCurrentFrame<<", v: "<<V.segment<3>(0).transpose()<<", m: "<<momentum.transpose()<<std::endl;
-	mVelocity += V.segment<3>(0);
-	mMomentum += momentum;
-	mCount += 1;
+	// 	// std::cout<<bn->getName()<<" "<<m.transpose()<<" , m_dart : "<<m_dart.transpose()<<std::endl;
+	// 	momentum += m;
+	// }
+	// // std::cout<<mCurrentFrame<<", v: "<<V.segment<3>(0).transpose()<<", m: "<<momentum.transpose()<<std::endl;
+	// mVelocity += V.segment<3>(0);
+	// mMomentum += momentum;
+	// mCount += 1;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -239,7 +239,7 @@ Step()
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
 		
-		std::cout<<mCount<<"/ M : "<<(mMomentum/ mCount).transpose()<<" / v : "<<(mVelocity/mCount).transpose()<<" r: "<<(mTrackingRewardTrajectory/mReferenceManager->GetPhaseLength())<<std::endl;
+		// std::cout<<mCount<<"/ M : "<<(mMomentum/ mCount).transpose()<<" / v : "<<(mVelocity/mCount).transpose()<<" r: "<<(mTrackingRewardTrajectory/mReferenceManager->GetPhaseLength())<<std::endl;
 		cycle_done = false;
 
 		mTrackingRewardTrajectory = 0;
@@ -393,8 +393,16 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	skel->computeForwardKinematics(true,false,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
-		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+		Eigen::Isometry3d target_ee= skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
+		Eigen::Isometry3d diff = ee_transforms[i].inverse() * target_ee;
+
 		ee_diff.segment<3>(3*i) = diff.translation();
+
+		if(mEndEffectors[i]== "LeftHand" || mEndEffectors[i]=="RightHand"){
+			bool phy_contact = CheckCollisionWithGround(mEndEffectors[i]);
+			if( (target_ee.translation()[1] < 0.05 && ! phy_contact) || (target_ee.translation()[1] > 0.1 && phy_contact)) ee_diff.segment<3>(3*i) *= 10;
+		}
+
 	}
 	com_diff -= skel->getCOM();
 
