@@ -15,23 +15,6 @@ std::string v3toString(Eigen::Vector3d vec){
 double default_height = 0;
 double foot_height = 0;
 
-// std::string skelname = skeldoc->Attribute("name");
-// SkeletonPtr skel = Skeleton::create(skelname);
-// std::cout << skelname << std::endl;
-// std::map<std::string, double>* torqueMap = new std::map<std::string, double>();
-// std::map<std::string, Eigen::VectorXd>* positionMap = new std::map<std::string, Eigen::VectorXd>();
-
-// 	for(TiXmlElement *body = skeldoc->FirstChildElement("Joint"); body != nullptr; body = body->NextSiblingElement("Joint")){
-// 		// type
-// 		std::string jointType = body->Attribute("type");
-// 		// name
-// 		std::string name = body->Attribute("name");
-// 		// parent name
-// 		std::string parentName = body->Attribute("parent_name");
-// 		BodyNode *parent;
-// 		if(!parentName.compare("None"))
-// 			parent = nullptr;
-
 namespace myBVH{
 	struct BVHNode{
 		std::string name;
@@ -45,8 +28,6 @@ namespace myBVH{
 		list.push_back(xml);
 
 		xml->LinkEndChild(body);
-		// body->SetAttribute("linear", "1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 ");
-		// body->SetAttribute("translation",v3toString(offset)); //PFNN_GEN: body position = joint position
 
 		TiXmlElement* joint = new TiXmlElement("JointPosition");
 		xml->LinkEndChild(joint);
@@ -63,67 +44,71 @@ namespace myBVH{
 			if(Eigen::Vector3d(c->offset).norm() >= 1e-6){
 				if (node->name == "Hips") {
 					if(c->name =="Spine") {
-						TiXmlElement* capsule = new TiXmlElement("Box");
-						capsule->SetAttribute("size", v3toString(Eigen::Vector3d(0.2, 2*Eigen::Vector3d(c->offset).norm(), 0.1)));
+						xml->SetAttribute("size", v3toString(Eigen::Vector3d(0.2, 2*Eigen::Vector3d(c->offset).norm(), 0.13)));
 						body->SetAttribute("translation", v3toString(Eigen::Vector3d::Zero()));
-						xml->LinkEndChild(capsule);
 					}
 				}else if ((node->name.find("Arm") != std::string::npos) || (node->name.find("Hand") != std::string::npos) ){
-					TiXmlElement* capsule = new TiXmlElement("Box");
-					capsule->SetAttribute("size", v3toString(Eigen::Vector3d(Eigen::Vector3d(c->offset).norm(), 0.07, 0.07)));	
+					xml->SetAttribute("size", v3toString(Eigen::Vector3d(Eigen::Vector3d(c->offset).norm(), 0.07, 0.07)));	
 					body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); 
-					xml->LinkEndChild(capsule);
-
 				}else if(node->name=="Spine2"){
 					if(c->name =="Neck") {
-						TiXmlElement* capsule = new TiXmlElement("Box");
-						capsule->SetAttribute("size", v3toString(Eigen::Vector3d(Eigen::Vector3d(c->offset).norm(), 0.1, 0.1)));
+						xml->SetAttribute("size", v3toString(Eigen::Vector3d(0.1, Eigen::Vector3d(c->offset).norm(), 0.13)));
 						body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); //body == draw
-						xml->LinkEndChild(capsule);
 					}
-				}else if(c->name.find("Toe")!= std::string::npos){
-					// Foot->Toe
-					TiXmlElement* capsule = new TiXmlElement("Box");
-					
-					Eigen::Vector3d foot_position = offset+ Eigen::Vector3d(c->offset)/2;
-					double foot_length = Eigen::Vector3d(c->offset).norm();
-					foot_height = default_height + foot_position[1] ;
-					std::cout<<"foot_height : "<<foot_height<<std::endl;
-					double foot_front = sqrt(foot_length*foot_length - foot_height*foot_height);
-
-					capsule->SetAttribute("size", v3toString(Eigen::Vector3d( 0.08, 2*foot_height,foot_front)));
-					
-
-					body->SetAttribute("translation",v3toString(foot_position)); //body == draw
-					xml->LinkEndChild(capsule);
-
-				}else if(node->name.find("Toe")!= std::string::npos){
-					// Toe->ToeEnd
-					TiXmlElement* capsule = new TiXmlElement("Box");
-					
-					capsule->SetAttribute("size", v3toString(Eigen::Vector3d(0.08, 2*foot_height, Eigen::Vector3d(c->offset).norm())));
-					
-					Eigen::Vector3d toe_position = offset+ Eigen::Vector3d(c->offset)/2;
-					toe_position[1] = foot_height-default_height;
-					body->SetAttribute("translation",v3toString(toe_position)); //body == draw
-					xml->LinkEndChild(capsule);
-				}else{
-					TiXmlElement* capsule = new TiXmlElement("Box");
-					
-					if(node->name.find("Spine")!= std::string::npos) capsule->SetAttribute("size", v3toString(Eigen::Vector3d(0.2, 0.1, Eigen::Vector3d(c->offset).norm())));
-					else if(node->name.find("Head")!= std::string::npos) capsule->SetAttribute("size", v3toString(Eigen::Vector3d(0.16, Eigen::Vector3d(c->offset).norm(), 0.16)));
-					else if(node->name.find("Leg")!= std::string::npos) capsule->SetAttribute("size", v3toString(Eigen::Vector3d(Eigen::Vector3d(c->offset).norm(), 0.16, 0.16)));
-					else capsule->SetAttribute("size", v3toString(Eigen::Vector3d(0.1, Eigen::Vector3d(c->offset).norm(), 0.1)));
-					
+				}else{					
+					if(node->name.find("Spine")!= std::string::npos) xml->SetAttribute("size", v3toString(Eigen::Vector3d(0.2, Eigen::Vector3d(c->offset).norm(), 0.13)));
+					else if(node->name.find("Head")!= std::string::npos) xml->SetAttribute("size", v3toString(Eigen::Vector3d(0.11, 0.7*Eigen::Vector3d(c->offset).norm(), 0.11)));
+					else if(node->name.find("Neck")!= std::string::npos) xml->SetAttribute("size", v3toString(Eigen::Vector3d(0.07, Eigen::Vector3d(c->offset).norm(), 0.07)));
+					else {
+						std::cout<<node->name<<std::endl;
+						xml->SetAttribute("size", v3toString(Eigen::Vector3d(0.1, Eigen::Vector3d(c->offset).norm(), 0.1)));
+					}
 					body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); //body == draw
-					xml->LinkEndChild(capsule);
-
 				}
-				// xml->SetAttribute("mass", std::to_string(std::pow(Eigen::Vector3d(c->offset).norm()*4, 3))); 
+
+				// if (node->name == "Hips") {
+				// 	if(c->name =="Spine") {
+				// 		child->SetAttribute("size", v3toString(Eigen::Vector3d(0.2, 2*Eigen::Vector3d(c->offset).norm(), 0.1)));
+				// 		body->SetAttribute("translation", v3toString(Eigen::Vector3d::Zero()));
+				// 	}
+				// }else if ((node->name.find("Arm") != std::string::npos) || (node->name.find("Hand") != std::string::npos) ){
+				// 	child->SetAttribute("size", v3toString(Eigen::Vector3d(Eigen::Vector3d(c->offset).norm(), 0.07, 0.07)));	
+				// 	body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); 
+				// }else if(node->name=="Spine2"){
+				// 	if(c->name =="Neck") {
+				// 		child->SetAttribute("size", v3toString(Eigen::Vector3d(Eigen::Vector3d(c->offset).norm(), 0.1, 0.1)));
+				// 		body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); //body == draw
+				// 	}
+				// }else if(c->name.find("Toe")!= std::string::npos){
+				// 	// Foot->Toe
+				// 	Eigen::Vector3d foot_position = offset+ Eigen::Vector3d(c->offset)/2;
+				// 	double foot_length = Eigen::Vector3d(c->offset).norm();
+				// 	foot_height = default_height + foot_position[1] ;
+				// 	std::cout<<"foot_height : "<<foot_height<<std::endl;
+				// 	double foot_front = sqrt(foot_length*foot_length - foot_height*foot_height);
+
+				// 	child->SetAttribute("size", v3toString(Eigen::Vector3d( 0.08, 2*foot_height,foot_front)));
+				// 	body->SetAttribute("translation",v3toString(foot_position)); //body == draw
+				// }else if(node->name.find("Toe")!= std::string::npos){
+				// 	// Toe->ToeEnd
+				// 	child->SetAttribute("size", v3toString(Eigen::Vector3d(0.08, 2*foot_height, Eigen::Vector3d(c->offset).norm())));
+					
+				// 	Eigen::Vector3d toe_position = offset+ Eigen::Vector3d(c->offset)/2;
+				// 	toe_position[1] = foot_height-default_height;
+				// 	body->SetAttribute("translation",v3toString(toe_position)); //body == draw
+				// }else{
+				// 	if(node->name.find("Spine")!= std::string::npos) child->SetAttribute("size", v3toString(Eigen::Vector3d(0.2, 0.1, Eigen::Vector3d(c->offset).norm())));
+				// 	else if(node->name.find("Head")!= std::string::npos) child->SetAttribute("size", v3toString(Eigen::Vector3d(0.16, Eigen::Vector3d(c->offset).norm(), 0.16)));
+				// 	else if(node->name.find("Leg")!= std::string::npos) child->SetAttribute("size", v3toString(Eigen::Vector3d(Eigen::Vector3d(c->offset).norm(), 0.16, 0.16)));
+				// 	else child->SetAttribute("size", v3toString(Eigen::Vector3d(0.1, Eigen::Vector3d(c->offset).norm(), 0.1)));
+					
+				// 	body->SetAttribute("translation",v3toString(offset+ Eigen::Vector3d(c->offset)/2)); //body == draw
+				// }
 			}
 
 			if(c->name == "Site") continue;
-			BVHToXML(c, child, offset + Eigen::Vector3d(c->offset), list, general_doc);
+			if(c->name == "Head") BVHToXML(c, child, offset + 0.7*Eigen::Vector3d(c->offset), list, general_doc);
+			else BVHToXML(c, child, offset + Eigen::Vector3d(c->offset), list, general_doc);
 		}
 
 
@@ -131,14 +116,17 @@ namespace myBVH{
 			TiXmlElement* elm= general_doc->FirstChildElement(node->name);
 			xml->SetAttribute("mass", elm->Attribute("mass")); 
 			if(elm->Attribute("type")!= nullptr){
-				elm->SetAttribute("type", elm->Attribute("type"));		
+				xml->SetAttribute("type", elm->Attribute("type"));		
 			}
 			if(elm->Attribute("name")!= nullptr){
-				elm->SetAttribute("name", elm->Attribute("name"));		
+				xml->SetAttribute("name", elm->Attribute("name"));		
+			}
+			if(elm->Attribute("bvh")!= nullptr){
+				xml->SetAttribute("bvh", elm->Attribute("bvh"));
 			}
 			if(elm->Attribute("TorqueLimit")!= nullptr){
 				TiXmlElement* TorqueLimit = new TiXmlElement("TorqueLimit");
-				elm->LinkEndChild(TorqueLimit);
+				xml->LinkEndChild(TorqueLimit);
 				TorqueLimit->SetAttribute("norm", general_doc->FirstChildElement(node->name)->Attribute("TorqueLimit"));
 			}
 		}

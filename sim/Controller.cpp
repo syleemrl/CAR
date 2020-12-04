@@ -163,7 +163,10 @@ Step()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	p_now[3] = p_now[3]- (mDefaultRootZero[3]- mRootZero[3]);
+	p_now[5] = p_now[5]- (mDefaultRootZero[5]- mRootZero[5]);
+
 	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
@@ -207,13 +210,21 @@ Step()
 	}
 
 	// flair 
-	// Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-	// Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
-	// // V(1) = 0;
-	// Eigen::Vector3d momentum;
-	// momentum.setZero();
-	// for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
-	// 	auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+	Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
+	Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+	mVelocity+= V.segment<3>(0);
+
+	for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
+		auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+		Eigen::Vector3d r = bn->getCOM() - COM;
+		Eigen::Vector3d v = bn->getCOMLinearVelocity();
+		Eigen::Vector3d w = r.cross(v)/r.squaredNorm();
+		double I = r.squaredNorm()*bn->getMass();
+		double KE_rot = 0.5*I*w.dot(w);
+
+		mKE_rot+= KE_rot;
+	}
+	mCount+=1;
 	// 	Eigen::Matrix3d R = bn->getWorldTransform().linear();
 	// 	double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
 	// 	bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
@@ -270,7 +281,8 @@ Step()
 			mCountParam = 0;
 			mCountTracking = 0;
 			
-			mMomentum.setZero();
+			mKE_rot= 0;
+			// mMomentum.setZero();
 			mVelocity.setZero();
 			mCount = 0;
 			// mEnergy.setZero();
@@ -345,7 +357,8 @@ ClearRecord()
 	mCountTracking = 0;
 	data_raw.clear();
 
-	mMomentum.setZero();
+	mKE_rot = 0;
+	// mMomentum.setZero();
 	mVelocity.setZero();
 	mCount = 0;
 
@@ -380,6 +393,9 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	skel->setPositions(position);
 	skel->computeForwardKinematics(true,false,false);
 
+	bool phy_contact_lh = CheckCollisionWithGround("LeftHand");
+	bool phy_contact_rh = CheckCollisionWithGround("RightHand");
+
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
 	ee_diff.setZero();	
@@ -391,6 +407,12 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	
 	skel->setPositions(position2);
 	skel->computeForwardKinematics(true,false,false);
+	bool bvh_contact_lh = CheckCollisionWithGround("LeftHand");
+	bool bvh_contact_rh = CheckCollisionWithGround("RightHand");
+
+	Eigen::VectorXd c_diff(2); c_diff.setZero();
+	if(bvh_contact_lh != phy_contact_lh) {c_diff(0)= 1; }//std::cout<<mCurrentFrame<<", lh : "<<phy_contact_lh<<" , ( bvh : "<<bvh_contact_lh<<")\n";}
+	if(bvh_contact_rh != phy_contact_rh) {c_diff(1)= 1; }//std::cout<<mCurrentFrame<<", rh : "<<phy_contact_rh<<" , ( bvh : "<<bvh_contact_rh<<")\n";}
 
 	for(int i=0;i<mEndEffectors.size();i++){
 		Eigen::Isometry3d target_ee= skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
@@ -398,11 +420,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 		ee_diff.segment<3>(3*i) = diff.translation();
 
-		if(mEndEffectors[i]== "LeftHand" || mEndEffectors[i]=="RightHand"){
-			bool phy_contact = CheckCollisionWithGround(mEndEffectors[i]);
-			if( (target_ee.translation()[1] < 0.05 && ! phy_contact) || (target_ee.translation()[1] > 0.1 && phy_contact)) ee_diff.segment<3>(3*i) *= 10;
-		}
-
+		if(mEndEffectors[i]== "LeftHand" || mEndEffectors[i]=="RightHand") ee_diff.segment<3>(3*i) *= 5;
 	}
 	com_diff -= skel->getCOM();
 
@@ -412,6 +430,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.1 * scale;
+	double sig_ct= 0.5*scale;
 	
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -421,6 +440,9 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
+	double r_ct= exp_of_squared(c_diff, sig_ct);
+	r_ee+= r_ct;
+	// std::cout<<mCurrentFrame<<" : "<<r_ct<<" (c_diff: "<<c_diff.transpose()<<"), r_ee: "<<r_ee<<", r_com : "<<r_com<<std::endl;
 
 	std::vector<double> rewards;
 	rewards.clear();
@@ -560,9 +582,11 @@ GetParamReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	//TODO
 	if(mCurrentFrameOnPhase >= 30 && !cycle_done) {
-		Eigen::Vector3d meanMomentum = mMomentum / mCount;
+		double mean_KE_rot = mKE_rot / mCount;
+		// Eigen::Vector3d meanMomentum = mMomentum / mCount;
 		Eigen::Vector3d meanVelocity = mVelocity / mCount;
 
+		// mean Momentum
 	// M : 2.34691 31.4297 1.28811 				/ v : 0.0547328   4.33922 -0.439232 / r: 0.827127
 	// M :  3.91392   31.134 0.680306 			/ v :   0.27747   4.22689 -0.479612 / r: 0.867831
 	// M :  4.29733     30.7 0.332039 			/ v :  0.326194   4.16994 -0.527147 / r: 0.86816
@@ -572,33 +596,33 @@ GetParamReward()
 
 	//187: M :   4.60989   30.3883 -0.105409 / v :   0.37354   4.12674 -0.593139 / r: 0.866343
 
-		meanMomentum(1) = 0;
-		meanVelocity(1) = 0;
+		// meanMomentum(1) = 0;
+		// meanVelocity(1) = 0;
 		
-		Eigen::Vector3d targetVelocity = mParamGoal(0) * Eigen::Vector3d(-1, 0, -0.24);
-		Eigen::Vector3d targetMomentum = Eigen::Vector3d(-40, 0, -6);
+		// Eigen::Vector3d targetVelocity = mParamGoal(0) * Eigen::Vector3d(-1, 0, -0.24);
+		// Eigen::Vector3d targetMomentum = Eigen::Vector3d(-40, 0, -6);
 
-		Eigen::Vector3d v_diff = meanVelocity - targetVelocity;
-		Eigen::Vector3d m_diff = meanMomentum - targetMomentum;
-		m_diff(2) *= 0.0;
-		v_diff(2) *= 0.0;
+		// Eigen::Vector3d v_diff = meanVelocity - targetVelocity;
+		// Eigen::Vector3d m_diff = meanMomentum - targetMomentum;
+		// m_diff(2) *= 0.0;
+		// v_diff(2) *= 0.0;
 
-		r_param = 0.75 * exp_of_squared(v_diff, 0.3);
-		r_param += 0.25 * exp_of_squared(m_diff, 3);
+		// r_param = 0.75 * exp_of_squared(v_diff, 0.3);
+		// r_param += 0.25 * exp_of_squared(m_diff, 3);
 
-		if(mRecord) {
-			std::cout << meanMomentum.transpose() << " " << m_diff.transpose() << " " << exp_of_squared(m_diff, 3)  <<  std::endl; // <<  meanMomentum - mInputTargetParameters(0) << " " <<  exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075) << std::endl;
-			std::cout << meanVelocity.transpose() << " " << v_diff.transpose() << " " << exp_of_squared(v_diff, 0.3) << std::endl; // meanVelocity - mInputTargetParameters(1) << " " << exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) << std::endl;
-		}
+		// if(mRecord) {
+		// 	std::cout << meanMomentum.transpose() << " " << m_diff.transpose() << " " << exp_of_squared(m_diff, 3)  <<  std::endl; // <<  meanMomentum - mInputTargetParameters(0) << " " <<  exp(-pow(meanMomentum - mInputTargetParameters(0), 2)*0.075) << std::endl;
+		// 	std::cout << meanVelocity.transpose() << " " << v_diff.transpose() << " " << exp_of_squared(v_diff, 0.3) << std::endl; // meanVelocity - mInputTargetParameters(1) << " " << exp(-pow(meanVelocity - mInputTargetParameters(1), 2)*0.2) << std::endl;
+		// }
 
-		if(exp_of_squared(m_diff, 3) > 0.4) // && abs(meanVelocity(2) - targetVelocity(2)) < 1.5)
-			mParamCur(0) = -meanVelocity(0);
-		else
-			mParamCur(0) = -1;
+		// if(exp_of_squared(m_diff, 3) > 0.4) // && abs(meanVelocity(2) - targetVelocity(2)) < 1.5)
+		// 	mParamCur(0) = -meanVelocity(0);
+		// else
+		// 	mParamCur(0) = -1;
 	 
-		mControlFlag[0] = 1;		
+		// mControlFlag[0] = 1;		
 
-		cycle_done = true;
+		// cycle_done = true;
 	}
 
 	return r_param;
@@ -654,6 +678,9 @@ UpdateReward()
 
 	double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
 	mRewardParts.clear();
+
+	// r_p, r_com, r_ee(+r_ct), r_v
+
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -879,7 +906,7 @@ Reset(bool RSI)
 	}
 
 	cycle_done= false;
-	mMomentum.setZero();
+	// mMomentum.setZero();
 	mVelocity.setZero();
 	mCount = 0;
 
@@ -1080,7 +1107,10 @@ GetState()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	p_now[3] = p_now[3]- (mDefaultRootZero[3]- mRootZero[3]);
+	p_now[5] = p_now[5]- (mDefaultRootZero[5]- mRootZero[5]);
+
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
 	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 

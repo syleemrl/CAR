@@ -19,12 +19,12 @@
     <LeftUpLeg mass="7" TorqueLimit="200"/>
     <LeftLeg mass="3" TorqueLimit="150"/>
     <LeftFoot mass="0.6" TorqueLimit="90"/>
-    <LeftToe name="LeftToe" mass="0.3" TorqueLimit="60"/>
+    <LeftToeBase name="LeftToe" bvh="LeftToeBase" mass="0.3" TorqueLimit="60"/>
 
     <RightUpLeg mass="7" TorqueLimit="200"/>
     <RightLeg mass="3" TorqueLimit="150"/>
     <RightFoot mass="0.6" TorqueLimit="90"/>
-    <RightToe name="RightToe" mass="0.3" TorqueLimit="60"/>
+    <RightToeBase name="RightToe" bvh="RightToeBase" mass="0.3" TorqueLimit="60"/>
 </Skeleton>
 
 <!--     <Joint bvh="Hips" type="FreeJoint" mass= "8" TorqueLimit="200"/>
@@ -48,5 +48,5 @@
     <Joint bvh="RightUpLeg" mass="7" TorqueLimit="200"/>
     <Joint bvh="RightLeg" mass="3" TorqueLimit="150"/>
     <Joint bvh="RightFoot" mass="0.6" TorqueLimit="90"/>
-    <Joint bvh="RightToe" name="RightToe" mass="0.3" TorqueLimit="60"/>
+    <Joint bvh="RightToeBase" name="RightToe" mass="0.3" TorqueLimit="60"/>
  -->

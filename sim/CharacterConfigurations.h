@@ -16,8 +16,8 @@
 // #define CHARACTER_TYPE "humanoid_mixamo_sm"
 // #define REF_CHARACTER_TYPE "humanoid_mixamo_sm"
 
-#define CHARACTER_TYPE "mxm_nolimit"
-#define REF_CHARACTER_TYPE "mxm_nolimit"
+#define CHARACTER_TYPE "mxm_t2_nolimit"
+#define REF_CHARACTER_TYPE "mxm_t2_nolimit"
 
 // #define OBJECT_TYPE "jump_box_long"
 

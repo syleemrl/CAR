@@ -196,7 +196,8 @@ protected:
 
 	// flair
 	int mCount;
-	Eigen::Vector3d mMomentum;
+	// Eigen::Vector3d mMomentum;
+	double mKE_rot;
 	Eigen::Vector3d mVelocity;
 	
 	Eigen::Vector6d head_force, leftToe_force, rightToe_force, leftHand_force, rightHand_force;
