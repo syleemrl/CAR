@@ -179,12 +179,12 @@ protected:
 
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+	
 /////////////////////////////////////////////////
 // for action parameter design
-	Eigen::Vector6d mHeadRoot;
-	int mCountHead;
-	double maxSpeedObj;
-	Eigen::Vector3d mHandPosition;
+	int mCount;
+	Eigen::Vector3d mVelocity;
+	Eigen::Vector3d mMomentum;
 
 //////////////////////////////////////////////////
 };

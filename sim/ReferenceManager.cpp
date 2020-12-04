@@ -425,24 +425,24 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
-	mThresholdTracking = 0.85;
+	mThresholdTracking = 0.8;
 
-	mParamCur.resize(4);
-	mParamCur << 0.707107, 1.3, 1.2, 0.4;
+	mParamCur.resize(1);
+	mParamCur << 6;
 
-	mParamGoal.resize(4);
-	mParamGoal << 0.707107, 1.3, 1.2, 0.4;
+	mParamGoal.resize(1);
+	mParamGoal << 6;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.1, 0.2;
+		Eigen::VectorXd paramUnit(1);
+		paramUnit<< 1;
 
-		mParamBase.resize(4);
-		mParamBase << 0.1, 1.0, 0.8, 0.3;
+		mParamBase.resize(1);
+		mParamBase << 3;
 
 
-		mParamEnd.resize(4);
-		mParamEnd << 0.8, 1.5, 1.3, 1.5;
+		mParamEnd.resize(1);
+		mParamEnd << 12;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -508,7 +508,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
-
+	// std::cout << std::get<0>(rewards) << " " << std::get<2>(rewards).sum_contact << " " << parameters << std::endl;
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 

@@ -29,8 +29,8 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
-	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
-	mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+	// path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
+	// mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	
 	if(ppo == "") {
 		mRunSim = false;
@@ -171,7 +171,7 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
-		tp = v_param*0.1;
+		tp = v_param*0.05;
 	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;

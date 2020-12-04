@@ -13,6 +13,6 @@
 #define JOINT_DAMPING (0.05)
 #define FOOT_CONTACT_THERESHOLD (0.3)
 
-#define CHARACTER_TYPE "humanoid_ue"
-#define REF_CHARACTER_TYPE "humanoid_ue"
+#define CHARACTER_TYPE "mxm_gen"
+#define REF_CHARACTER_TYPE "mxm_gen"
 #endif

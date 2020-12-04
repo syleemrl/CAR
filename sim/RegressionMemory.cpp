@@ -56,12 +56,12 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.35;
-	mThresholdInside = 0.6;
-	mRangeExplore = 0.25;
+	mRadiusNeighbor = 0.05;
+	mThresholdInside = 0.5;
+	mRangeExplore = 0.2;
 	mThresholdActivate = 3;
 
-//	for(int i = 0; i < 10; i++) {
+	for(int i = 0; i < 2; i++) {
 		mParamBVH = new Param();
 		mParamBVH->cps.clear();
 		for(int i = 0; i < mNumKnots; i++) {
@@ -74,7 +74,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 		mParamBVH->reward = 1;
 		mParamBVH->update = false;
 		AddMapping(mParamBVH);
-//	}
+	}
 
 
 	Eigen::VectorXd base(mDim);
@@ -268,6 +268,7 @@ LoadParamSpace(std::string path) {
 
 	if(is.fail())
 		return;
+	mGridMap.clear();
 
 	is >> buffer;
 	mNumSamples = atoi(buffer);
@@ -769,11 +770,13 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 			}
 		}
 	}
-
 	if(n_compare == 0) {
 		mRecordLog.push_back("new parameter: " + vectorXd_to_string(nearest) + ", " + std::to_string(std::get<2>(candidate)));
 	}
+
 	if(flag) {
+		std::cout << candidate_scaled << " " << std::get<2>(candidate) - prev_max << std::endl;
+
 		// std::cout << Denormalize(std::get<1>(candidate)).transpose() << " " <<to_be_deleted.size() << std::endl; 
 		for(int i = 0; i < to_be_deleted.size(); i++) {
 			for(int j = 0; j < to_be_deleted[i].second.size(); j++) {
@@ -793,12 +796,11 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
-	
 		// if(p->reward >= prev_max + 0.01)
 		// 	mNewSamplesNearGoal += 1;
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && to_be_deleted.size() == 0) {
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 0.6 && to_be_deleted.size() == 0) {
 			mNewSamplesNearGoal += 1;
-		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && p->reward >= prev_max + 0.01) {
+		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 0.6 && p->reward >= prev_max + 0.01) {
 			mUpdatedSamplesNearGoal += 1;
 		}
 		// if(p->reward >= prev_max + 0.01)
@@ -842,30 +844,9 @@ SaveContinuousParamSpace(std::string path) {
 double 
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
-	Eigen::VectorXd headRoot(6);
-	headRoot << -1.77697, -1.73886, 0.793543, 0.00431308, 0.820601, -0.000182682;
-
-	Eigen::Vector3d root_new = headRoot.segment<3>(0);
-	root_new = projectToXZ(root_new);
-	Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-	Eigen::Vector3d dir = Eigen::Vector3d(p(0), 0, - sqrt(1 - p(0)*p(0)));
-	dir *= p(2);
-	Eigen::Vector3d p_hand = aa * dir;
-	p_hand(1) = p(1);
-
-	dir = Eigen::Vector3d(p_goal(0), 0, - sqrt(1 - p_goal(0)*p_goal(0)));
-	dir *= p_goal(2);
-	Eigen::Vector3d goal_hand = aa * dir;
-	goal_hand(1) = p_goal(1);
-
-	Eigen::Vector3d hand_diff = goal_hand - p_hand;
-	double v_diff = p_goal(3) - p(3);
-	
-	double 	r_param = exp_of_squared(hand_diff,0.2) * exp(-pow(v_diff, 2)*20);
-	return r_param;	
-	// Eigen::VectorXd diff = p - p_goal;
-	// double r_param = exp_of_squared(diff, 0.2);
-	// return r_param;
+	double diff = p(0) - p_goal(0);
+	double r_param = exp(-pow(diff, 2) * 0.35);
+	return r_param;
 }
 void 
 RegressionMemory::
@@ -900,8 +881,8 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	double r = 0;
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
-		double fitness = preward*pow(ps[i].second->reward, 2);
-		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << GetDistanceNorm(ps[i].second->param_normalized, Normalize(p_goal)) << std::endl;
+		double fitness = preward*ps[i].second->reward;
+	//	std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
 
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
@@ -929,7 +910,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	}
 	double weight_sum = 0;
 	for(int i = 0; i < mNumElite; i++) {
-		double w = log(mNumElite + 1) - log(i + 1);
+		double w = ps_elite[i].first;
 		weight_sum += w;
 	    std::vector<Eigen::VectorXd> cps = ps_elite[i].second->cps;
 	    for(int j = 0; j < mNumKnots; j++) {
@@ -939,7 +920,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
-	    // std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
+	 //   std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
 	}
 
 

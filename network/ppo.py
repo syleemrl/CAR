@@ -75,8 +75,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.25]
-		self.optim_frequency = [optim_frequency, optim_frequency * 4]
+		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.5]
+		self.optim_frequency = [optim_frequency, optim_frequency * 2]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -535,6 +535,7 @@ class PPO(object):
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
+
 			if self.parametric:
 				param_info = self.env.updateGoal(self.critic_target)
 			else:
@@ -589,8 +590,8 @@ class PPO(object):
 					elif t == 1:
 						it_cur = 0
 					
-					if self.env.needEvaluation():
-						self.eval(30)
+					# if self.env.needEvaluation():
+					# 	self.eval(30)
 				elif self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					self.env.updateReference()
