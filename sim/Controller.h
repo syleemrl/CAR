@@ -179,11 +179,13 @@ protected:
 
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
-	
+
 /////////////////////////////////////////////////
 // for action parameter design
 	int mCount;
-	Eigen::Vector3d mVelocity;
+	double mJumpStartFrame;
+	double mPosDiff;
+	Eigen::Vector3d mTotalLength;
 	Eigen::Vector3d mMomentum;
 
 //////////////////////////////////////////////////

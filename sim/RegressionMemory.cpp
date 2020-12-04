@@ -845,7 +845,7 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	double diff = p(0) - p_goal(0);
-	double r_param = exp(-pow(diff, 2) * 0.35);
+	double r_param = exp(-pow(diff, 2) * 0.75);
 	return r_param;
 }
 void 
@@ -882,7 +882,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*ps[i].second->reward;
-	//	std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
+		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
 
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
@@ -920,7 +920,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
-	 //   std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
+	    // std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
 	}
 
 

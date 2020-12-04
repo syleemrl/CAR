@@ -120,7 +120,7 @@ class Sampler(object):
 				self.sample.append(t)
 	def saveProgress(self, mode):
 		plist = self.sim_env.GetExplorationRate()
-		p = plist[0] + 3 * plist[1]
+		p = plist[0] + plist[1]
 		self.progress_cur += p
 		self.progress_cur_new += plist[0]
 		self.progress_cur_update += plist[1]
@@ -322,7 +322,7 @@ class Sampler(object):
 				mean /= count
 
 			print(p_mean, mean)
-			if p_mean < mean * 0.9:
+			if p_mean < mean - 1.0:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
