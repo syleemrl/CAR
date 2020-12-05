@@ -115,7 +115,7 @@ class Sampler(object):
 			self.sample = []
 			self.evaluation_counter = 0
 
-			while len(self.sample) < 20:
+			while len(self.sample) < 10:
 				t = self.randomSample(False) 
 				self.sample.append(t)
 	def saveProgress(self, mode):
@@ -164,38 +164,39 @@ class Sampler(object):
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
 			self.progress_queue_exploit.append(self.progress_cur)		
 
-			self.v_mean_cur = np.array(results).mean()
-			if self.v_mean == 0:
-				self.v_mean = self.v_mean_cur
-			else:
-				self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
-
-			p_mean = np.array(self.progress_queue_exploit).mean()
-
-			v_mean_boundary_cur = 0
-			count = 0
-			for i in range(len(results)):
-				if info[i] > 1.0 and info[i] < 1.15:
-					count += 1
-					v_mean_boundary_cur += results[i]
-			rate = 0		
-			if count != 0:
-				v_mean_boundary_cur /= count
-				if self.v_mean_boundary == 0:
-					self.v_mean_boundary = v_mean_boundary_cur
+			if len(results) != 0:
+				self.v_mean_cur = np.array(results).mean()
+				if self.v_mean == 0:
+					self.v_mean = self.v_mean_cur
 				else:
-					rate = min(0.2, count * 0.0006)
-					self.v_mean_boundary = (1- rate) * self.v_mean_boundary + rate * v_mean_boundary_cur
-		
+					self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
 
-			print(self.progress_queue_exploit)
-			print("===========================================")
-			print("mean reward : ", self.v_mean)
-			print("current mean boundary reward: ", v_mean_boundary_cur, rate)
-			print("mean boundary reward : ", self.v_mean_boundary)
-			print("exploration rate : ", p_mean)
-			print("===========================================")
-		
+				p_mean = np.array(self.progress_queue_exploit).mean()
+
+				v_mean_boundary_cur = 0
+				count = 0
+				for i in range(len(results)):
+					if info[i] > 1.0 and info[i] < 1.15:
+						count += 1
+						v_mean_boundary_cur += results[i]
+				rate = 0		
+				if count != 0:
+					v_mean_boundary_cur /= count
+					if self.v_mean_boundary == 0:
+						self.v_mean_boundary = v_mean_boundary_cur
+					else:
+						rate = min(0.2, count * 0.0006)
+						self.v_mean_boundary = (1- rate) * self.v_mean_boundary + rate * v_mean_boundary_cur
+			
+
+				print(self.progress_queue_exploit)
+				print("===========================================")
+				print("mean reward : ", self.v_mean)
+				print("current mean boundary reward: ", v_mean_boundary_cur, rate)
+				print("mean boundary reward : ", self.v_mean_boundary)
+				print("exploration rate : ", p_mean)
+				print("===========================================")
+
 		print(self.progress_cur_new, self.progress_cur_update)
 		self.progress_cur_new = 0
 		self.progress_cur_update = 0
@@ -278,7 +279,7 @@ class Sampler(object):
 		self.evaluation_done = False
 		self.evaluation_counter = 0
 
-		while len(self.sample) < 40:
+		while len(self.sample) < 10:
 			t = self.randomSample(False) 
 			self.sample.append(t)
 
@@ -301,6 +302,7 @@ class Sampler(object):
 		return mean, count
 
 	def isEnough(self):
+
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 

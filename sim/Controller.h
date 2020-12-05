@@ -185,9 +185,9 @@ protected:
 	int mCount;
 	double mJumpStartFrame;
 	double mPosDiff;
+	double mJumpHeight;
 	Eigen::Vector3d mTotalLength;
 	Eigen::Vector3d mMomentum;
-
 //////////////////////////////////////////////////
 };
 }
