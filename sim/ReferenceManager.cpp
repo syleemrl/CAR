@@ -458,8 +458,8 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.85;
 
-	mParamCur.resize(1); // COM velocity
-	mParamCur << 0.46, 0.8 ; 
+	mParamCur.resize(1); // time duration
+	mParamCur << 32;
 
 	mParamGoal.resize(1);
 	mParamGoal = mParamCur;
@@ -467,14 +467,13 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(1);
-		paramUnit << mParamGoal[0]*0.1;
+		paramUnit << 4;
 
 		mParamBase.resize(1);
-		mParamBase << mParamGoal[0]*0.8;
+		mParamBase << 24;
 
 		mParamEnd.resize(1);
-		mParamEnd << mParamGoal[0]*1.8;
-
+		mParamEnd << 48;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
