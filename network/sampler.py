@@ -115,7 +115,7 @@ class Sampler(object):
 			self.sample = []
 			self.evaluation_counter = 0
 
-			while len(self.sample) < 40:
+			while len(self.sample) < 20:
 				t = self.randomSample(False) 
 				self.sample.append(t)
 	def saveProgress(self, mode):
@@ -175,7 +175,7 @@ class Sampler(object):
 			v_mean_boundary_cur = 0
 			count = 0
 			for i in range(len(results)):
-				if info[i] > 0.5 and info[i] < 0.7:
+				if info[i] > 1.0 and info[i] < 1.15:
 					count += 1
 					v_mean_boundary_cur += results[i]
 			rate = 0		
@@ -308,13 +308,13 @@ class Sampler(object):
 			return False
 
 		if self.use_table:
-			v_key = math.floor(self.v_mean_boundary * 1 / self.unit) - 2
+			v_key = math.floor(self.v_mean * 1 / self.unit) - 1
 			count = 0
 			mean = 0
 			for n in range(5):
 				if v_key + n in self.vp_dict:
 					for i in range(len(self.vp_dict[v_key + n])):
-						if abs(self.v_mean_boundary - self.vp_dict[v_key + n][i][0]) < self.distance:
+						if abs(self.v_mean - self.vp_dict[v_key + n][i][0]) < self.distance:
 							mean += self.vp_dict[v_key + n][i][1]
 							count += 1
 			

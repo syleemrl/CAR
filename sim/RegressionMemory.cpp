@@ -57,8 +57,8 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	mNumElite = 5;
 	mRadiusNeighbor = 0.05;
-	mThresholdInside = 0.5;
-	mRangeExplore = 0.2;
+	mThresholdInside = 1.0;
+	mRangeExplore = 0.4;
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 2; i++) {
@@ -845,7 +845,7 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	double diff = p(0) - p_goal(0);
-	double r_param = exp(-pow(diff, 2) * 0.75);
+	double r_param = exp(-pow(diff, 2) * 50);
 	return r_param;
 }
 void 

@@ -8,10 +8,11 @@
 #include <QSlider>
 #include <chrono>
 #include <algorithm>
+#include <ctime>
 MotionWidget::
 MotionWidget()
   :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),
-  mTrackCamera(false), mDrawBvh(true), mDrawSim(true), mDrawReg(true)
+  mTrackCamera(false), mDrawBvh(true), mDrawSim(true), mDrawReg(true), mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	this->startTimer(30);
 }
@@ -59,7 +60,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
 
     }
-
+    mPath = "";
     if(mRunSim) {
 	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
 	    if(mRunReg)
@@ -68,7 +69,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path);
 	    mReferenceManager->LoadAdaptiveMotion("ref_1");
 	    mDrawReg = true;
-
+	    mPath = path;
     } else if(mRunReg) {
     	mReferenceManager->InitOptimization(1, "", true);
     }
@@ -172,6 +173,10 @@ UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
 		tp = v_param*0.05;
+		for(int i = 0; i < tp.rows(); i++) {
+			tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
+		}
+		
 	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
@@ -631,4 +636,14 @@ void
 MotionWidget::
 togglePlay() {
 	mPlay = !mPlay;
+}
+void 
+MotionWidget::
+Save() {
+	time_t t;
+	time(&t);
+
+	std::string time_str = std::ctime(&t);
+
+	mController->SaveDisplayedData(mPath + "record_" + time_str, true);
 }

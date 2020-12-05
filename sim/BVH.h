@@ -60,6 +60,7 @@ public:
 	double GetMaxTime(){return mNumTotalFrames*mTimeStep;}
 	double GetTimeStep(){return mTimeStep;}
 	void Parse(const std::string& file);
+	std::vector<std::string> GetHierarchyStr() {return mHierarchyStr; }
 private:
 	std::vector<Eigen::VectorXd> mMotions;
 	std::map<std::string,BVHNode*> mMap;
@@ -73,6 +74,7 @@ private:
 	Eigen::VectorXd mMotionDiff;
 
 	int num_interpolate;
+	std::vector<std::string> mHierarchyStr;
 	BVHNode* ReadHierarchy(BVHNode* parent,const std::string& name,int& channel_offset,std::ifstream& is);
 };
 

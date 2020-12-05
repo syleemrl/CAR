@@ -77,6 +77,10 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     button = new QPushButton("next", this);
     connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(NextFrame())); 
     buttonlayout->addWidget(button);    
+
+    button = new QPushButton("save", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Save())); 
+    buttonlayout->addWidget(button);    
     buttonlayout->addStretch(1);
 
     motionlayout->addLayout(buttonlayout);
@@ -154,3 +158,4 @@ togglePlay(const bool& toggled)
     mMotionWidget->togglePlay();
 
 }
+

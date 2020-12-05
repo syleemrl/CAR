@@ -139,15 +139,17 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof]))-1) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 0.8);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -2.0, 1.0);
+	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
-	if(!isAdaptive)
-		mAdaptiveStep = 0;
+	// std::cout << mAdaptiveStep << std::endl;
+
+	// if(!isAdaptive)
+	// 	mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
-	this->mCurrentFrame += (1 + mAdaptiveStep);
-	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
+	this->mCurrentFrame += mAdaptiveStep;
+	this->mCurrentFrameOnPhase += mAdaptiveStep;
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
@@ -198,16 +200,15 @@ Step()
 			mWorld->step(false);
 		}
 
-		mTimeElapsed += 2 * (1 + mAdaptiveStep);
+		mTimeElapsed += 2 * mAdaptiveStep;
 	}
 	if(mCurrentFrameOnPhase >= 21 && mControlFlag[0] == 0) {
 		mJumpStartFrame = mCurrentFrame;
 		mControlFlag[0] = 1;
-	} 
-
+	}
 	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase <= 40) {
 		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-		Eigen::Vector6d length = mCharacter->GetSkeleton()->getCOMSpatialVelocity() * (1+mAdaptiveStep);
+		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 		Eigen::Vector3d momentum;
 		momentum.setZero();
 		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
@@ -222,14 +223,11 @@ Step()
 			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
 			momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
 		}
-
-		Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
-		Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
-
-		mCount += 1;		
-		mPosDiff += pos_diff.dot(pos_diff) / pos_diff.rows();
 		mMomentum += momentum;
-		mTotalLength += length.segment<3>(0);
+		mTotalLength += V.segment<3>(0) * mAdaptiveStep;
+		// std::cout << mCurrentFrameOnPhase << " " << momentum.transpose() << std::endl;
+		// mVelocity += V.segment<3>(0);
+		mCount += 1;
 	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -256,8 +254,8 @@ Step()
 			mCountTracking = 0;
 			
 			mCount = 0;
-			mPosDiff = 0;
 			mTotalLength.setZero();
+			// mVelocity.setZero();
 			mMomentum.setZero();
 		}
 	}
@@ -334,7 +332,7 @@ ClearRecord()
 
 	data_raw.clear();
 	mCount = 0;
-	mPosDiff = 0;
+	// mVelocity.setZero();
 	mTotalLength.setZero();
 	mMomentum.setZero();
 }
@@ -545,9 +543,9 @@ GetParamReward()
 		// Eigen::VectorXd velocity = mTotalLength / mCount;
 		mMomentum /= mCount;
 	
-		Eigen::Vector3d momentumBVH = Eigen::Vector3d(-28, 0, -5);
+		Eigen::Vector3d momentumBVH = Eigen::Vector3d(-36, 0, -13);
 		Eigen::Vector3d m_diff = mMomentum - momentumBVH;
-		m_diff(2) *= 0.1;
+		m_diff(2) *= 0.75;
 
 		double velocity = (mCurrentFrame - mJumpStartFrame) / mCount;
 		double v_diff = velocity - mParamGoal(0);
@@ -559,7 +557,7 @@ GetParamReward()
 		// Eigen::Vector3d l_diff = mTotalLength - totalLengthBVH;
 		// l_diff(2) *= 0.1;
 		double r_m = exp_of_squared(m_diff, 3);
-		double r_v = exp(-pow(v_diff, 2)*150);
+		double r_v = exp(-pow(v_diff, 2)*175);
 		// double r_l = exp_of_squared(l_diff, 3);
 
 		// std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
@@ -582,11 +580,10 @@ GetParamReward()
 		if(mRecord) {
 			std::cout << mParamCur << " / " << r_param << std::endl;
 			std::cout << "momentum : " << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_m << std::endl;
-			//std::cout << "totallength : " << mTotalLength.transpose() << " / " << l_diff.transpose() << " / " << r_l << std::endl;
-			std::cout << "velocity : " << velocity<< " / " << v_diff << " / " << r_v << std::endl;
+			std::cout << "totallength : " << mTotalLength.transpose() << std::endl;
+			std::cout << "velocity : " << mCurrentFrame << " " << mJumpStartFrame << " " << mCount << " " << velocity<< " / " << v_diff << " / " << r_v << std::endl;
 		}
 	}
-
 	return r_param;
 	
 }
@@ -600,7 +597,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
-	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
+	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
 	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
@@ -608,21 +605,22 @@ UpdateAdaptiveReward()
 	double r_param = this->GetParamReward();
 
 	double r_tot = r_tracking;
-
+	
 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
 	Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
 	double r_pos = exp_of_squared(pos_diff, 0.2);
 	if(mCurrentFrameOnPhase >= 20 && mCurrentFrameOnPhase <= 40) {
 		r_tot = 0.9 * r_tot + 0.1 * r_pos;
 	}
-
+	
 	mRewardParts.clear();
+
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_param);
+		mRewardParts.push_back(20 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -647,7 +645,7 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
+	double r_time = exp(-pow((mActions[mInterestedDof] - 1),2)*40);
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
@@ -831,7 +829,7 @@ Reset(bool RSI)
 	
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
-
+	mAdaptiveStep = 1;
 	if(isAdaptive)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
@@ -1003,12 +1001,12 @@ GetState()
 
 	double com_diff = 0;
 	if(isParametric) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mParamGoal.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
+		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal;
 	}
 	else {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
+		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
 	}
 
 	return state;
@@ -1029,8 +1027,9 @@ Controller::SaveTimeData(std::string directory) {
 }
 void
 Controller::SaveDisplayedData(std::string directory, bool bvh) {
-	std::string path = std::string(CAR_DIR) + std::string("/") +  directory;
+	std::string path = directory;
 	std::cout << "save results to" << path << std::endl;
+	std::vector<std::string> HIERARCHY = mReferenceManager->GetHierarchyStr();
 
 	std::ofstream ofs(path);
 	std::vector<std::string> bvh_order;
@@ -1038,6 +1037,8 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	bvh_order.push_back("Spine");
 	bvh_order.push_back("Spine1");
 	bvh_order.push_back("Spine2");
+	bvh_order.push_back("Neck");
+	bvh_order.push_back("Head");
 	bvh_order.push_back("LeftShoulder");
 	bvh_order.push_back("LeftArm");
 	bvh_order.push_back("LeftForeArm");
@@ -1046,20 +1047,26 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	bvh_order.push_back("RightArm");
 	bvh_order.push_back("RightForeArm");
 	bvh_order.push_back("RightHand");
-	bvh_order.push_back("Neck");
-	bvh_order.push_back("Head");
-	bvh_order.push_back("LeftUpLeg");
-	bvh_order.push_back("LeftLeg");
-	bvh_order.push_back("LeftFoot");
-	bvh_order.push_back("LeftToe");
 	bvh_order.push_back("RightUpLeg");
 	bvh_order.push_back("RightLeg");
 	bvh_order.push_back("RightFoot");
 	bvh_order.push_back("RightToe");
+	bvh_order.push_back("LeftUpLeg");
+	bvh_order.push_back("LeftLeg");
+	bvh_order.push_back("LeftFoot");
+	bvh_order.push_back("LeftToe");
 
 
-	if(bvh)
-		ofs << mRecordPosition.size() << std::endl;
+	if(bvh) {
+		ofs << "HIERARCHY" << std::endl;
+		ofs << "ROOT Hips" << std::endl;
+		for(int i = 0; i < HIERARCHY.size(); i++) {
+			ofs << HIERARCHY[i] << std::endl;
+		}
+		ofs << "MOTION" << std::endl;
+		ofs << "Frames: " << std::to_string(mRecordPosition.size()) << std::endl;
+		ofs << "Frame Time:	0.0333333" << std::endl;
+	}
 	for(auto t: mRecordPosition) {
 		if(bvh) {
 			ofs << t.segment<3>(3).transpose() * 100 << " ";

@@ -36,6 +36,7 @@ public slots:
 	void UpdatePrevParam(const bool& pressed);
 	void UpdateNextParam(const bool& pressed);
 	void UpdateIthParam(int i);
+	void Save();
 	
 	void setValue(const int &x);
 	void toggleDrawBvh();
@@ -70,6 +71,7 @@ protected:
 	bool 							mPlay;
 	int 							mCurFrame;
 	int 							mTotalFrame;
+	std::string						mPath;
 
 	std::vector<Eigen::VectorXd> 	mMotion_bvh;
 	std::vector<Eigen::VectorXd> 	mMotion_reg;
@@ -95,7 +97,6 @@ protected:
 	bool 							mDrawReg;
 	bool 							mDrawExp;
 
-
 	p::object 						mRegression;
 	p::object 						mPPO;
 	DPhy::ReferenceManager*			mReferenceManager;
@@ -108,5 +109,10 @@ protected:
 	Eigen::Vector3d 				mPoints;
 	Eigen::Vector3d 				mPoints_exp;
 	int regMemShow_idx= 0;
+
+	std::random_device mRD;
+	std::mt19937 mMT;
+	std::uniform_real_distribution<double> mUniform;
+
 };
 #endif

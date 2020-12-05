@@ -112,7 +112,7 @@ LoadMotionFromBVH(std::string filename)
 	BVH* bvh = new BVH();
 	std::string path = std::string(CAR_DIR) + filename;
 	bvh->Parse(path);
-
+	mHierarchyStr = bvh->GetHierarchyStr(); 
 	std::cout << "load trained data from: " << path << std::endl;
 
 	std::vector<std::string> contact;
@@ -442,7 +442,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 
 		mParamEnd.resize(1);
-		mParamEnd << 1.5;
+		mParamEnd << 2.0;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);

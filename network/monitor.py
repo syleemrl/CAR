@@ -229,7 +229,7 @@ class Monitor(object):
 				self.saveVPtable()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.num_evaluation >= 10 and self.sampler.n_explore >= 5 and \
+			if self.num_evaluation >= 10 and self.sampler.n_explore >= 10 and \
 			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9:
 				self.mode = 1
 				self.mode_counter = 0
@@ -275,7 +275,7 @@ class Monitor(object):
 		if record:
 			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		else:
-			t = self.sim_env.UniformSampleWithConstraints(0.6, 0.75)
+			t = self.sim_env.UniformSampleWithConstraints(1.0, 1.2)
 			idx = -1
 		
 		t = np.array(t, dtype=np.float32) 
