@@ -200,7 +200,7 @@ protected:
 	double mKE_rot;
 	Eigen::Vector3d mVelocity;
 	
-	Eigen::Vector6d head_force, leftToe_force, rightToe_force, leftHand_force, rightHand_force;
+	Eigen::Vector6d head_force, leftToe_force, rightToe_force, leftHand_force, rightHand_force, leftFoot_force, rightFoot_force;
 	bool cycle_done;
 
 };

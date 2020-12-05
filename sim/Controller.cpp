@@ -190,7 +190,7 @@ Step()
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
 	
-	head_force.setZero(); leftToe_force.setZero(); rightToe_force.setZero(), leftHand_force.setZero(); rightHand_force.setZero();
+	head_force.setZero(); leftToe_force.setZero(); rightToe_force.setZero(), leftHand_force.setZero(); rightHand_force.setZero(); leftFoot_force.setZero(); rightFoot_force.setZero();
 
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
@@ -201,6 +201,10 @@ Step()
 			head_force+= this->mCharacter->GetSkeleton()->getBodyNode("Head")->getConstraintImpulse();
 			leftToe_force+= this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getConstraintImpulse();
 			rightToe_force+= this->mCharacter->GetSkeleton()->getBodyNode("RightToe")->getConstraintImpulse();
+
+			leftFoot_force+= this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getConstraintImpulse();
+			rightFoot_force+= this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getConstraintImpulse();
+
 			leftHand_force+= this->mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getConstraintImpulse();
 			rightHand_force+= this->mCharacter->GetSkeleton()->getBodyNode("RightHand")->getConstraintImpulse();
 
@@ -214,6 +218,7 @@ Step()
 	Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 	mVelocity+= V.segment<3>(0);
 
+	double cur_ke_rot=0 ;
 	for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
 		auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
 		Eigen::Vector3d r = bn->getCOM() - COM;
@@ -222,9 +227,16 @@ Step()
 		double I = r.squaredNorm()*bn->getMass();
 		double KE_rot = 0.5*I*w.dot(w);
 
-		mKE_rot+= KE_rot;
+		cur_ke_rot+= KE_rot;
 	}
+	mKE_rot+= cur_ke_rot;
 	mCount+=1;
+	
+	// std::cout<<"left : "<<leftFoot_force.norm()<<" "<<leftToe_force.norm()<<" | right : "<<rightFoot_force.norm()<<" "<<rightToe_force.norm()<<std::endl;
+	// std::cout<<mCurrentFrame<<" : "<<cur_ke_rot<<std::endl;
+
+	// std::cout<<mCurrentFrame<<" : "<<V.segment<3>(0).transpose()<<std::endl;
+
 	// 	Eigen::Matrix3d R = bn->getWorldTransform().linear();
 	// 	double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
 	// 	bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
@@ -742,7 +754,7 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 
-	if(head_force.norm() >=10 || leftToe_force.norm() >=10 || rightToe_force.norm() >=10) {
+	if(head_force.norm() >=10 || leftToe_force.norm() >=10 || rightToe_force.norm() >=10 || leftFoot_force.norm() >=10 || rightFoot_force.norm() >=10) {
 		mIsTerminal = true;
 		terminationReason = 11; 
 	}
