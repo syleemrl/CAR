@@ -777,12 +777,16 @@ DrawBezierCurve(
 }
 void 
 GUI::
-DrawTrajectory(const std::vector<Eigen::Vector3d> points, const int idx, const Eigen::Vector3d& color, bool line)
+DrawTrajectory(const std::vector<Eigen::Vector3d> points, const int idx, const Eigen::Vector3d& color, bool line, bool bezier)
 {
     if(line) {
-        for(int i = std::max(0, idx - 60); i < idx; i+=2) {
+        for(int i = 0; i < idx; i+=2) {
             if(points.size() <= 2 || i + 2 >= points.size()) return;
-            else DrawBezierCurve(points[i], points[i+1], points[i+2], color);
+            else if(bezier) DrawBezierCurve(points[i], points[i+1], points[i+2], color);
+            else {
+                DrawLine(points[i], points[i+1], color);
+                DrawLine(points[i+1], points[i+2], color);
+            }
         }
     } else {
         for(int i = 0; i < idx; i++) {

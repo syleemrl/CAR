@@ -76,8 +76,9 @@ def plot(dir_name):
 	summary_idx_list.sort()
 
 	for s in summary_idx_list:
-		print("add ; "+str(s))
-		filelist.append('param_summary'+str(s))
+		if s%60 ==0:
+			print("add ; "+str(s))
+			filelist.append('param_summary'+str(s))
 
 	# print ("file_list: {}".format(file_list))
 

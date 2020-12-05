@@ -16,8 +16,8 @@
 // #define CHARACTER_TYPE "humanoid_mixamo_sm"
 // #define REF_CHARACTER_TYPE "humanoid_mixamo_sm"
 
-#define CHARACTER_TYPE "mxm_gen"
-#define REF_CHARACTER_TYPE "mxm_gen"
+#define CHARACTER_TYPE "mxm_t2"
+#define REF_CHARACTER_TYPE "mxm_t2"
 
 #define OBJECT_TYPE "jump_box_long"
 

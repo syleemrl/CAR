@@ -109,6 +109,8 @@ protected:
 	Eigen::Vector3d 				mPoints;
 	Eigen::Vector3d 				mPoints_exp;
 
+	std::vector<Eigen::Vector3d> trajPoints;
+	std::vector<Eigen::Vector3d> trajPoints_root;
 	int regMemShow_idx = 0;
 };
 #endif
