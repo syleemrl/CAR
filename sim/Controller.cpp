@@ -212,7 +212,7 @@ Step()
 
 		mControlFlag[0] = 1;
 	}
-	if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 37) {
+	if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 38) {
 		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
 		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
 		Eigen::Vector3d momentum;
@@ -227,11 +227,12 @@ Step()
 			I = R * I * R.transpose();
 			Eigen::AngleAxisd aa(I); 
 			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
-			momentum += aa_v + bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+			momentum += bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
 		}
 		mMomentum += momentum;
-		mTotalLength += V.segment<3>(0) * mAdaptiveStep;
-		// mVelocity += V.segment<3>(0);
+		mTotalLength += V.segment<3>(0).cwiseAbs();
+		Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), mPrevPositions.segment<3>(0));
+
 		mCount += 1;
 	} 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -541,39 +542,48 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 37 && mControlFlag[0] == 1) 		
+	if(mCurrentFrameOnPhase >= 38 && mControlFlag[0] == 1) 		
 	{	
 		mMomentum(1) = 0;
 		mMomentum /= mCount;
 	
 		Eigen::Vector3d momentumBVH = Eigen::Vector3d(-38, 0, -14);
 		Eigen::Vector3d m_diff = mMomentum - momentumBVH;
-		m_diff(2) *= 0.75;
+		m_diff(2) *= 0.5;
 
-		double heightBVH = 1.45;
-		double h_diff = mJumpHeight - heightBVH;
+		double h_diff = mJumpHeight - mParamGoal(1);
 
 		double velocity = (mCurrentFrame - mJumpStartFrame) / mCount;
 		double v_diff = velocity - mParamGoal(0);
 		
+		mTotalLength(1) = 0;
+		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(84, 0, 37);
+		Eigen::Vector3d l_diff = mTotalLength - totalLengthBVH;
+		l_diff(2) *= 0.5;
 
 		double r_m = exp_of_squared(m_diff, 3);
+		double r_l = exp_of_squared(l_diff, 4);
+
 		double r_v = exp(-pow(v_diff, 2)*175);
-		double r_h = exp(-pow(h_diff, 2)*200);
+		double r_h = exp(-pow(h_diff, 2)*175);
 
-		r_param = r_m * r_v * r_h;
+		r_param = r_v * r_m * r_h * r_l;
 
-		if(r_m > 0.3 && r_h > 0.3)
+		if(r_m > 0.3 && r_l > 0.3) {
 			mParamCur(0) = velocity;
-		else
+			mParamCur(1) = mJumpHeight;
+		}
+		else {
 			mParamCur(0) = -1;
+			mParamCur(1) = -1;
+		}
 
 		mControlFlag[0] = 2;		
-		mFitness.sum_reward = r_m * r_h;
+		mFitness.sum_reward = r_m * r_l;
 		if(mRecord) {
 			std::cout << mParamCur << " / " << r_param << std::endl;
 			std::cout << "momentum : " << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_m << std::endl;
-			std::cout << "totallength : " << mTotalLength.transpose() << std::endl;
+			std::cout << "totallength : " << mTotalLength.transpose() << " / " << l_diff.transpose() << " / " << r_l << std::endl;
 			std::cout << "velocity : " << mCurrentFrame << " " << mJumpStartFrame << " " << mCount << " " << velocity<< " / " << v_diff << " / " << r_v << std::endl;
 			std::cout << "height : " << mJumpHeight << " / " << h_diff << " / " << r_h << std::endl;
 

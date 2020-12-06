@@ -80,6 +80,7 @@ protected:
 	std::vector<Eigen::VectorXd> 	mMotion_obj;
 	std::vector<Eigen::VectorXd> 	mMotion_points;
 
+	std::vector<double>				mTiming; // Controller->GetCurrentLength()
 
 
 	dart::dynamics::SkeletonPtr 	mSkel_bvh;

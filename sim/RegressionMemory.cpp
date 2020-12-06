@@ -56,7 +56,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.05;
+	mRadiusNeighbor = 0.15;
 	mThresholdInside = 1.0;
 	mRangeExplore = 0.4;
 	mThresholdActivate = 3;
@@ -775,7 +775,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	}
 
 	if(flag) {
-		std::cout << candidate_scaled << " " << std::get<2>(candidate) - prev_max << std::endl;
+		std::cout << candidate_scaled.transpose() << " " << std::get<2>(candidate) - prev_max << std::endl;
 
 		// std::cout << Denormalize(std::get<1>(candidate)).transpose() << " " <<to_be_deleted.size() << std::endl; 
 		for(int i = 0; i < to_be_deleted.size(); i++) {
@@ -844,8 +844,8 @@ SaveContinuousParamSpace(std::string path) {
 double 
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
-	double diff = p(0) - p_goal(0);
-	double r_param = exp(-pow(diff, 2) * 50);
+	Eigen::VectorXd diff = p - p_goal;
+	double r_param = exp_of_squared(diff, 0.1);
 	return r_param;
 }
 void 
