@@ -30,6 +30,8 @@
 >                 getCharacterTransformsForUE : 추가 변경필요 X / (mSkel_reg의 모션 활용) / skeleton 외 추가 object 필요시 수정하는 부분
 > 2. MainWindow.cpp
 > - UEconnect와 UEclose 버튼 추가
+> 3. Controller.cpp
+> - Eigen::Isometry3d Controller::getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel) 함수 추가
                
 >> 윈도우에서 실행시킬 코드
 > - https://github.com/y0ngw00/UEconnection.git
