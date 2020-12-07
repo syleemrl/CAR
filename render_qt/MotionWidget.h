@@ -14,6 +14,10 @@
 #include "GLfunctions.h"
 #include "DART_interface.h"
 #include "Controller.h"
+#include <sys/socket.h>
+#include "unistd.h"
+#include <netinet/in.h>
+#include <errno.h>
 #pragma pop_macro("slots")
 namespace p = boost::python;
 namespace np = boost::python::numpy;
@@ -31,6 +35,8 @@ public slots:
 	void NextFrame();
 	void PrevFrame();
 	void Reset();
+	void UEconnect();
+	void UEclose();
 	void UpdateParam(const bool& pressed);
 	void UpdateRandomParam(const bool& pressed);
 	void UpdatePrevParam(const bool& pressed);
@@ -42,6 +48,8 @@ public slots:
 	void toggleDrawSim();
 	void toggleDrawReg();
 	void toggleDrawExp();
+
+
 
 protected:
 	void initializeGL() override;	
@@ -61,6 +69,11 @@ protected:
 	void DrawSkeletons();
 	void SetFrame(int n);
  	void initNetworkSetting(std::string motion, std::string network);
+
+	void connectionOpen();
+	void connectionClose();
+	int getCharacterTransformsForUE(char *buffer, int n);
+	void sendMotion(int n);
 
 	Camera* 						mCamera;
 	int								mPrevX,mPrevY;
@@ -110,5 +123,17 @@ protected:
 	Eigen::Vector3d 				mPoints_exp;
 
 	int regMemShow_idx = 0;
+
+	std::vector<Eigen::VectorXd> mPoseRecords, mRefPoseRecords;
+
+	// for socket network
+	std::vector<std::string> mJointsUEOrder;
+	std::vector<std::string> mObjectsUEOrder;
+
+	bool							mIsConnected;
+	int 							sockfd,clientfd;
+	struct sockaddr_in serveraddr, clientaddr;
+	char *mBuffer;
+	char *mBuffer2;
 };
 #endif

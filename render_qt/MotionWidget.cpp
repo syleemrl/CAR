@@ -8,6 +8,7 @@
 #include <QSlider>
 #include <chrono>
 #include <algorithm>
+#include <fcntl.h>
 MotionWidget::
 MotionWidget()
   :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),
@@ -130,6 +131,35 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		root[0]+=0.75; left_foot[0]+=0.75; right_foot[0]+=0.75;
 		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
 	}
+	this->mJointsUEOrder.clear();
+	this->mJointsUEOrder.emplace_back("Hips");
+	this->mJointsUEOrder.emplace_back("RightUpLeg");
+	this->mJointsUEOrder.emplace_back("RightLeg");
+	this->mJointsUEOrder.emplace_back("RightFoot");
+	this->mJointsUEOrder.emplace_back("RightToe");
+	this->mJointsUEOrder.emplace_back("LeftUpLeg");
+	this->mJointsUEOrder.emplace_back("LeftLeg");
+	this->mJointsUEOrder.emplace_back("LeftFoot");
+	this->mJointsUEOrder.emplace_back("LeftToe");
+	this->mJointsUEOrder.emplace_back("Spine");
+	this->mJointsUEOrder.emplace_back("Spine1");
+	this->mJointsUEOrder.emplace_back("Spine2");
+	this->mJointsUEOrder.emplace_back("RightShoulder");
+	this->mJointsUEOrder.emplace_back("RightArm");
+	this->mJointsUEOrder.emplace_back("RightForeArm");
+	this->mJointsUEOrder.emplace_back("RightHand");
+	this->mJointsUEOrder.emplace_back("LeftShoulder");
+	this->mJointsUEOrder.emplace_back("LeftArm");
+	this->mJointsUEOrder.emplace_back("LeftForeArm");
+	this->mJointsUEOrder.emplace_back("LeftHand");
+	this->mJointsUEOrder.emplace_back("Neck");
+	this->mJointsUEOrder.emplace_back("Head");
+
+	// Add this part when add any objects in UE.
+	//this->mObjectsUEOrder.emplace_back("Jump_box");
+
+	this->mBuffer = new char[(this->mJointsUEOrder.size()+3)*4*4*sizeof(double)];
+	this->mBuffer2 = new char[128];
 
 // 0: -0.00285057     1.04087   0.0267908 / lf : 0.0966291 0.0442695 0.0625281 / rf : -0.0757626  0.0440878  0.0506681/ mid:0.0104332 0.0441786 0.0565981/ toe: -0.732919 0.0444135  0.155496
 // 33: 0.00405863    1.37757   0.348865 / lf : 0.0981162  0.600498  0.635506 / rf : -0.0836312   0.575024   0.744824/ mid:0.00724252   0.587761   0.690165/ toe: -0.745567   0.57403  0.790906
@@ -293,19 +323,19 @@ UpdateParam(const bool& pressed) {
 	    std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
 
 
-	    std::vector<Eigen::VectorXd> cps;
-	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
-	        cps.push_back(Eigen::VectorXd::Zero(dof));
-	    }
-	    for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	        Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
-	        input << j, tp;
-	        p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	    // std::vector<Eigen::VectorXd> cps;
+	    // for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
+	    //     cps.push_back(Eigen::VectorXd::Zero(dof));
+	    // }
+	    // for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	    //     Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
+	    //     input << j, tp;
+	    //     p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 	    
-	        np::ndarray na = np::from_object(a);
-	        cps[j] = DPhy::toEigenVector(na, dof);
-	    }
-
+	    //     np::ndarray na = np::from_object(a);
+	    //     cps[j] = DPhy::toEigenVector(na, dof);
+	    // }
+	   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 	    mReferenceManager->LoadAdaptiveMotion(cps);
 
 	    double phase = 0;
@@ -442,6 +472,275 @@ RunPPO() {
 }
 void
 MotionWidget::
+connectionOpen()
+{	
+	if(this->mIsConnected) return;
+
+
+	if((this->sockfd = socket(PF_INET, SOCK_STREAM, 0)) < 0){
+		std::cout << "Socket failed" << std::endl;
+	}
+	std::cout << "Socket success" << std::endl;
+	this->serveraddr.sin_family = AF_INET;
+	this->serveraddr.sin_addr.s_addr = INADDR_ANY;
+	this->serveraddr.sin_port = htons(9801);
+
+	struct timeval tv;
+	tv.tv_sec = 50;
+	tv.tv_usec = 0;
+	setsockopt(this->sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
+	int option = 1;
+	setsockopt(this->sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+
+	if(bind(this->sockfd, (struct sockaddr*)&this->serveraddr, sizeof(struct sockaddr_in)) == -1){
+		std::cout << "bind failed" << std::endl;
+		std::cout << "bind() error: " << strerror(errno) << std::endl;
+		::close(this->sockfd);
+		this->mIsConnected = false;
+		return;
+	}
+	std::cout << "bind success" << std::endl;
+
+
+	listen(this->sockfd, 1);
+	std::cout << "listen start" << std::endl;
+
+	socklen_t cli_addr_size = sizeof(struct sockaddr_in); //=16
+	this->clientfd = accept(this->sockfd, (struct sockaddr*)&this->clientaddr, &cli_addr_size);
+	if (this->clientfd == -1) {
+		std::cout << "accept() error: " << strerror(errno) << std::endl;
+		::close(this->sockfd);
+		::close(this->clientfd);
+		this->mIsConnected = false;
+		return;
+	}
+	this->mIsConnected = true;
+	std::cout << this->clientfd << " connection created" << std::endl;
+	// char buffer[2048];
+	// int msg_size;
+	// msg_size = recv(this->clientfd, buffer, 2048, 0);
+	// std::cout << "get msg whose size of " << msg_size << std::endl;
+	// send(this->clientfd, "buffer", 6, 0);
+	tv.tv_sec = 5;
+	tv.tv_usec = 0;
+	setsockopt(this->clientfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+	
+}
+
+void 
+MotionWidget::
+connectionClose()
+{
+	if(this->mIsConnected){
+		::close(this->sockfd);
+		::close(this->clientfd);
+		this->mIsConnected = false;
+		std::cout << "connection closed" << std::endl;
+	}
+}
+
+int
+MotionWidget::
+getCharacterTransformsForUE(char *buffer,int n)
+{
+	// Send Skeleton Position
+	// In this case, bvh motion is sent(mSkel_bvh)
+	Eigen::VectorXd pose = this->mSkel_reg->getPositions();
+
+	Eigen::Isometry3d local_space_transform = mController->getLocalSpaceTransform(mSkel_reg);
+	Eigen::Isometry3d local_space_transform_inv = local_space_transform.inverse();
+	Eigen::Isometry3d axis_operator;
+	axis_operator.linear() << 1, 0, 0,
+							  0, 0, 1,
+							  0, 1, 0;
+	axis_operator.translation().setZero();
+
+	std::vector<float> res;
+	Eigen::Isometry3d root_ue = axis_operator*local_space_transform*axis_operator;
+	root_ue.translation()*=100;
+	res.emplace_back(root_ue.linear()(0,0));
+	res.emplace_back(root_ue.linear()(0,1));
+	res.emplace_back(root_ue.linear()(0,2));
+	res.emplace_back(root_ue.translation()[0]);
+	res.emplace_back(root_ue.linear()(1,0));
+	res.emplace_back(root_ue.linear()(1,1));
+	res.emplace_back(root_ue.linear()(1,2));
+	res.emplace_back(root_ue.translation()[1]);
+	res.emplace_back(root_ue.linear()(2,0));
+	res.emplace_back(root_ue.linear()(2,1));
+	res.emplace_back(root_ue.linear()(2,2));
+	res.emplace_back(root_ue.translation()[2]);
+	res.emplace_back(0);
+	res.emplace_back(0);
+	res.emplace_back(0);
+	res.emplace_back(1);
+
+
+
+	for(auto joint_name : this->mJointsUEOrder){
+		Eigen::Isometry3d tf;
+		if(this->mSkel_reg->getBodyNode(joint_name)->getParentBodyNode() == nullptr) //isRoot : return this->mJointList[jointname]->getParentBodyNode() == nullptr;
+			tf = this->mSkel_reg->getBodyNode(joint_name)->getWorldTransform();
+			// getBodyGlobalPose : return this->mJointList[bodyname]->getWorldTransform().cast<float>();
+		else
+		{
+			dart::dynamics::BodyNode* body = this->mSkel_reg->getBodyNode(joint_name);
+			tf = (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode());
+			// BodyNode* body = SkeletonPtr* -> getBodynode(joint_name);
+			// get JointGlobalPose : return (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode()).cast<float>();
+		}
+		tf = axis_operator*local_space_transform_inv*tf*axis_operator;
+		tf.translation()*=100;
+		res.emplace_back(tf.linear()(0,0));
+		res.emplace_back(tf.linear()(0,1));
+		res.emplace_back(tf.linear()(0,2));
+		res.emplace_back(tf.translation()[0]);
+		res.emplace_back(tf.linear()(1,0));
+		res.emplace_back(tf.linear()(1,1));
+		res.emplace_back(tf.linear()(1,2));
+		res.emplace_back(tf.translation()[1]);
+		res.emplace_back(tf.linear()(2,0));
+		res.emplace_back(tf.linear()(2,1));
+		res.emplace_back(tf.linear()(2,2));
+		res.emplace_back(tf.translation()[2]);
+		res.emplace_back(0);
+		res.emplace_back(0);
+		res.emplace_back(0);
+		res.emplace_back(1);
+	}
+
+	// Send a object position information
+	int mult = 1 + n/(mReferenceManager->GetPhaseLength());
+	#ifdef OBJECT_TYPE
+	for(int j =1; j<=3;j++){
+		//Eigen::Isometry3d box_space_transform = mController->getLocalSpaceTransform(mSkel_obj);
+		Eigen::Isometry3d box_space_transform;
+		box_space_transform.linear() <<  1, 0, 0,
+							  			0, 1, 0,
+							  			0, 0, 1;
+		Eigen::VectorXd box_param = mRegressionMemory->Denormalize(v_param * 0.1);
+		if(j<=mult)
+			box_space_transform.translation()<< 0, j * box_param[0], j*box_param[1];
+		else
+			box_space_transform.translation()<< 0, 0, -900;
+		Eigen::Isometry3d box_pos = axis_operator*box_space_transform*axis_operator;
+
+		box_pos.translation()*=100;
+		res.emplace_back(box_pos.linear()(0,0));
+		res.emplace_back(box_pos.linear()(0,1));
+		res.emplace_back(box_pos.linear()(0,2));
+		res.emplace_back(box_pos.translation()[0]);
+		res.emplace_back(box_pos.linear()(1,0));
+		res.emplace_back(box_pos.linear()(1,1));
+		res.emplace_back(box_pos.linear()(1,2));
+		res.emplace_back(box_pos.translation()[1]);
+		res.emplace_back(box_pos.linear()(2,0));
+		res.emplace_back(box_pos.linear()(2,1));
+		res.emplace_back(box_pos.linear()(2,2));
+		res.emplace_back(box_pos.translation()[2]);
+		res.emplace_back(0);
+		res.emplace_back(0);
+		res.emplace_back(0);
+		res.emplace_back(1);
+	}
+	#endif
+
+	//// External Condition or Environment such as external forces.
+	// Eigen::Isometry3f force_start, force_end;
+	// force_start.setIdentity();
+	// force_end.setIdentity();
+	
+	// if(this->mRemainFrameRecords[this->mCurFrame] > this->mAfterForceDuration){
+	// 	Eigen::Vector3f pos = this->mForcePosRecords[this->mCurFrame];
+
+	// 	float length = this->mForceMagnitudeRecords[this->mCurFrame] / 200.;
+	// 	Eigen::Vector3f dir = this->mForceRecords[this->mCurFrame].normalized();
+
+	// 	force_start.translation() = pos;
+	// 	force_start = axis_operator*local_space_transform_inv*force_start*axis_operator;
+	// 	force_end.translation() = pos - dir*length;
+	// 	force_end = axis_operator*local_space_transform_inv*force_end*axis_operator;
+	// }
+
+	// force_start.translation()*=100;
+	// res.emplace_back(force_start.linear()(0,0));
+	// res.emplace_back(force_start.linear()(0,1));
+	// res.emplace_back(force_start.linear()(0,2));
+	// res.emplace_back(force_start.translation()[0]);
+	// res.emplace_back(force_start.linear()(1,0));
+	// res.emplace_back(force_start.linear()(1,1));
+	// res.emplace_back(force_start.linear()(1,2));
+	// res.emplace_back(force_start.translation()[1]);
+	// res.emplace_back(force_start.linear()(2,0));
+	// res.emplace_back(force_start.linear()(2,1));
+	// res.emplace_back(force_start.linear()(2,2));
+	// res.emplace_back(force_start.translation()[2]);
+	// res.emplace_back(0);
+	// res.emplace_back(0);
+	// res.emplace_back(0);
+	// res.emplace_back(1);
+
+	// force_end.translation()*=100;
+	// res.emplace_back(force_end.linear()(0,0));
+	// res.emplace_back(force_end.linear()(0,1));
+	// res.emplace_back(force_end.linear()(0,2));
+	// res.emplace_back(force_end.translation()[0]);
+	// res.emplace_back(force_end.linear()(1,0));
+	// res.emplace_back(force_end.linear()(1,1));
+	// res.emplace_back(force_end.linear()(1,2));
+	// res.emplace_back(force_end.translation()[1]);
+	// res.emplace_back(force_end.linear()(2,0));
+	// res.emplace_back(force_end.linear()(2,1));
+	// res.emplace_back(force_end.linear()(2,2));
+	// res.emplace_back(force_end.translation()[2]);
+	// res.emplace_back(0);
+	// res.emplace_back(0);
+	// res.emplace_back(0);
+	// res.emplace_back(1);
+
+	// 	virtual void backupState() override {
+	// 	this->mSavedPV << this->mSkeleton->getPositions(), this->mSkeleton->getVelocities();
+	// }
+
+	// virtual void restoreState() override {
+	// 	this->mSkeleton->setPositions(this->mSavedPV.head(this->mDofs));
+	// 	this->mSkeleton->setVelocities(this->mSavedPV.tail(this->mDofs));
+	// }
+	memcpy(buffer, res.data(), sizeof(float)*res.size());
+	// std::cout << res[256] << " : " << int(buffer[1024]) << ", " << int(buffer[1025]) << ", " << int(buffer[1026]) << ", " << int(buffer[1027]) << ", " << std::endl;
+	//this->mSkel_reg->restoreState();
+	return res.size()*sizeof(float);
+}
+
+
+void
+MotionWidget::
+sendMotion(int n)
+{
+	if(this->mIsConnected)
+	{
+		//draw character in ue4
+
+		int msg_size;
+		msg_size = recv(this->clientfd, this->mBuffer2, 128, 0);  //should include motion info in mBuffer2
+		if(msg_size < 0){
+			std::cout << "recv() error: " << strerror(errno) << std::endl;
+			this->connectionClose();
+			return;
+		}
+		int size = this->getCharacterTransformsForUE(this->mBuffer,n);
+		int ret = send(this->clientfd, this->mBuffer, size, 0);	 //should include motion info in mBuffer2
+		if(ret < 0 ){
+			std::cout << "send() error: " << strerror(errno) << std::endl;
+			this->connectionClose();
+			return;
+		}
+	}
+}
+
+void
+MotionWidget::
 initializeGL()
 {
 	glClearColor(1,1,1,1);
@@ -472,6 +771,7 @@ SetFrame(int n)
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
+    	sendMotion(n);
     	// mPoints = mMotion_points[n];
 	}
 	if(mDrawExp && n < mMotion_exp.size()) {
@@ -761,6 +1061,20 @@ Reset()
 {
 	this->mCurFrame = 0;
 	this->SetFrame(this->mCurFrame);
+}
+
+void
+MotionWidget::
+UEconnect()
+{
+	MotionWidget::connectionOpen();
+}
+
+void
+MotionWidget::
+UEclose()
+{
+	MotionWidget::connectionClose();
 }
 void 
 MotionWidget::
