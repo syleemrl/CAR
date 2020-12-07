@@ -120,10 +120,11 @@ protected:
 	Eigen::Vector3d 				mPoints_exp;
 
 	std::vector<Eigen::VectorXd> mPoseRecords, mRefPoseRecords;
+
+	// for socket network
 	std::vector<std::string> mJointsUEOrder;
 	std::vector<std::string> mObjectsUEOrder;
 
-	// for socket network
 	bool							mIsConnected;
 	int 							sockfd,clientfd;
 	struct sockaddr_in serveraddr, clientaddr;

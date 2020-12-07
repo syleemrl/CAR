@@ -419,9 +419,9 @@ getCharacterTransformsForUE(char *buffer)
 {
 	// Send Skeleton Position
 	// In this case, bvh motion is sent(mSkel_bvh)
-	Eigen::VectorXd pose = this->mSkel_bvh->getPositions();
+	Eigen::VectorXd pose = this->mSkel_reg->getPositions();
 
-	Eigen::Isometry3d local_space_transform = mController->getLocalSpaceTransform(mSkel_bvh);
+	Eigen::Isometry3d local_space_transform = mController->getLocalSpaceTransform(mSkel_reg);
 	Eigen::Isometry3d local_space_transform_inv = local_space_transform.inverse();
 	Eigen::Isometry3d axis_operator;
 	axis_operator.linear() << 1, 0, 0,
@@ -453,12 +453,12 @@ getCharacterTransformsForUE(char *buffer)
 
 	for(auto joint_name : this->mJointsUEOrder){
 		Eigen::Isometry3d tf;
-		if(this->mSkel_bvh->getBodyNode(joint_name)->getParentBodyNode() == nullptr) //isRoot : return this->mJointList[jointname]->getParentBodyNode() == nullptr;
-			tf = this->mSkel_bvh->getBodyNode(joint_name)->getWorldTransform();
+		if(this->mSkel_reg->getBodyNode(joint_name)->getParentBodyNode() == nullptr) //isRoot : return this->mJointList[jointname]->getParentBodyNode() == nullptr;
+			tf = this->mSkel_reg->getBodyNode(joint_name)->getWorldTransform();
 			// getBodyGlobalPose : return this->mJointList[bodyname]->getWorldTransform().cast<float>();
 		else
 		{
-			dart::dynamics::BodyNode* body = this->mSkel_bvh->getBodyNode(joint_name);
+			dart::dynamics::BodyNode* body = this->mSkel_reg->getBodyNode(joint_name);
 			tf = (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode());
 			// BodyNode* body = SkeletonPtr* -> getBodynode(joint_name);
 			// get JointGlobalPose : return (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode()).cast<float>();
@@ -630,7 +630,7 @@ SetFrame(int n)
 {
 	if(mDrawBvh && n < mMotion_bvh.size()) {
     	mSkel_bvh->setPositions(mMotion_bvh[n]);
-    	sendMotion();
+    	
 	}
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
@@ -639,7 +639,7 @@ SetFrame(int n)
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
-
+    	sendMotion();
     	// #ifdef OBJECT_TYPE
 	    // 	mSkel_obj->setPositions(mMotion_obj[n]);
     	// #endif
