@@ -34,10 +34,9 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		std::cout<<"\nMotionWidget OBJ"<<std::endl;
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
-
-		Eigen::VectorXd obj_pos(7);
+		int obj_dof = mSkel_obj->getNumDofs();
+		Eigen::VectorXd obj_pos(obj_dof);
 		obj_pos.setZero();
-		obj_pos[5]=0.8; obj_pos[6]= 0.46;
 		mSkel_obj->setPositions(obj_pos);
 	#endif
 	
@@ -116,6 +115,22 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
+	std::vector<int> checkFrames= {0, 16, 40, 50, 58};
+	for(int cf: checkFrames){
+        Eigen::VectorXd p = mReferenceManager->GetPosition(cf, true);		
+        mSkel_bvh->setPositions(p);
+        mSkel_bvh->computeForwardKinematics(true, false, false);
+
+        Eigen::Vector3d lf = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+        Eigen::Vector3d rf = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+
+		Eigen::Vector3d lh = mSkel_bvh->getBodyNode("LeftHand")->getWorldTransform().translation();
+        Eigen::Vector3d rh = mSkel_bvh->getBodyNode("RightHand")->getWorldTransform().translation();
+
+        Eigen::Vector3d root = mSkel_bvh->getBodyNode("Hips")->getWorldTransform().translation();
+
+        std::cout<<"@ "<<cf<< ", mf : "<<std::max(lf[2], rf[2])<<" / mh : "<<std::max(lh[2], rh[2])<<" , root : "<<root[1]<<std::endl;
+	}
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
     for(int i = 0; i < p1.rows(); i++) {
@@ -156,6 +171,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
 			RunPPO();
+			std::cout<<"ppo done"<<std::endl;
     	}
     
     } catch (const p::error_already_set&) {
@@ -439,16 +455,11 @@ DrawSkeletons()
 		if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(-0.75, 0, 0);
-		
-			Eigen::VectorXd save_p = this->mSkel_obj->getPositions();
-			Eigen::VectorXd obj_pos(7);
+			int obj_dof = mSkel_obj->getNumDofs();
+			Eigen::VectorXd obj_pos(obj_dof);	
 			obj_pos.setZero();
-			obj_pos[5]=0.8; obj_pos[6]= 0.46;
 			mSkel_obj->setPositions(obj_pos);
-
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			mSkel_obj->setPositions(save_p);
-			
+			GUI::DrawSkeleton(this->mSkel_obj, 0);			
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
 			glPopMatrix();
 		}

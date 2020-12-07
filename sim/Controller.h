@@ -184,23 +184,14 @@ protected:
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
 
-	// double mPrevVelocity;
-	// double mVelocity;
-	// Eigen::Vector3d mEnergy;
-
-	bool jump_stepon = false;
-
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
 
-	// flair
-	int mCount;
-	Eigen::Vector3d mMomentum;
-	
-	Eigen::Vector6d head_force, leftToe_force, rightToe_force, leftHand_force, rightHand_force, leftFoot_force, rightFoot_force;
-	bool cycle_done;
-
+	dart::constraint::BallJointConstraintPtr leftHandConstraint;
+	dart::constraint::BallJointConstraintPtr rightHandConstraint;
+	void attachHandToBar(bool left, Eigen::Vector3d offset);
+	void removeHandFromBar(bool left);
 };
 }
 #endif

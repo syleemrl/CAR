@@ -1,0 +1,10 @@
+<Skeleton name="Hang_Wall">
+	<Joint type="FreeJoint" name="Hang_Wall" parent_name="None" size="10 2.0 0.6" mass="5000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-4 1.0 0.74"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="-1 1.0 0.74"></JointPosition>
+	</Joint>
+	<Joint type="FreeJoint" name="Bar" parent_name="Ground" size="10 0.2 0.07" mass="5000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-4 1.8 0.401"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="-1 1.8 0.401"></JointPosition>
+	</Joint>
+</Skeleton>
