@@ -35,6 +35,7 @@
                
 >> 윈도우에서 실행시킬 코드
 > - https://github.com/y0ngw00/UEconnection.git
+> - 변경필요 있는 내용들
 > 1. TCPclient.cpp의 clientTalk 함수에서 리눅스의 IP주소를 inet_addr 뒷부분에 수정
 > 2. FastIKCharacter.cpp
 >  - bone_name : skeleton joint name list. pelvis는 UE캐릭터 /  Hips는 mixamo캐릭터
