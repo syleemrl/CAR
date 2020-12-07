@@ -6,6 +6,7 @@
 class Camera
 {
 public:
+	Camera();
 	Camera(int w,int h);
 		
 	void SetSize(int w,int h);
@@ -19,6 +20,7 @@ public:
 	void SetCenter(Eigen::Vector3d c);
 	void SetLookAt(const Eigen::Vector3d& lookAt);
 	Eigen::Vector3d GetDeltaPosition(int x,int y,int prev_x,int prev_y);
+
 private:
 	Eigen::Vector3d lookAt;
 	Eigen::Vector3d eye;

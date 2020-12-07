@@ -417,12 +417,11 @@ int
 MotionWidget::
 getCharacterTransformsForUE(char *buffer)
 {
-	//this->mSkel_reg->backupState();
-	float height_offset = -0.02;
-	Eigen::VectorXd pose = this->mSkel_reg->getPositions();
-	//pose[1] += height_offset;
-	//this->mSkel_reg->setPositions(pose);  // + Height offset to Character
-	Eigen::Isometry3d local_space_transform = mController->getLocalSpaceTransform(mSkel_reg);
+	// Send Skeleton Position
+	// In this case, bvh motion is sent(mSkel_bvh)
+	Eigen::VectorXd pose = this->mSkel_bvh->getPositions();
+
+	Eigen::Isometry3d local_space_transform = mController->getLocalSpaceTransform(mSkel_bvh);
 	Eigen::Isometry3d local_space_transform_inv = local_space_transform.inverse();
 	Eigen::Isometry3d axis_operator;
 	axis_operator.linear() << 1, 0, 0,
@@ -454,12 +453,12 @@ getCharacterTransformsForUE(char *buffer)
 
 	for(auto joint_name : this->mJointsUEOrder){
 		Eigen::Isometry3d tf;
-		if(this->mSkel_reg->getBodyNode(joint_name)->getParentBodyNode() == nullptr) //isRoot : return this->mJointList[jointname]->getParentBodyNode() == nullptr;
-			tf = this->mSkel_reg->getBodyNode(joint_name)->getWorldTransform();
+		if(this->mSkel_bvh->getBodyNode(joint_name)->getParentBodyNode() == nullptr) //isRoot : return this->mJointList[jointname]->getParentBodyNode() == nullptr;
+			tf = this->mSkel_bvh->getBodyNode(joint_name)->getWorldTransform();
 			// getBodyGlobalPose : return this->mJointList[bodyname]->getWorldTransform().cast<float>();
 		else
 		{
-			dart::dynamics::BodyNode* body = this->mSkel_reg->getBodyNode(joint_name);
+			dart::dynamics::BodyNode* body = this->mSkel_bvh->getBodyNode(joint_name);
 			tf = (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode());
 			// BodyNode* body = SkeletonPtr* -> getBodynode(joint_name);
 			// get JointGlobalPose : return (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode()).cast<float>();
@@ -484,6 +483,7 @@ getCharacterTransformsForUE(char *buffer)
 		res.emplace_back(1);
 	}
 
+	// Send a object position information
 	#ifdef OBJECT_TYPE
 
 		//Eigen::Isometry3d box_space_transform = mController->getLocalSpaceTransform(mSkel_obj);
@@ -492,10 +492,10 @@ getCharacterTransformsForUE(char *buffer)
 							  			0, 1, 0,
 							  			0, 0, 1;
 		Eigen::VectorXd box_param = mRegressionMemory->Denormalize(v_param * 0.1);
-		box_space_transform.translation()<< 0, 0, local_space_transform.translation()[2];
+		box_space_transform.translation()<< 0, 0, 0;
 		Eigen::Isometry3d box_pos = axis_operator*box_space_transform*axis_operator;
 
-		root_ue.translation()*=100;
+		box_pos.translation()*=100;
 		res.emplace_back(box_pos.linear()(0,0));
 		res.emplace_back(box_pos.linear()(0,1));
 		res.emplace_back(box_pos.linear()(0,2));
@@ -630,6 +630,7 @@ SetFrame(int n)
 {
 	if(mDrawBvh && n < mMotion_bvh.size()) {
     	mSkel_bvh->setPositions(mMotion_bvh[n]);
+    	sendMotion();
 	}
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
@@ -642,7 +643,7 @@ SetFrame(int n)
     	// #ifdef OBJECT_TYPE
 	    // 	mSkel_obj->setPositions(mMotion_obj[n]);
     	// #endif
-    	sendMotion();
+    	
     	// mPoints = mMotion_points[n];
 	}
 	if(mDrawExp && n < mMotion_exp.size()) {
