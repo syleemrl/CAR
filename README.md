@@ -37,7 +37,7 @@
 > - https://github.com/y0ngw00/UEconnection.git
 > 1. TCPclient.cpp의 clientTalk 함수에서 리눅스의 IP주소를 inet_addr 뒷부분에 수정
 > 2. FastIKCharacter.cpp
->  - bone_name : skeleton joint name. pelvis~는 UE캐릭터 /  Hips~는 mixamo캐릭터
+>  - bone_name : skeleton joint name list. pelvis는 UE캐릭터 /  Hips는 mixamo캐릭터
 >  - void AFastIKCharacter::Tick : sendAndReceiveData에서 받는 데이터 양 : (NUM_JOINT+1)4x4 matrix + ext_variable.
 >  - ext_variable = 캐릭터 외에 추가적으로 보내는 변수(헤더파일에서 선언함)
 >  - void AFastIKCharacter::updateBoneTransforms() : ext_variable 있는 만큼 내용 추가(현재는 0)
