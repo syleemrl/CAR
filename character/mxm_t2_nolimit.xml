@@ -35,7 +35,7 @@
         <BodyPosition translation="0.571688 0.397864 -0.0710275 " />
         <JointPosition translation="0.430044 0.397864 -0.0710277 " />
     </Joint>
-    <Joint type="BallJoint" parent_name="LeftForeArm" size="0.095334 0.07 0.1 " name="LeftHand" bvh="LeftHand" mass="0.4">
+    <Joint type="BallJoint" parent_name="LeftForeArm" size="0.12 0.07 0.1 " name="LeftHand" bvh="LeftHand" mass="0.4">
         <BodyPosition translation="0.760999 0.397864 -0.0710273 " />
         <JointPosition translation="0.713332 0.397864 -0.0710273 " />
     </Joint>
@@ -51,7 +51,7 @@
         <BodyPosition translation="-0.571687 0.397865 -0.0710278 " />
         <JointPosition translation="-0.430043 0.397865 -0.0710281 " />
     </Joint>
-    <Joint type="BallJoint" parent_name="RightForeArm" size="0.095325 0.07 0.1" name="RightHand" bvh="RightHand" mass="0.4">
+    <Joint type="BallJoint" parent_name="RightForeArm" size="0.12 0.07 0.1" name="RightHand" bvh="RightHand" mass="0.4">
         <BodyPosition translation="-0.760993 0.397865 -0.0710274 " />
         <JointPosition translation="-0.713331 0.397865 -0.0710275 " />
     </Joint>
