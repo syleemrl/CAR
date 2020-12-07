@@ -326,6 +326,32 @@ BuildFromFile(const std::string& filename){
 				mass,
 				contact
 				);			
+		}else if(!jointType.compare("Translational")){
+			TiXmlElement *jointLimitElem = body->FirstChildElement("Limit");
+			bool isLimitEnforced = false;
+			Eigen::Vector3d upperLimit(1E6,1E6,1E6), lowerLimit(-1E6,-1E6,-1E6);
+			if(jointLimitElem->Attribute("upper")!=nullptr)
+			{
+				isLimitEnforced = true;
+				upperLimit = DPhy::string_to_vector3d(jointLimitElem->Attribute("upper"));
+				lowerLimit = DPhy::string_to_vector3d(jointLimitElem->Attribute("lower"));
+			}
+			// Eigen::Vector3d axis = DPhy::string_to_vector3d(body->Attribute("axis"));
+
+			SkeletonBuilder::MakeTranslationalJointBody(
+				name,
+				skel,
+				parent,
+				size,
+				jointPosition,
+				bodyPosition,
+				isLimitEnforced,
+				upperLimit,
+				lowerLimit,
+				mass,
+				contact
+				);	
+
 		}
 
 	}
@@ -710,11 +736,17 @@ BodyNode* SkeletonBuilder::MakePrismaticJointBody(
 	if(parent!=nullptr)
 		props.mT_ParentBodyToJoint = parent->getTransform().inverse()*joint_position;
 	props.mT_ChildBodyToJoint = body_position.inverse()*joint_position;
-	props.mActuatorType = dart::dynamics::Joint::LOCKED;
+
+	if(!isLimitEnforced) props.mActuatorType = dart::dynamics::Joint::LOCKED;
 
 	bn = target_skel->createJointAndBodyNodePair<PrismaticJoint>(
 		parent,props,BodyNode::AspectProperties(body_name)).second;
 	
+	JointPtr jn = bn->getParentJoint();
+	for(int i = 0; i < jn->getNumDofs(); i++){
+		jn->getDof(i)->setDampingCoefficient(_default_damping_coefficient);
+	}
+
 	if(contact)
 		bn->createShapeNodeWith<VisualAspect,CollisionAspect,DynamicsAspect>(shape);
 	else
@@ -723,6 +755,7 @@ BodyNode* SkeletonBuilder::MakePrismaticJointBody(
 
 	if(isLimitEnforced){
 		JointPtr joint = bn->getParentJoint();
+		std::cout<<joint->getName()<<" : [ "<<lower_limit<<" , "<<upper_limit<<"] \n";
 		joint->setPositionLimitEnforced(isLimitEnforced);
 		joint->setPositionUpperLimit(0, upper_limit);
 		joint->setPositionLowerLimit(0, lower_limit);
@@ -730,6 +763,64 @@ BodyNode* SkeletonBuilder::MakePrismaticJointBody(
 
 	return bn;
 }
+
+BodyNode* SkeletonBuilder::MakeTranslationalJointBody(
+	const std::string& body_name,
+	const dart::dynamics::SkeletonPtr& target_skel,
+	dart::dynamics::BodyNode* const parent,
+	const Eigen::Vector3d& size,
+	const Eigen::Isometry3d& joint_position,
+	const Eigen::Isometry3d& body_position,
+	bool isLimitEnforced,
+	Eigen::Vector3d upper_limit,
+	Eigen::Vector3d lower_limit,
+	double mass,
+	bool contact)
+{
+	ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
+
+	dart::dynamics::Inertia inertia;
+	inertia.setMass(mass);
+	inertia.setMoment(shape->computeInertia(mass));
+
+	BodyNode* bn;
+	TranslationalJoint::Properties props;
+	props.mName = body_name;
+
+	if(parent!=nullptr)
+		props.mT_ParentBodyToJoint = parent->getTransform().inverse()*joint_position;
+	props.mT_ChildBodyToJoint = body_position.inverse()*joint_position;
+
+	if(!isLimitEnforced) props.mActuatorType = dart::dynamics::Joint::LOCKED;
+
+	bn = target_skel->createJointAndBodyNodePair<TranslationalJoint>(
+		parent,props,BodyNode::AspectProperties(body_name)).second;
+	
+	JointPtr jn = bn->getParentJoint();
+	for(int i = 0; i < jn->getNumDofs(); i++){
+		jn->getDof(i)->setDampingCoefficient(_default_damping_coefficient);
+	}
+
+	if(contact)
+		bn->createShapeNodeWith<VisualAspect,CollisionAspect,DynamicsAspect>(shape);
+	else
+		bn->createShapeNodeWith<VisualAspect, DynamicsAspect>(shape);
+	bn->setInertia(inertia);
+
+	if(isLimitEnforced){
+		JointPtr joint = bn->getParentJoint();
+		std::cout<<joint->getName()<<" : [ "<<lower_limit<<" , "<<upper_limit<<"] \n";
+		joint->setPositionLimitEnforced(isLimitEnforced);
+		for(int i = 0; i < 3; i++)
+		{
+			joint->setPositionUpperLimit(i, upper_limit[i]);
+			joint->setPositionLowerLimit(i, lower_limit[i]);
+		}
+	}
+
+	return bn;
+}
+
 BodyNode* SkeletonBuilder::MakeWeldJointBody(
 	const std::string& body_name,
 	const dart::dynamics::SkeletonPtr& target_skel,

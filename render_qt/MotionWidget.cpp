@@ -35,9 +35,8 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
 
-		Eigen::VectorXd obj_pos(7);
+		Eigen::VectorXd obj_pos(mSkel_obj->getNumDofs());
 		obj_pos.setZero();
-		obj_pos[5]=0.8; obj_pos[6]= 0.46;
 		mSkel_obj->setPositions(obj_pos);
 	#endif
 	
@@ -116,20 +115,46 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
-	std::vector<int> check_frame = { 0, 33, 38, 50, 70, 80}; // {0, 41, 45, 81};
+	std::vector<int> check_frame = { 0, 28, 187, 196, 220}; // {0, 41, 45, 81};
 	for(int cf: check_frame){
 		mSkel_bvh->setPositions(mMotion_bvh[cf]);
 		mSkel_bvh->computeForwardKinematics(true, false, false);
+
 		Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
-		Eigen::Vector3d left_foot = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d right_foot = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
 
-		Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
-		Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+		Eigen::Vector3d left_hand = mSkel_bvh->getBodyNode("LeftHand")->getWorldTransform().translation();
+		Eigen::Vector3d right_hand = mSkel_bvh->getBodyNode("RightHand")->getWorldTransform().translation();
 
-		root[0]+=0.75; left_foot[0]+=0.75; right_foot[0]+=0.75;
-		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
+		root[0]+=0.75; left_hand[0]+=0.75; right_hand[0]+=0.75;
+
+		std::cout<<cf<<" : "<<root.transpose()<<"\tleft, right : "<<left_hand[2]<<" , "<<right_hand[2]<<std::endl; 
+
+		// Eigen::Vector3d left_foot = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		// Eigen::Vector3d right_foot = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+		// Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+		// Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+
+		// root[0]+=0.75; left_foot[0]+=0.75; right_foot[0]+=0.75;
+
+		// std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
 	}
+
+	double max_z= -10000; int max_z_idx =-1;
+	for(int i=0; i<220; i++){
+		mSkel_bvh->setPositions(mMotion_bvh[i]);
+		mSkel_bvh->computeForwardKinematics(true, false, false);
+
+		Eigen::Vector3d left_hand = mSkel_bvh->getBodyNode("LeftHand")->getWorldTransform().translation();
+		Eigen::Vector3d right_hand = mSkel_bvh->getBodyNode("RightHand")->getWorldTransform().translation();
+		if(left_hand[2] > max_z) { max_z = left_hand[2]; max_z_idx = i;}
+		if(right_hand[2] > max_z) {max_z = right_hand[2]; max_z_idx = i;}
+	}
+
+	std::cout<<max_z_idx<<", max: "<<max_z<<std::endl;
+	
+	setFocusPolicy( Qt::StrongFocus );
+
 
 // 0: -0.00285057     1.04087   0.0267908 / lf : 0.0966291 0.0442695 0.0625281 / rf : -0.0757626  0.0440878  0.0506681/ mid:0.0104332 0.0441786 0.0565981/ toe: -0.732919 0.0444135  0.155496
 // 33: 0.00405863    1.37757   0.348865 / lf : 0.0981162  0.600498  0.635506 / rf : -0.0836312   0.575024   0.744824/ mid:0.00724252   0.587761   0.690165/ toe: -0.745567   0.57403  0.790906
@@ -487,16 +512,7 @@ DrawSkeletons()
 		if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(-0.75, 0, 0);
-		
-			Eigen::VectorXd save_p = this->mSkel_obj->getPositions();
-			Eigen::VectorXd obj_pos(7);
-			obj_pos.setZero();
-			obj_pos[5]=0.8; obj_pos[6]= 0.46;
-			mSkel_obj->setPositions(obj_pos);
-
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			mSkel_obj->setPositions(save_p);
-			
+			GUI::DrawSkeleton(this->mSkel_obj, 0);			
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
 			glPopMatrix();
 		}

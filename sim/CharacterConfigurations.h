@@ -4,10 +4,10 @@
 #define NEW_JOINTS
 #define FOOT_OFFSET (0.0)
 #define ROOT_HEIGHT_OFFSET (0.00)
-#define TERMINAL_ROOT_DIFF_THRESHOLD (0.6)
+#define TERMINAL_ROOT_DIFF_THRESHOLD (1.0)
 #define TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD (0.4*M_PI)
 #define TERMINAL_ROOT_HEIGHT_LOWER_LIMIT (0.2)
-#define TERMINAL_ROOT_HEIGHT_UPPER_LIMIT (2.0)
+#define TERMINAL_ROOT_HEIGHT_UPPER_LIMIT (1.5)
 
 #define KV_RATIO (0.1)
 #define JOINT_DAMPING (0.05)
@@ -16,9 +16,9 @@
 // #define CHARACTER_TYPE "humanoid_mixamo_sm"
 // #define REF_CHARACTER_TYPE "humanoid_mixamo_sm"
 
-#define CHARACTER_TYPE "mxm_gen"
-#define REF_CHARACTER_TYPE "mxm_gen"
+#define CHARACTER_TYPE "mxm_t3"
+#define REF_CHARACTER_TYPE "mxm_t3"
 
-#define OBJECT_TYPE "jump_box_long"
+#define OBJECT_TYPE "push_box"
 
 #endif

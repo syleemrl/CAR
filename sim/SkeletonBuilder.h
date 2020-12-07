@@ -95,6 +95,20 @@ public:
 		const Eigen::Vector3d& axis,
 		bool contact);
 
+	static dart::dynamics::BodyNode* MakeTranslationalJointBody(
+		const std::string& body_name,
+		const dart::dynamics::SkeletonPtr& target_skel,
+		dart::dynamics::BodyNode* const parent,
+		const Eigen::Vector3d& size,
+		const Eigen::Isometry3d& joint_position,
+		const Eigen::Isometry3d& body_position,
+		bool isLimitEnforced,
+		Eigen::Vector3d upper_limit,
+		Eigen::Vector3d lower_limit,
+		double mass,
+		bool contact);
+
+
 	static dart::dynamics::BodyNode* MakeWeldJointBody(
 		const std::string& body_name,
 		const dart::dynamics::SkeletonPtr& target_skel,
