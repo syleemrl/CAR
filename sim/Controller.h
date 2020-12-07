@@ -85,7 +85,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos);
 
 	void SetGoalParameters(Eigen::VectorXd tp);
-	void SetSkeletonWeight(double mass);
+	void SetSkeletonWeight(double mass, int type);
+	void SetSkeletonLength(double length, int type);
 
 protected:
 	dart::simulation::WorldPtr mWorld;
@@ -176,18 +177,22 @@ protected:
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
 
-
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
 
 /////////////////////////////////////////////////
 // for action parameter design
 	int mCount;
-	double mJumpStartFrame;
-	double mPosDiff;
-	double mJumpHeight;
 	Eigen::Vector3d mTotalLength;
-	Eigen::Vector3d mMomentum;
+	double mCartwheelStart;
+	double mPosDiff;
+	Eigen::Vector3d mVelocity;
+
+	double mMassArm=1;
+	double mMassLeg=1;
+
+	double mLengthArm=1;
+	double mLengthLeg=1;
 //////////////////////////////////////////////////
 };
 }

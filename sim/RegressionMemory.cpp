@@ -57,11 +57,11 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	mNumElite = 5;
 	mRadiusNeighbor = 0.05;
-	mThresholdInside = 1.0;
-	mRangeExplore = 0.4;
+	mThresholdInside = 0.7;
+	mRangeExplore = 0.3;
 	mThresholdActivate = 3;
 
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 3; i++) {
 		mParamBVH = new Param();
 		mParamBVH->cps.clear();
 		for(int i = 0; i < mNumKnots; i++) {
@@ -631,35 +631,14 @@ UniformSample(bool visited) {
 	int count = 0;
 	while(1) {
 		double r = mUniform(mMT);
-		r = std::floor(r * mGridMap.size());
-		if(r == mGridMap.size())
-			r -= 1;
-		auto it_grid = std::next(mGridMap.begin(), (int)r);
-		std::vector<Param*> params = it_grid->second->GetParams(); 
-		if(params.size() == 0)
-			continue;
 
-		r = mUniform(mMT);
-		r = std::floor(r * params.size());
-		if(r == params.size())
-			r -= 1;
-		if(params[r]->update)
-			continue;
-		Eigen::VectorXd p = params[r]->param_normalized;
-		Eigen::VectorXd dir(mDim);
-
+		Eigen::VectorXd p(mDim);
+		
 		for(int i = 0; i < mDim; i++) {
-			dir(i) =  mUniform(mMT) - 0.5;
+			double r = mUniform(mMT);
+			p(i) = r;
 		}
-		dir.normalize();
-
-		for(int i = 0; i < mDim; i++) {
-			r = mUniform(mMT);
-			p(i) += dir(i) * r * mParamGridUnit(i);
-			if(p(i) > 1 || p(i) < 0) {
-				p(i) = std::min(1.0, std::max(0.0, p(i)));
-			} 
-		}
+	
 		double d = GetDensity(p, true);
 		if(!visited) {
 			if(mNumSamples == 1 && d > 0.05 && d < mThresholdInside) {
@@ -845,7 +824,7 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	double diff = p(0) - p_goal(0);
-	double r_param = exp(-pow(diff, 2) * 50);
+	double r_param = exp(-pow(diff, 2));
 	return r_param;
 }
 void 
@@ -882,7 +861,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*ps[i].second->reward;
-		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
 
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
@@ -920,7 +898,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
-	    // std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
 	}
 
 

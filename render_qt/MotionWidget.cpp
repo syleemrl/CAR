@@ -52,6 +52,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 
     path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     DPhy::Character* ref = new DPhy::Character(path);
+
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 
@@ -307,6 +308,9 @@ RunPPO() {
 
 	int count = 0;
 	mController->Reset(false);
+	this->mTiming= std::vector<double>();
+	this->mTiming.push_back(this->mController->GetCurrentFrame());
+	
 	while(!this->mController->IsTerminalState()) {
 		Eigen::VectorXd state = this->mController->GetState();
 
@@ -316,6 +320,8 @@ RunPPO() {
 
 		this->mController->SetAction(action);
 		this->mController->Step();
+		this->mTiming.push_back(this->mController->GetCurrentFrame());
+
 		count += 1;
 	}
 
@@ -438,7 +444,8 @@ paintGL()
 	DrawGround();
 	DrawSkeletons();
 
-	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
+	if(mRunSim) GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
+	else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
 void
 MotionWidget::
