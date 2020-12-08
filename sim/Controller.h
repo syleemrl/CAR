@@ -180,6 +180,10 @@ protected:
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
 
+	Eigen::Vector3d stickLeftFoot;
+	Eigen::Vector3d stickRightFoot;
+	bool stickFoot;
+
 /////////////////////////////////////////////////
 // for action parameter design
 	int mCount;
@@ -193,6 +197,8 @@ protected:
 
 	double mLengthArm=1;
 	double mLengthLeg=1;
+
+	int mSlideCount;
 //////////////////////////////////////////////////
 };
 }

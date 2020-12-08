@@ -375,7 +375,7 @@ class PPO(object):
 			count_V = 0
 			sum_V = 0
 			V = 0
-			flag = False
+			flag = True
 			for i in reversed(range(size)):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -389,7 +389,7 @@ class PPO(object):
 				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
-					flag = True
+
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
@@ -405,7 +405,6 @@ class PPO(object):
 					count_V = 0
 					sum_V = 0
 					V = 0
-					flag = False
 					
 			TD = values[:size] + advantages
 
@@ -433,7 +432,7 @@ class PPO(object):
 			count_V = 0
 			sum_V = 0
 			V = 0
-			flag = False
+			flag = True
 			for i in reversed(range(len(rewards))):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -444,8 +443,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
-				if rewards[i][1] != 0:
-					flag = True
+
 
 				sum_V += V
 				count_V += 1
@@ -456,7 +454,6 @@ class PPO(object):
 					count_V = 0
 					sum_V = 0
 					V = 0
-					flag = False
 
 		return marginal_vs
 					
@@ -529,18 +526,18 @@ class PPO(object):
 		it_cur = 0
 
 		for it in range(num_iteration):
+			if self.parametric:
+				param_info = self.env.updateGoal(self.critic_target)
+			else:
+				param_info = -1
 			for i in range(self.num_slaves):
 				self.env.reset(i)
+
 			states = self.env.getStates()
 			local_step = 0
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
-
-			if self.parametric:
-				param_info = self.env.updateGoal(self.critic_target)
-			else:
-				param_info = -1
 
 			while True:
 				# set action
@@ -564,6 +561,7 @@ class PPO(object):
 							if local_step < self.steps_per_iteration[self.parametric]:
 								epi_info[j] = []
 								self.env.reset(j)
+
 							else:
 								self.env.setTerminated(j)
 				if local_step >= self.steps_per_iteration[self.parametric]:
@@ -620,13 +618,14 @@ class PPO(object):
 	def eval(self, num_samples):
 		tuples = []
 		for it in range(num_samples):
+			self.env.updateGoal(self.critic_target, False)
+
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 			states = self.env.getStates()
 			local_step = 0
 			tuples_iter = [[] for _ in range(self.num_slaves)]	
 	
-			self.env.updateGoal(self.critic_target, False)
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)

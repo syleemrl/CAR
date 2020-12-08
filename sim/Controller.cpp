@@ -43,7 +43,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
 	this->mMass = 1;
-
 	Eigen::VectorXd kp(this->mCharacter->GetSkeleton()->getNumDofs()), kv(this->mCharacter->GetSkeleton()->getNumDofs());
 
 	kp.setZero();
@@ -120,7 +119,8 @@ Controller::GetSkeleton() {
 void 
 Controller::
 Step()
-{			
+{		
+
 	if(IsTerminalState())
 		return;
 
@@ -209,14 +209,15 @@ Step()
 		mCount += 1;
 	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
+
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
-
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
 			mFitness.sum_contact /= mCountTracking;
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
+			mFitness.sum_slide /= mSlideCount;
 
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
@@ -225,6 +226,7 @@ Step()
 			mFitness.sum_pos = 0;
 			mFitness.sum_vel = 0;
 			mFitness.sum_reward = 0;
+			mFitness.sum_slide = 0;
 
 			mTrackingRewardTrajectory = 0;
 			mParamRewardTrajectory = 0;
@@ -232,12 +234,13 @@ Step()
 			mControlFlag.setZero();
 			mCountParam = 0;
 			mCountTracking = 0;
-			
+			mSlideCount = 0;
 			mCount = 0;
 			mVelocity.setZero();
 			mTotalLength.setZero();
 			mPosDiff = 0;
 		}
+
 	}
 	if(isAdaptive) {
 		this->UpdateAdaptiveReward();
@@ -280,11 +283,10 @@ SaveStepInfo()
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	mRecordPhase.push_back(mCurrentFrame);
+	// bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
+	// bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
 
-	bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
-	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
-
-	mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
+	// mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
 }
 void 
 Controller::
@@ -315,6 +317,8 @@ ClearRecord()
 	mPosDiff = 0;
 	mVelocity.setZero();
 	mTotalLength.setZero();
+	mSlideCount = 0;
+
 }
 
 std::vector<double> 
@@ -443,14 +447,15 @@ GetSimilarityReward()
 	Eigen::VectorXd vel = p_v_target->GetVelocity();
 	delete p_v_target;
 
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
+//	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
+	std::vector<double> contacts_ref = mReferenceManager->GetContacts(mCurrentFrameOnPhase);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
 	double con_diff = 0;
 
 	for(int i = 0; i < contacts_cur.size(); i++) {
-		if(contacts_ref[i].first || contacts_cur[i].first) {
-			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1)) * 5, 2);
+		if(contacts_ref[i] > 0.5) {
+			con_diff += pow(std::max(0.0, (contacts_cur[i].second)(1) - 0.07) * 5, 2);
 		}
 	}
 	//double r_con = exp(-con_diff);
@@ -497,6 +502,39 @@ GetSimilarityReward()
 
 		}
 	}
+
+	double footSlide = 0;
+	if(mCurrentFrameOnPhase >= 65){
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		lf /= 2.0;
+
+		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		rf /= 2.0;
+		
+		Eigen::VectorXd foot_diff (6);
+		foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
+		foot_diff(1) = 0;
+		foot_diff(4) = 0;
+
+		//if(lf(1) <= 0.04 && stickLeftFoot(1) <= 0.04) {
+			footSlide += foot_diff.segment<3>(0).norm();
+		//} 
+		mSlideCount += 1;
+	
+	} else if(mCurrentFrameOnPhase >= 60) {
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		lf /= 2.0;
+		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		rf /= 2.0;
+
+		stickRightFoot = rf;
+		stickLeftFoot = lf;
+	} 
+
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff,0.3);
@@ -506,6 +544,7 @@ GetSimilarityReward()
 	mFitness.sum_contact += con_diff;
 	mFitness.sum_pos += p_diff.dot(p_diff) / p_diff.rows();
 	mFitness.sum_vel += v_diff.dot(v_diff) / v_diff.rows();
+	mFitness.sum_slide += footSlide;
 
 	return exp(-r_con)  * r_p * r_ee;
 }
@@ -530,7 +569,7 @@ GetParamReward()
 		//r_param = exp_of_squared(v_diff, 0.4);
 		r_param =  r_l;
 		mFitness.sum_reward = r_param;
-		if(r_l >= 0.4) {
+		if(r_l >= 0.5) {
 			mParamCur = mParamGoal;
 		} else {
 			mParamCur(0) = -100;
@@ -681,7 +720,7 @@ UpdateTerminalInfo()
 	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(isAdaptive && mCurrentFrame > 999) {// mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
@@ -732,10 +771,9 @@ SetGoalParameters(Eigen::VectorXd tp)
 		this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
 		this->SetSkeletonWeight(1, 1);
 	}
-	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
-	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
-	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-
+	this->SetSkeletonLength(mParamGoal(1), 1);
+	this->SetSkeletonLength(mParamGoal(2), 2);
+	std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
 }
 void
 Controller::
@@ -767,10 +805,11 @@ SetSkeletonLength(double length, int type)
 	else if(type == 2) {
 		for(int i = 0; i < n_bnodes; i++){
 			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-			if(name.find("Leg") != std::string::npos ||
-			   name.find("Foot") != std::string::npos ||
-			   name.find("Toe") != std::string::npos) {
+			if(name.find("Leg") != std::string::npos) {
 				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l, 1), 1));
+			} else if(name.find("Foot") != std::string::npos ||
+					  name.find("Toe") != std::string::npos) {
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l), 1));
 			}
 		}
 	}
@@ -838,6 +877,7 @@ Reset(bool RSI)
 		mFitness.sum_pos = 0;
 		mFitness.sum_vel = 0;
 		mFitness.sum_reward = 0;
+		mFitness.sum_slide = 0;
 
 	}
 
@@ -859,12 +899,25 @@ Reset(bool RSI)
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
+	double h1 = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[1];
+	double h2 = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[1];
+	double mh = (h1 + h2) / 2.0 - 0.00197391;
+	double h = mTargetPositions(4);
+	mTargetPositions(4) -= mh;
+
+	skel->setPositions(mTargetPositions);
+	skel->computeForwardKinematics(true,false,false);
+
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
-	
+
 	ClearRecord();
 	SaveStepInfo();
 
+	stickLeftFoot = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	stickRightFoot = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+	stickFoot = true;
+	
 	mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 	
 	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
@@ -993,6 +1046,7 @@ CheckCollisionWithGround(std::string bodyName){
 		std::cout << "check collision : bad body name" << std::endl;
 		return false;
 	}
+
 }
 Eigen::VectorXd 
 Controller::
@@ -1033,7 +1087,7 @@ GetState()
 		Eigen::Isometry3d transform = cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee.segment<3>(3*i) << transform.translation();
 	}
-	double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
+	double t = mReferenceManager->GetTimeStep(mCurrentFrame, isAdaptive);
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);

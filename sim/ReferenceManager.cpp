@@ -68,6 +68,21 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 }
 void 
 ReferenceManager::
+LoadAdaptiveMotion(std::vector<Eigen::VectorXd> pos, std::vector<double> time) {
+	std::vector<Eigen::VectorXd> vel = this->GetVelocityFromPositions(pos);
+	mMotions_phase_adaptive.clear();
+	mTimeStep_adaptive.clear();
+	for(int j = 0; j < pos.size(); j++) {
+		mMotions_phase_adaptive.push_back(new Motion(pos[j], vel[j]));
+		mTimeStep_adaptive.push_back(time[j]);
+	}
+	std::cout << mMotions_phase_adaptive.size() << " " << mTimeStep_adaptive.size() << std::endl;
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
+
+}
+
+void 
+ReferenceManager::
 LoadAdaptiveMotion(std::string postfix) {
 	std::string path = mPath + std::string("adaptive") + postfix;
 
@@ -117,10 +132,10 @@ LoadMotionFromBVH(std::string filename)
 
 	std::vector<std::string> contact;
 	contact.clear();
-	contact.push_back("RightToe");
 	contact.push_back("RightFoot");
-	contact.push_back("LeftToe");
+	contact.push_back("RightToe");
 	contact.push_back("LeftFoot");
+	contact.push_back("LeftToe");
 
 	auto& skel = mCharacter->GetSkeleton();
 	int dof = skel->getPositions().rows();
@@ -193,7 +208,7 @@ LoadMotionFromBVH(std::string filename)
 		std::vector<bool> c;
 		for(int j = 0; j < contact.size(); j++) {
 			Eigen::Vector3d p = skel->getBodyNode(contact[j])->getWorldTransform().translation();
-			c.push_back(p[1] < 0.04);
+			c.push_back(p[1] < 0.07);
 		}
 		mContacts.push_back(c);
 
@@ -286,12 +301,13 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 	T01.linear() = dart::math::expMapRot(DPhy::projectToXZ(p01));
 	T01.translation()[1] = 0;
 
+	int totalLength = p_phase.size();
 	int smooth_time = 10;
 	for(int i = 0; i < frames; i++) {
 		
-		int phase = i % mPhaseLength;
+		int phase = i % totalLength;
 		
-		if(i < mPhaseLength) {
+		if(i < totalLength) {
 			p_gen.push_back(new Motion(p_phase[i]));
 		} else {
 			Eigen::VectorXd pos;
@@ -443,23 +459,41 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.8;
 
-	mParamCur.resize(1);
-	mParamCur << 0;
+	mParamCur.resize(3);
+	mParamCur << 0, 1, 1;
 
-	mParamGoal.resize(1);
-	mParamGoal << 0;
+	mParamGoal.resize(3);
+	mParamGoal << 0, 1, 1;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(1);
-		paramUnit<< 0.5;
+		Eigen::VectorXd paramUnit(3);
+		paramUnit<< 0.5, 0.1, 0.1;
 
-		mParamBase.resize(1);
-		mParamBase << -7;
+		mParamBase.resize(3);
+		mParamBase << -7, 0.5, 0.5;
 
 
-		mParamEnd.resize(1);
-		mParamEnd << 3;
-		
+		mParamEnd.resize(3);
+		mParamEnd << 3, 1.5, 1.5;
+
+
+	// mParamCur.resize(1);
+	// mParamCur << 0;
+
+	// mParamGoal.resize(1);
+	// mParamGoal << 0;
+
+	// if(isParametric) {
+	// 	Eigen::VectorXd paramUnit(1);
+	// 	paramUnit<< 0.5;
+
+	// 	mParamBase.resize(1);
+	// 	mParamBase << -7;
+
+
+	// 	mParamEnd.resize(1);
+	// 	mParamEnd << 3;
+
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
 
@@ -521,6 +555,7 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
+
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
@@ -528,7 +563,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
-
+	if(std::get<2>(rewards).sum_slide > 0.4) {
+		return;
+	}
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
@@ -606,14 +643,16 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd d_t(mDOF + 1);
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
+
 		d.push_back(d_t);
 	}
 
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
+	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2);
 
-	double reward_trajectory = r_foot * r_pos * r_vel;
+	double reward_trajectory = r_foot * r_pos * r_vel * r_slide;
 	if(std::get<2>(rewards).sum_reward != 0) {
 		reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
 	}

@@ -43,7 +43,7 @@ public slots:
 	void toggleDrawSim();
 	void toggleDrawReg();
 	void toggleDrawExp();
-
+	void toggleCamera();
 protected:
 	void initializeGL() override;	
 	void resizeGL(int w,int h) override;
@@ -105,6 +105,8 @@ protected:
 	DPhy::RegressionMemory* 		mRegressionMemory;
 
 	Eigen::VectorXd v_param;
+	std::vector<Eigen::VectorXd> v_param_record;
+
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> mParamRange;
 
 	Eigen::Vector3d 				mPoints;
@@ -114,6 +116,8 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
-
+	
+	double mLengthArm=1;
+	double mLengthLeg=1;
 };
 #endif

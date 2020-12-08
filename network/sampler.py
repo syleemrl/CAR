@@ -36,7 +36,7 @@ class Sampler(object):
 
 		self.eval_target_v = 0
 
-		self.progress_queue_exploit = [10.0]
+		self.progress_queue_exploit = [15.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -324,7 +324,7 @@ class Sampler(object):
 				mean /= count
 
 			print(p_mean, mean)
-			if p_mean < mean - 1.0:
+			if p_mean * 1.2 < mean - 1.0:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)

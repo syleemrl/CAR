@@ -17,6 +17,7 @@ struct Fitness
 	double sum_contact;
 	double sum_pos;
 	double sum_vel;
+	double sum_slide;
 	double sum_reward;
 };
 class Motion
@@ -50,6 +51,7 @@ public:
 	ReferenceManager(Character* character=nullptr);
 	void SaveAdaptiveMotion(std::string postfix="");
 	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps);
+	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> pos, std::vector<double> time);
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);

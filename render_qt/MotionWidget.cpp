@@ -166,7 +166,107 @@ setValue(const int &x){
 void 
 MotionWidget::
 UpdateRandomParam(const bool& pressed) {
+	if(mRunReg) {
+		Eigen::VectorXd tp_cur = mReferenceManager->GetParamCur();
+		tp_cur = mRegressionMemory->Normalize(tp_cur);
+		v_param_record.push_back(mRegressionMemory->Denormalize(tp_cur));
 
+		int total = 0;
+		int flag = 0;
+		int flag_count = 0;
+		std::vector<Eigen::VectorXd> pos;
+		std::vector<double> t;
+		while(total < 1000) {
+			if(total != 0) {
+				if(flag == 0) {
+					if(flag_count < 2) {
+						flag_count += 1;
+					} else {
+						for(int i = 1; i < tp_cur.rows(); i++) {
+							tp_cur(i) += 0.01; // std::min(1.0, std::max(0.0, tp_cur(i) +  0.1 * (0.5 - mUniform(mMT))));
+						}
+						if(tp_cur(1) >= 0.8) {
+							flag = 1;
+							flag_count = 0;
+						}
+					}
+				} else if(flag == 1) {
+					if(flag_count < 4) {
+						flag_count += 1;
+					} else {
+						tp_cur(1) -= 0.01; 
+						if(tp_cur(1) <= 0.2) {
+							flag = 2;
+							flag_count = 0;
+						}
+					}
+				} else if(flag == 2) {
+					if(flag_count < 4) {
+						flag_count += 1;
+					} else {
+						tp_cur(1) += 0.01; 
+						tp_cur(2) -= 0.01; 
+
+						if(tp_cur(1) >= 0.8) {		
+							flag = 3;
+							flag_count = 0;
+						}
+					}
+				} else if(flag == 3) {
+					if(flag_count < 4) {
+						flag_count += 1;
+					} else {
+						tp_cur(1) -= 0.01; 
+						tp_cur(2) += 0.01; 
+
+						if(tp_cur(1) <= 0.5) {
+							flag = 0;
+							flag_count = 0;
+						}
+					}
+				}
+ 
+			   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(mRegressionMemory->Denormalize(tp_cur));
+				mReferenceManager->LoadAdaptiveMotion(cps);
+			}
+			v_param_record.push_back(mRegressionMemory->Denormalize(tp_cur));
+
+			int count = 0;
+			if(total > 0)
+				total -= 1;
+			std::vector<Eigen::VectorXd> pos_param;
+			std::vector<double> t_param;
+			while(count < 4) {
+				Eigen::VectorXd p = mReferenceManager->GetPosition(total, true);
+				p(3) += 0.75 + 1.5;
+				pos_param.push_back(p);
+				t_param.push_back(mReferenceManager->GetTimeStep(total, true));
+			    count++;
+			    total++;
+			}
+			if(total == 4) {
+				for(int i = 0; i < 3; i++) {
+					pos.push_back(pos_param[i]);
+					t.push_back(t_param[i]);
+				}
+				total -= 1;
+			} else {
+				pos_param = DPhy::Align(pos_param, pos.back().segment<6>(0));
+				for(int i = 1; i < 4; i++) {
+					pos.push_back(pos_param[i]);
+					t.push_back(t_param[i]);
+				}
+			}
+		}
+		if(!mRunSim) {
+			UpdateMotion(pos, 3);
+		} else {
+     		mTotalFrame = 0;
+			mReferenceManager->LoadAdaptiveMotion(pos, t);
+			RunPPO();
+
+		}
+	}
 }
 void 
 MotionWidget::
@@ -182,6 +282,34 @@ UpdateParam(const bool& pressed) {
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
+
+		double l1 = tp_denorm(1) / mLengthArm;
+		mLengthArm = tp_denorm(1);
+		double l2 = tp_denorm(2) / mLengthLeg;
+		mLengthLeg = tp_denorm(2);
+
+		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
+		int n_bnodes = mSkel_exp->getNumBodyNodes();
+		for(int i = 0; i < n_bnodes; i++){
+			std::string name = mSkel_exp->getBodyNode(i)->getName();
+			if(name.find("Shoulder") != std::string::npos ||
+			   name.find("Arm") != std::string::npos ||
+			   name.find("Hand") != std::string::npos) {
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
+			}
+			else if (name.find("Leg") != std::string::npos) {
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
+
+			} else if(name.find("Toe") != std::string::npos ||
+					  name.find("Foot") != std::string::npos) {
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
+
+			}
+		}
+
+		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
+		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
+		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
 	    std::cout << tp.transpose() << " " << tp_denorm.transpose() << " " << d << std::endl;
 
 	    std::vector<Eigen::VectorXd> cps;
@@ -268,8 +396,8 @@ void MotionWidget::UpdateIthParam(int i)
     }
     mTotalFrame = 500;
     Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-root_bvh(3) += 0.75;
-pos = DPhy::Align(pos, root_bvh);
+	root_bvh(3) += 0.75;
+	pos = DPhy::Align(pos, root_bvh);
 
     UpdateMotion(pos, 2);
 }
@@ -317,10 +445,16 @@ RunPPO() {
 		p::object a = this->mPPO.attr("run")(DPhy::toNumPyArray(state));
 		np::ndarray na = np::from_object(a);
 		Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController->GetNumAction());
+		double prevF = this->mController->GetCurrentFrame();
 
 		this->mController->SetAction(action);
 		this->mController->Step();
-		this->mTiming.push_back(this->mController->GetCurrentFrame());
+		double curF = this->mController->GetCurrentFrame();
+		this->mTiming.push_back(curF);
+		if(v_param_record.size() != 0 && std::floor(prevF / 3) != std::floor(curF / 3)) {
+			int idx = std::floor(curF / 3);
+			this->mController->SetGoalParameters(v_param_record[idx]);
+		}
 
 		count += 1;
 	}
@@ -439,6 +573,31 @@ paintGL()
 	initLights();
 	glEnable(GL_LIGHTING);
 
+	if(this->mTrackCamera){
+
+		Eigen::Vector3d com;
+		Eigen::Isometry3d transform; 
+		if(mRunSim) {
+			com = mSkel_sim->getRootBodyNode()->getCOM();
+			transform = mSkel_sim->getRootBodyNode()->getTransform();
+		} else if(mRunReg) {
+			com = mSkel_exp->getRootBodyNode()->getCOM();
+			transform = mSkel_exp->getRootBodyNode()->getTransform();
+		} else {
+			com = mSkel_bvh->getRootBodyNode()->getCOM();
+			transform = mSkel_bvh->getRootBodyNode()->getTransform();
+		}
+		com[1] = 0.8;
+
+		Eigen::Vector3d camera_pos;
+		camera_pos << -3, 1, 1.5;
+		camera_pos = camera_pos + com;
+		camera_pos[1] = 2;
+
+		mCamera->SetCenter(com);
+	}
+
+
 	mCamera->Apply();
 
 	DrawGround();
@@ -500,6 +659,42 @@ timerEvent(QTimerEvent* event)
 {
 	if(mPlay && mCurFrame < mTotalFrame) {
 		mCurFrame += 1;
+
+		if((!mRunSim && mCurFrame % 3 == 0 && v_param_record.size() != 0) ||
+			(mRunSim && std::floor(mTiming[mCurFrame-1] / 3) != std::floor(mTiming[mCurFrame] / 3) && v_param_record.size() != 0)) {
+			int idx;
+			if(!mRunSim)
+				idx = mCurFrame / 3;
+			else
+				idx = std::floor(mTiming[mCurFrame] / 3);
+			double l1 = v_param_record[idx](1) / mLengthArm;
+			mLengthArm = v_param_record[idx](1);
+			double l2 = v_param_record[idx](2) / mLengthLeg;
+			mLengthLeg = v_param_record[idx](2);
+
+			std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
+			int n_bnodes = mSkel_exp->getNumBodyNodes();
+			for(int i = 0; i < n_bnodes; i++){
+				std::string name = mSkel_exp->getBodyNode(i)->getName();
+				if(name.find("Shoulder") != std::string::npos ||
+				   name.find("Arm") != std::string::npos ||
+				   name.find("Hand") != std::string::npos) {
+					deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
+				}
+				else if (name.find("Leg") != std::string::npos) {
+					deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
+
+				} else if(name.find("Toe") != std::string::npos ||
+						  name.find("Foot") != std::string::npos) {
+					deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
+
+				}
+			}
+			DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
+			DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
+			DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
+
+		}
 	} 
 	SetFrame(this->mCurFrame);
 	update();
@@ -636,6 +831,32 @@ void
 MotionWidget::
 Reset()
 {
+	double l1 = 1 / mLengthArm;
+	mLengthArm = 1;
+	double l2 = 1 / mLengthLeg;
+	mLengthLeg = 1;
+
+	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
+	int n_bnodes = mSkel_exp->getNumBodyNodes();
+	for(int i = 0; i < n_bnodes; i++){
+		std::string name = mSkel_exp->getBodyNode(i)->getName();
+		if(name.find("Shoulder") != std::string::npos ||
+			name.find("Arm") != std::string::npos ||
+			name.find("Hand") != std::string::npos) {
+			deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
+		}
+		else if (name.find("Leg") != std::string::npos) {
+			deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
+
+		} else if(name.find("Toe") != std::string::npos ||
+			name.find("Foot") != std::string::npos) {
+			deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
+		}
+	}
+	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
+	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
+	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
+
 	this->mCurFrame = 0;
 	this->SetFrame(this->mCurFrame);
 }
@@ -644,6 +865,12 @@ MotionWidget::
 togglePlay() {
 	mPlay = !mPlay;
 }
+void 
+MotionWidget::
+toggleCamera() {
+	mTrackCamera =!mTrackCamera;
+}
+
 void 
 MotionWidget::
 Save() {
