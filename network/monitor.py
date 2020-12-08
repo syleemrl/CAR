@@ -82,7 +82,7 @@ class Monitor(object):
 				return False
 		return True 
 	
-	def reset(self, i, b=True):
+	def reset(self, i, b=False):
 		self.env.reset(i, b)
 		state = np.array([self.sim_env.GetState(i)])
 		self.states[i] = self.RMS.apply(state)[0]
