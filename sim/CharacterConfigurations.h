@@ -19,6 +19,6 @@
 #define CHARACTER_TYPE "mxm_t2"
 #define REF_CHARACTER_TYPE "mxm_t2"
 
-#define OBJECT_TYPE "hang_wall"
+#define OBJECT_TYPE "ball"
 
 #endif

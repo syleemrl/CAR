@@ -89,6 +89,9 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass);
 
+	Eigen::Vector3d getDbgLeft(int f){ if(dbg_LeftPoints.empty() || f<0) return Eigen::Vector3d::Zero(); if(!dbg_LeftPoints.empty() && f >=dbg_LeftPoints.size()) f= dbg_LeftPoints.size()-1; return dbg_LeftPoints[f];}
+	Eigen::Vector3d getDbgRight(int f){ if(dbg_RightPoints.empty() || f<0) return Eigen::Vector3d::Zero(); if(!dbg_RightPoints.empty() && f >=dbg_RightPoints.size()) f= dbg_RightPoints.size()-1; return dbg_RightPoints[f]; }
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -192,6 +195,14 @@ protected:
 	dart::constraint::BallJointConstraintPtr rightHandConstraint;
 	void attachHandToBar(bool left, Eigen::Vector3d offset);
 	void removeHandFromBar(bool left);
+
+	Eigen::Vector3d dbg_LeftConstraintPoint;
+	Eigen::Vector3d dbg_RightConstraintPoint;
+
+	std::vector<Eigen::Vector3d> dbg_LeftPoints;
+	std::vector<Eigen::Vector3d> dbg_RightPoints;
+
+
 };
 }
 #endif

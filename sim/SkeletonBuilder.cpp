@@ -493,6 +493,12 @@ BodyNode* SkeletonBuilder::MakeFreeJointBody(
 		bn->createShapeNodeWith<VisualAspect>(shape);
 	}
 	bn->setInertia(inertia);
+
+
+	std::cout<<"FreeJoint, "<<body_name<<" : "<<target_skel->getBodyNode(body_name)->getWorldTransform().translation().transpose()<<std::endl;
+	std::cout<<"raw joint position : "<<joint_position.translation().transpose()<<std::endl;
+	std::cout<<"raw body position : "<<body_position.translation().transpose()<<std::endl;
+
 	return bn;
 }
 
@@ -763,6 +769,9 @@ BodyNode* SkeletonBuilder::MakeWeldJointBody(
 		bn->createShapeNodeWith<VisualAspect, DynamicsAspect>(shape);
 	bn->setInertia(inertia);
 
+	std::cout<<"WeldJoint, "<<body_name<<" : "<<target_skel->getBodyNode(body_name)->getWorldTransform().translation().transpose()<<std::endl;
+	std::cout<<"raw joint position : "<<joint_position.translation().transpose()<<std::endl;
+	std::cout<<"raw body position : "<<body_position.translation().transpose()<<std::endl;
 	return bn;
 }
 }

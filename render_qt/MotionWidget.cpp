@@ -455,12 +455,14 @@ DrawSkeletons()
 		if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(-0.75, 0, 0);
+
 			int obj_dof = mSkel_obj->getNumDofs();
 			Eigen::VectorXd obj_pos(obj_dof);	
 			obj_pos.setZero();
 			mSkel_obj->setPositions(obj_pos);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);			
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
+
 			glPopMatrix();
 		}
 		#endif
@@ -475,6 +477,24 @@ DrawSkeletons()
 			glTranslated(0.75, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
+			if(this->mController){
+				glPushMatrix();
+				// std::cout<<mCurFrame<<std::endl;
+				Eigen::Vector3d dbg_l = this->mController->getDbgLeft(mCurFrame);
+				// std::cout<<dbg_l.transpose()<<std::endl;
+				glTranslated(dbg_l[0], dbg_l[1], dbg_l[2]);
+				GUI::DrawSphere(0.05);
+				glPopMatrix();
+
+				glPushMatrix();
+				Eigen::Vector3d dbg_r = this->mController->getDbgRight(mCurFrame);
+				// std::cout<<dbg_r.transpose()<<std::endl;
+				glTranslated(dbg_r[0], dbg_r[1], dbg_r[2]);
+				GUI::DrawSphere(0.05);
+				glPopMatrix();
+				
+			}
+
 			glPopMatrix();
 		}
 		#endif
