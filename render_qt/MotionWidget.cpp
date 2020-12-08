@@ -438,9 +438,9 @@ RunPPO() {
 		Eigen::VectorXd position = this->mController->GetPositions(i);
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
-
+#ifdef OBJECT_TYPE
 		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
-
+#endif
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
@@ -509,17 +509,20 @@ DrawSkeletons()
 {
 	if(mDrawBvh){
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
-		if(this->mSkel_obj) {
+		#ifdef OBJECT_TYPE
+	    if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(-0.75, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);			
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
 			glPopMatrix();
 		}
+		#endif
 	}
 
 	if(mDrawSim) {
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
+		#ifdef OBJECT_TYPE
 		if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(0.75, 0, 0);
@@ -527,27 +530,32 @@ DrawSkeletons()
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
 			glPopMatrix();
 		}
+		#endif
 	}
 	if(mDrawReg) {
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 		// if(!mRunSim) {
 		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		#ifdef OBJECT_TYPE
 		if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(0.75, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
 			glPopMatrix();
 		}
+		#endif
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
 		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		#ifdef OBJECT_TYPE
 		if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(2.25, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
 			glPopMatrix();
 		}
+		#endif
 	}
 
 }	

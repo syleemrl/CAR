@@ -47,7 +47,8 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 	this->mObject = new DPhy::Character(object_path);	
 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-		
+	
+	this->mObject->GetSkeleton()->getBodyNode("Box")->setFrictionCoeff(0.7);
 	// for(std::size_t i=0; i < this->mObject->GetSkeleton()->getNumBodyNodes(); i++){
 	// 	this->mObject->GetSkeleton()->getBodyNode(i)->setFrictionCoeff(1.0);
 	// 	this->mObject->GetSkeleton()->getBodyNode(i)->setRestitutionCoeff(0.2);
