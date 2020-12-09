@@ -31,7 +31,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mWorld->setGravity(this->mBaseGravity);
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
-	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
+	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::FCLCollisionDetector::create());
 	dynamic_cast<dart::constraint::BoxedLcpConstraintSolver*>(mWorld->getConstraintSolver())->setBoxedLcpSolver(std::make_shared<dart::constraint::PgsBoxedLcpSolver>());
 	
 
@@ -49,18 +49,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	
 	this->mObject->GetSkeleton()->getBodyNode("Box")->setFrictionCoeff(0.7);
-	// for(std::size_t i=0; i < this->mObject->GetSkeleton()->getNumBodyNodes(); i++){
-	// 	this->mObject->GetSkeleton()->getBodyNode(i)->setFrictionCoeff(1.0);
-	// 	this->mObject->GetSkeleton()->getBodyNode(i)->setRestitutionCoeff(0.2);
-	// 	for(std::size_t j=0; j < this->mObject->GetSkeleton()->getJoint(i)->getNumDofs(); ++j){
-	// 		// this->mObject->GetSkeleton()->getJoint(i)->getDof(j)->setDampingCoefficient(0.05);
-	// 	}
-	// 	std::cout<<i<<" : j = "<<this->mObject->GetSkeleton()->getJoint(i)->getNumDofs()<<std::endl;
-	// }
-
-	// this->mObject->GetSkeleton()->getBodyNode("Box")->setFrictionCoeff(10.0);
-	// this->mObject->GetSkeleton()->getBodyNode("Box")->setRestitutionCoeff(0.6);
-	// this->mObject->GetSkeleton()->getBodyNode("Box")->getParentJoint()->getDof(0)->setDampingCoefficient(0.05);
 	
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
@@ -70,6 +58,13 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 	mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 #endif
+
+	// this->mCharacter->GetSkeleton()->getBodyNode("LeftHand")->setRestitutionCoeff(0.1);	
+	// this->mCharacter->GetSkeleton()->getBodyNode("RightHand")->setRestitutionCoeff(0.1);	
+
+	// std::cout<<"HAND default : "<<this->mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getRestitutionCoeff()<<std::endl;
+	// std::cout<<"Box default : "<<this->mObject->GetSkeleton()->getBodyNode("Box")->getRestitutionCoeff()<<std::endl;
+	// exit(0);
 
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
 	
@@ -179,15 +174,16 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
+
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -2.0, 1.0);
+	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
 	// std::cout<<mAdaptiveStep<<std::endl;
 	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
-	this->mCurrentFrame += (1 + mAdaptiveStep);
-	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
+	this->mCurrentFrame += (1+mAdaptiveStep);
+	this->mCurrentFrameOnPhase += (1+mAdaptiveStep);
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
@@ -225,8 +221,23 @@ Step()
 			mWorld->step(false);
 		}
 
-		mTimeElapsed += 2 * (1 + mAdaptiveStep);
+
+		mTimeElapsed += 2 * (1+mAdaptiveStep);
 	}
+
+	dart::collision::DistanceOption option;
+	option.enableNearestPoints = true;
+	dart::collision::DistanceResult result;
+
+	result.clear();
+	mCGOBJ->distance(mCGHR.get(), option, &result);
+	this->hr_dist= result.minDistance;
+	
+	result.clear();
+	mCGOBJ->distance(mCGHL.get(), option, &result);
+	this->hl_dist= result.minDistance;
+
+	// std::cout<<mCurrentFrame<<"\tmin: "<<hl_dist<<" "<<hr_dist<<std::endl;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -620,7 +631,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
-	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
+	double time_diff = (1+mAdaptiveStep) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
 	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
@@ -875,6 +886,7 @@ Reset(bool RSI)
 		mTimeQueue.pop();
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
+	// mAdaptiveStep = 1;
 
 	mPrevTargetPositions = mTargetPositions;
 	
@@ -1122,10 +1134,12 @@ GetState()
 	if(isParametric) {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mParamGoal.rows());
 		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
+		// state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal;
 	}
 	else {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
 		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
+		// state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
 	}
 
 	// if(mRecord && mCurrentFrame < 10){

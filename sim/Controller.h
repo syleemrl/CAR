@@ -201,6 +201,9 @@ protected:
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+
+	double hl_dist;
+	double hr_dist;
 };
 }
 #endif

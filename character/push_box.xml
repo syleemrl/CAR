@@ -3,10 +3,10 @@
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.7 -3"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="Translational" name="Box" parent_name="Ground"  size="1.0 1.4 0.6 " mass="10">
+	<Joint type="Translational" name="Box" parent_name="Ground"  size="1.0 1.4 1.0 " mass="10">
 		<Limit lower = "-1 -1 -10000" upper= "1 1 10000"/>
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.7 1.0"></BodyPosition>
-		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.7 1.0"></JointPosition>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.7 1.2"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.7 1.2"></JointPosition>
 	    <!-- <Box offset="0 0 0 " direction="1 0 0 " size="1.0 1.4 0.8 " /> -->
 	</Joint>
  
