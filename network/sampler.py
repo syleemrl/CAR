@@ -308,9 +308,11 @@ class Sampler(object):
 
 		if self.n_exploit < 10:
 			return False
-
+		if self.v_mean < 13:
+			return False
+			
 		if self.use_table:
-			v_key = math.floor(self.v_mean * 1 / self.unit) - 1
+			v_key = math.floor(self.v_mean * 1 / self.unit)
 			count = 0
 			mean = 0
 			for n in range(5):

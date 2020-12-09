@@ -618,14 +618,14 @@ UpdateAdaptiveReward()
 
 	double r_tot = r_tracking;
 	
-	if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 64) {
-		Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
-		Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
-		double r_pos = exp_of_squared(pos_diff, 0.2);
-		// mPosDiff += exp_of_squared(pos_diff, 0.2);
-		// mCount += 1;
-		r_tot = 0.9 * r_tot + 0.1 * r_pos;
-	}
+	// if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 64) {
+	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
+	// 	Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
+	// 	double r_pos = exp_of_squared(pos_diff, 0.2);
+	// 	// mPosDiff += exp_of_squared(pos_diff, 0.2);
+	// 	// mCount += 1;
+	// 	r_tot = 0.9 * r_tot + 0.1 * r_pos;
+	// }
 	
 	mRewardParts.clear();
 
@@ -720,7 +720,7 @@ UpdateTerminalInfo()
 	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(isAdaptive && mCurrentFrame > 999) {// mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
@@ -764,16 +764,16 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	if(mParamGoal(0) < 0) {
-		this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 1);
-		this->SetSkeletonWeight(1, 2);
-	} else {
-		this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
-		this->SetSkeletonWeight(1, 1);
-	}
-	this->SetSkeletonLength(mParamGoal(1), 1);
-	this->SetSkeletonLength(mParamGoal(2), 2);
-	std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
+	// if(mParamGoal(0) < 0) {
+	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 1);
+	// 	this->SetSkeletonWeight(1, 2);
+	// } else {
+	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
+	// 	this->SetSkeletonWeight(1, 1);
+	// }
+	this->SetSkeletonLength(mParamGoal(0), 1);
+	this->SetSkeletonLength(mParamGoal(1), 2);
+	// std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
 }
 void
 Controller::

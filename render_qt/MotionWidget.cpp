@@ -185,7 +185,7 @@ UpdateRandomParam(const bool& pressed) {
 						for(int i = 1; i < tp_cur.rows(); i++) {
 							tp_cur(i) += 0.01; // std::min(1.0, std::max(0.0, tp_cur(i) +  0.1 * (0.5 - mUniform(mMT))));
 						}
-						if(tp_cur(1) >= 0.8) {
+						if(tp_cur(1) >= 0.9) {
 							flag = 1;
 							flag_count = 0;
 						}
@@ -195,7 +195,7 @@ UpdateRandomParam(const bool& pressed) {
 						flag_count += 1;
 					} else {
 						tp_cur(1) -= 0.01; 
-						if(tp_cur(1) <= 0.2) {
+						if(tp_cur(1) <= 0.1) {
 							flag = 2;
 							flag_count = 0;
 						}
@@ -207,7 +207,7 @@ UpdateRandomParam(const bool& pressed) {
 						tp_cur(1) += 0.01; 
 						tp_cur(2) -= 0.01; 
 
-						if(tp_cur(1) >= 0.8) {		
+						if(tp_cur(1) >= 0.9) {		
 							flag = 3;
 							flag_count = 0;
 						}
@@ -283,10 +283,10 @@ UpdateParam(const bool& pressed) {
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
 
-		double l1 = tp_denorm(1) / mLengthArm;
-		mLengthArm = tp_denorm(1);
-		double l2 = tp_denorm(2) / mLengthLeg;
-		mLengthLeg = tp_denorm(2);
+		double l1 = tp_denorm(0) / mLengthArm;
+		mLengthArm = tp_denorm(0);
+		double l2 = tp_denorm(1) / mLengthLeg;
+		mLengthLeg = tp_denorm(1);
 
 		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 		int n_bnodes = mSkel_exp->getNumBodyNodes();
