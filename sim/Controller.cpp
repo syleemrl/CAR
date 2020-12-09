@@ -48,6 +48,15 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mObject = new DPhy::Character(object_path);	
 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	
+	if(isAdaptive){
+		auto bn = this->mObject->GetSkeleton()->getBodyNode("Box");
+		auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+		auto inertia = bn->getInertia();
+		inertia.setMass(mParamGoal[0]);
+		inertia.setMoment(shape_old->computeInertia(inertia.getMass()));
+		bn->setInertia(inertia);
+	}
+
 	this->mObject->GetSkeleton()->getBodyNode("Box")->setFrictionCoeff(0.7);
 	
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
@@ -897,6 +906,13 @@ Reset(bool RSI)
 	if(isAdaptive)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
+	
+		auto bn = this->mObject->GetSkeleton()->getBodyNode("Box");
+		auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+		auto inertia = bn->getInertia();
+		inertia.setMass(mParamGoal[0]);
+		inertia.setMoment(shape_old->computeInertia(inertia.getMass()));
+		bn->setInertia(inertia);
 	}
 
 	#ifdef OBJECT_TYPE

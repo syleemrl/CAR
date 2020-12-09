@@ -755,7 +755,7 @@ BodyNode* SkeletonBuilder::MakePrismaticJointBody(
 
 	if(isLimitEnforced){
 		JointPtr joint = bn->getParentJoint();
-		std::cout<<joint->getName()<<" : [ "<<lower_limit<<" , "<<upper_limit<<"] \n";
+		// std::cout<<joint->getName()<<" : [ "<<lower_limit<<" , "<<upper_limit<<"] \n";
 		joint->setPositionLimitEnforced(isLimitEnforced);
 		joint->setPositionUpperLimit(0, upper_limit);
 		joint->setPositionLowerLimit(0, lower_limit);
@@ -809,7 +809,7 @@ BodyNode* SkeletonBuilder::MakeTranslationalJointBody(
 
 	if(isLimitEnforced){
 		JointPtr joint = bn->getParentJoint();
-		std::cout<<joint->getName()<<" : [ "<<lower_limit<<" , "<<upper_limit<<"] \n";
+		// std::cout<<joint->getName()<<" : [ "<<lower_limit<<" , "<<upper_limit<<"] \n";
 		joint->setPositionLimitEnforced(isLimitEnforced);
 		for(int i = 0; i < 3; i++)
 		{
