@@ -55,7 +55,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
-
+	
     if(mRunReg) {
     	mRegressionMemory = new DPhy::RegressionMemory();
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
@@ -283,10 +283,10 @@ UpdateParam(const bool& pressed) {
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
 
-		double l1 = tp_denorm(1) / mLengthArm;
-		mLengthArm = tp_denorm(1);
-		double l2 = tp_denorm(2) / mLengthLeg;
-		mLengthLeg = tp_denorm(2);
+		double l1 = tp_denorm(0) / mLengthArm;
+		mLengthArm = tp_denorm(0);
+		double l2 = tp_denorm(1) / mLengthLeg;
+		mLengthLeg = tp_denorm(1);
 
 		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 		int n_bnodes = mSkel_exp->getNumBodyNodes();
@@ -311,21 +311,22 @@ UpdateParam(const bool& pressed) {
 		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
 		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
 	    std::cout << tp.transpose() << " " << tp_denorm.transpose() << " " << d << std::endl;
+		mReferenceManager->RescaleMotion(tp_denorm(0), tp_denorm(1));
 
-	    std::vector<Eigen::VectorXd> cps;
-	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
-	        cps.push_back(Eigen::VectorXd::Zero(dof));
-	    }
-	    for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	        Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
-	        input << j, tp;
-	        p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	    // std::vector<Eigen::VectorXd> cps;
+	    // for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
+	    //     cps.push_back(Eigen::VectorXd::Zero(dof));
+	    // }
+	    // for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	    //     Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
+	    //     input << j, tp;
+	    //     p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 	    
-	        np::ndarray na = np::from_object(a);
-	        cps[j] = DPhy::toEigenVector(na, dof);
-	    }
+	    //     np::ndarray na = np::from_object(a);
+	    //     cps[j] = DPhy::toEigenVector(na, dof);
+	    // }
 
-	    mReferenceManager->LoadAdaptiveMotion(cps);
+	    // mReferenceManager->LoadAdaptiveMotion(cps);
 	    
 	    double phase = 0;
 
@@ -371,8 +372,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
-		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    mReferenceManager->LoadAdaptiveMotion(cps);
+		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    // mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}
@@ -667,10 +668,10 @@ timerEvent(QTimerEvent* event)
 				idx = mCurFrame / 3;
 			else
 				idx = std::floor(mTiming[mCurFrame] / 3);
-			double l1 = v_param_record[idx](1) / mLengthArm;
-			mLengthArm = v_param_record[idx](1);
-			double l2 = v_param_record[idx](2) / mLengthLeg;
-			mLengthLeg = v_param_record[idx](2);
+			double l1 = v_param_record[idx](0) / mLengthArm;
+			mLengthArm = v_param_record[idx](0);
+			double l2 = v_param_record[idx](1) / mLengthLeg;
+			mLengthLeg = v_param_record[idx](1);
 
 			std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 			int n_bnodes = mSkel_exp->getNumBodyNodes();
@@ -838,24 +839,24 @@ Reset()
 
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 	int n_bnodes = mSkel_exp->getNumBodyNodes();
-	for(int i = 0; i < n_bnodes; i++){
-		std::string name = mSkel_exp->getBodyNode(i)->getName();
-		if(name.find("Shoulder") != std::string::npos ||
-			name.find("Arm") != std::string::npos ||
-			name.find("Hand") != std::string::npos) {
-			deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
-		}
-		else if (name.find("Leg") != std::string::npos) {
-			deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
+	// for(int i = 0; i < n_bnodes; i++){
+	// 	std::string name = mSkel_exp->getBodyNode(i)->getName();
+	// 	if(name.find("Shoulder") != std::string::npos ||
+	// 		name.find("Arm") != std::string::npos ||
+	// 		name.find("Hand") != std::string::npos) {
+	// 		deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
+	// 	}
+	// 	else if (name.find("Leg") != std::string::npos) {
+	// 		deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
 
-		} else if(name.find("Toe") != std::string::npos ||
-			name.find("Foot") != std::string::npos) {
-			deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
-		}
-	}
-	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
-	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
-	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
+	// 	} else if(name.find("Toe") != std::string::npos ||
+	// 		name.find("Foot") != std::string::npos) {
+	// 		deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
+	// 	}
+	// }
+	// DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
+	// DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
 
 	this->mCurFrame = 0;
 	this->SetFrame(this->mCurFrame);

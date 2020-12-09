@@ -7,6 +7,7 @@
 #include "BVH.h"
 #include "MultilevelSpline.h"
 #include "RegressionMemory.h"
+#include "SkeletonBuilder.h"
 #include <tuple>
 #include <mutex>
 
@@ -81,7 +82,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
 	std::vector<std::string> GetHierarchyStr() {return mHierarchyStr; }
-
+	void RescaleMotion(double l_arm, double l_leg);
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -125,6 +126,8 @@ protected:
 	std::uniform_real_distribution<double> mUniform;
 	std::vector<std::string> mHierarchyStr;
 
+	double mLengthLeg=1;
+	double mLengthArm=1;
 };
 }
 

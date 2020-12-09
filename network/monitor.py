@@ -130,12 +130,12 @@ class Monitor(object):
 
 	def updateReference(self):
 		self.num_evaluation += 1
-		if self.num_evaluation % 2 == 0:
+		if self.num_evaluation % 5 == 0:
 			self.sim_env.UpdateParamState()
 		if self.num_evaluation % 10 == 0:
 			self.sim_env.SaveParamSpace(-1)
 			self.env.sim_env.UpdateReference()
-			self.sim_env.TrainRegressionNetwork()
+			# self.sim_env.TrainRegressionNetwork()
 	
 	def saveEvaluation(self, li):
 		mean = np.array(li).mean()
@@ -225,12 +225,11 @@ class Monitor(object):
 			self.sim_env.SaveParamSpace(self.num_evaluation)
 
 		if self.mode == 0:
-			if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
-				self.saveVPtable()
+			# if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
+			# 	self.saveVPtable()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.num_evaluation >= 10 and self.sampler.n_explore >= 10 and \
-			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 1.2:
+			if self.mode_counter >= 30 or np.array(self.sampler.progress_queue_explore).mean() <= 2:
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.resetExploit()
@@ -258,7 +257,7 @@ class Monitor(object):
 		elif self.mode == 2 and self.sampler.evaluation_done:
 			self.mode_eval = False
 			self.mode = 1
-			self.saveVPtable()
+			# self.saveVPtable()
 
 		if self.v_ratio == 1:
 			mode_change = -1	

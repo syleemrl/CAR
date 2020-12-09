@@ -829,14 +829,10 @@ Eigen::VectorXd solveMCIKRoot(dart::dynamics::SkeletonPtr skel, const std::vecto
 }
 Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>>& constraints)
 {
-	int foot_l_idx = skel->getBodyNode("FootL")->getParentJoint()->getIndexInSkeleton(0);
-	int foot_r_idx = skel->getBodyNode("FootR")->getParentJoint()->getIndexInSkeleton(0);
-	int footend_l_idx = skel->getBodyNode("FootEndL")->getParentJoint()->getIndexInSkeleton(0);
-	int footend_r_idx = skel->getBodyNode("FootEndR")->getParentJoint()->getIndexInSkeleton(0);
-	int femur_l_idx = skel->getBodyNode("FemurL")->getParentJoint()->getIndexInSkeleton(0);
-	int femur_r_idx = skel->getBodyNode("FemurR")->getParentJoint()->getIndexInSkeleton(0);
-	int tibia_l_idx = skel->getBodyNode("TibiaL")->getParentJoint()->getIndexInSkeleton(0);
-	int tibia_r_idx = skel->getBodyNode("TibiaR")->getParentJoint()->getIndexInSkeleton(0);
+	int foot_l_idx = skel->getBodyNode("LeftFoot")->getParentJoint()->getIndexInSkeleton(0);
+	int foot_r_idx = skel->getBodyNode("RightFoot")->getParentJoint()->getIndexInSkeleton(0);
+	int footend_l_idx = skel->getBodyNode("LeftToe")->getParentJoint()->getIndexInSkeleton(0);
+	int footend_r_idx = skel->getBodyNode("RightToe")->getParentJoint()->getIndexInSkeleton(0);
 
 	Eigen::VectorXd newPose = skel->getPositions();
 	int num_constraints = constraints.size();
@@ -850,7 +846,6 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 		targetposes[i] = std::get<1>(constraints[i]);
 		offsets[i] = std::get<2>(constraints[i]);
 	}
-
 	int not_improved = 0;
 	for(std::size_t i = 0; i < 100; i++)
 	{
@@ -860,6 +855,7 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 		for(int j = 0; j < num_constraints; j++){
 			deviation.segment<3>(j*3) = targetposes[j] - bodynodes[j]->getTransform()*offsets[j];
 		}
+
 		if(deviation.norm() < 0.001)
 			break;
 
@@ -870,12 +866,12 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 			// jacobian.block<3,3>(0,0).setZero();
 			// jacobian.block<3,3>(0,foot_l_idx).setZero();
 			// jacobian.block<3,3>(0,foot_r_idx).setZero();
-			jacobian.block<3,3>(0,footend_l_idx).setZero();
-			jacobian.block<3,3>(0,footend_r_idx).setZero();
+			// jacobian.block<3,3>(0,footend_l_idx).setZero();
+			// jacobian.block<3,3>(0,footend_r_idx).setZero();
 			// jacobian.block<3,2>(0,femur_l_idx+1).setZero();
 			// jacobian.block<3,2>(0,femur_r_idx+1).setZero();
-			jacobian.block<3,2>(0,tibia_l_idx+1).setZero();
-			jacobian.block<3,2>(0,tibia_r_idx+1).setZero();
+			// jacobian.block<3,2>(0,tibia_l_idx+1).setZero();
+			// jacobian.block<3,2>(0,tibia_r_idx+1).setZero();
 
 			jacobian_concatenated.block(3*j, 0, 3, nDofs) = jacobian;
 		}
@@ -892,7 +888,6 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 			else
 				inv_singular_value(k,k) = 1.0/svd.singularValues()[k];
 		}
-
 
 		Eigen::MatrixXd jacobian_inv = svd.matrixV()*inv_singular_value*svd.matrixU().transpose();
 		// std::cout << svd.singularValues().transpose() << std::endl;

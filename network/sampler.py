@@ -306,7 +306,10 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
-		if self.n_exploit < 10:
+		if self.n_exploit < 5:
+			return False
+
+		if self.v_mean < 13:
 			return False
 
 		if self.use_table:
@@ -324,7 +327,7 @@ class Sampler(object):
 				mean /= count
 
 			print(p_mean, mean)
-			if p_mean * 1.2 < mean - 1.0:
+			if mean > 2:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
