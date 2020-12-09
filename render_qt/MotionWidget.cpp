@@ -287,7 +287,7 @@ UpdateParam(const bool& pressed) {
 		mLengthArm = tp_denorm(0);
 		double l2 = tp_denorm(1) / mLengthLeg;
 		mLengthLeg = tp_denorm(1);
-
+		std::cout << l1 << " "<< l2 << std::endl;
 		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 		int n_bnodes = mSkel_exp->getNumBodyNodes();
 		for(int i = 0; i < n_bnodes; i++){

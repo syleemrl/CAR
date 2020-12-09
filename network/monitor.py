@@ -129,12 +129,11 @@ class Monitor(object):
 		return rewards, dones, curframes, params
 
 	def updateReference(self):
-		self.num_evaluation += 1
-		if self.num_evaluation % 5 == 0:
+		if self.num_evaluation % 2 == 0:
 			self.sim_env.UpdateParamState()
 		if self.num_evaluation % 10 == 0:
 			self.sim_env.SaveParamSpace(-1)
-			self.env.sim_env.UpdateReference()
+			# self.sim_env.UpdateReference()
 			# self.sim_env.TrainRegressionNetwork()
 	
 	def saveEvaluation(self, li):

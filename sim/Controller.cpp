@@ -578,7 +578,7 @@ GetParamReward()
 			mParamCur(0) = -100;
 		}	
 		mControlFlag[0] = 2;		
-
+		
 		if(mRecord) {
 		 	std::cout << mTotalLength.transpose()  << " / " << l_diff.transpose() << " / " << r_l << std::endl;
 		 	std::cout << t  << " / " << t - 1 << " / " << r_t << std::endl;
@@ -768,7 +768,7 @@ SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
 	this->SetSkeletonLength(mParamGoal(0), 1);
-	this->SetSkeletonLength(mParamGoal(1), 2);
+	//this->SetSkeletonLength(mParamGoal(1), 2);
 	// std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
 }
 void

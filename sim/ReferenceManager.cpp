@@ -507,21 +507,21 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.8;
 
-	mParamCur.resize(2);
-	mParamCur <<1, 1;
+	mParamCur.resize(1);
+	mParamCur <<1;
 
-	mParamGoal.resize(2);
-	mParamGoal << 1, 1;
+	mParamGoal.resize(1);
+	mParamGoal << 0.2;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(2);
-		paramUnit<<  0.1, 0.1;
+		Eigen::VectorXd paramUnit(1);
+		paramUnit<<  0.1;
 
-		mParamBase.resize(2);
-		mParamBase << 0.2, 0.2;
+		mParamBase.resize(1);
+		mParamBase << 0.2;
 
-		mParamEnd.resize(2);
-		mParamEnd << 3, 3;
+		mParamEnd.resize(1);
+		mParamEnd << 1;
 
 	// mParamCur.resize(1);
 	// mParamCur << 0;
@@ -601,7 +601,6 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}

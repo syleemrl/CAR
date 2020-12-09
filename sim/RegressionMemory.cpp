@@ -57,11 +57,11 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	mNumElite = 5;
 	mRadiusNeighbor = 0.05;
-	mThresholdInside = 1.1;
+	mThresholdInside = 0.7;
 	mRangeExplore = 0.3;
 	mThresholdActivate = 3;
 
-	for(int i = 0; i < 3; i++) {
+	for(int i = 0; i < 10; i++) {
 		mParamBVH = new Param();
 		mParamBVH->cps.clear();
 		for(int i = 0; i < mNumKnots; i++) {

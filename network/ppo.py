@@ -187,14 +187,14 @@ class PPO(object):
 		self.critic, self.critic_train_op, self.loss_critic = self.createCriticNetwork(name, self.state, self.TD)
 
 		if self.adaptive:
-			if self.parametric:
+			if self.adaptive:
 				self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_param], name=name+'_state_target')
 
 			with tf.variable_scope(name+'_Optimize'):
-				if self.parametric:
+				if self.adaptive:
 					self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
 
-			if self.parametric:
+			if self.adaptive:
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
@@ -525,10 +525,9 @@ class PPO(object):
 		it_cur = 0
 
 		for it in range(num_iteration):
-			if self.parametric:
+			if self.adaptive:
 				param_info = self.env.updateGoal(self.critic_target)
-			else:
-				param_info = -1
+
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 
@@ -557,18 +556,18 @@ class PPO(object):
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if local_step < self.steps_per_iteration[self.parametric]:
+							if local_step < self.steps_per_iteration[self.adaptive]:
 								epi_info[j] = []
 								self.env.reset(j)
 
 							else:
 								self.env.setTerminated(j)
-				if local_step >= self.steps_per_iteration[self.parametric]:
+				if local_step >= self.steps_per_iteration[self.adaptive]:
 					if self.env.getAllTerminated():
-						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.parametric]),end='\r')
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.adaptive]),end='\r')
 						break
 				if last_print + 100 < local_step: 
-					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.parametric]),end='\r')
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.adaptive]),end='\r')
 					last_print = local_step
 				
 				states = self.env.getStates()
@@ -578,7 +577,7 @@ class PPO(object):
 
 			print('')
 
-			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.parametric] == self.optim_frequency[self.parametric] - 1) or \
+			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.adaptive] == self.optim_frequency[self.adaptive] - 1) or \
 			    (self.env.mode == 2 and it_cur % self.env.sampler.eval_frequency == self.env.sampler.eval_frequency - 1):	
 				if self.parametric:
 					self.updateAdaptive(epi_info_iter)

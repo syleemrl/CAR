@@ -290,7 +290,7 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 	// 	cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 	// 	mReferenceManager->LoadAdaptiveMotion(cps);
 	// }
-	mReferenceManager->RescaleMotion(tp(0), tp(1));
+	mReferenceManager->RescaleMotion(tp(0), 1);
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(tp);
 	}
