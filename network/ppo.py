@@ -362,7 +362,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, idx = zip(*data)
 
-			if len(times) == self.env.phaselength * 6 + 10 + 1:
+			if len(times) == self.env.phaselength * 4 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:

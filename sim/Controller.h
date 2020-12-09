@@ -204,6 +204,7 @@ protected:
 
 	double hl_dist;
 	double hr_dist;
+	bool pr_calculated= false;
 };
 }
 #endif

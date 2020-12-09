@@ -151,7 +151,7 @@ class Regression(object):
 		lossval_reg_prev = 1e8
 		epsilon_count = 0
 		n_iteration = 0
-		while epsilon_count < 5:
+		while epsilon_count < 2:
 			n_iteration += 1
 			lossval_reg_prev = lossval_reg
 			lossval_reg = 0

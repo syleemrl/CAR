@@ -558,7 +558,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	// 	// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
 	// 	return;
 	// }
-	if (std::abs(data_raw[0].second) > 1e-8) return ;
+//	if (std::abs(data_raw[0].second) > 1e-8) return ;
 	
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;

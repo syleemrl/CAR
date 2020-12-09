@@ -156,6 +156,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	// }
 	foot_diff = std::vector<double>();
+	pr_calculated= false;
 
 }
 const dart::dynamics::SkeletonPtr& 
@@ -270,10 +271,10 @@ Step()
 			// mFitness.sum_slide/= mCountTracking;
 
 			// std::cout<<mCurrentFrame<<" : "<<mTrackingRewardTrajectory<<std::endl;
-			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
+			//if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
 				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
-				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
-			}
+			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
+			//}
 			data_raw.clear();
 
 			mFitness.sum_contact = 0;
@@ -294,6 +295,7 @@ Step()
 			// mEnergy.setZero();
 			// mVelocity = 0;
 			foot_diff.clear();	
+			pr_calculated = false;
 
 		}
 
@@ -622,14 +624,16 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	if(mCurrentFrameOnPhase >= 196){
-		double travel_distance = this->mObject->GetSkeleton()->getPositions()[6] - mObjectStartPosition;
+	if(mCurrentFrameOnPhase >= 200 && !pr_calculated){
+		double cur_obj_z= mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2];
+		double travel_distance = cur_obj_z - mObjectStartPosition;
 		double distance_diff= travel_distance - (4-0.7);
-		double r = exp_of_squared(distance_diff, 0.035);
+		r_param = exp_of_squared(distance_diff, 0.65);
 
 		mParamCur = mParamGoal;
+		pr_calculated = true;
 
-		if(mRecord) std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
+		if(mRecord) std::cout<<travel_distance<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
 	}
 
 	return r_param;
@@ -757,7 +761,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 2+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 4+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -933,12 +937,12 @@ Reset(bool RSI)
 	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 	Eigen::Vector3d mf = (lf+rf)/2.; 
 	this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
-	this->mObjectStartPosition = mObject->GetSkeleton()->getPositions()[6];
-
+	this->mObjectStartPosition = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2];
 
 	#endif
 
 	foot_diff.clear();
+	pr_calculated= false;
 
 	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
