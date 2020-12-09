@@ -178,12 +178,10 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
-	// std::cout<<mAdaptiveStep<<std::endl;
-	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
-	this->mCurrentFrame += (1+mAdaptiveStep);
-	this->mCurrentFrameOnPhase += (1+mAdaptiveStep);
+	this->mCurrentFrame += (mAdaptiveStep);
+	this->mCurrentFrameOnPhase += (mAdaptiveStep);
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
@@ -222,7 +220,7 @@ Step()
 		}
 
 
-		mTimeElapsed += 2 * (1+mAdaptiveStep);
+		mTimeElapsed += 2 * (mAdaptiveStep);
 	}
 
 	dart::collision::DistanceOption option;
@@ -257,9 +255,6 @@ Step()
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
 
-			// for(int i = 0; i < mRewardSimilarity.size(); i++) {
-			// 	mRewardSimilarity[i] /= mCountTracking;
-			// }
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
@@ -294,8 +289,7 @@ Step()
 		}
 
 		#ifdef OBJECT_TYPE
-		// place the object according to the paramGoal, mRootZero
-		Eigen::VectorXd prev_obj_pos= mObject->GetSkeleton()->getPositions();
+		// place the object according to the mRootZero
 		Eigen::Vector3d root_diff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
 		int box_dof =mObject->GetSkeleton()->getNumDofs();
@@ -431,12 +425,14 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 	com_diff -= skel->getCOM();
 
+
 	double scale = 1.0;
 
 	double sig_p = 0.4 * scale; 
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.5 * scale;		
+	double sig_hand = 0.15* scale;		
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -446,6 +442,14 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
+
+	// BOX PUSHING ONLY
+	Eigen::VectorXd hand_diff(2); hand_diff.setZero();
+	if(mCurrentFrameOnPhase >=28 && mCurrentFrameOnPhase<=190) hand_diff << hl_dist, hr_dist;
+	double r_hand = exp_of_squared(hand_diff, sig_hand);
+	r_ee = (r_ee+r_hand)/2.;
+
+	// std::cout<<mCurrentFrameOnPhase<<"\t"<<hand_diff.transpose()<<"\t"<<r_hand<<std::endl;
 
 	std::vector<double> rewards;
 	rewards.clear();
@@ -612,9 +616,9 @@ GetParamReward()
 	if(mCurrentFrameOnPhase >= 196){
 		double travel_distance = this->mObject->GetSkeleton()->getPositions()[6] - mObjectStartPosition;
 		double distance_diff= travel_distance - (4-0.7);
-		// double r = exp_of_squared(distance_diff, 0.035);
+		double r = exp_of_squared(distance_diff, 0.035);
 
-		// mParamCur <<
+		mParamCur = mParamGoal;
 
 		if(mRecord) std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
 	}
@@ -631,7 +635,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
-	double time_diff = (1+mAdaptiveStep) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
+	double time_diff = (mAdaptiveStep) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
 	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
@@ -886,7 +890,7 @@ Reset(bool RSI)
 		mTimeQueue.pop();
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
-	// mAdaptiveStep = 1;
+	mAdaptiveStep = 1;
 
 	mPrevTargetPositions = mTargetPositions;
 	

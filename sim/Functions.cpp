@@ -327,6 +327,10 @@ double RadianClamp(double input){
 	return std::fmod(input+M_PI, 2*M_PI)-M_PI;
 }
 
+double exp_of_squared(double value, double sigma)
+{
+	return exp(-1*std::pow(value/sigma, 2.0)); 
+}
 double exp_of_squared(const Eigen::VectorXd& vec,double sigma)
 {
 	return exp(-1.0*vec.dot(vec)/(sigma*sigma)/vec.rows());

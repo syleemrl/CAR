@@ -449,24 +449,23 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.85;
 
-	mParamCur.resize(2); // box weight, ground friction coefficient
-	mParamCur << 7, 1; 
+	mParamCur.resize(1); // box weight, ground friction coefficient
+	mParamCur << 13 ; 
 
-	mParamGoal.resize(2);
+	mParamGoal.resize(1);
 	mParamGoal = mParamCur;
 
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);
-		paramUnit << mParamGoal[0]*0.1, mParamGoal[1]*0.1;
+		paramUnit << 5;
 
 		mParamBase.resize(2);
-		mParamBase << mParamGoal[0]*0.7, mParamGoal[1]*0.5;
+		mParamBase << 3;
 
 		mParamEnd.resize(2);
-		mParamEnd << mParamGoal[0]*1.8, mParamGoal[1]*1.0;
+		mParamEnd << 53;
 
-		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
 
