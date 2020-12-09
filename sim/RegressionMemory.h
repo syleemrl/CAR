@@ -96,8 +96,6 @@ public:
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
 	void ResetExploration();
-	double GetVisitedRatio();
-	void UpdateParamState();
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
 			   std::vector<double>> GetTrainingData(bool old=false);
@@ -111,14 +109,8 @@ public:
 	void EvalExplorationStep();
 	bool SetNextCandidate();
 	std::vector<Eigen::VectorXd> GetCurrentCPS();
+	std::vector<Param*> mloadAllSamples;
 
-std::vector<Param*> mloadAllSamples;
-	std::tuple<std::vector<Eigen::VectorXd>, 
-			std::vector<Eigen::VectorXd>, 
-		   std::vector<double>, 
-		   std::vector<double>> GetParamSpaceSummary();
-	double GetFitness(Eigen::VectorXd p);
-	
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -166,8 +158,6 @@ private:
 	std::vector<std::string> mRecordLog;
 
 	GoalInfo mGoalInfo; 
-
-	
 };
 }
 #endif

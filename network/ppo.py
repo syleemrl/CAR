@@ -362,7 +362,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, idx = zip(*data)
 
-			if len(times) == self.env.phaselength * 2 + 10 + 1:
+			if len(times) == self.env.phaselength * 6 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:
@@ -408,10 +408,9 @@ class PPO(object):
 				TD_t_sparse = rewards[i][1] + TD_t_sparse
 
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					if TD_t_sparse != 0:
-						idx_batch.append(idx[i])
-						state_target_batch.append(param[i])
-						TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
+					idx_batch.append(idx[i])
+					state_target_batch.append(param[i])
+					TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 5.0 * TD_t_sparse)
 
 					TD_t_dense = 0
 					TD_t_sparse = 0
@@ -493,10 +492,10 @@ class PPO(object):
 		for s in print_list:
 			print(s)
 
+
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		# self.env.sim_env.TrainRegressionNetwork()
 
 		update_counter = 0
 		self.env.sampler.reset_explore()
@@ -598,28 +597,17 @@ class PPO(object):
 
 				epi_info_iter = []
 
-			if (self.env.num_evaluation > 0) and (self.env.num_evaluation % 100 == 0) and (self.directory is not None) :
-				save_it = self.env.num_evaluation #it//5
-				self.env.RMS.save(self.directory+'rms-{}'.format(save_it))
-				os.system("cp {}/network-{}.data-00000-of-00001 {}/network-{}.data-00000-of-00001".format(self.directory, 0, self.directory, save_it))
-				os.system("cp {}/network-{}.index {}/network-{}.index".format(self.directory, 0, self.directory, save_it))
-				os.system("cp {}/network-{}.meta {}/network-{}.meta".format(self.directory, 0, self.directory, save_it))
-
 
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 		
 		values = self.critic.getValue(state)
-		# action, _ = self.actor.getAction(state)
+		#action, _ = self.actor.getAction(state)
 		action = self.actor.getMeanAction(state)
 
 		return action
 
-	# def saveAndShowParamSummary(self, grids):
-	# 	v_values = self.critic_target.getValue(grids)
-	# 	return v_values
-		
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--ntimesteps", type=int, default=1000000)

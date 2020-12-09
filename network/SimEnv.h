@@ -57,12 +57,6 @@ public:
 	void UpdateReference();
 	void SaveParamSpace(int n);
 	void SaveParamSpaceLog(int n);
-
-	// from branch summary_2d
-	double GetVisitedRatio();
-	double GetDensity(np::ndarray np_array);
-	void UpdateParamState();
-	p::list GetParamSpaceSummary();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
