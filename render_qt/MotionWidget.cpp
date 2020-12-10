@@ -274,9 +274,9 @@ UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
 		tp = v_param*0.05;
-		for(int i = 0; i < tp.rows(); i++) {
-			tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
-		}
+		// for(int i = 0; i < tp.rows(); i++) {
+		// 	tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
+		// }
 		
 	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
@@ -285,9 +285,8 @@ UpdateParam(const bool& pressed) {
 
 		double l1 = tp_denorm(0) / mLengthArm;
 		mLengthArm = tp_denorm(0);
-		double l2 = tp_denorm(1) / mLengthLeg;
-		mLengthLeg = tp_denorm(1);
-		std::cout << l1 << " "<< l2 << std::endl;
+		// double l2 = tp_denorm(1) / mLengthLeg;
+		// mLengthLeg = tp_denorm(1);
 		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 		int n_bnodes = mSkel_exp->getNumBodyNodes();
 		for(int i = 0; i < n_bnodes; i++){
@@ -297,21 +296,21 @@ UpdateParam(const bool& pressed) {
 			   name.find("Hand") != std::string::npos) {
 				deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
 			}
-			else if (name.find("Leg") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
+			// else if (name.find("Leg") != std::string::npos) {
+			// 	deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
 
-			} else if(name.find("Toe") != std::string::npos ||
-					  name.find("Foot") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
+			// } else if(name.find("Toe") != std::string::npos ||
+			// 		  name.find("Foot") != std::string::npos) {
+			// 	deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
 
-			}
+			// }
 		}
 
 		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
 		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
 		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
 	    std::cout << tp.transpose() << " " << tp_denorm.transpose() << " " << d << std::endl;
-		mReferenceManager->RescaleMotion(tp_denorm(0), tp_denorm(1));
+		// mReferenceManager->RescaleMotion(tp_denorm(0), 1);
 
 	    // std::vector<Eigen::VectorXd> cps;
 	    // for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
@@ -372,8 +371,8 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	mController->SetGoalParameters(tp_denorm);
-		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    // mReferenceManager->LoadAdaptiveMotion(cps);
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 	}

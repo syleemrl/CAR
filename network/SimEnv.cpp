@@ -272,25 +272,24 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
 	mRegressionMemory->SetParamGoal(tp);
-	// if(mem_only) {
-	// 	cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-	// 	mReferenceManager->LoadAdaptiveMotion(cps);
-	// } else {
-	// 	// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	// 	// 	Eigen::VectorXd input(dof_input);
-	// 	// 	input << j, tp_normalized;
-	// 	// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-	// 	// 	np::ndarray na = np::from_object(a);
-	// 	// 	cps.push_back(DPhy::toEigenVector(na, dof));
-	// 	// }
-	// 	// mReferenceManager->SetCPSreg(cps);
-	// 	// cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-	// 	// mReferenceManager->SetCPSexp(cps);
-	// 	// mReferenceManager->SelectReference();
-	// 	cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-	// 	mReferenceManager->LoadAdaptiveMotion(cps);
-	// }
-	mReferenceManager->RescaleMotion(tp(0), 1);
+	if(mem_only) {
+		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		mReferenceManager->LoadAdaptiveMotion(cps);
+	} else {
+		// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+		// 	Eigen::VectorXd input(dof_input);
+		// 	input << j, tp_normalized;
+		// 	p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+		// 	np::ndarray na = np::from_object(a);
+		// 	cps.push_back(DPhy::toEigenVector(na, dof));
+		// }
+		// mReferenceManager->SetCPSreg(cps);
+		// cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		// mReferenceManager->SetCPSexp(cps);
+		// mReferenceManager->SelectReference();
+		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+		mReferenceManager->LoadAdaptiveMotion(cps);
+	}
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(tp);
 	}

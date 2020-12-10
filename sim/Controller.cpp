@@ -136,10 +136,9 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
 
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
-	mAdaptiveStep = 1;
-
+	mAdaptiveStep = mActions[mInterestedDof];
 	// if(!isAdaptive)
 	// 	mAdaptiveStep = 1;
 
@@ -151,7 +150,7 @@ Step()
 	// if(mRecord)
 	// 	std::cout << mCurrentFrameOnPhase << " "<< mAdaptiveStep << " "<< mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true) << std::endl;
 	
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
@@ -578,7 +577,7 @@ GetParamReward()
 			mParamCur(0) = -100;
 		}	
 		mControlFlag[0] = 2;		
-		
+
 		if(mRecord) {
 		 	std::cout << mTotalLength.transpose()  << " / " << l_diff.transpose() << " / " << r_l << std::endl;
 		 	std::cout << t  << " / " << t - 1 << " / " << r_t << std::endl;
@@ -616,7 +615,7 @@ UpdateAdaptiveReward()
 	double r_time = exp(-pow(time_diff, 2)*75);
 
 	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
-	//double r_similarity = this->GetSimilarityReward();
+	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
 
 	double r_tot = r_tracking;
@@ -714,13 +713,13 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
-	else if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+	else if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
-	} else if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+	} else if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;
-	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
+	} else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
 	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
@@ -768,7 +767,7 @@ SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
 	this->SetSkeletonLength(mParamGoal(0), 1);
-	//this->SetSkeletonLength(mParamGoal(1), 2);
+	// this->SetSkeletonLength(mParamGoal(1), 2);
 	// std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
 }
 void
@@ -783,7 +782,6 @@ SetSkeletonLength(double length, int type)
 		l = length / mLengthLeg;
 		mLengthLeg = length;
 	}
-
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	// arm
@@ -883,7 +881,7 @@ Reset(bool RSI)
 	this->mTimeElapsed = 0;
 
 	Motion* p_v_target;
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -897,9 +895,9 @@ Reset(bool RSI)
 
 	double h1 = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[1];
 	double h2 = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[1];
-	// double mh = (h1 + h2) / 2.0 - 0.00197391;
-	// double h = mTargetPositions(4);
-	// mTargetPositions(4) -= mh;
+	double mh = (h1 + h2) / 2.0 - 0.00197391;
+	double h = mTargetPositions(4);
+	mTargetPositions(4) -= mh;
 
 	skel->setPositions(mTargetPositions);
 	skel->computeForwardKinematics(true,false,false);
@@ -1083,9 +1081,9 @@ GetState()
 		Eigen::Isometry3d transform = cur_root_inv * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee.segment<3>(3*i) << transform.translation();
 	}
-	double t = mReferenceManager->GetTimeStep(mCurrentFrame, false);
+	double t = mReferenceManager->GetTimeStep(mCurrentFrame, isAdaptive);
 
-	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, false);
+	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
 	delete p_v_target;

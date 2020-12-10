@@ -845,8 +845,8 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::VectorXd diff = p - p_goal;
-	Eigen::VectorXd diff_ = diff.segment<2>(1);
-	double r_param = 0.8 * exp_of_squared(diff_, 0.1) + 0.2 * exp(-pow(diff(0), 2)*50);
+	//Eigen::VectorXd diff_ = diff.segment<2>(1);
+	double r_param = exp(-pow(diff(0), 2)*50);
 	return r_param;
 }
 void 
@@ -916,9 +916,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	    for(int j = 0; j < mNumKnots; j++) {
 			mean_cps[j] += w * cps[j];
-			// if(j < 5) {
-			// 	std::cout << j << " : " << cps[j].segment<3>(3).transpose() << std::endl;
-			// }
+			// std::cout << j << " : " << cps[j].segment<3>(3).transpose() << std::endl;
 	    }
 	}
 

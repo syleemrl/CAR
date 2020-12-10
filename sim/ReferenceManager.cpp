@@ -511,17 +511,17 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mParamCur <<1;
 
 	mParamGoal.resize(1);
-	mParamGoal << 0.2;
+	mParamGoal <<3;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(1);
 		paramUnit<<  0.1;
 
 		mParamBase.resize(1);
-		mParamBase << 0.2;
+		mParamBase << 1;
 
 		mParamEnd.resize(1);
-		mParamEnd << 1;
+		mParamEnd << 3;
 
 	// mParamCur.resize(1);
 	// mParamCur << 0;
@@ -608,99 +608,98 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
-	// if(std::get<2>(rewards).sum_slide > 0.4) {
-	// 	return;
-	// }
-	// if(std::get<0>(rewards) < mThresholdTracking) {
-	// 	return;
-	// }
+	if(std::get<2>(rewards).sum_slide > 0.4) {
+		return;
+	}
+	if(std::get<0>(rewards) < mThresholdTracking) {
+		return;
+	}
 	// if(std::get<2>(rewards).sum_contact > 0.2) {
 	// 	return;
 	// }
 
-	// double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
+	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 
-	// std::vector<Eigen::VectorXd> trajectory;
-	// for(int i = 0; i < data_raw.size(); i++) {
-	// 	trajectory.push_back(data_raw[i].first);
-	// }
-	// trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
-	// for(int i = 0; i < data_raw.size(); i++) {
-	// 	data_raw[i].first = trajectory[i];
-	// }
+	std::vector<Eigen::VectorXd> trajectory;
+	for(int i = 0; i < data_raw.size(); i++) {
+		trajectory.push_back(data_raw[i].first);
+	}
+	trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
+	for(int i = 0; i < data_raw.size(); i++) {
+		data_raw[i].first = trajectory[i];
+	}
 
-	// std::vector<std::pair<Eigen::VectorXd,double>> data_uniform;
-	// int count = 0;
-	// for(int i = 0; i < mPhaseLength; i++) {
-	// 	while(count + 1 < data_raw.size() && i >= data_raw[count+1].second)
-	// 		count += 1;
-	// 	Eigen::VectorXd p(mDOF + 1);
+	std::vector<std::pair<Eigen::VectorXd,double>> data_uniform;
+	int count = 0;
+	for(int i = 0; i < mPhaseLength; i++) {
+		while(count + 1 < data_raw.size() && i >= data_raw[count+1].second)
+			count += 1;
+		Eigen::VectorXd p(mDOF + 1);
 
-	// 	if(i < data_raw[count].second) {
-	// 		int size = data_raw.size();
-	// 		double t0 = data_raw[size-1].second - data_raw[size-2].second;
-	// 		double weight = 1.0 - (mPhaseLength + i - data_raw[size-1].second) / (mPhaseLength + data_raw[count].second - data_raw[size-1].second);
-	// 		double t1 = data_raw[count+1].second - data_raw[count].second;
-	// 		Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[size-1].first, data_raw[0].first, weight);
-	// 		p_blend.segment<3>(3) = data_raw[0].first.segment<3>(3);
-	// 		double t_blend = (1 - weight) * t0 + weight * t1;
-	// 		p << p_blend, log(t_blend);
-	// 	} else if(count == data_raw.size() - 1 && i > data_raw[count].second) {
-	// 		double t0 = data_raw[count].second - data_raw[count-1].second;
-	// 		double weight = 1.0 - (data_raw[0].second + mPhaseLength - i) / (data_raw[0].second + mPhaseLength - data_raw[count].second);
-	// 		double t1 = data_raw[1].second - data_raw[0].second;
+		if(i < data_raw[count].second) {
+			int size = data_raw.size();
+			double t0 = data_raw[size-1].second - data_raw[size-2].second;
+			double weight = 1.0 - (mPhaseLength + i - data_raw[size-1].second) / (mPhaseLength + data_raw[count].second - data_raw[size-1].second);
+			double t1 = data_raw[count+1].second - data_raw[count].second;
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[size-1].first, data_raw[0].first, weight);
+			p_blend.segment<3>(3) = data_raw[0].first.segment<3>(3);
+			double t_blend = (1 - weight) * t0 + weight * t1;
+			p << p_blend, log(t_blend);
+		} else if(count == data_raw.size() - 1 && i > data_raw[count].second) {
+			double t0 = data_raw[count].second - data_raw[count-1].second;
+			double weight = 1.0 - (data_raw[0].second + mPhaseLength - i) / (data_raw[0].second + mPhaseLength - data_raw[count].second);
+			double t1 = data_raw[1].second - data_raw[0].second;
 			
-	// 		Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[0].first, weight);
-	// 		p_blend.segment<3>(3) = data_raw[count].first.segment<3>(3);
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[0].first, weight);
+			p_blend.segment<3>(3) = data_raw[count].first.segment<3>(3);
 
-	// 		double t_blend = (1 - weight) * t0 + weight * t1;
-	// 		p << p_blend, log(t_blend);
-	// 	} else if(i == data_raw[count].second) {
-	// 		if(count < data_raw.size())
-	// 			p << data_raw[count].first, log(data_raw[count+1].second - data_raw[count].second);
-	// 		else
-	// 			p << data_raw[count].first, log(data_raw[0].second + mPhaseLength - data_raw[count].second);
+			double t_blend = (1 - weight) * t0 + weight * t1;
+			p << p_blend, log(t_blend);
+		} else if(i == data_raw[count].second) {
+			if(count < data_raw.size())
+				p << data_raw[count].first, log(data_raw[count+1].second - data_raw[count].second);
+			else
+				p << data_raw[count].first, log(data_raw[0].second + mPhaseLength - data_raw[count].second);
 
-	// 	} else {
-	// 		double weight = 1.0 - (data_raw[count+1].second - i) / (data_raw[count+1].second - data_raw[count].second);
-	// 		Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[count+1].first, weight);
-	// 		double t_blend;
-	// 		if(count + 2 >= data_raw.size()) {
-	// 			double t0 = data_raw[count+1].second - data_raw[count].second;
-	// 			double t1 = data_raw[1].second - data_raw[0].second;
-	// 			t_blend = (1 - weight) * t0 + weight * t1;
-	// 		} else {
-	// 			double t0 = data_raw[count+1].second - data_raw[count].second;
-	// 			double t1 = data_raw[count+2].second - data_raw[count+1].second;
-	// 			t_blend = (1 - weight) * t0 + weight * t1;
-	// 		}
-	// 		p << p_blend, log(t_blend);
-	// 	}
-	// 	data_uniform.push_back(std::pair<Eigen::VectorXd,double>(p, i));
-	// }
+		} else {
+			double weight = 1.0 - (data_raw[count+1].second - i) / (data_raw[count+1].second - data_raw[count].second);
+			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[count+1].first, weight);
+			double t_blend;
+			if(count + 2 >= data_raw.size()) {
+				double t0 = data_raw[count+1].second - data_raw[count].second;
+				double t1 = data_raw[1].second - data_raw[0].second;
+				t_blend = (1 - weight) * t0 + weight * t1;
+			} else {
+				double t0 = data_raw[count+1].second - data_raw[count].second;
+				double t1 = data_raw[count+2].second - data_raw[count+1].second;
+				t_blend = (1 - weight) * t0 + weight * t1;
+			}
+			p << p_blend, log(t_blend);
+		}
+		data_uniform.push_back(std::pair<Eigen::VectorXd,double>(p, i));
+	}
 
-	// std::vector<std::pair<Eigen::VectorXd,double>> displacement;
-	// this->GetDisplacementWithBVH(data_uniform, displacement);
+	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
+	this->GetDisplacementWithBVH(data_uniform, displacement);
 
 	std::vector<Eigen::VectorXd> d;
-	// int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd d_t(mDOF + 1);
-		d_t.setZero();
-
+		d_t << displacement[i].first, data_uniform[i].first.tail<1>();		
 		d.push_back(d_t);
 	}
 
-	// double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
-	// double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
-	// double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
-	// double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2);
+	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
+	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
+	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
+	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2);
 
-	double reward_trajectory = 1; // r_foot * r_pos * r_vel * r_slide;
-	// if(std::get<2>(rewards).sum_reward != 0) {
-	// 	reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
-	// }
+	double reward_trajectory = r_foot * r_pos * r_vel * r_slide;
+	if(std::get<2>(rewards).sum_reward != 0) {
+		reward_trajectory = reward_trajectory * (0.8 + 0.2 * std::get<2>(rewards).sum_reward);
+	}
 	mLock.lock();
 
 	if(isParametric) {
