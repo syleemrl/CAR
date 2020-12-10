@@ -33,7 +33,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::FCLCollisionDetector::create());
 	dynamic_cast<dart::constraint::BoxedLcpConstraintSolver*>(mWorld->getConstraintSolver())->setBoxedLcpSolver(std::make_shared<dart::constraint::PgsBoxedLcpSolver>());
-	
 
 	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/ground.xml")).first;
 	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
@@ -187,7 +186,8 @@ Step()
 
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
-	mAdaptiveStep = mActions[mInterestedDof];
+	// mAdaptiveStep = mActions[mInterestedDof];
+	mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (mAdaptiveStep);
@@ -1156,14 +1156,14 @@ GetState()
 
 	double com_diff = 0;
 	if(isParametric) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mParamGoal.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
-		// state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
+		// state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal, mAdaptiveStep;
 	}
 	else {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
-		// state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
+		// state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mAdaptiveStep;
 	}
 
 	// if(mRecord && mCurrentFrame < 10){
