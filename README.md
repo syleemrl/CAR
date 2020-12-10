@@ -23,6 +23,7 @@
 >> MotionWidget::getCharacterTransformsForUE (MotionWidget.cpp)
 >  - UE로 캐릭터 외에 더 보낼 내용이 있으면 이 함수에서 추가
 >  - object position이나 transform 보내는 코드가 예시로 주석처리되어있음.
+>  - 현재 chracterconfiguration.h 에는 ue
                
 >> 윈도우에서 실행시킬 코드
 > - https://github.com/y0ngw00/UEconnection.git
