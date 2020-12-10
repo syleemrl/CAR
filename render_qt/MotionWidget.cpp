@@ -360,6 +360,7 @@ UpdateParam(const bool& pressed) {
 		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 		    // mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
+			std::cout<<" done RUNPPO"<<std::endl;
 	    }
 
 
@@ -402,7 +403,9 @@ RunPPO() {
 		this->mController->Step();
 		this->mTiming.push_back(this->mController->GetCurrentLength());
 
+		// std::cout<<count<<std::endl;
 		count += 1;
+
 	}
 
 	for(int i = 0; i <= count; i++) {

@@ -1,7 +1,8 @@
 <Scene>
 	<Skeleton xml = "jump_box_long" pos = "0 0 0 0 0 0.8 0.46"/> 
-	<Skeleton xml = "jump_box_long" pos = "0 0 0 0 0 1.3 0.9"/> 
-	<Skeleton xml = "jump_box_long" pos = "0 0 0 0 0 2.0 1.36"/> 
+	<Skeleton xml = "jump_box_long" pos = "0 0 0 0 0 1.6 0.9"/> 
+	<Skeleton xml = "jump_box_long" pos = "0 0 0 0 0 2.5 1.7"/> 
+	<Skeleton xml = "jump_box_long" pos = "0 0 0 0 0 3.5 2.3"/> 
 </Scene>
 
 <!-- 

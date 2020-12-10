@@ -284,6 +284,9 @@ Step()
 		Eigen::Vector3d mf = (lf+rf)/2.; 
 		this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
 
+		box_cnt ++;
+		updateReferenceMotionByScene(box_cnt);
+
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
 
@@ -1278,6 +1281,53 @@ GetState()
 
 	return state;
 }
+
+void Controller::loadScene(){
+
+	std::string scene_path = std::string(CAR_DIR)+std::string("/scene/") + std::string(SCENE) + std::string(".xml");
+	mSceneObjects = std::vector<dart::dynamics::SkeletonPtr>();
+	SkeletonBuilder::loadScene(scene_path, mSceneObjects);
+	for(auto obj: mSceneObjects) this->mWorld->addSkeleton(obj);
+
+	this->mloadScene = true;
+}
+
+
+void Controller::updateReferenceMotionByScene(int cycle){
+	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	Eigen::Vector3d lf_default= mReferenceManager->getBodyGlobalTransform(this->mCharacter, "LeftFoot", mCurrentFrameOnPhase).translation();
+	Eigen::Vector3d rf_default= mReferenceManager->getBodyGlobalTransform(this->mCharacter, "RightFoot", mCurrentFrameOnPhase).translation();
+	Eigen::Vector3d foot_diff = (lf+rf)/2.0 - (lf_default+rf_default)/2.;
+
+		// obj_pos[5] = foot_diff[2]+mParamGoal[1]; // distance (z);
+		// obj_pos[6] = mRootZeroDiff[1]+mParamGoal[0]; // height (y)
+
+	Eigen::VectorXd obj_q = mSceneObjects[box_cnt]->getPositions();
+	Eigen::VectorXd param_by_scene(2);
+	param_by_scene << (obj_q[6]- mRootZeroDiff[1]),  (obj_q[5]- foot_diff[2]); 
+
+	// something similar to this ...	
+
+// Eigen::VectorXd tp(2);
+// tp << v_param(0)*0.1, v_param(1)*0.1;
+
+// Eigen::VectorXd tp_denorm_raw = mRegressionMemory->Denormalize(tp);
+
+// tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
+// Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
+
+// int dof = mReferenceManager->GetDOF() + 1;
+// double d = mRegressionMemory->GetDensity(tp);
+// std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
+
+   	std::vector<Eigen::VectorXd> cps = mReferenceManager->getRegressionMemory()->GetCPSFromNearestParams(param_by_scene);
+    mReferenceManager->LoadAdaptiveMotion_connect(cycle, cps);
+
+    // TODO : shift this!!!!!!!!
+    mParamGoal = param_by_scene;     	
+}
+
 void
 Controller::SaveTimeData(std::string directory) {
 	std::string path = std::string(CAR_DIR) + std::string("/") +  directory;
@@ -1378,16 +1428,5 @@ getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel){
 	return ret;
 }
 
-#include <tinyxml.h>
-
-void Controller::loadScene(){
-
-	std::string scene_path = std::string(CAR_DIR)+std::string("/scene/") + std::string(SCENE) + std::string(".xml");
-	mSceneObjects = std::vector<dart::dynamics::SkeletonPtr>();
-	SkeletonBuilder::loadScene(scene_path, mSceneObjects);
-	for(auto obj: mSceneObjects) this->mWorld->addSkeleton(obj);
-
-	this->mloadScene = true;
-}
 
 }

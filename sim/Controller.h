@@ -211,6 +211,8 @@ protected:
 	void loadScene();
 	std::vector<dart::dynamics::SkeletonPtr> mSceneObjects;
 
+	int box_cnt = 0;
+	void updateReferenceMotionByScene(int cycle);
 };
 }
 #endif

@@ -37,6 +37,86 @@ SaveAdaptiveMotion(std::string postfix) {
 	ofs.close();
 
 }
+
+
+void 
+ReferenceManager::
+ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
+{
+	// TODO	
+	// mLock.lock();
+	int remove_num = p_gen.size() - cycle* mPhaseLength;
+
+	int rm_cnt = 0;
+	while(!p_gen.empty()){
+		Motion* m = p_gen.back();
+		p_gen.pop_back();
+
+		delete m;
+		rm_cnt++;
+
+		if(rm_cnt >= remove_num) break;
+	}
+	
+	std::cout<<"p_gen size; "<<p_gen.size()<<", cycle : "<<cycle<<" , mPhaseLength : "<<mPhaseLength<<std::endl;
+
+	assert(cycle*mPhaseLength == p_gen.size());
+	Motion * m = p_gen.back();
+
+	std::vector<Motion*> p_gen_tmp;
+	GenerateMotionsFromSinglePhase(mPhaseLength+10, false, p_phase, p_gen_tmp);
+
+	std::cout<<"generate done "<<std::endl;
+
+	std::vector<Eigen::VectorXd> p_gen_tmp_eigen;
+	for(auto m: p_gen_tmp) p_gen_tmp_eigen.push_back(m->GetPosition());
+
+	std::cout<<"m h: "<<m->GetPosition()[4]<<std::endl;
+	std::cout<<"before: "<<p_gen_tmp_eigen[0][4]<<std::endl;
+
+	Eigen::VectorXd align_m = m->GetPosition();
+	p_gen_tmp_eigen = Align(p_gen_tmp_eigen, align_m.segment<6>(0), true);
+
+	std::cout<<"after : " <<p_gen_tmp_eigen[0][4]<<std::endl;
+	for(int i=0; i<p_gen_tmp_eigen.size(); i++) {
+		p_gen_tmp[i]->SetPosition(p_gen_tmp_eigen[i]);
+		p_gen.push_back(p_gen_tmp[i]);
+	}
+
+	// mLock.unlock();
+
+	std::cout<<"connect done : "<<p_gen.size()<<std::endl;
+}
+
+void
+ReferenceManager::
+LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement)
+{
+	// TODO
+	std::vector<Eigen::VectorXd> d_space;
+	std::vector<Eigen::VectorXd> d_time;
+
+	for(int i = 0 ; i < displacement.size(); i++) {
+		d_space.push_back(displacement[i].head(displacement[i].rows()-1));
+		d_time.push_back(displacement[i].tail(1));
+	}
+
+	std::vector<Eigen::VectorXd> newpos;
+	this->AddDisplacementToBVH(d_space, newpos);
+	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+
+	for(int j = 0; j < mPhaseLength; j++) {
+		mMotions_phase_adaptive[j]->SetPosition(newpos[j]);
+		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
+	}
+
+	for(int i = 0; i < mPhaseLength; i++) {
+		mTimeStep_adaptive[i] = exp(d_time[i](0));
+	}
+
+	this->ConnectSinglePhaseMotion(cycle, mMotions_phase_adaptive, mMotions_gen_adaptive);
+}
+
 void 
 ReferenceManager::
 LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
@@ -57,8 +137,6 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 		mMotions_phase_adaptive[j]->SetPosition(newpos[j]);
 		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
 	}
-
-
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
@@ -262,7 +340,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 		p_gen.pop_back();
 
 		delete m;
-	}		
+	}
 
 	auto& skel = mCharacter->GetSkeleton();
 
@@ -386,6 +464,7 @@ GetPosition(double t , bool adaptive)
 	else
 		return DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0));	
 }
+
 Motion*
 ReferenceManager::
 GetMotion(double t, bool adaptive)
