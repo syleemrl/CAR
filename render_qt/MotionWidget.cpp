@@ -585,7 +585,7 @@ getCharacterTransformsForUE(char *buffer,int n)
 			// getBodyGlobalPose : return this->mJointList[bodyname]->getWorldTransform().cast<float>();
 		else
 		{
-			dart::dynamics::BodyNode* body = this->mSkel_reg->getBodyNode(joint_name);
+			dart::dynamics::BodyNode* body = this->mSkel_reg->getBodyNode(joint_name);\
 			tf = (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode());
 			// BodyNode* body = SkeletonPtr* -> getBodynode(joint_name);
 			// get JointGlobalPose : return (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode()).cast<float>();
