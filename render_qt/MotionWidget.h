@@ -98,7 +98,7 @@ protected:
 	dart::dynamics::SkeletonPtr 	mSkel_reg;
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
 	dart::dynamics::SkeletonPtr 	mSkel_exp;
-	dart::dynamics::SkeletonPtr 	mSkel_obj;
+	dart::dynamics::SkeletonPtr 	mSkel_obj= nullptr;
 
 	bool							mTrackCamera;
 

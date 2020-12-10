@@ -90,6 +90,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	void SetSkeletonWeight(double mass);
 
 	Eigen::Isometry3d getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel);
+	std::vector<dart::dynamics::SkeletonPtr>& getSceneObjects(){ return mSceneObjects; }
 
 protected:
 	dart::simulation::WorldPtr mWorld;
@@ -205,6 +206,11 @@ protected:
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+
+	bool mloadScene = false;
+	void loadScene();
+	std::vector<dart::dynamics::SkeletonPtr> mSceneObjects;
+
 };
 }
 #endif

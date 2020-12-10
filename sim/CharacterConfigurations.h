@@ -19,6 +19,8 @@
 #define CHARACTER_TYPE "mxm_gen"
 #define REF_CHARACTER_TYPE "mxm_gen"
 
-#define OBJECT_TYPE "jump_box_long"
+#define SCENE "box_map1"
+
+// #define OBJECT_TYPE "jump_box_long"
 
 #endif

@@ -161,39 +161,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	this->mBuffer = new char[(this->mJointsUEOrder.size()+3)*4*4*sizeof(double)];
 	this->mBuffer2 = new char[128];
 
-// 0: -0.00285057     1.04087   0.0267908 / lf : 0.0966291 0.0442695 0.0625281 / rf : -0.0757626  0.0440878  0.0506681/ mid:0.0104332 0.0441786 0.0565981/ toe: -0.732919 0.0444135  0.155496
-// 33: 0.00405863    1.37757   0.348865 / lf : 0.0981162  0.600498  0.635506 / rf : -0.0836312   0.575024   0.744824/ mid:0.00724252   0.587761   0.690165/ toe: -0.745567   0.57403  0.790906
-// 38: 0.00249872    1.16603   0.461853 / lf : 0.100115 0.495786 0.695288 / rf : -0.0782693   0.495872   0.726477/ mid:0.010923 0.495829 0.710883/ toe: -0.741754  0.496445  0.812149
-// 50: 0.0105216   1.18438  0.533703 / lf : 0.0983645  0.505731  0.704402 / rf : -0.0788697   0.503803   0.732953/ mid:0.00974737   0.504767   0.718677/ toe: -0.743163   0.49989  0.819867
-// 70: -0.0237697    1.44475   0.573628 / lf : 0.0969046  0.501218  0.702958 / rf : -0.0753976   0.499243   0.721124/ mid:0.0107535  0.500231  0.712041/ toe: -0.737391  0.499223  0.812525
-// 80: 0.00012486    1.49752   0.653755 / lf : 0.0972838  0.501215  0.702958 / rf : -0.0755012   0.500786   0.691364/ mid:0.0108913  0.501001  0.697161/ toe: -0.732584  0.500892  0.796114
-
-
- //    std::string test_param_summary_path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/paramSummary_test");
- //    // std::cout<<"path : "<<test_param_summary_path<<std::endl;
- //    std::ofstream test_param_file;
- //    test_param_file.open(test_param_summary_path);
-
-	// //grids_denorm, grids, fitness, density
-	// std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>, std::vector<double>> paramSummary = mRegressionMemory->GetParamSpaceSummary();
-	// auto& [gd, g, f, d] = paramSummary;
-	// for(int i=0; i<gd.size(); i++){
-	// 	test_param_file<<g[i].transpose()<<" "<<f[i]<<" "<<d[i]<<std::endl;
-	// }
-	// test_param_file.close();
-	
-	// try{
- //    	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>, std::vector<double>> summary = mRegressionMemory->GetParamSpaceSummary();
-	// 	np::ndarray x_norm = DPhy::toNumPyArray(std::get<0>(summary));
-	// 	p::object a= this->mPPO.attr("saveAndShowParamSummary")(x_norm);
- //        np::ndarray na = np::from_object(a);
- //        Eigen::VectorXd v= DPhy::toEigenVector(na, std::get<1>(summary).size());
-
- //        std::cout<<"v: "<<v.size()<<std::endl;
- //        std::cout<<v.transpose()<<std::endl;
-	// }catch (const p::error_already_set&) {
- //        PyErr_Print();
- //    }
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
@@ -444,9 +411,6 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
-		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
-
-
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
 		position_bvh(3) -= 0.75;
@@ -456,6 +420,7 @@ RunPPO() {
 		pos_bvh.push_back(position_bvh);
 		
 		#ifdef OBJECT_TYPE
+		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 		pos_obj.push_back(position_obj);
 		#endif
 	}
@@ -810,6 +775,15 @@ DrawSkeletons()
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
 			glPopMatrix();
+		}
+
+		if(this->mController){
+			for(auto obj : this->mController->getSceneObjects()){
+				glPushMatrix();
+				glTranslated(0.75, 0, 0);
+				GUI::DrawSkeleton(obj, 0);
+				glPopMatrix();
+			}
 		}
 	}
 	if(mDrawReg) {

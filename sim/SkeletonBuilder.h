@@ -7,6 +7,8 @@ namespace DPhy
 class SkeletonBuilder
 {
 public:
+	static void loadScene(std::string path, std::vector<dart::dynamics::SkeletonPtr>& sceneObjects);
+
 	static std::pair<dart::dynamics::SkeletonPtr, std::map<std::string, double>*> BuildFromFile(const std::string& filename);
 	//static void WriteSkeleton(std::string filename, dart::dynamics::SkeletonPtr& skel);
 	static void DeformBodyNode(

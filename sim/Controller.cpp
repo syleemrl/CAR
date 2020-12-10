@@ -43,11 +43,10 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mCharacter = new DPhy::Character(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
-	// this->mObject = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/jump_box.xml")).first;
-	// this->mWorld->addSkeleton(this->mObject);
 
 	#ifdef OBJECT_TYPE 
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
+
 		this->mObject = new DPhy::Character(object_path);	
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
@@ -109,6 +108,11 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 #ifdef OBJECT_TYPE
 	this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton()->getBodyNode("Jump_Box"));
 #endif
+
+#ifdef SCENE
+	loadScene();
+#endif
+
 	int num_body_nodes = mInterestedDof / 3;
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
 	
@@ -240,6 +244,7 @@ Step()
 		this->ground_object = true;
 	}
 
+	#ifdef OBJECT_TYPE
 	if(mCurrentFrameOnPhase >= 30.5 && !(this->placed_object)){
 		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
@@ -253,8 +258,7 @@ Step()
 		obj_pos[5] = foot_diff[2]+mParamGoal[1]; // distance (z);
 		obj_pos[6] = mRootZeroDiff[1]+mParamGoal[0]; // height (y)
 
-		// std::cout<<"default : "<<(lf_default[2]+rf_default[2])/2.<<" , cur : "<<(lf[2]+rf[2])/2.<<" , obj_pos z: "<<obj_pos[5]<<std::endl;
-
+		std::cout<<mCurrentFrame<<" : "<<obj_pos.tail<2>().transpose()<<std::endl;
 
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -262,6 +266,7 @@ Step()
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 		this->placed_object = true;
 	}
+	#endif
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -325,8 +330,6 @@ Step()
 
 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
-		// obj_pos[5] = root_diff[2]+mParamGoal[1]; // distance (z);
-		// obj_pos[6] = root_diff[1]+mParamGoal[0]; // height (y)
 
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -557,8 +560,11 @@ GetSimilarityReward()
 	delete p_v_target;
 
 	double ref_obj_height = (this->ground_object)? 0.46 : 0;
-	double cur_obj_height = (this->ground_object)? mObject->GetSkeleton()->getPositions()[6]: mObject_base->GetSkeleton()->getPositions()[6];
 
+	double cur_obj_height = ref_obj_height;
+	#ifdef OBJECT_TYPE
+	cur_obj_height = (this->ground_object)? mObject->GetSkeleton()->getPositions()[6]: mObject_base->GetSkeleton()->getPositions()[6];
+	#endif
 	// std::cout<<mCurrentFrame<<"/ ref: "<<ref_obj_height<<" / cur: "<<cur_obj_height<<std::endl;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
@@ -675,7 +681,10 @@ GetParamReward()
 
 		//z distance
 		//0.8 : foot: 0.7~, toe: ~0.9
-		double obj_z = this->mObject->GetSkeleton()->getPositions()[5];
+		double obj_z = 0.8;
+		#ifdef OBJECT_TYPE
+		obj_z = this->mObject->GetSkeleton()->getPositions()[5];
+		#endif
 
 		Eigen::VectorXd distance_diff(4);
 		distance_diff.setZero();
@@ -1368,4 +1377,17 @@ getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel){
 
 	return ret;
 }
+
+#include <tinyxml.h>
+
+void Controller::loadScene(){
+
+	std::string scene_path = std::string(CAR_DIR)+std::string("/scene/") + std::string(SCENE) + std::string(".xml");
+	mSceneObjects = std::vector<dart::dynamics::SkeletonPtr>();
+	SkeletonBuilder::loadScene(scene_path, mSceneObjects);
+	for(auto obj: mSceneObjects) this->mWorld->addSkeleton(obj);
+
+	this->mloadScene = true;
+}
+
 }
