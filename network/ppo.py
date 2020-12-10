@@ -375,7 +375,7 @@ class PPO(object):
 			count_V = 0
 			sum_V = 0
 			V = 0
-			flag = False
+			flag = True
 			for i in reversed(range(size)):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -389,7 +389,7 @@ class PPO(object):
 				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
-					flag = True
+
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
@@ -405,7 +405,6 @@ class PPO(object):
 					count_V = 0
 					sum_V = 0
 					V = 0
-					flag = False
 					
 			TD = values[:size] + advantages
 
@@ -433,7 +432,7 @@ class PPO(object):
 			count_V = 0
 			sum_V = 0
 			V = 0
-			flag = False
+			flag = True
 			for i in reversed(range(len(rewards))):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -444,8 +443,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
-				if rewards[i][1] != 0:
-					flag = True
+
 
 				sum_V += V
 				count_V += 1
@@ -456,7 +454,6 @@ class PPO(object):
 					count_V = 0
 					sum_V = 0
 					V = 0
-					flag = False
 
 		return marginal_vs
 					

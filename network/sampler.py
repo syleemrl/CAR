@@ -324,7 +324,7 @@ class Sampler(object):
 				mean /= count
 
 			print(p_mean, mean)
-			if p_mean < mean - 1.0:
+			if p_mean < mean * 0.95 or self.v_mean > 16:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
