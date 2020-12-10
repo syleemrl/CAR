@@ -191,8 +191,8 @@ protected:
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
 
-	dart::constraint::BallJointConstraintPtr leftHandConstraint;
-	dart::constraint::BallJointConstraintPtr rightHandConstraint;
+	dart::constraint::WeldJointConstraintPtr leftHandConstraint= nullptr;
+	dart::constraint::WeldJointConstraintPtr rightHandConstraint= nullptr;
 	void attachHandToBar(bool left, Eigen::Vector3d offset);
 	void removeHandFromBar(bool left);
 
@@ -202,7 +202,9 @@ protected:
 	std::vector<Eigen::Vector3d> dbg_LeftPoints;
 	std::vector<Eigen::Vector3d> dbg_RightPoints;
 
-
+    // dart::constraint::WeldJointConstraintPtr leftWeldJoint;
+    // dart::constraint::WeldJointConstraintPtr rightWeldJoint;
+    
 };
 }
 #endif

@@ -157,10 +157,9 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	if(left) dbg_LeftConstraintPoint = jointPos;
 	else dbg_RightConstraintPoint = jointPos;
 
-	// std::cout<<"hand r: "<<hand_bn->isReactive()<<" , wall bar : "<<bar_bn->isReactive()<<std::endl;
-	// std::cout<<mCurrentFrame<<", new left : "<<left<<" , pos: "<<jointPos.transpose()<<std::endl;
-	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( hand_bn, bar_bn, jointPos);
+	dart::constraint::WeldJointConstraintPtr cl = std::make_shared<dart::constraint::WeldJointConstraint>( hand_bn); //, bar_bn, jointPos);
 	this->mWorld->getConstraintSolver()->addConstraint(cl);
+
 	if(left) leftHandConstraint = cl;
 	else rightHandConstraint = cl;
 }
@@ -171,11 +170,12 @@ void Controller::removeHandFromBar(bool left){
 	    mWorld->getConstraintSolver()->removeConstraint(leftHandConstraint);
 	    leftHandConstraint = nullptr;
     	dbg_LeftConstraintPoint = Eigen::Vector3d::Zero();
-	
+
 	}else if(!left && rightHandConstraint){
 	    mWorld->getConstraintSolver()->removeConstraint(rightHandConstraint);
     	rightHandConstraint = nullptr;
 		dbg_RightConstraintPoint = Eigen::Vector3d::Zero();
+	    	
 	}
 	// std::cout<<"RMOVE DONE WELL"<<std::endl;
 }
@@ -187,10 +187,10 @@ Step()
 	if(IsTerminalState())
 		return;
 
-	std::cout<<mCurrentFrame<<" / constraint : "<<(leftHandConstraint!=nullptr)<< " "<<(rightHandConstraint!=nullptr)<<std::endl;
-	std::cout<<dbg_LeftConstraintPoint.transpose()<< " "<<dbg_RightConstraintPoint.transpose()<<std::endl;
-	dbg_LeftPoints.push_back(dbg_LeftConstraintPoint);
-	dbg_RightPoints.push_back(dbg_RightConstraintPoint);
+	if(mRecord){
+		dbg_LeftPoints.push_back(dbg_LeftConstraintPoint);
+		dbg_RightPoints.push_back(dbg_RightConstraintPoint);		
+	}
 
 	Eigen::VectorXd s = this->GetState();
 
@@ -259,7 +259,7 @@ Step()
 
 	// HAND - BALLJOINTCONSTRAINT 
 	// LEFT - delete
-	if(this->mCurrentFrameOnPhase >=5 && leftHandConstraint){
+	if(this->mCurrentFrameOnPhase >=8 && leftHandConstraint){
 	    removeHandFromBar(true);
 	}
 	// LEFT - attach
@@ -267,7 +267,7 @@ Step()
 		attachHandToBar(true, Eigen::Vector3d(0.0, -0.035, 0.0));
 	}
 	// RIGHT - delete
-	if(this->mCurrentFrameOnPhase >=7 && rightHandConstraint){
+	if(this->mCurrentFrameOnPhase >=8 && rightHandConstraint){
 	    removeHandFromBar(false);
 	}
 	// RIGHT - attach
@@ -810,7 +810,7 @@ Reset(bool RSI)
 		mFitness.sum_pos.setZero();
 		mFitness.sum_vel.setZero();
 	}
-
+	
 	this->mCurrentFrameOnPhase = this->mCurrentFrame;
 	this->mStartFrame = this->mCurrentFrame;
 	this->nTotalSteps = 0;
@@ -865,6 +865,9 @@ Reset(bool RSI)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
 	}
+
+	// leftHandConstraint= nullptr;
+	// rightHandConstraint = nullptr;
 
 	dbg_LeftPoints= std::vector<Eigen::Vector3d>();
 	dbg_RightPoints= std::vector<Eigen::Vector3d>();
