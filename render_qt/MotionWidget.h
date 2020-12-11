@@ -14,6 +14,11 @@
 #include "GLfunctions.h"
 #include "DART_interface.h"
 #include "Controller.h"
+#include <sys/socket.h>
+#include "unistd.h"
+#include <netinet/in.h>
+#include <errno.h>
+#include <fcntl.h>
 #pragma pop_macro("slots")
 namespace p = boost::python;
 namespace np = boost::python::numpy;
@@ -31,6 +36,8 @@ public slots:
 	void NextFrame();
 	void PrevFrame();
 	void Reset();
+	void UEconnect();
+	void UEclose();
 	void UpdateParam(const bool& pressed);
 	void UpdateRandomParam(const bool& pressed);
 	void UpdatePrevParam(const bool& pressed);
@@ -44,6 +51,11 @@ public slots:
 	void toggleDrawReg();
 	void toggleDrawExp();
 	void toggleCamera();
+
+	void connectionOpen();
+	void connectionClose();
+	int getCharacterTransformsForUE(char *buffer);
+	void sendMotion();
 protected:
 	void initializeGL() override;	
 	void resizeGL(int w,int h) override;
@@ -89,6 +101,9 @@ protected:
 	dart::dynamics::SkeletonPtr 	mSkel_exp;
 	dart::dynamics::SkeletonPtr 	mSkel_obj;
 
+
+	dart::dynamics::SkeletonPtr		mSkel;
+
 	bool							mTrackCamera;
 
 	bool 							mRunSim;
@@ -119,5 +134,18 @@ protected:
 	
 	double mLengthArm=1;
 	double mLengthLeg=1;
+
+	std::vector<Eigen::VectorXd> mPoseRecords, mRefPoseRecords;
+
+	// for socket network
+	std::vector<std::string> mJointsUEOrder;
+	std::vector<std::string> mObjectsUEOrder;
+
+	bool							mIsConnected;
+	int 							sockfd,clientfd;
+	struct sockaddr_in serveraddr, clientaddr;
+	char *mBuffer;
+	char *mBuffer2;
+
 };
 #endif

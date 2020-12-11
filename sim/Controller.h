@@ -88,6 +88,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	void SetSkeletonWeight(double mass, int type);
 	void SetSkeletonLength(double length, int type);
 
+	Eigen::Isometry3d getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel);
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;

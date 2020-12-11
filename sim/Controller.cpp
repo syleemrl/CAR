@@ -764,15 +764,15 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	if(mParamGoal(0) < 0) {
-		this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 1);
-		this->SetSkeletonWeight(1, 2);
-	} else {
-		this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
-		this->SetSkeletonWeight(1, 1);
-	}
-	this->SetSkeletonLength(mParamGoal(1), 1);
-	this->SetSkeletonLength(mParamGoal(2), 2);
+	// if(mParamGoal(0) < 0) {
+	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 1);
+	// 	this->SetSkeletonWeight(1, 2);
+	// } else {
+	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
+	// 	this->SetSkeletonWeight(1, 1);
+	// }
+	this->SetSkeletonLength(mParamGoal(0), 1);
+	this->SetSkeletonLength(mParamGoal(1), 2);
 	std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
 }
 void
@@ -1187,5 +1187,36 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	}
 	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
 	ofs.close();
+}
+
+Eigen::Isometry3d
+Controller::
+getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel){
+
+	//BodyNode* body = SkeletonPtr* -> getBodynode(joint_name);
+	// get JointGlobalPose : return (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode()).cast<float>();
+	dart::dynamics::BodyNode* lul_body = Skel->getBodyNode("LeftUpLeg");
+	dart::dynamics::BodyNode* rul_body = Skel->getBodyNode("RightUpLeg");
+
+	Eigen::Isometry3d lul = (lul_body->getWorldTransform() * lul_body->getParentJoint()->getTransformFromChildBodyNode());
+	Eigen::Isometry3d rul = (rul_body->getWorldTransform() * rul_body->getParentJoint()->getTransformFromChildBodyNode());
+
+	Eigen::Vector3d x = lul.translation() - rul.translation();
+	x.normalize();
+	Eigen::Vector3d z = x.cross(Eigen::Vector3d::UnitY());
+	z.normalize();
+	x = Eigen::Vector3d::UnitY().cross(z);
+
+	Eigen::Matrix3d mat;
+	mat.col(0) = z;
+	mat.col(1) = Eigen::Vector3d::UnitY();
+	mat.col(2) = -x;
+
+	Eigen::Isometry3d ret;
+	ret.setIdentity();
+	ret.linear() = mat;
+	ret.translation() = Skel->getBodyNode("Hips")->getWorldTransform().translation();
+
+	return ret;
 }
 }

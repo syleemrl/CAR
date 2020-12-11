@@ -83,7 +83,15 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
 
     button = new QPushButton("save", this);
     connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Save())); 
-    buttonlayout->addWidget(button);    
+    buttonlayout->addWidget(button);
+        
+    button = new QPushButton("UEconnect", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(UEconnect())); 
+    buttonlayout->addWidget(button);     
+
+    button = new QPushButton("UEclose", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(UEclose())); 
+    buttonlayout->addWidget(button);     
     buttonlayout->addStretch(1);
 
     motionlayout->addLayout(buttonlayout);
