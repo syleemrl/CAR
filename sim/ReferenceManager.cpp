@@ -313,7 +313,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 
 				Eigen::VectorXd p = p_phase[phase]->GetPosition();
 				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
-				
+				p(4)= p_phase[phase]->GetPosition()(4);
 				skel->setPositions(p);
 				skel->computeForwardKinematics(true,false,false);
 
@@ -610,7 +610,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 
 	double reward_trajectory = r_foot * r_pos * r_vel;
-	if(reward_trajectory < 0.65)
+	if(reward_trajectory < 0.5)
 		return;
 
 	if(std::get<2>(rewards).sum_reward != 0) {

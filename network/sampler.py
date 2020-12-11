@@ -306,6 +306,8 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
+		if self.n_exploit >= 5 and self.v_mean > 30:
+			return True
 		if self.n_exploit < 10:
 			return False
 

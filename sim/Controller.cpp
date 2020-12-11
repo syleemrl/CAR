@@ -482,9 +482,6 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 2;
 			p_diff.segment<3>(idx + 3) *= 5;
-		} else if(name.compare("Leg") == 0 ) {
-			p_diff.segment<3>(idx) *= 3;
-			v_diff.segment<3>(idx) *= 3;
 		} 
 	}
 
@@ -523,6 +520,7 @@ GetParamReward()
 		double meanHeight = mHeight / mCountHeight;
 		double h_diff = meanHeight - mParamGoal(0);
 		double r_h = exp(-pow(h_diff,2)*150);
+		r_param = r_h;
 		mParamCur(0) = meanHeight;
 
 		mControlFlag[0] = 1;
@@ -544,7 +542,7 @@ GetParamReward()
 		mCountContact += 1;
 	} else if(mControlFlag[0] == 1) {
 		mCondiff /= mCountContact;
-		r_param = 0.5 * exp(-mCondiff * 4);
+		r_param = 0.25 * exp(-mCondiff * 4);
 		if(mRecord) {
 			std::cout << mCondiff << "/ " << r_param * 2<< std::endl;
 		}
@@ -584,7 +582,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_param);
+		mRewardParts.push_back(20 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
