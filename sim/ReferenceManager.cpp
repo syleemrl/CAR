@@ -450,7 +450,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(1); // box weight, ground friction coefficient
-	mParamCur << 13 ; 
+	mParamCur << 23 ; 
 
 	mParamGoal.resize(1);
 	mParamGoal = mParamCur;
@@ -461,7 +461,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		paramUnit << 5;
 
 		mParamBase.resize(1);
-		mParamBase << 13;
+		mParamBase << 8;
 
 		mParamEnd.resize(1);
 		mParamEnd << 103;
