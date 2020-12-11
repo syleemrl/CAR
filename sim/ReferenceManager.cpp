@@ -427,23 +427,23 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
-	mThresholdTracking = 0.9;
+	mThresholdTracking = 0.8;
 
 	mParamCur.resize(1);
-	mParamCur << 1.5;
+	mParamCur << 1.0;
 
 	mParamGoal.resize(1);
-	mParamGoal << 1.5;
+	mParamGoal << 1.0;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(1);
 		paramUnit<< 0.1;
 
 		mParamBase.resize(1);
-		mParamBase << 1.3;
+		mParamBase << 0.5;
 
 		mParamEnd.resize(1);
-		mParamEnd << 2.0;
+		mParamEnd << 1.5;
 
 		// mParamBase.resize(2);
 		// mParamBase << 0.5, 0.5;
@@ -515,7 +515,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
-	// std::cout << std::get<0>(rewards) << " " << std::get<2>(rewards).sum_contact << " " << exp(-std::get<2>(rewards).sum_contact*0.4) << std::endl;
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
@@ -604,6 +603,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 
 	double reward_trajectory = r_foot * r_pos * r_vel;
+	if(reward_trajectory < 0.65)
+		return;
+
 	if(std::get<2>(rewards).sum_reward != 0) {
 		reward_trajectory = reward_trajectory * (0.95 + 0.05 * std::get<2>(rewards).sum_reward);
 	}

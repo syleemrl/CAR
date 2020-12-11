@@ -155,7 +155,7 @@ Step()
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
-	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
+	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033 * (mCurrentFrame - mPrevFrame);
 	delete p_v_target;
 
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
@@ -258,6 +258,7 @@ Step()
 	}
 
 	mPrevTargetPositions = mTargetPositions;
+	mPrevFrame = mCurrentFrame;
 
 	if(mPosQueue.size() >= 3)
 		mPosQueue.pop();
@@ -501,13 +502,16 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 2;
 			p_diff.segment<3>(idx + 3) *= 5;
+		} else if(name.compare("Arm") == 0 ) {
+			p_diff.segment<3>(idx) *= 2;
+			v_diff.segment<3>(idx) *= 2;
 		} 
 	}
 
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff,0.3);
-	mPrevFrame2 = mPrevFrame;
+
 	mPrevFrame = mCurrentFrame;
 
 	mFitness.sum_contact += con_diff;
@@ -524,21 +528,32 @@ GetParamReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 33 && mControlFlag[0] == 0) 		
 	{	
-		Eigen::Vector3d heightBVH = Eigen::Vector3d(0.0, mParamGoal(0), 0.0);
-		Eigen::Vector3d h_diff = heightBVH - mCharacter->GetSkeleton()->getCOM();
+		// Eigen::Vector3d heightBVH = Eigen::Vector3d(0.0, mParamGoal(0), 0.0);
+		// Eigen::Vector3d h_diff = heightBVH - mCharacter->GetSkeleton()->getCOM();
 
-		if(abs(h_diff(0)) < 0.1 && abs(h_diff(2)) < 0.1) {
-			mParamCur(0) = mCharacter->GetSkeleton()->getCOM()(1);
+		// if(abs(h_diff(0)) < 0.1 && abs(h_diff(2)) < 0.1) {
+		// 	mParamCur(0) = mCharacter->GetSkeleton()->getCOM()(1);
+		// } else {
+		// 	mParamCur(0) = -1;
+		// }
+		// h_diff(1) *= 4;
+
+		Eigen::Vector3d momentumBVH = Eigen::Vector3d(0.0, 190, 0.0);
+		Eigen::Vector3d m_diff = momentumBVH - mMomentum;
+
+		m_diff *= 0.01;
+		m_diff(1) *= 4;
+
+		if(abs(m_diff(0)) < 0.05 && abs(m_diff(2)) < 0.05 &&  abs(m_diff(1)) < 0.1) {
+			mParamCur(0) = mParamGoal(0);
 		} else {
 			mParamCur(0) = -1;
 		}
-		h_diff(1) *= 4;
-		r_param = exp_of_squared(h_diff, 0.15);
+
+		r_param = exp_of_squared(m_diff, 0.15);
 		mControlFlag[0] = 1;
 		if(mRecord) {
-			std::cout <<  mMomentum.transpose() << std::endl;
-			std::cout << mCharacter->GetSkeleton()->getCOM().transpose() << " / " << h_diff.transpose() << " / " << r_param << std::endl;
-			// std::cout << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_param << std::endl;
+			std::cout << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_param << std::endl;
 		}
 	} else if(mCurrentFrameOnPhase <= 45 && mControlFlag[0] == 1) {
 		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
@@ -571,7 +586,7 @@ UpdateAdaptiveReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
-								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
+								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
 	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
@@ -730,7 +745,7 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
+	this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 
