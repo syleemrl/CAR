@@ -211,7 +211,8 @@ Step()
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
 
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	int trimmedFrame = (int)(mCurrentFrame/trimCycleLenth)*118+ std::fmod(mCurrentFrame, trimCycleLenth);
+	p_v_target = mReferenceManager->GetMotion(trimmedFrame, false);
 	this->mPDTargetPositions = p_v_target->GetPosition();
 	this->mPDTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -268,8 +269,8 @@ Step()
 	}
 	#endif
 
-	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
-		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
+	if(this->mCurrentFrameOnPhase > trimCycleLenth){
+		this->mCurrentFrameOnPhase -= trimCycleLenth;
 		mParamCur = mParamGoal;
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 		// stickLeftFoot = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
@@ -855,7 +856,11 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 3+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 10+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
+		mIsTerminal = true;
+		terminationReason =  8;
+	}
+	else if(mloadScene && box_cnt >= mSceneObjects.size()){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -1302,11 +1307,11 @@ void Controller::updateReferenceMotionByScene(int cycle){
 
 		// obj_pos[5] = foot_diff[2]+mParamGoal[1]; // distance (z);
 		// obj_pos[6] = mRootZeroDiff[1]+mParamGoal[0]; // height (y)
-
+	if(box_cnt >= mSceneObjects.size()) return;
 	Eigen::VectorXd obj_q = mSceneObjects[box_cnt]->getPositions();
 	Eigen::VectorXd param_by_scene(2);
 	param_by_scene << (obj_q[6]- mRootZeroDiff[1]),  (obj_q[5]- foot_diff[2]); 
-
+	std::cout<<mCurrentFrame<<" : new param : "<<param_by_scene[0]<<" "<<param_by_scene[1]<<std::endl;
 	// something similar to this ...	
 
 // Eigen::VectorXd tp(2);
@@ -1322,7 +1327,8 @@ void Controller::updateReferenceMotionByScene(int cycle){
 // std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
 
    	std::vector<Eigen::VectorXd> cps = mReferenceManager->getRegressionMemory()->GetCPSFromNearestParams(param_by_scene);
-    mReferenceManager->LoadAdaptiveMotion_connect(cycle, cps);
+   	std::cout<<"cps : "<<cps.size()<<std::endl;
+    mReferenceManager->LoadAdaptiveMotion_connect(cycle, cps, trimCycleLenth);
 
     // TODO : shift this!!!!!!!!
     mParamGoal = param_by_scene;     	

@@ -81,8 +81,8 @@ public:
 
 	Eigen::Isometry3d getBodyGlobalTransform(Character* character, std::string bodyName, double t); //, Eigen::Vector3d mDefaultRootZero, Eigen::Vector3d mRootZero);
 
-	void LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement); // TODO
-	void ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen); //TODO
+	void LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement, int trimLength = -1); // TODO
+	void ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen, int trimLength = -1); //TODO
 	
 	RegressionMemory* getRegressionMemory(){return mRegressionMemory; }
 protected:

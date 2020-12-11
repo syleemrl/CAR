@@ -931,10 +931,11 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 	return newPose;
 }
 
-std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target, bool change_height) {
+std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target, bool change_height, int basis_frame) {
+	if(basis_frame < 0) basis_frame = 0;
 	std::vector<Eigen::VectorXd> result = data;
 
-	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(data[0].head<6>());
+	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(data[basis_frame].head<6>());
 	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(target);
 
 	

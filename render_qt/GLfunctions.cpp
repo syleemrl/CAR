@@ -251,6 +251,7 @@ void moveToCenter(GLfloat from[3], GLfloat to[3], double radius ,GLfloat res[3])
 }
 
 void GUI::DrawRoundedBox(const Eigen::Vector3d& size, double radius){
+    if(size[0]<1e-4 || size[1]<1e-4 || size[2]<1e-4) return;
     DrawRoundedBoxPlanes(size, radius);
 
     DrawRoundedBoxCylinder(Eigen::Vector2d(size[0], size[2]), size[1] - radius * 2, radius);
@@ -266,6 +267,7 @@ void GUI::DrawRoundedBox(const Eigen::Vector3d& size, double radius){
     DrawRoundedBoxSphere(size, radius);
 }
 void GUI::DrawRoundedBox(const Eigen::Vector3d& size, double radius, const Eigen::Vector3d& uniform_color){
+    if(size[0]<1e-4 || size[1]<1e-4 || size[2]<1e-4) return;
     DrawRoundedBoxPlanes(size, radius);
 
     glPushMatrix();

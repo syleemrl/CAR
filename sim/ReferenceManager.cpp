@@ -41,11 +41,12 @@ SaveAdaptiveMotion(std::string postfix) {
 
 void 
 ReferenceManager::
-ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
+ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen, int trimLength)
 {
 	// TODO	
 	// mLock.lock();
-	int remove_num = p_gen.size() - cycle* mPhaseLength;
+	if (trimLength < 0) trimLength = mPhaseLength;
+	int remove_num = p_gen.size() - cycle* trimLength;
 
 	int rm_cnt = 0;
 	while(!p_gen.empty()){
@@ -64,21 +65,23 @@ ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<M
 	Motion * m = p_gen.back();
 
 	std::vector<Motion*> p_gen_tmp;
-	GenerateMotionsFromSinglePhase(mPhaseLength+10, false, p_phase, p_gen_tmp);
+	GenerateMotionsFromSinglePhase(trimLength+10, false, p_phase, p_gen_tmp);
 
 	std::cout<<"generate done "<<std::endl;
 
 	std::vector<Eigen::VectorXd> p_gen_tmp_eigen;
 	for(auto m: p_gen_tmp) p_gen_tmp_eigen.push_back(m->GetPosition());
 
-	std::cout<<"m h: "<<m->GetPosition()[4]<<std::endl;
-	std::cout<<"before: "<<p_gen_tmp_eigen[0][4]<<std::endl;
+	Eigen::VectorXd align_m = m->GetPosition().segment<6>(0);
+	align_m.head<3>() = Eigen::Vector3d::Zero();
+	p_gen_tmp_eigen = Align(p_gen_tmp_eigen, align_m, true);
 
-	Eigen::VectorXd align_m = m->GetPosition();
-	p_gen_tmp_eigen = Align(p_gen_tmp_eigen, align_m.segment<6>(0), true);
+	// TMP , TODO
+	double cur_end_x = p_gen_tmp_eigen[p_gen_tmp_eigen.size()-1][3];
 
-	std::cout<<"after : " <<p_gen_tmp_eigen[0][4]<<std::endl;
 	for(int i=0; i<p_gen_tmp_eigen.size(); i++) {
+		// p_gen_tmp_tmp[i] = DPhy::BlendPosition(p_gen_tmp_eigen[i], p_gen_tmp_tmp[i], (1-(double)i/p_gen_tmp_tmp.size()-1), true);	
+		p_gen_tmp_eigen[i][3]+= (double)i/p_gen_tmp_eigen.size() * (-cur_end_x);
 		p_gen_tmp[i]->SetPosition(p_gen_tmp_eigen[i]);
 		p_gen.push_back(p_gen_tmp[i]);
 	}
@@ -90,7 +93,7 @@ ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<M
 
 void
 ReferenceManager::
-LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement)
+LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement, int trimLength)
 {
 	// TODO
 	std::vector<Eigen::VectorXd> d_space;
@@ -114,7 +117,7 @@ LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement)
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
 	}
 
-	this->ConnectSinglePhaseMotion(cycle, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->ConnectSinglePhaseMotion(cycle, mMotions_phase_adaptive, mMotions_gen_adaptive, trimLength);
 }
 
 void 

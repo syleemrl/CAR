@@ -212,6 +212,7 @@ protected:
 	std::vector<dart::dynamics::SkeletonPtr> mSceneObjects;
 
 	int box_cnt = 0;
+	int trimCycleLenth = 90;
 	void updateReferenceMotionByScene(int cycle);
 };
 }

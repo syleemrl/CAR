@@ -31,16 +31,17 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
 	mSkel_obj = nullptr;
-	#ifdef OBJECT_TYPE 
+	// #ifdef OBJECT_TYPE 
 		std::cout<<"\nMotionWidget OBJ"<<std::endl;
-		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
+		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string("jump_box_long") + std::string(".xml");
 		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
 
 		Eigen::VectorXd obj_pos(7);
 		obj_pos.setZero();
-		obj_pos[5]=0.8; obj_pos[6]= 0.46;
+		obj_pos[5]=0; obj_pos[6]= 0.46;
 		mSkel_obj->setPositions(obj_pos);
-	#endif
+		mSkel_obj->computeForwardKinematics(true, false, false);
+	// #endif
 	
 	if(ppo == "") {
 		mRunSim = false;
@@ -514,9 +515,9 @@ getCharacterTransformsForUE(char *buffer,int n)
 {
 	// Send Skeleton Position
 	// In this case, bvh motion is sent(mSkel_bvh)
-	Eigen::VectorXd pose = this->mSkel_reg->getPositions();
+	Eigen::VectorXd pose = this->mSkel_sim->getPositions();
 
-	Eigen::Isometry3d local_space_transform = mController->getLocalSpaceTransform(mSkel_reg);
+	Eigen::Isometry3d local_space_transform = mController->getLocalSpaceTransform(mSkel_sim);
 	Eigen::Isometry3d local_space_transform_inv = local_space_transform.inverse();
 	Eigen::Isometry3d axis_operator;
 	axis_operator.linear() << 1, 0, 0,
@@ -548,12 +549,12 @@ getCharacterTransformsForUE(char *buffer,int n)
 
 	for(auto joint_name : this->mJointsUEOrder){
 		Eigen::Isometry3d tf;
-		if(this->mSkel_reg->getBodyNode(joint_name)->getParentBodyNode() == nullptr) //isRoot : return this->mJointList[jointname]->getParentBodyNode() == nullptr;
-			tf = this->mSkel_reg->getBodyNode(joint_name)->getWorldTransform();
+		if(this->mSkel_sim->getBodyNode(joint_name)->getParentBodyNode() == nullptr) //isRoot : return this->mJointList[jointname]->getParentBodyNode() == nullptr;
+			tf = this->mSkel_sim->getBodyNode(joint_name)->getWorldTransform();
 			// getBodyGlobalPose : return this->mJointList[bodyname]->getWorldTransform().cast<float>();
 		else
 		{
-			dart::dynamics::BodyNode* body = this->mSkel_reg->getBodyNode(joint_name);\
+			dart::dynamics::BodyNode* body = this->mSkel_sim->getBodyNode(joint_name);\
 			tf = (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode());
 			// BodyNode* body = SkeletonPtr* -> getBodynode(joint_name);
 			// get JointGlobalPose : return (body->getWorldTransform() * body->getParentJoint()->getTransformFromChildBodyNode()).cast<float>();
@@ -692,6 +693,7 @@ sendMotion(int n)
 
 		int msg_size;
 		msg_size = recv(this->clientfd, this->mBuffer2, 128, 0);  //should include motion info in mBuffer2
+		std::cout<<"recv: msg_sz: "<<msg_size<<std::endl;
 		if(msg_size < 0){
 			std::cout << "recv() error: " << strerror(errno) << std::endl;
 			this->connectionClose();
@@ -699,6 +701,7 @@ sendMotion(int n)
 		}
 		int size = this->getCharacterTransformsForUE(this->mBuffer,n);
 		int ret = send(this->clientfd, this->mBuffer, size, 0);	 //should include motion info in mBuffer2
+		std::cout<<"send: buffer size: "<<size<<std::endl;
 		if(ret < 0 ){
 			std::cout << "send() error: " << strerror(errno) << std::endl;
 			this->connectionClose();
@@ -733,9 +736,9 @@ SetFrame(int n)
 	}
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
-    	#ifdef OBJECT_TYPE
-	    	mSkel_obj->setPositions(mMotion_obj[n]);
-    	#endif
+    	// #ifdef OBJECT_TYPE
+	    // 	mSkel_obj->setPositions(mMotion_obj[n]);
+    	// #endif
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
@@ -756,14 +759,14 @@ DrawSkeletons()
 			glPushMatrix();
 			glTranslated(-0.75, 0, 0);
 		
-			Eigen::VectorXd save_p = this->mSkel_obj->getPositions();
-			Eigen::VectorXd obj_pos(7);
-			obj_pos.setZero();
-			obj_pos[5]=0.8; obj_pos[6]= 0.46;
-			mSkel_obj->setPositions(obj_pos);
+			// Eigen::VectorXd save_p = this->mSkel_obj->getPositions();
+			// Eigen::VectorXd obj_pos(7);
+			// obj_pos.setZero();
+			// obj_pos[5]=0.8; obj_pos[6]= 0.46;
+			// mSkel_obj->setPositions(obj_pos);
 
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			mSkel_obj->setPositions(save_p);
+			// mSkel_obj->setPositions(save_p);
 			
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
 			glPopMatrix();
@@ -771,7 +774,7 @@ DrawSkeletons()
 	}
 
 	if(mDrawSim) {
-		GUI::DrawSkeleton(this->mSkel_sim, 0);
+
 		if(this->mSkel_obj) {
 			glPushMatrix();
 			glTranslated(0.75, 0, 0);
@@ -779,6 +782,10 @@ DrawSkeletons()
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
 			glPopMatrix();
 		}
+
+		glPushMatrix();
+		glTranslated(0, 0.46, 0);
+		GUI::DrawSkeleton(this->mSkel_sim, 0);
 
 		if(this->mController){
 			for(auto obj : this->mController->getSceneObjects()){
@@ -788,6 +795,7 @@ DrawSkeletons()
 				glPopMatrix();
 			}
 		}
+		glPopMatrix();
 	}
 	if(mDrawReg) {
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
@@ -896,9 +904,10 @@ void
 MotionWidget::
 timerEvent(QTimerEvent* event)
 {
-	if(mPlay && mCurFrame < mTotalFrame) {
+	if(mPlay ) {
 		mCurFrame += 1;
-	} 
+		if(mCurFrame == mTotalFrame) mCurFrame = 0;
+	}
 	SetFrame(this->mCurFrame);
 	update();
 
