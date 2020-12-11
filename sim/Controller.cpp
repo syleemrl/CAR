@@ -187,8 +187,8 @@ Step()
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 			mSumTorque += torque.cwiseAbs();
-
 		}
+
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -218,6 +218,7 @@ Step()
 			mCountContact = 0;
 			mHeight = 0;
 			mCountHeight = 0;
+			mRootXdiff = 0;
 		}
 	}
 	if(isAdaptive) {
@@ -296,6 +297,7 @@ ClearRecord()
 	mCondiff = 0;
 	mCountContact = 0;
 	mHeight = 0;
+	mRootXdiff = 0;
 	mCountHeight = 0;
 }
 
@@ -473,15 +475,19 @@ GetSimilarityReward()
 	Eigen::VectorXd v_diff = skel->getVelocityDifferences(vel, v);
 
 	int num_body_nodes = skel->getNumBodyNodes();
-	for(int i =0 ; i < vel.rows(); i++) {
+	for(int i = 0 ; i < vel.rows(); i++) {
 		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
 	}
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx) *= 2;
+			p_diff.segment<2>(idx + 1) *= 5;
 			p_diff.segment<3>(idx + 3) *= 5;
+		} else if(name.find("Spine") != std::string::npos ) {
+			p_diff.segment<2>(idx + 1) *= 2;
+		} else if(name.find("UpLeg") != std::string::npos ) {
+			v_diff.segment<2>(idx + 1) *= 2;
 		} 
 	}
 
@@ -518,13 +524,15 @@ GetParamReward()
 
 	} else if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {	
 		double meanHeight = mHeight / mCountHeight;
+		double meanXdiff = mRootXdiff / mCountHeight;
+
 		double h_diff = meanHeight - mParamGoal(0);
 		double r_h = exp(-pow(h_diff,2)*150);
+
 		r_param = r_h;
 		mParamCur(0) = meanHeight;
 
 		mControlFlag[0] = 1;
-
 		if(mRecord) {
 			std::cout << meanHeight << " / " << h_diff << " / " << r_h << std::endl;
 		}

@@ -297,28 +297,31 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 		} else {
 			Eigen::VectorXd pos;
 			if(phase == 0) {
-				std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>> constraints;
+				// std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>> constraints;
 				
-				skel->setPositions(p_gen.back()->GetPosition());
-				skel->computeForwardKinematics(true,false,false);
+				// skel->setPositions(p_gen.back()->GetPosition());
+				// skel->computeForwardKinematics(true,false,false);
 
-				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-				Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+				// Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+				// Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
-				// p_footl(1) = p0_footl(1);
-				// p_footr(1)= p0_footr(1);
+				// // p_footl(1) = p0_footl(1);
+				// // p_footr(1)= p0_footr(1);
 
-				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("LeftFoot", p_footl, Eigen::Vector3d(0, 0, 0)));
-				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("RightFoot", p_footr, Eigen::Vector3d(0, 0, 0)));
+				// constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("LeftFoot", p_footl, Eigen::Vector3d(0, 0, 0)));
+				// constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("RightFoot", p_footr, Eigen::Vector3d(0, 0, 0)));
 
-				Eigen::VectorXd p = p_phase[phase]->GetPosition();
-				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
-				p(4)= p_phase[phase]->GetPosition()(4);
-				skel->setPositions(p);
-				skel->computeForwardKinematics(true,false,false);
+				// Eigen::VectorXd p = p_phase[phase]->GetPosition();
+				// p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
+				// p(4)= p_phase[phase]->GetPosition()(4);
+				// skel->setPositions(p);
+				// skel->computeForwardKinematics(true,false,false);
 
-				//// rotate "root" to seamlessly stitch foot
-				pos = solveMCIKRoot(skel, constraints);
+				// //// rotate "root" to seamlessly stitch foot
+				// pos = solveMCIKRoot(skel, constraints);
+				pos = p_phase[phase]->GetPosition();
+				pos.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
+				pos(4)= p_phase[phase]->GetPosition()(4);
 				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 
 			} else {
@@ -610,7 +613,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 
 	double reward_trajectory = r_foot * r_pos * r_vel;
-	if(reward_trajectory < 0.5)
+	if(reward_trajectory < 0.55)
 		return;
 
 	if(std::get<2>(rewards).sum_reward != 0) {

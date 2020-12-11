@@ -187,6 +187,7 @@ protected:
 	int mCountHeight;
 	double mCondiff;
 	double mCountContact;
+	double mRootXdiff;
 //////////////////////////////////////////////////
 };
 }
