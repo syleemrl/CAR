@@ -185,6 +185,8 @@ protected:
 // for action parameter design
 	double mVelocity;
 	Eigen::Vector3d mMomentum;
+	double mCondiff;
+	double mCountContact;
 //////////////////////////////////////////////////
 };
 }
