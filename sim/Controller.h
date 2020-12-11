@@ -183,8 +183,8 @@ protected:
 	Eigen::VectorXd mSumTorque;
 /////////////////////////////////////////////////
 // for action parameter design
-	double mVelocity;
-	Eigen::Vector3d mMomentum;
+	double mHeight;
+	int mCountHeight;
 	double mCondiff;
 	double mCountContact;
 //////////////////////////////////////////////////

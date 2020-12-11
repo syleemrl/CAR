@@ -662,6 +662,8 @@ UniformSample(bool visited) {
 		}
 		double d = GetDensity(p, true);
 		if(!visited) {
+			if((p-Eigen::VectorXd::Zero(mDim)).norm() < 0.02)
+				continue;
 			if(mNumSamples == 1 && d > 0.05 && d < mThresholdInside) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			} else if (d < mThresholdInside && d > mThresholdInside - mRangeExplore) {

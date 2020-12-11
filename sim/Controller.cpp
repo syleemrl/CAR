@@ -189,15 +189,6 @@ Step()
 			mSumTorque += torque.cwiseAbs();
 
 		}
-		if(mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
-			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
-			double rf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation()(1);
-			double lf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation()(1);
-			if(mVelocity < c_vel(1)) {
-				mVelocity = c_vel(1);
-				mMomentum = mCharacter->GetSkeleton()->getMass() * c_vel;
-			}
-		}
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -221,13 +212,12 @@ Step()
 			mParamRewardTrajectory = 0;
 			
 			mControlFlag.setZero();
-			mCountParam = 0;
 			mCountTracking = 0;
+			
 			mCondiff = 0;
 			mCountContact = 0;
-
-			mVelocity = 0;
-			mMomentum.setZero();
+			mHeight = 0;
+			mCountHeight = 0;
 		}
 	}
 	if(isAdaptive) {
@@ -294,7 +284,6 @@ ClearRecord()
 	this->mControlFlag.resize(4);
 	this->mControlFlag.setZero();
 
-	mCountParam = 0;
 	mCountTracking = 0;
 
 	while(!mPosQueue.empty())
@@ -303,10 +292,11 @@ ClearRecord()
 		mTimeQueue.pop();
 
 	data_raw.clear();
-	mVelocity = 0;
-	mMomentum.setZero();
+	
 	mCondiff = 0;
 	mCountContact = 0;
+	mHeight = 0;
+	mCountHeight = 0;
 }
 
 std::vector<double> 
@@ -492,6 +482,9 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 2;
 			p_diff.segment<3>(idx + 3) *= 5;
+		} else if(name.compare("Leg") == 0 ) {
+			p_diff.segment<3>(idx) *= 3;
+			v_diff.segment<3>(idx) *= 3;
 		} 
 	}
 
@@ -513,36 +506,31 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 21 && mControlFlag[0] == 0) 		
-	{	
-
-		double rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation()(1);
-		double rt = skel->getBodyNode("RightToe")->getWorldTransform().translation()(1);
-
-		double lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()(1);
-		double lt = skel->getBodyNode("LeftToe")->getWorldTransform().translation()(1);
-
-		//0.66
-		double height = (rf + rt + lf + lt) / 4.0;
-
-		Eigen::Vector3d heightBVH = Eigen::Vector3d(0.0, mParamGoal(0), 0.0);
-		Eigen::Vector3d h_diff = heightBVH - mCharacter->GetSkeleton()->getCOM();
-
-		if(abs(h_diff(0)) < 0.5) {
-			mParamCur(0) = mCharacter->GetSkeleton()->getCOM()(1);
-		} else {
-			mParamCur(0) = -1;
+	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase < 27 && mControlFlag[0] == 0) 		
+	{
+		int num_body_nodes = mInterestedDof / 3;
+	
+		double min_h = 0;
+		for(int i = 0; i < num_body_nodes; i++) {
+			double h = skel->getBodyNode(i)->getWorldTransform().translation()(1);
+			if(i==0 || h < min_h)
+				min_h = h;
 		}
-		h_diff(2) = 0;
-		h_diff(1) *= 4;
-		r_param = exp_of_squared(h_diff, 0.15);
+		mHeight += min_h;
+		mCountHeight += 1;
+
+	} else if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {	
+		double meanHeight = mHeight / mCountHeight;
+		double h_diff = meanHeight - mParamGoal(0);
+		double r_h = exp(-pow(h_diff,2)*150);
+		mParamCur(0) = meanHeight;
+
 		mControlFlag[0] = 1;
+
 		if(mRecord) {
-			std::cout <<  mMomentum.transpose() << std::endl;
-			std::cout << mCharacter->GetSkeleton()->getCOM().transpose() << " / " << h_diff.transpose() << " / " << r_param << std::endl;
-			// std::cout << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_param << std::endl;
+			std::cout << meanHeight << " / " << h_diff << " / " << r_h << std::endl;
 		}
-	} else if(mCurrentFrameOnPhase <= 36 && mControlFlag[0] == 1) {
+	} 	else if(mCurrentFrameOnPhase <= 36 && mControlFlag[0] == 1) {
 		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
@@ -596,7 +584,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(20 * r_param);
+		mRewardParts.push_back(10 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
