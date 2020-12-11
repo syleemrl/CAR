@@ -180,14 +180,13 @@ protected:
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
 
+	Eigen::VectorXd mSumTorque;
 /////////////////////////////////////////////////
 // for action parameter design
-	int mCount;
-	double mJumpStartFrame;
-	double mPosDiff;
-	double mJumpHeight;
-	Eigen::Vector3d mTotalLength;
+	double mVelocity;
 	Eigen::Vector3d mMomentum;
+	double mCondiff;
+	double mCountContact;
 //////////////////////////////////////////////////
 };
 }
