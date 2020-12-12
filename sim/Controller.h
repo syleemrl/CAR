@@ -64,7 +64,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	// get record (for visualization)
 
-	Eigen::VectorXd GetObjPositions(int idx) { return this->mRecordObjPosition[idx]; }
+	Eigen::VectorXd GetObjPositions(int i, int idx) { return this->mRecordObjPosition[i][idx]; }
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
@@ -107,7 +107,7 @@ protected:
 	double mTrackingRewardTrajectory;
 
 	Character* mCharacter;
-	Character* mObject;
+	std::vector<Character*> mObject;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 
@@ -137,7 +137,7 @@ protected:
 	std::vector<Eigen::Vector3d> mRecordCOM;
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
-	std::vector<Eigen::VectorXd> mRecordObjPosition;
+	std::vector<std::vector<Eigen::VectorXd>> mRecordObjPosition;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	std::vector<double> mRecordPhase;
 

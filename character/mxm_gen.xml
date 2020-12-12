@@ -49,7 +49,7 @@
     </Joint>
     <Joint type="BallJoint" name="LeftForeArm" parent_name="LeftArm" size="0.283288 0.07 0.07 " mass="1.2" bvh="LeftForeArm">
         <BodyPosition translation="0.571688 0.397864 -0.0710275 " />
-        <JointPosition translation="0.430044 0.397864 -0.0710277 " />
+        <JointPosition translation="0.430044 0.397864 -0.0710277 " lower="-3 0.0  -0.8" upper="0.8 3 3" />
         <TorqueLimit norm="60" />
         <!-- <Box offset="0 0 0 " direction="1 -6.15653e-07 1.33449e-06 " size="0.283288 0.07 0.07 " /> -->
     </Joint>
@@ -73,7 +73,7 @@
     </Joint>
     <Joint type="BallJoint" name="RightForeArm" parent_name="RightArm" size="0.283288 0.07 0.07 " mass="1.2" bvh="RightForeArm">
         <BodyPosition translation="-0.571687 0.397865 -0.0710278 " />
-        <JointPosition translation="-0.430043 0.397865 -0.0710281 " />
+        <JointPosition translation="-0.430043 0.397865 -0.0710281 " lower="-3 0.0  -3" upper="3 3 3" />
         <TorqueLimit norm="60" />
         <!-- <Box offset="0 0 0 " direction="-1 0 1.97029e-06 " size="0.283288 0.07 0.07 " /> -->
     </Joint>
@@ -91,7 +91,7 @@
     </Joint>
     <Joint type="BallJoint" name="LeftLeg" parent_name="LeftUpLeg" size="0.1 0.445279 0.1 " mass="3" bvh="LeftLeg">
         <BodyPosition translation="0.0820778 -0.733362 -0.0280601 " />
-        <JointPosition translation="0.0820778 -0.511222 -0.0131492 " lower="0.0 -0.05  -0.05" upper="1.7 0.05 0.05"  />
+        <JointPosition translation="0.0820778 -0.511222 -0.0131492 " lower="0.0 -0.05  -0.05" upper="3 0.05 0.05"  />
         <TorqueLimit norm="150" />
         <!-- <Box offset="0 0 0 " direction="0 -0.997755 -0.0669736 " size="0.1 0.445279 0.1 " /> -->
     </Joint>
@@ -115,7 +115,7 @@
     </Joint>
     <Joint type="BallJoint" name="RightLeg" parent_name="RightUpLeg" size="0.1 0.445278 0.1 " mass="3" bvh="RightLeg">
         <BodyPosition translation="-0.082078 -0.73336 -0.028053 " />
-        <JointPosition translation="-0.082078 -0.511222 -0.013134 " lower="0.0 -0.05  -0.05" upper="1.7 0.05 0.05" />
+        <JointPosition translation="-0.082078 -0.511222 -0.013134 " lower="0.0 -0.05  -0.05" upper="3 0.05 0.05" />
         <TorqueLimit norm="150" />
         <!-- <Box offset="0 0 0 " direction="0 -0.997752 -0.0670096 " size="0.1 0.445278 0.1 " /> -->
     </Joint>
