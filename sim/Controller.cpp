@@ -198,8 +198,10 @@ Step()
 		mCharacter->GetSkeleton()->getPositions()(1) > 0.5 * M_PI) {
 		delta = -(2 * M_PI + mPrevPositions(1) - mCharacter->GetSkeleton()->getPositions()(1));
 	}
-	mTotalYrot += delta;
-	mRecordRotation.push_back(std::pair<double, double>(mCharacter->GetSkeleton()->getPositions()(1), delta));
+	if(mCurrentFrameOnPhase >= 27) {
+		mTotalYrot += delta;
+		mRecordRotation.push_back(std::pair<double, double>(mCharacter->GetSkeleton()->getPositions()(1), delta));
+	}
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
@@ -553,13 +555,13 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 60 && mControlFlag[0] == 0) {
+	if(mCurrentFrameOnPhase >= 53 && mControlFlag[0] == 0) {
 		// Eigen::Vector3d totalRotationBVH = Eigen::Vector3d(51.1955, 146.552, 30.3295);
 		// double goalYrot = mParamGoal(0);
 		// double curYrot = mTotalRotation(1) / totalRotationBVH(1);
 
 		double totalYrotGoal = mParamGoal(0);
-		double curYrot = mTotalYrot / 6.0;
+		double curYrot = mTotalYrot / 5.44;
 
 		double y_diff = totalYrotGoal - curYrot;
 		double r_y = exp(-pow(y_diff, 2)*150);

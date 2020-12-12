@@ -515,9 +515,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards).sum_slide > 0.4) {
-		return;
-	}
+	// if(std::get<2>(rewards).sum_slide > 0.4) {
+	// 	return;
+	// }
 
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 
@@ -595,9 +595,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact*0.15); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
-	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2.5);
+	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2.0);
 	double reward_trajectory = r_foot * r_pos * r_vel * r_slide;
-
+	if(reward_trajectory < 0.45) {
+		return;
+	}
 	if(std::get<2>(rewards).sum_reward != 0) {
 		reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
 	}
