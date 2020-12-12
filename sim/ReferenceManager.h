@@ -17,6 +17,7 @@ struct Fitness
 	double sum_contact;
 	double sum_pos;
 	double sum_vel;
+	double sum_slide;
 	double sum_reward;
 };
 class Motion

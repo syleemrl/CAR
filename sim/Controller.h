@@ -181,13 +181,18 @@ protected:
 	std::queue<double> mTimeQueue;
 
 	Eigen::VectorXd mSumTorque;
+
+	Eigen::Vector3d stickLeftFoot;
+	Eigen::Vector3d stickRightFoot;
+	int mCountSlide;
 /////////////////////////////////////////////////
 // for action parameter design
-	double mHeight;
-	int mCountHeight;
-	double mCondiff;
-	double mCountContact;
-	double mRootXdiff;
+	std::vector<std::pair<double, double>> mRecordRotation;
+	Eigen::Vector3d mTotalRotation;
+	int mCountRotation;
+	double mKickHeight;
+
+	double mTotalYrot;
 //////////////////////////////////////////////////
 };
 }

@@ -110,12 +110,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("v");
 		mRewardLabels.push_back("time");
 	}
-	if(mRecord) {
-		path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
-		mObject  = new DPhy::Character(path);
-		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-
-	}
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -139,9 +133,6 @@ Step()
 	for(int i = 0; i < mInterestedDof; i++){
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
-	int sign = 1;
-	if(mActions[mInterestedDof] < 0)
-		sign = -1;
 
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
@@ -175,7 +166,7 @@ Step()
 		mPDTargetPositions.block(idx, 0, dof, 1) += mActions.block(count_dof, 0, dof, 1);
 		count_dof += dof;
 
-	}
+	}	
 
 	mSumTorque.resize(dof);
 	mSumTorque.setZero();
@@ -195,6 +186,20 @@ Step()
 
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
+	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 0) {
+		mTotalRotation += mCharacter->GetSkeleton()->getCOMSpatialVelocity().segment<3>(0).cwiseAbs();
+		mCountRotation += 1;
+	}
+	double delta = mCharacter->GetSkeleton()->getPositions()(1) - mPrevPositions(1);
+	if(mCharacter->GetSkeleton()->getPositions()(1) * mPrevPositions(1) < 0 && 
+		mCharacter->GetSkeleton()->getPositions()(1) < - 0.5 * M_PI ) {
+		delta = 2 * M_PI - mPrevPositions(1) + mCharacter->GetSkeleton()->getPositions()(1);
+	} else if(mCharacter->GetSkeleton()->getPositions()(1) * mPrevPositions(1) < 0 && 
+		mCharacter->GetSkeleton()->getPositions()(1) > 0.5 * M_PI) {
+		delta = -(2 * M_PI + mPrevPositions(1) - mCharacter->GetSkeleton()->getPositions()(1));
+	}
+	mTotalYrot += delta;
+	mRecordRotation.push_back(std::pair<double, double>(mCharacter->GetSkeleton()->getPositions()(1), delta));
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
@@ -203,6 +208,7 @@ Step()
 			mTrackingRewardTrajectory /= mCountTracking;
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
+			mFitness.sum_slide /= mCountSlide;
 
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
@@ -210,19 +216,21 @@ Step()
 			mFitness.sum_contact = 0;
 			mFitness.sum_pos = 0;
 			mFitness.sum_vel = 0;
+			mFitness.sum_slide = 0;
 			mFitness.sum_reward = 0;
-
+			
 			mTrackingRewardTrajectory = 0;
 			mParamRewardTrajectory = 0;
 			
 			mControlFlag.setZero();
 			mCountTracking = 0;
+			mCountSlide = 0;
 			
-			mCondiff = 0;
-			mCountContact = 0;
-			mHeight = 0;
-			mCountHeight = 0;
-			mRootXdiff = 0;
+			mTotalRotation.setZero();
+			mCountRotation = 0;
+
+			mTotalYrot = 0;
+			mRecordRotation.clear();
 		}
 	}
 	if(isAdaptive) {
@@ -242,6 +250,7 @@ Step()
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrameOnPhase));
 	}
 
+	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 	mPrevFrame = mCurrentFrame;
 
@@ -268,9 +277,6 @@ SaveStepInfo()
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	mRecordPhase.push_back(mCurrentFrame);
 
-	if(mRecord) {
-		mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
-	}
 	bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
 	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
 
@@ -301,11 +307,12 @@ ClearRecord()
 
 	data_raw.clear();
 	
-	mCondiff = 0;
-	mCountContact = 0;
-	mHeight = 0;
-	mRootXdiff = 0;
-	mCountHeight = 0;
+	mTotalRotation.setZero();
+	mCountRotation = 0;
+	
+	mTotalYrot = 0;
+	mRecordRotation.clear();
+
 }
 
 std::vector<double> 
@@ -489,15 +496,44 @@ GetSimilarityReward()
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<2>(idx + 1) *= 5;
-			p_diff(4) *= 5;
+			p_diff(0) *= 2;
+			p_diff(2) *= 2;
+			p_diff.segment<3>(idx + 3) *= 5;
+			v_diff.segment<3>(idx + 3) *= 2;
 		} else if(name.find("Spine") != std::string::npos ) {
-			p_diff.segment<2>(idx + 1) *= 2;
-		} else if(name.find("UpLeg") != std::string::npos ) {
-			v_diff.segment<2>(idx + 1) *= 2;
+			p_diff.segment<3>(idx) *= 2;
 		} 
 	}
 
+
+	double footSlide = 0;
+	if(mCurrentFrameOnPhase >= 53){
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		lf /= 2.0;
+
+		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		rf /= 2.0;
+		
+		Eigen::VectorXd foot_diff (6);
+		foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
+		foot_diff(1) = 0;
+		foot_diff(4) = 0;
+
+		footSlide += foot_diff.segment<3>(0).norm() + foot_diff.segment<3>(3).norm();
+		mCountSlide += 1;
+	} else if(mCurrentFrameOnPhase >= 48) {
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		lf /= 2.0;
+		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		rf /= 2.0;
+
+		stickRightFoot = rf;
+		stickLeftFoot = lf;
+	}
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff,0.3);
@@ -507,6 +543,7 @@ GetSimilarityReward()
 	mFitness.sum_contact += con_diff;
 	mFitness.sum_pos += p_diff.dot(p_diff) / p_diff.rows();
 	mFitness.sum_vel += v_diff.dot(v_diff) / v_diff.rows();
+	mFitness.sum_slide += footSlide;
 
 	return exp(-r_con)  * r_p * r_ee;
 }
@@ -516,52 +553,29 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase < 27 && mControlFlag[0] == 0) 		
-	{
-		int num_body_nodes = mInterestedDof / 3;
-	
-		double min_h = 0;
-		for(int i = 0; i < num_body_nodes; i++) {
-			double h = skel->getBodyNode(i)->getWorldTransform().translation()(1);
-			if(i==0 || h < min_h)
-				min_h = h;
-		}
-		mHeight += min_h;
-		mCountHeight += 1;
+	if(mCurrentFrameOnPhase >= 60 && mControlFlag[0] == 0) {
+		// Eigen::Vector3d totalRotationBVH = Eigen::Vector3d(51.1955, 146.552, 30.3295);
+		// double goalYrot = mParamGoal(0);
+		// double curYrot = mTotalRotation(1) / totalRotationBVH(1);
 
-	} else if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {	
-		double meanHeight = mHeight / mCountHeight;
-		double meanXdiff = mRootXdiff / mCountHeight;
+		double totalYrotGoal = mParamGoal(0);
+		double curYrot = mTotalYrot / 6.0;
 
-		double h_diff = meanHeight - mParamGoal(0);
-		double r_h = exp(-pow(h_diff,2)*150);
+		double y_diff = totalYrotGoal - curYrot;
+		double r_y = exp(-pow(y_diff, 2)*150);
 
-		r_param = r_h;
-		mParamCur(0) = meanHeight;
+		r_param = r_y;
+		mParamCur(0) = curYrot;
 
 		mControlFlag[0] = 1;
-		if(mRecord) {
-			std::cout << meanHeight << " / " << h_diff << " / " << r_h << std::endl;
-		}
-	} 	else if(mCurrentFrameOnPhase <= 36 && mControlFlag[0] == 1) {
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
-
-		for(int i = 0; i < contacts_cur.size(); i++) {
-			if(contacts_ref[i].first && !contacts_cur[i].first) {
-				mCondiff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
-			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-				mCondiff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
+		if(curYrot > 1.8) {
+			for(int i = 0; i < mRecordRotation.size(); i++) {
+				std::cout << i << " / " << mRecordRotation[i].first << " / " << mRecordRotation[i].second  << std::endl;
 			}
 		}
-		mCountContact += 1;
-	} else if(mControlFlag[0] == 1) {
-		mCondiff /= mCountContact;
-		r_param = 0.25 * exp(-mCondiff * 4);
 		if(mRecord) {
-			std::cout << mCondiff << "/ " << r_param * 2<< std::endl;
+			std::cout << mTotalYrot << " / " <<  y_diff << " / " <<  r_y << std::endl;
 		}
-		mControlFlag[0] = 2;
 	}
 	return r_param;
 	
@@ -690,7 +704,7 @@ UpdateTerminalInfo()
 	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 1 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
@@ -734,20 +748,7 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	if(mRecord) {
-		Eigen::VectorXd pos_obj = mObject->GetSkeleton()->getPositions();
-		int n_obs = (int) floor((tp(0) - 0.6) * 10 / 2);
-		std::cout << (tp(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
 
-		double base = 0.15;
-		for(int i = 0; i < n_obs; i++) {
-			pos_obj(6+i) = base;
-			base = pos_obj(6+i);
-		} for (int i = n_obs; i < pos_obj.rows() - 6; i++) {
-			pos_obj(6+i) = 0;
-		}
-		mObject->GetSkeleton()->setPositions(pos_obj);
-	}
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
@@ -791,7 +792,9 @@ Reset(bool RSI)
 		mFitness.sum_contact = 0;
 		mFitness.sum_pos = 0;
 		mFitness.sum_vel = 0;
+		mFitness.sum_slide = 0;
 		mFitness.sum_reward = 0;
+		mCountSlide = 0;
 
 	}
 
