@@ -30,9 +30,12 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
-	// path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
-	// mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
-	
+	path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
+	mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+	Eigen::VectorXd pos_obj = mSkel_obj->getPositions();
+
+	mSkel_obj->setPositions(pos_obj);
+
 	if(ppo == "") {
 		mRunSim = false;
 		mDrawSim = false;
@@ -172,10 +175,10 @@ MotionWidget::
 UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
-		tp = v_param*0.05;
-		for(int i = 0; i < tp.rows(); i++) {
-			tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
-		}
+		tp(0) = 0.07 + v_param(0)*0.14;
+		// for(int i = 0; i < tp.rows(); i++) {
+		// 	tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
+		// }
 		
 	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
@@ -197,10 +200,23 @@ UpdateParam(const bool& pressed) {
 	    }
 
 	    mReferenceManager->LoadAdaptiveMotion(cps);
-	    
+
 	    double phase = 0;
 
 	    if(!mRunSim) {
+		    Eigen::VectorXd pos_obj = mSkel_obj->getPositions();
+			int n_obs = (int) floor((tp_denorm(0) - 0.6) * 10 / 2);
+			double base = 0.15;
+			pos_obj(3) = (0.75 + 1.5);
+			for(int i = 0; i < n_obs; i++) {
+				pos_obj(6+i) = base;
+				base = pos_obj(6+i);
+				if(i+1 >= pos_obj.rows())
+					break;
+			} for (int i = n_obs; i < pos_obj.rows() - 6; i++) {
+				pos_obj(6+i) = 0;
+			}
+			mSkel_obj->setPositions(pos_obj);
 
 		    std::vector<Eigen::VectorXd> pos;
 		    double phase = 0;
@@ -267,8 +283,8 @@ void MotionWidget::UpdateIthParam(int i)
     }
     mTotalFrame = 500;
     Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-root_bvh(3) += 0.75;
-pos = DPhy::Align(pos, root_bvh);
+	root_bvh(3) += 0.75;
+	pos = DPhy::Align(pos, root_bvh);
 
     UpdateMotion(pos, 2);
 }
@@ -303,7 +319,7 @@ RunPPO() {
 	std::vector<Eigen::VectorXd> pos_bvh;
 	std::vector<Eigen::VectorXd> pos_reg;
 	std::vector<Eigen::VectorXd> pos_sim;
-	// std::vector<Eigen::VectorXd> pos_obj;
+	std::vector<Eigen::VectorXd> pos_obj;
 
 	int count = 0;
 	mController->Reset(false);
@@ -330,17 +346,17 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
-		//Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
+		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
 		position_bvh(3) -= 0.75;
-		//position_obj(3) += 0.75;
+		position_obj(3) += 0.75;
 
 		pos_reg.push_back(position_reg);
 		pos_sim.push_back(position);
 		pos_bvh.push_back(position_bvh);
-		//pos_obj.push_back(position_obj);
+		pos_obj.push_back(position_obj);
 	}
 	Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
 	root_bvh(3) += 0.75;
@@ -349,7 +365,7 @@ RunPPO() {
 	UpdateMotion(pos_bvh, 0);
 	UpdateMotion(pos_sim, 1);
 	UpdateMotion(pos_reg, 2);
-	//UpdateMotion(pos_obj, 3);
+	UpdateMotion(pos_obj, 4);
 
 }
 void
@@ -378,8 +394,7 @@ SetFrame(int n)
 	}
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
-    //	mSkel_obj->setPositions(mMotion_obj[n]);
-
+    	mSkel_obj->setPositions(mMotion_obj[n]);
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
@@ -398,17 +413,15 @@ DrawSkeletons()
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
 	if(mDrawSim) {
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
-	//	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		GUI::DrawSkeleton(this->mSkel_obj, 0);
 	}
 	if(mDrawReg) {
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
-		// if(!mRunSim) {
-		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	//	}
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
-		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		if(!mRunSim)
+			GUI::DrawSkeleton(this->mSkel_obj, 0);
 
 	}
 
@@ -603,8 +616,9 @@ UpdateMotion(std::vector<Eigen::VectorXd> motion, int type)
 	}
 	else if(type == 3) {
 		mMotion_exp = motion;	
-	} else if(type == 4) {
-		mMotion_points = motion;
+	} 
+	else if(type == 4) {
+		mMotion_obj = motion;
 	}
 	mCurFrame = 0;
 	if(mTotalFrame == 0)

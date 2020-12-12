@@ -31,6 +31,5 @@
         <BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0 1.36 0.4" />
         <JointPosition translation="0.0 1.96 0.4"/>
         <Capsule direction="0 1 0" radius="0.2" height="0.8"/>
-
     </Joint>
 </Skeleton>

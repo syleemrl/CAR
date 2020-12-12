@@ -93,7 +93,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mNumState = this->GetState().rows();
 
 	this->mNumAction = mActions.size();
-
 	ClearRecord();
 	
 	mRewardLabels.clear();
@@ -111,7 +110,12 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("v");
 		mRewardLabels.push_back("time");
 	}
+	if(mRecord) {
+		path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
+		mObject  = new DPhy::Character(path);
+		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 
+	}
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -264,6 +268,9 @@ SaveStepInfo()
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	mRecordPhase.push_back(mCurrentFrame);
 
+	if(mRecord) {
+		mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
+	}
 	bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
 	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
 
@@ -591,7 +598,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(20 * r_param);
+		mRewardParts.push_back(10 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -664,11 +671,11 @@ UpdateTerminalInfo()
 
 
 	// check nan
-	if(dart::math::isNan(p)){
+	if(!mRecord && dart::math::isNan(p)){
 		mIsNanAtTerminal = true;
 		mIsTerminal = true;
 		terminationReason = 3;
-	} else if(dart::math::isNan(v)){
+	} else if(!mRecord && dart::math::isNan(v)){
 		mIsNanAtTerminal = true;
 		mIsTerminal = true;
 		terminationReason = 4;
@@ -683,7 +690,7 @@ UpdateTerminalInfo()
 	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 1 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
@@ -727,6 +734,20 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
+	if(mRecord) {
+		Eigen::VectorXd pos_obj = mObject->GetSkeleton()->getPositions();
+		int n_obs = (int) floor((tp(0) - 0.6) * 10 / 2);
+		std::cout << (tp(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
+
+		double base = 0.15;
+		for(int i = 0; i < n_obs; i++) {
+			pos_obj(6+i) = base;
+			base = pos_obj(6+i);
+		} for (int i = n_obs; i < pos_obj.rows() - 6; i++) {
+			pos_obj(6+i) = 0;
+		}
+		mObject->GetSkeleton()->setPositions(pos_obj);
+	}
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }

@@ -94,7 +94,7 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     for(int i = 0; i < labels.size(); i++) {
         QSlider* param = new QSlider(Qt::Horizontal);
         param->setMinimum(0);
-        param->setMaximum(20);
+        param->setMaximum(10);
         param->setSingleStep(1);
         param->setProperty("i", i);
         mParams.push_back(param);
