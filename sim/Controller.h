@@ -193,6 +193,8 @@ protected:
 	double mKickHeight;
 
 	double mTotalYrot;
+
+	std::vector<Eigen::Vector3d> mStartYrot;
 //////////////////////////////////////////////////
 };
 }

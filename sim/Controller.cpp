@@ -190,18 +190,7 @@ Step()
 		mTotalRotation += mCharacter->GetSkeleton()->getCOMSpatialVelocity().segment<3>(0).cwiseAbs();
 		mCountRotation += 1;
 	}
-	double delta = mCharacter->GetSkeleton()->getPositions()(1) - mPrevPositions(1);
-	if(mCharacter->GetSkeleton()->getPositions()(1) * mPrevPositions(1) < 0 && 
-		mCharacter->GetSkeleton()->getPositions()(1) < - 0.5 * M_PI ) {
-		delta = 2 * M_PI - mPrevPositions(1) + mCharacter->GetSkeleton()->getPositions()(1);
-	} else if(mCharacter->GetSkeleton()->getPositions()(1) * mPrevPositions(1) < 0 && 
-		mCharacter->GetSkeleton()->getPositions()(1) > 0.5 * M_PI) {
-		delta = -(2 * M_PI + mPrevPositions(1) - mCharacter->GetSkeleton()->getPositions()(1));
-	}
-	if(mCurrentFrameOnPhase >= 27) {
-		mTotalYrot += delta;
-		mRecordRotation.push_back(std::pair<double, double>(mCharacter->GetSkeleton()->getPositions()(1), delta));
-	}
+
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
@@ -233,8 +222,20 @@ Step()
 
 			mTotalYrot = 0;
 			mRecordRotation.clear();
+			mStartYrot.clear();
+
+			Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+			lf += mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
+			lf /= 2.0;
+			Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+			rf += mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
+			rf /= 2.0;
+
+			stickRightFoot = rf;
+			stickLeftFoot = lf;
 		}
 	}
+
 	if(isAdaptive) {
 		this->UpdateAdaptiveReward();
 	}
@@ -314,6 +315,7 @@ ClearRecord()
 	
 	mTotalYrot = 0;
 	mRecordRotation.clear();
+	mStartYrot.clear();
 
 }
 
@@ -499,17 +501,23 @@ GetSimilarityReward()
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
 			p_diff(0) *= 2;
+			p_diff(1) *= 0.5;
 			p_diff(2) *= 2;
+
 			p_diff.segment<3>(idx + 3) *= 5;
-			v_diff.segment<3>(idx + 3) *= 2;
+			p_diff(4) *= 0.2;
+			
+			v_diff.segment<3>(idx + 3) *= 5;
+
+			if(mCurrentFrameOnPhase >= 60 || mCurrentFrameOnPhase <= 3)
+				v_diff.segment<3>(idx) *= 5;
+
 		} else if(name.find("Spine") != std::string::npos ) {
 			p_diff.segment<3>(idx) *= 2;
 		} 
 	}
-
-
 	double footSlide = 0;
-	if(mCurrentFrameOnPhase >= 53){
+	if(mCurrentFrameOnPhase >= 53 || mCurrentFrameOnPhase <= 22){
 		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
 		lf /= 2.0;
@@ -536,6 +544,7 @@ GetSimilarityReward()
 		stickRightFoot = rf;
 		stickLeftFoot = lf;
 	}
+
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff,0.3);
@@ -555,27 +564,63 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 53 && mControlFlag[0] == 0) {
+	if(mCurrentFrameOnPhase >= 28 && mStartYrot.size() < 3) {
+		mStartYrot.push_back(skel->getPositions().segment<3>(0));
+		if(mStartYrot.size() == 3) {
+			Eigen::Matrix3d mean_root_mat;
+			mean_root_mat.setZero();
+			for(int i = 0 ; i < 3; i++) {
+				mean_root_mat += dart::math::expMapRot(mStartYrot[i]);
+			} 
+			Eigen::Vector3d mean_root = dart::math::logMap(mean_root_mat / 3);
+			mPrevPositions.segment<3>(0) = mean_root;
+		}
+	}
+	if(mStartYrot.size() >= 3 && mControlFlag[0] < 2) {
+		double delta = skel->getPositions()(1) - mPrevPositions(1);
+		if(skel->getPositions()(1) * mPrevPositions(1) < 0 && 
+			skel->getPositions()(1) < - 0.5 * M_PI ) {
+			delta = 2 * M_PI - mPrevPositions(1) + skel->getPositions()(1);
+		} else if(skel->getPositions()(1) * mPrevPositions(1) < 0 && 
+			skel->getPositions()(1) > 0.5 * M_PI) {
+			delta = -(2 * M_PI + mPrevPositions(1) - skel->getPositions()(1));
+		}
+		mTotalYrot += delta;
+		mRecordRotation.push_back(std::pair<double, double>(skel->getPositions()(1), delta));
+	}
+
+	if(mCurrentFrameOnPhase >= 42 && mControlFlag[0] == 0) {
+		double rf0 = skel->getBodyNode("RightFoot")->getWorldTransform().translation()(1);
+		double rf1 = skel->getBodyNode("RightToe")->getWorldTransform().translation()(1);
+		mKickHeight = (rf0 + rf1) / 2.0;
+		mControlFlag[0] = 1;
+	}
+	if(mCurrentFrameOnPhase >= 73 && mControlFlag[0] == 1) {
 		// Eigen::Vector3d totalRotationBVH = Eigen::Vector3d(51.1955, 146.552, 30.3295);
 		// double goalYrot = mParamGoal(0);
 		// double curYrot = mTotalRotation(1) / totalRotationBVH(1);
 
-		double totalYrotGoal = mParamGoal(0);
-		double curYrot = mTotalYrot / 5.44;
+		double curYrot = mTotalYrot / 6.1;
 
-		double y_diff = totalYrotGoal - curYrot;
+		double y_diff = mParamGoal(0) - curYrot;
 		double r_y = exp(-pow(y_diff, 2)*150);
 
-		r_param = r_y;
-		mParamCur(0) = curYrot;
+		double curKickHeight = mKickHeight / 1.45;
+	//	double k_diff = mParamGoal(1) - curKickHeight;
+	//	double r_k = exp(-pow(k_diff, 2)*150);
 
-		mControlFlag[0] = 1;
-		if(curYrot > 1.8) {
-			for(int i = 0; i < mRecordRotation.size(); i++) {
-				std::cout << i << " / " << mRecordRotation[i].first << " / " << mRecordRotation[i].second  << std::endl;
-			}
-		}
+		r_param =  r_y;
+		mParamCur(0) = curYrot;
+	//	mParamCur(1) = curKickHeight;
+
+		mControlFlag[0] = 2;
+		// if(curYrot > 1.8) {
+		// 	for(int i = 0; i < mRecordRotation.size(); i++) {
+		// 		std::cout << i << " / " << mRecordRotation[i].first << " / " << mRecordRotation[i].second  << std::endl;
+		// 	}
+		// }
 		if(mRecord) {
+			// std::cout << mKickHeight " / " << k_diff << " / " << r_k << std::endl;
 			std::cout << mTotalYrot << " / " <<  y_diff << " / " <<  r_y << std::endl;
 		}
 	}
@@ -614,7 +659,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_param);
+		mRewardParts.push_back(20 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -835,6 +880,17 @@ Reset(bool RSI)
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
 	mAdaptiveStep = 1;
+
+	Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+	lf /= 2.0;
+	Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+	rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+	rf /= 2.0;
+
+	stickRightFoot = rf;
+	stickLeftFoot = lf;
+
 	if(isAdaptive)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
