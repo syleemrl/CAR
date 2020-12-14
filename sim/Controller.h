@@ -187,14 +187,23 @@ protected:
 	int mCountSlide;
 /////////////////////////////////////////////////
 // for action parameter design
-	std::vector<std::pair<double, double>> mRecordRotation;
-	Eigen::Vector3d mTotalRotation;
-	int mCountRotation;
-	double mKickHeight;
 
+	double mKickHeight;
 	double mTotalYrot;
 
+	double mConDiff;
+	int mCountContact;
+
+	Eigen::Vector3d mlfRelativeBVH;
+	Eigen::Vector3d mrfRelativeBVH;
+
+	double mFootDiff;
+	int mCountFoot;
+
 	std::vector<Eigen::Vector3d> mStartYrot;
+	std::vector<Eigen::Vector3d> mEndYrot;
+	double stickYrot;
+
 //////////////////////////////////////////////////
 };
 }

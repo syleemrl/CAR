@@ -177,18 +177,11 @@ Step()
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
-			//mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			mCharacter->GetSkeleton()->setForces(torque);
+			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			mWorld->step(false);
-			mSumTorque += torque.cwiseAbs();
 		}
 
 		mTimeElapsed += 2 * mAdaptiveStep;
-	}
-	if(mCurrentFrameOnPhase >= 25 && mControlFlag[0] == 0) {
-		mTotalRotation += mCharacter->GetSkeleton()->getCOMSpatialVelocity().segment<3>(0).cwiseAbs();
-		mCountRotation += 1;
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -216,13 +209,14 @@ Step()
 			mControlFlag.setZero();
 			mCountTracking = 0;
 			mCountSlide = 0;
-			
-			mTotalRotation.setZero();
-			mCountRotation = 0;
 
 			mTotalYrot = 0;
-			mRecordRotation.clear();
+			mConDiff = 0;
+			mCountContact = 0;
+			mFootDiff = 0;
+			mCountFoot = 0;
 			mStartYrot.clear();
+			mEndYrot.clear();
 
 			Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 			lf += mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
@@ -233,6 +227,8 @@ Step()
 
 			stickRightFoot = rf;
 			stickLeftFoot = lf;
+			stickYrot = mCharacter->GetSkeleton()->getPositions()(1);
+
 		}
 	}
 
@@ -310,12 +306,13 @@ ClearRecord()
 
 	data_raw.clear();
 	
-	mTotalRotation.setZero();
-	mCountRotation = 0;
-	
 	mTotalYrot = 0;
-	mRecordRotation.clear();
+	mConDiff = 0;
+	mCountContact = 0;
+	mFootDiff = 0;
+	mCountFoot = 0;
 	mStartYrot.clear();
+	mEndYrot.clear();
 
 }
 
@@ -337,7 +334,6 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	p_diff_reward = p_diff;
 	if(isAdaptive) {
 		p_diff_reward.segment<6>(0) *= 3;
-
 	}
 	Eigen::VectorXd v_diff, v_diff_reward;
 
@@ -364,12 +360,9 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	for(int i=0;i<mEndEffectors.size();i++){
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
-		if(isAdaptive)
-			ee_diff(3*i + 1) *= 0.75;
+
 	}
 	com_diff -= skel->getCOM();
-	if(isAdaptive)
-		com_diff(1) *= 0.75;
 
 	double scale = 1.0;
 
@@ -453,6 +446,33 @@ GetSimilarityReward()
 	Eigen::VectorXd vel = p_v_target->GetVelocity();
 	delete p_v_target;
 
+	skel->setPositions(pos);
+	skel->computeForwardKinematics(true,false,false);
+
+	////////////// FOR SPINKICK EXAMPLE ////////////////////
+	Eigen::Vector3d curRoot = skel->getPositions().segment<3>(0);
+	Eigen::Vector3d root_xz = projectToXZ(curRoot);
+	Eigen::AngleAxisd aa_root(root_xz.norm(), root_xz.normalized());
+
+	Eigen::Vector3d rf = 0.5 * skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+	rf += 0.5 * skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+	rf -= skel->getPositions().segment<3>(3);
+	rf(1) = 0;
+	rf = aa_root.inverse() * rf;
+
+	Eigen::Vector3d lf = 0.5 * skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	lf += 0.5 * skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	lf -= skel->getPositions().segment<3>(3);
+	lf(1) = 0;
+	lf = aa_root.inverse() * lf;
+
+	mrfRelativeBVH = rf;
+	mlfRelativeBVH = lf;
+	////////////////////////////////////////////////////////
+
+	skel->setPositions(p_save);
+	skel->computeForwardKinematics(true,false,false);
+
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
@@ -501,15 +521,15 @@ GetSimilarityReward()
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
 			p_diff(0) *= 2;
-			p_diff(1) *= 0.5;
+			p_diff(1) *= 0.25;
 			p_diff(2) *= 2;
 
 			p_diff.segment<3>(idx + 3) *= 5;
 			p_diff(4) *= 0.2;
-			
+
 			v_diff.segment<3>(idx + 3) *= 5;
 
-			if(mCurrentFrameOnPhase >= 60 || mCurrentFrameOnPhase <= 3)
+			if(mCurrentFrameOnPhase >= 65)
 				v_diff.segment<3>(idx) *= 5;
 
 		} else if(name.find("Spine") != std::string::npos ) {
@@ -517,7 +537,7 @@ GetSimilarityReward()
 		} 
 	}
 	double footSlide = 0;
-	if(mCurrentFrameOnPhase >= 53 || mCurrentFrameOnPhase <= 22){
+	if(mCurrentFrameOnPhase >= 55){
 		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
 		lf /= 2.0;
@@ -564,19 +584,8 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 28 && mStartYrot.size() < 3) {
-		mStartYrot.push_back(skel->getPositions().segment<3>(0));
-		if(mStartYrot.size() == 3) {
-			Eigen::Matrix3d mean_root_mat;
-			mean_root_mat.setZero();
-			for(int i = 0 ; i < 3; i++) {
-				mean_root_mat += dart::math::expMapRot(mStartYrot[i]);
-			} 
-			Eigen::Vector3d mean_root = dart::math::logMap(mean_root_mat / 3);
-			mPrevPositions.segment<3>(0) = mean_root;
-		}
-	}
-	if(mStartYrot.size() >= 3 && mControlFlag[0] < 2) {
+
+	if(mControlFlag[0] < 2) {
 		double delta = skel->getPositions()(1) - mPrevPositions(1);
 		if(skel->getPositions()(1) * mPrevPositions(1) < 0 && 
 			skel->getPositions()(1) < - 0.5 * M_PI ) {
@@ -586,7 +595,6 @@ GetParamReward()
 			delta = -(2 * M_PI + mPrevPositions(1) - skel->getPositions()(1));
 		}
 		mTotalYrot += delta;
-		mRecordRotation.push_back(std::pair<double, double>(skel->getPositions()(1), delta));
 	}
 
 	if(mCurrentFrameOnPhase >= 42 && mControlFlag[0] == 0) {
@@ -595,33 +603,95 @@ GetParamReward()
 		mKickHeight = (rf0 + rf1) / 2.0;
 		mControlFlag[0] = 1;
 	}
-	if(mCurrentFrameOnPhase >= 73 && mControlFlag[0] == 1) {
-		// Eigen::Vector3d totalRotationBVH = Eigen::Vector3d(51.1955, 146.552, 30.3295);
-		// double goalYrot = mParamGoal(0);
-		// double curYrot = mTotalRotation(1) / totalRotationBVH(1);
 
-		double curYrot = mTotalYrot / 6.1;
+	if(mCurrentFrameOnPhase >= 48 && mControlFlag[0] == 1) {
+		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
+		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
-		double y_diff = mParamGoal(0) - curYrot;
-		double r_y = exp(-pow(y_diff, 2)*150);
-
-		double curKickHeight = mKickHeight / 1.45;
-	//	double k_diff = mParamGoal(1) - curKickHeight;
-	//	double r_k = exp(-pow(k_diff, 2)*150);
-
-		r_param =  r_y;
-		mParamCur(0) = curYrot;
-	//	mParamCur(1) = curKickHeight;
-
+		for(int i = 0; i < contacts_cur.size(); i++) {
+			if(contacts_ref[i].first && !contacts_cur[i].first) {
+				mConDiff += pow(std::max(0.0, (contacts_cur[i].second)(1) - 0.07), 2);
+			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
+				mConDiff += pow(std::max(0.0, (contacts_ref[i].second)(1) - 0.07), 2);
+			}
+		}
+		mCountContact += 1;
+	}
+	if(mCurrentFrameOnPhase >= 56 && mEndYrot.size() < 10) {
 		mControlFlag[0] = 2;
-		// if(curYrot > 1.8) {
-		// 	for(int i = 0; i < mRecordRotation.size(); i++) {
-		// 		std::cout << i << " / " << mRecordRotation[i].first << " / " << mRecordRotation[i].second  << std::endl;
-		// 	}
-		// }
-		if(mRecord) {
-			// std::cout << mKickHeight " / " << k_diff << " / " << r_k << std::endl;
-			std::cout << mTotalYrot << " / " <<  y_diff << " / " <<  r_y << std::endl;
+		if(mCurrentFrameOnPhase >= 55) {
+			Eigen::Vector3d curRoot = skel->getPositions().segment<3>(0);
+			Eigen::Vector3d root_xz = projectToXZ(curRoot);
+			Eigen::AngleAxisd aa_root(root_xz.norm(), root_xz.normalized());
+
+			Eigen::Vector3d rf = 0.5 * skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+			rf += 0.5 * skel->getBodyNode("RightToe")->getWorldTransform().translation();
+			rf -= skel->getPositions().segment<3>(3);
+			rf(1) = 0;
+			rf = aa_root.inverse() * rf;
+
+			Eigen::Vector3d lf = 0.5 * skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+			lf += 0.5 * skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+			lf -= skel->getPositions().segment<3>(3);
+			lf(1) = 0;
+			lf = aa_root.inverse() * lf;
+
+			Eigen::Vector3d l_diff = lf.normalized() - mlfRelativeBVH.normalized();
+			Eigen::Vector3d r_diff = rf.normalized() - mrfRelativeBVH.normalized();
+
+			Eigen::VectorXd ee_bvh_diff(6);
+			ee_bvh_diff << l_diff, r_diff;
+
+			mFootDiff += ee_bvh_diff.dot(ee_bvh_diff) / 4;
+			mCountFoot += 1;
+		}	
+		mEndYrot.push_back(skel->getPositions().segment<3>(0));
+		if(mEndYrot.size() == 10) {
+			Eigen::Matrix3d mean_root_mat;
+			mean_root_mat.setZero();
+			for(int i = 1 ; i < 10; i++) {
+				mean_root_mat += dart::math::expMapRot(mEndYrot[i]);
+			} 
+			Eigen::Vector3d EndYrot = dart::math::logMap(mean_root_mat / 9);
+
+			double delta = EndYrot(1) - mEndYrot[0](1);
+			if(EndYrot(1) * mEndYrot[0](1) < 0 && 
+				EndYrot(1) < - 0.5 * M_PI ) {
+				delta = 2 * M_PI - mEndYrot[0](1) + EndYrot(1);
+			} else if(EndYrot(1) * mEndYrot[0](1) < 0 && 
+				EndYrot(1) > 0.5 * M_PI) {
+				delta = -(2 * M_PI + mEndYrot[0](1) - EndYrot(1));
+			}
+			mTotalYrot += delta;
+
+			double curYrot = mTotalYrot / 6.0;
+
+			double y_diff = mParamGoal(0) - curYrot;
+			double r_y = exp(-pow(y_diff, 2)*150);
+
+			double curKickHeight = mKickHeight / 1.45;
+		//	double k_diff = mParamGoal(1) - curKickHeight;
+		//	double r_k = exp(-pow(k_diff, 2)*150);
+		
+			mConDiff /= mCountContact;
+			double r_c = exp(-mConDiff * 100);
+
+			mFootDiff /= mCountFoot;
+			double r_f = exp(-mFootDiff * 10);
+			r_param = r_c * r_y * r_f;
+			if(r_c > 0.5 && r_f > 0.5)
+				mParamCur(0) = curYrot;
+			else
+				mParamCur(0) = -1;
+		//	mParamCur(1) = curKickHeight;
+
+			mControlFlag[0] = 3;
+
+			if(mRecord) {
+				std::cout << "foot : " << mFootDiff << " / " << r_f << std::endl;
+				std::cout << "contact : " << mConDiff << " / " << r_c << std::endl;
+				std::cout << "rotation : " << mTotalYrot << " / " <<  y_diff << " / " <<  r_y << std::endl;
+			}
 		}
 	}
 	return r_param;
@@ -645,12 +715,11 @@ UpdateAdaptiveReward()
 	double r_param = this->GetParamReward();
 
 	double r_tot = r_tracking;
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
-
-	mSumTorque /= mSimPerCon;
-	double r_torque = exp_of_squared(mSumTorque, 50);
-	r_tot = 0.99 * r_tot + 0.01 * r_torque;
+	// if(mCurrentFrameOnPhase <= 10) {
+	// 	double y_diff = skel->getPositions()(1) - stickYrot;
+	// 	double r_y = exp(-pow(y_diff, 2) * 20);
+	// 	r_tot = 0.95 * r_tot + 0.05 * r_y;
+	// }
 	// std::cout << mCurrentFrameOnPhase << " " << con_diff << " " <<exp(-con_diff*3) << std::endl;
 	mRewardParts.clear();
 
@@ -890,6 +959,7 @@ Reset(bool RSI)
 
 	stickRightFoot = rf;
 	stickLeftFoot = lf;
+	stickYrot = skel->getPositions()(1);
 
 	if(isAdaptive)
 	{
