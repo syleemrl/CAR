@@ -431,21 +431,21 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.8;
 
-	mParamCur.resize(2);
-	mParamCur << 1.0, 1.0;
+	mParamCur.resize(1);
+	mParamCur << 1.0;
 
-	mParamGoal.resize(2);
-	mParamGoal << 1.0, 1.0;
+	mParamGoal.resize(1);
+	mParamGoal << 1.0;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(2);
-		paramUnit<< 0.1, 0.1;
+		Eigen::VectorXd paramUnit(1);
+		paramUnit<< 0.1;
 
-		mParamBase.resize(2);
-		mParamBase << 0.2, 0.9;
+		mParamBase.resize(1);
+		mParamBase << 0.2;
 
-		mParamEnd.resize(2);
-		mParamEnd << 1.5, 2.0;
+		mParamEnd.resize(1);
+		mParamEnd << 1.5;
 
 		// mParamBase.resize(2);
 		// mParamBase << 0.5, 0.5;

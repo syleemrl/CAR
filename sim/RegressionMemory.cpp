@@ -56,7 +56,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.15;
+	mRadiusNeighbor = 0.05;
 	mThresholdInside = 0.7;
 	mRangeExplore = 0.3;
 	mThresholdActivate = 3;
@@ -72,7 +72,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 		mParamBVH->param_normalized = Normalize(paramBvh);
 		mParamBVH->reward = 1;
-		mParamBVH->update = false;
+		mParamBVH->update = 0;
 		AddMapping(mParamBVH);
 	}
 
@@ -154,11 +154,17 @@ void
 RegressionMemory::
 UpdateParamState() {
 	auto iter = mParamNew.begin();
+	std::vector<Eigen::VectorXd> key_to_delete;
 	while(iter != mParamNew.end()) {
-		iter->second->update = false;
+		iter->second->update -= 1;
+		if(iter->second->update == 0) {
+			key_to_delete.push_back(iter->second->param_normalized);
+		}
 		iter++;
 	}
-	mParamNew.clear();
+	for(int i = 0; i < key_to_delete.size(); i++) {
+		mParamNew.erase(key_to_delete[i]);
+	}
 }
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>
 RegressionMemory::
@@ -338,7 +344,7 @@ LoadParamSpace(std::string path) {
 		p->param_normalized = param;
 		p->cps = cps;
 		p->reward = reward;
-		p->update = false;
+		p->update = 0;
 		AddMapping(p);
 		mloadAllSamples.push_back(p);
 
@@ -797,7 +803,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		p->param_normalized = candidate_scaled;
 		p->reward = std::get<2>(candidate);
 		p->cps = std::get<0>(candidate);
-		p->update = true;
+		p->update = 5;
 
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));

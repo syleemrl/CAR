@@ -510,7 +510,7 @@ GetSimilarityReward()
 
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
-	double r_p = exp_of_squared(p_diff,0.3);
+	double r_p = exp_of_squared(p_diff, 0.3);
 
 	mPrevFrame = mCurrentFrame;
 
@@ -528,20 +528,19 @@ GetParamReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 30 && mControlFlag[0] == 0) 		
 	{	
-		Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 160, 0);
-		momentumGoal(1) *= mParamGoal(1);
+		Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
+		// momentumGoal(1) *= mParamGoal(1);
 		Eigen::Vector3d m_diff = momentumGoal - mMomentum;
 		m_diff *= 0.1;
 		m_diff(1) *= 4;
 
 		double r_m = exp_of_squared(m_diff, 1.5); 
-		if(abs(m_diff(0)) < 0.5 && abs(m_diff(2)) < 0.5) {
+		if(r_m > 0.4) {
 			mParamCur(0) = mParamGoal(0);
-			mParamCur(1) = mMomentum(1) /  160;
 		} else {
 			mParamCur(0) = -1;
 		}
-
+		mFitness.sum_reward = r_m;
 		r_param = 0.8 * r_m;
 
 		mControlFlag[0] = 1;	
@@ -604,6 +603,16 @@ UpdateAdaptiveReward()
 	mSumTorque /= mSimPerCon;
 	double r_torque = exp_of_squared(mSumTorque, 50);
 	r_tot = 0.99 * r_tot + 0.01 * r_torque;
+	if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 38) {
+		Eigen::VectorXd p_diff_bvh(15);
+		Eigen::VectorXd p_bvh = mReferenceManager->GetPosition(mCurrentFrame, false);
+		Eigen::VectorXd p_diff = skel->getPositionDifferences(skel->getPositions(), p_bvh);
+		p_diff_bvh = p_diff.segment<15>(0);
+		p_diff_bvh(4) = 0;
+
+		double r_pbvh = exp_of_squared(p_diff_bvh, 0.1);
+		r_tot = 0.97 * r_tot + 0.03 * r_pbvh;
+	}
 	// std::cout << mCurrentFrameOnPhase << " " << con_diff << " " <<exp(-con_diff*3) << std::endl;
 	mRewardParts.clear();
 
