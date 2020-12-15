@@ -187,6 +187,7 @@ protected:
 	Eigen::Vector3d mMomentum;
 	double mCondiff;
 	double mCountContact;
+	Eigen::Vector3d mMaxCOM;
 //////////////////////////////////////////////////
 };
 }

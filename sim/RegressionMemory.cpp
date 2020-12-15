@@ -56,7 +56,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.05;
+	mRadiusNeighbor = 0.15;
 	mThresholdInside = 0.7;
 	mRangeExplore = 0.3;
 	mThresholdActivate = 3;
@@ -630,9 +630,11 @@ RegressionMemory::
 UniformSample(bool visited) {
 	int count = 0;
 	while(1) {
-		double r = mUniform(mMT);
 		Eigen::VectorXd p(mDim);
-		p(0) = r;
+		for(int i = 0; i < mDim; i++) {
+			p(i) = mUniform(mMT);
+		}
+		
 		// r = std::floor(r * mGridMap.size());
 		// if(r == mGridMap.size())
 		// 	r -= 1;
