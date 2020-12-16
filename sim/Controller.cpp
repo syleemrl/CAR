@@ -174,8 +174,7 @@ Step()
 	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
 	mAdaptiveStep = mActions[mInterestedDof];
-	// std::cout<<mAdaptiveStep<<std::endl;
-	// mAdaptiveStep = 0;
+	mAdaptiveStep = 0;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (1 + mAdaptiveStep);

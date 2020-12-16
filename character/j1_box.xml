@@ -4,8 +4,9 @@
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
 	<Joint type="PrismaticJoint" name="Jump_Box" parent_name="Ground" size="0.8 0.48 0.6" axis="0 1 0" mass="500.0">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-3.3755 0.24 1.41596"></BodyPosition>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-2.6255 0.24 1.41596"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
 </Skeleton>
- <!-- -2.62556 0.514566  1.41596 -->
+ <!-- rf: -2.62556 0.514566  1.41596 -->
+ <!-- -3.3755 0.24 1.41596 -->
