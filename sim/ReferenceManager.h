@@ -83,6 +83,13 @@ public:
 
 	// Eigen::Vector3d tmp_debug= Eigen::Vector3d::Zero();
 	// double tmp_debug_frame=0;
+
+	std::vector<Eigen::VectorXd> getRawPositions(){ 
+		std::vector<Eigen::VectorXd> pos_only;
+		for(auto m: mMotions_raw) pos_only.push_back(m->GetPosition());
+		return pos_only;
+	}
+	
 protected:
 	Character* mCharacter;
 	double mTimeStep;

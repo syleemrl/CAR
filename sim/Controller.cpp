@@ -477,9 +477,9 @@ GetSimilarityReward()
 	vel *= (mCurrentFrame - mPrevFrame); 
 	delete p_v_target;
 
-	bool close_to_obj = (mCurrentFrameOnPhase >=22 && mCurrentFrameOnPhase<42) ;
+	bool close_to_obj = (mCurrentFrameOnPhase <=29) ;
 
-	double ref_obj_height = (close_to_obj)? 0.48 : 0;
+	double ref_obj_height = (close_to_obj)? 0.47 : 0;
 	double cur_obj_height = ref_obj_height;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);

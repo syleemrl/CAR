@@ -17,6 +17,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 file(GLOB srcs "*.h" "*.cpp")
 list(FILTER srcs EXCLUDE REGEX "BVHToXML.cpp")
+list(FILTER srcs EXCLUDE REGEX "swing_cleanup.cpp")
 
 add_library(sim ${srcs} )
 target_link_libraries(sim ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})
@@ -26,3 +27,6 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 
 #add_executable(xmlGen BVHToXML.cpp)
 #target_link_libraries(xmlGen ${TinyXML_LIBRARIES})
+
+add_executable(cleanup swing_cleanup.cpp ${srcs})
+target_link_libraries(cleanup ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})
