@@ -171,15 +171,16 @@ Step()
 	int sign = 1;
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
-	mActions[mInterestedDof] = (exp(abs(mActions[mInterestedDof])*3)-1) * sign;
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -0.8, 4.0);
+
+
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
+	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
-	// std::cout<<mAdaptiveStep<<std::endl;
-	mAdaptiveStep = 0;
+	// mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
-	this->mCurrentFrame += (1 + mAdaptiveStep);
-	this->mCurrentFrameOnPhase += (1 + mAdaptiveStep);
+	this->mCurrentFrame += (mAdaptiveStep);
+	this->mCurrentFrameOnPhase += (mAdaptiveStep);
 	nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
@@ -217,15 +218,34 @@ Step()
 			mWorld->step(false);
 		}
 
-		mTimeElapsed += 2 * (1 + mAdaptiveStep);
+		mTimeElapsed += 2 * (mAdaptiveStep);
+	}
+
+	bool left_land = CheckCollisionWithGround("LeftToe")|| CheckCollisionWithGround("LeftFoot");
+	bool right_land = CheckCollisionWithGround("RightToe")|| CheckCollisionWithGround("RightFoot");
+	bool touchGround = left_land && right_land;
+	if(!mLanded && touchGround){
+		mLanded = true;
+		mLanded_left= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		mLanded_right= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		double landDist = std::min(mLanded_left[2], mLanded_right[2]);
+		mMinLandDist = std::min(landDist, mMinLandDist);
+	}else if(mLanded){
+		Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf =mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+		double landDist = std::min(lf[2], rf[2]);
+		mMinLandDist = std::min(landDist, mMinLandDist);
+
+		double slide = (lf-mLanded_left).norm()+ (rf-mLanded_right).norm();
+		foot_diff.push_back(slide);
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-		mParamCur = mParamGoal;
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
-		// stickLeftFoot = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		// stickRightFoot = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+		// std::cout<<" mMinLandDist : "<<mMinLandDist<<std::endl;
 
 		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
 		mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
@@ -401,6 +421,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.5 * scale;		
 
+	// double foot_slide = (foot_diff.empty()) ? 0: std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0)/ foot_diff.size();
+
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
 	if(useVelocity)
@@ -480,7 +502,7 @@ GetSimilarityReward()
 	bool close_to_obj = (mCurrentFrameOnPhase <=29) ;
 
 	double ref_obj_height = (close_to_obj)? 0.47 : 0;
-	double cur_obj_height = ref_obj_height;
+	double cur_obj_height = (close_to_obj)? mParamGoal[0] : 0;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
@@ -492,14 +514,13 @@ GetSimilarityReward()
 		}
 	}
 
-
 	//double r_con = exp(-con_diff);
 	Eigen::VectorXd p_aligned = skel->getPositions();
-	std::vector<Eigen::VectorXd> p_with_zero;
-	p_with_zero.push_back(mRootZero);
-	p_with_zero.push_back(p_aligned.segment<6>(0));
-	p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
-	p_aligned.segment<6>(0) = p_with_zero[1];
+	// std::vector<Eigen::VectorXd> p_with_zero;
+	// p_with_zero.push_back(mRootZero);
+	// p_with_zero.push_back(p_aligned.segment<6>(0));
+	// p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
+	// p_aligned.segment<6>(0) = p_with_zero[1];
 
 	Eigen::VectorXd v = skel->getPositionDifferences(skel->getPositions(), mPosQueue.front()) / (mCurrentFrame - mTimeQueue.front() + 1e-10) / 0.033;
 	for(auto& jn : skel->getJoints()){
@@ -531,7 +552,7 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx + 3) *= 10;
 			v_diff.segment<3>(idx) *= 5;
 			v_diff.segment<3>(idx + 3) *= 10;
-			v_diff(5) *= 2;
+			// v_diff(5) *= 2;
 		} 
 	}
 
@@ -553,39 +574,11 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	// if(mCurrentFrameOnPhase >= 47.5 && !(this->jump_stepon)){
-	// 	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d lt = this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rt = this->mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
-
-	// 	//z distance
-	// 	//0.8 : foot: 0.7~, toe: ~0.9
-	// 	double obj_z = this->mObject->GetSkeleton()->getPositions()[5];
-
-	// 	Eigen::VectorXd distance_diff(4);
-	// 	distance_diff.setZero();
-
-	// 	if(lf[2] < (obj_z-0.1)) distance_diff[0]= (obj_z-0.1)-lf[2];
-	// 	if(rf[2] < (obj_z-0.1)) distance_diff[1]= (obj_z-0.1)-rf[2];
-
-	// 	if(lt[2] > (obj_z+0.1)) distance_diff[2]= lt[2]-(obj_z+0.1);
-	// 	if(rt[2] > (obj_z+0.1)) distance_diff[3]= rt[2]-(obj_z+0.1);
-
-	// 	double r = exp_of_squared(distance_diff, 0.035);
-	// 	// std::cout<<mCurrentFrame<<", r: "<<r<<" , dist: "<<distance_diff.transpose()<<std::endl;
-	// 	foot_diff.push_back(r);
-
-	// 	if(mCurrentFrameOnPhase >=67.5){			
-	// 		r_param= std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0) / foot_diff.size();
-	// 		// std::cout<<mCurrentFrameOnPhase<<"/ r_param: "<<r_param<<std::endl;
-	// 		this->jump_stepon = true;
-	// 		mParamCur = mParamGoal;
-	// 		foot_diff.clear();
-
-	// 		if(mRecord) std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
-	// 	}
-	// }
+	if(mLanded && mCurrentFrameOnPhase >=80 ){
+		mParamCur << mParamGoal[0], mMinLandDist;
+		// std::cout<<mCurrentFrameOnPhase<<" , "<<mParamCur.transpose()<<std::endl;
+		r_param = 1;
+	}
 
 	return r_param;
 }
@@ -599,7 +592,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
-	double time_diff = (mAdaptiveStep + 1) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
+	double time_diff = (mAdaptiveStep) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
 	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
@@ -845,10 +838,6 @@ Reset(bool RSI)
 	mRootZero = mTargetPositions.segment<6>(0);
 	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
-	stickLeftFoot = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	stickRightFoot = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-	stickFoot = true;
-	// mFootZero = (lf+rf)/2.;
 	mDefaultRootZero = mRootZero; 
 
 	mTlPrev2 = mTlPrev;
@@ -863,6 +852,7 @@ Reset(bool RSI)
 		mTimeQueue.pop();
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
+	mAdaptiveStep = 1;
 
 	mPrevTargetPositions = mTargetPositions;
 	
@@ -876,6 +866,7 @@ Reset(bool RSI)
 	
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
+	obj_pos[6] = mParamGoal[0]-0.47;
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
 	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -893,7 +884,8 @@ Reset(bool RSI)
 	#endif
 
 	foot_diff.clear();
-
+	mLanded = false;
+	mMinLandDist= 1e4;
 	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
@@ -1106,8 +1098,8 @@ GetState()
 
 	double com_diff = 0;
 	if(isParametric) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mParamGoal.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mAdaptiveStep, mParamGoal;
 	}
 	else {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);

@@ -185,6 +185,9 @@ protected:
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
 
+	bool mLanded = false;
+	double mMinLandDist = 100000;
+
 	// double mPrevVelocity;
 	// double mVelocity;
 	// Eigen::Vector3d mEnergy;
@@ -192,6 +195,10 @@ protected:
 	Eigen::Vector3d mStartRoot; //root 0th frame
 	Eigen::Vector3d mRootZeroDiff; //root 0th frame
 	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
+
+	Eigen::Vector3d mLanded_left;
+	Eigen::Vector3d mLanded_right;
+
 	std::vector<double> foot_diff;
 
 	Eigen::Vector3d stickLeftFoot;

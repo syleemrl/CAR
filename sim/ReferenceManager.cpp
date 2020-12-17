@@ -448,44 +448,22 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.85;
 
-	mParamCur.resize(2); // jump height, jump distance
-	mParamCur << 0.46, 0.8 ; //(0.495829 -  0.0441786) , (   0.710883 -  0.0267908 ); 	//foot 45th- foot 0th // foot 45 th frame - com 0th frame
-	// mParamCur << 0.46, (   0.614314 -  0.016015 ); 	// com, 81th frame
-	// mParamCur << 0.46, ( 0.378879 -  0.016015 ); // com , 41 th frame
-	// mParamCur << 0.46, (0.718014 - 0.0566185); 	// (lf+rf)/2.
-
-	// frame, (lf+rf)/2.
-	// 0, middle: -0.739319 0.0438206 0.0566185
-	// 45, middle: -0.739077  0.495829  0.710883
-	// 50, middle: -0.740508  0.502092  0.718014
+	mParamCur.resize(2); // start box height, distance
+	mParamCur << 0.47, 1.7; //1.9 ? (bvh), dmm: 1.72
 
 	mParamGoal.resize(2);
 	mParamGoal = mParamCur;
 
-	// character root:
-	// 0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
-
-// 0: -8.63835e-05      1.04059     0.016015 / lf : 0.0971196  0.043994 0.0626424 / rf : -0.0757574  0.0436472  0.0505945 /mid:0.0106811 0.0438206 0.0566185
-// 41: 0.00327486    1.34454   0.378879 / lf : 0.105515 0.558091 0.688128 / rf : -0.0847098   0.536756   0.750679/ mid:0.0104028  0.547423  0.719404
-// 45: 0.00249872    1.16603   0.461853 / lf : 0.100115 0.495786 0.695288 / rf : -0.0782693   0.495872   0.726477/ mid:0.010923 0.495829 0.710883
-// 81: -0.0177552    1.48029   0.614314 / lf : 0.0972839  0.501218  0.702958 / rf : -0.0749804      0.499   0.706534/ mid:0.0111517  0.500109  0.704746
-
-
-	/// trimmed:
-// 0: -0.00285057     1.04087   0.0267908 / lf : 0.0966291 0.0442695 0.0625281 / rf : -0.0757626  0.0440878  0.0506681/mid:0.0104332 0.0441786 0.0565981
-// 34 : min : 0.536756
-// 38: 0.00249872    1.16603   0.461853 / lf : 0.100115 0.495786 0.695288 / rf : -0.0782693   0.495872   0.726477/mid:0.010923 0.495829 0.710883
-
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);
-		paramUnit << mParamGoal[0]*0.1, mParamGoal[1]*0.2;
+		paramUnit << mParamGoal[0]*0.1, mParamGoal[1]*0.1;
 
 		mParamBase.resize(2);
 		mParamBase << mParamGoal[0]*0.8, mParamGoal[1]*0.8;
 
 		mParamEnd.resize(2);
-		mParamEnd << mParamGoal[0]*1.8, mParamGoal[1]*2.0;
+		mParamEnd << mParamGoal[0]*2, mParamGoal[1]*2;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 

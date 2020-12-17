@@ -114,7 +114,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
-	std::vector<int> check_frame = { 0, 31, 88}; // {0, 41, 45, 81};
+	std::vector<int> check_frame = { 0, 31, 57, 94}; // {0, 41, 45, 81};
 	for(int cf: check_frame){
 		mSkel_bvh->setPositions(mMotion_bvh[cf]);
 		mSkel_bvh->computeForwardKinematics(true, false, false);
