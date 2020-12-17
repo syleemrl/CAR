@@ -188,7 +188,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	}
     	if(ppo != "") {
     		if (reg!="") this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
-    		else this->mController = new DPhy::Controller(mReferenceManager, true, false, true); //adaptive=true, bool parametric=true, bool record=true
+    		else this->mController = new DPhy::Controller(mReferenceManager, false, false, true); //adaptive=true, bool parametric=true, bool record=true
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
 
     		p::object ppo_main = p::import("ppo");

@@ -295,12 +295,11 @@ Step()
 
 
 	}
+
 	if(isAdaptive) {
 		this->UpdateAdaptiveReward();
-
 	}
-	else
-		this->UpdateReward();
+	else this->UpdateReward();
 
 
 	this->UpdateTerminalInfo();
@@ -631,7 +630,9 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
+	// double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
+	double r_time = exp(-pow((mActions[mInterestedDof] - 1),2)*40);
+
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
@@ -866,7 +867,7 @@ Reset(bool RSI)
 	
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
-	obj_pos[6] = mParamGoal[0]-0.47;
+	if(isAdaptive) obj_pos[6] = mParamGoal[0]-0.47;
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
 	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
