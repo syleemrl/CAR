@@ -91,7 +91,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     if(mRunReg) {
 	    for(int i = 0; i < 1000; i++) {
 	        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, false);
-	        p(3) += (0.75 + 1.5); 
 	        pos.push_back(p);
 	        phase += mReferenceManager->GetTimeStep(phase, false);
     	}
@@ -103,7 +102,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     phase = 0;
     for(int i = 0; i < 1000; i++) {
         Eigen::VectorXd p = mReferenceManager->GetPosition(phase, false);
-        p(3) -= 0.75; 
         pos.push_back(p);
         phase += mReferenceManager->GetTimeStep(phase, false);
     }
@@ -127,7 +125,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
 		Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
 
-		root[0]+=0.75; left_foot[0]+=0.75; right_foot[0]+=0.75;
 		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
 	}
 
@@ -232,14 +229,12 @@ void MotionWidget::updateIthParam(int i)
     for(int i = 0; i < 500; i++) {
 
         Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
-        p(3) += 0.75;
       	pos.push_back(p);
         //phase += mReferenceManager->GetTimeStep(phase, true);
         phase += 1;
     }
     mTotalFrame = 500;
     Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-	root_bvh(3) += 0.75;
 	pos = DPhy::Align(pos, root_bvh);
 
     UpdateMotion(pos, 2);
@@ -314,7 +309,6 @@ UpdateParam(const bool& pressed) {
 		    for(int i = 0; i < 500; i++) {
 
 		        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
-		        p(3) += 0.75;
 		      	pos.push_back(p);
 		        //phase += mReferenceManager->GetTimeStep(phase, true);
 		        // if(i==41){
@@ -326,7 +320,6 @@ UpdateParam(const bool& pressed) {
 		    }
 		    mTotalFrame = 500;
 		    Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-			root_bvh(3) += 0.75;
 			pos = DPhy::Align(pos, root_bvh);
 
 		    UpdateMotion(pos, 2);
@@ -341,13 +334,11 @@ UpdateParam(const bool& pressed) {
 		    flag = false;
 		    for(int i = 0; i < 500; i++) {
 		        Eigen::VectorXd p = mReferenceManager->GetPosition(phase, true);
-		        p(3) += (0.75 + 1.5); 
 		        pos.push_back(p);
 		        // phase += mReferenceManager->GetTimeStep(phase, true);
 		       	phase += 1;
  
 	    	}
-			root_bvh(3) += 1.5;
 			pos = DPhy::Align(pos, root_bvh);
 
 	   	 	UpdateMotion(pos, 3);
@@ -412,11 +403,6 @@ RunPPO() {
 
 		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
-
-		position(3) += 0.75;
-		position_reg(3) += 0.75;
-		position_bvh(3) -= 0.75;
-
 		pos_reg.push_back(position_reg);
 		pos_sim.push_back(position);
 		pos_bvh.push_back(position_bvh);
@@ -426,7 +412,6 @@ RunPPO() {
 		#endif
 	}
 	// Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-	// root_bvh(3) += 0.75;
 	// pos_sim =  DPhy::Align(pos_sim, root_bvh);
 	// pos_reg =  DPhy::Align(pos_reg, root_bvh);
 	UpdateMotion(pos_bvh, 0);
@@ -749,45 +734,45 @@ MotionWidget::
 DrawSkeletons()
 {
 	if(mDrawBvh){
+		glPushMatrix();
+		glTranslated(-0.75, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
 		if(this->mSkel_obj) {
-			glPushMatrix();
-			glTranslated(-0.75, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			glPopMatrix();
 		}
+		glPopMatrix();
 	}
 
 	if(mDrawSim) {
+		glPushMatrix();
+		glTranslated(0.75, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
 		if(this->mSkel_obj) {
-			glPushMatrix();
-			glTranslated(0.75, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
 			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
-			glPopMatrix();
 		}
+		glPopMatrix();
 	}
 	if(mDrawReg) {
+		glPushMatrix();
+		glTranslated(0.75, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 		// if(!mRunSim) {
 		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 		if(this->mSkel_obj) {
-			glPushMatrix();
-			glTranslated(0.75, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			glPopMatrix();
 		}
+		glPopMatrix();
 	}
 	if(mDrawExp) {
+		glPushMatrix();
+		glTranslated(2.25, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
 		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 		if(this->mSkel_obj) {
-			glPushMatrix();
-			glTranslated(2.25, 0, 0);
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			glPopMatrix();
 		}
+		glPopMatrix();
 	}
 
 }	
