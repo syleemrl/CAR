@@ -183,10 +183,22 @@ protected:
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
 
-	// double mPrevVelocity;
-	// double mVelocity;
-	// Eigen::Vector3d mEnergy;
+	dart::constraint::BallJointConstraintPtr leftHandConstraint= nullptr;
+	dart::constraint::BallJointConstraintPtr rightHandConstraint= nullptr;
 
+	bool left_detached = false;
+	bool right_detached = false;
+
+	void attachHandToBar(bool left, Eigen::Vector3d offset);
+	void removeHandFromBar(bool left);
+
+	Eigen::Vector3d dbg_LeftConstraintPoint;
+	Eigen::Vector3d dbg_RightConstraintPoint;
+
+	std::vector<Eigen::Vector3d> dbg_LeftPoints;
+	std::vector<Eigen::Vector3d> dbg_RightPoints;
+
+	
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;

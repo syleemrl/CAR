@@ -148,8 +148,16 @@ void
 Controller::
 Step()
 {			
-	if(IsTerminalState())
+	if(IsTerminalState()) {
+		std::cout<<mCurrentFrame<<" , Terminal state"<<std::endl;
 		return;
+	}
+
+	if(mCurrentFrame >=38 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	else if(mCurrentFrame >=45 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+
+	if(mCurrentFrame >=38 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	else if(mCurrentFrame >=59 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	Eigen::VectorXd s = this->GetState();
 
@@ -217,6 +225,8 @@ Step()
 
 		mTimeElapsed += 2 * (mAdaptiveStep);
 	}
+
+
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -535,39 +545,6 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	// if(mCurrentFrameOnPhase >= 47.5 && !(this->jump_stepon)){
-	// 	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d lt = this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rt = this->mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
-
-	// 	//z distance
-	// 	//0.8 : foot: 0.7~, toe: ~0.9
-	// 	double obj_z = this->mObject->GetSkeleton()->getPositions()[5];
-
-	// 	Eigen::VectorXd distance_diff(4);
-	// 	distance_diff.setZero();
-
-	// 	if(lf[2] < (obj_z-0.1)) distance_diff[0]= (obj_z-0.1)-lf[2];
-	// 	if(rf[2] < (obj_z-0.1)) distance_diff[1]= (obj_z-0.1)-rf[2];
-
-	// 	if(lt[2] > (obj_z+0.1)) distance_diff[2]= lt[2]-(obj_z+0.1);
-	// 	if(rt[2] > (obj_z+0.1)) distance_diff[3]= rt[2]-(obj_z+0.1);
-
-	// 	double r = exp_of_squared(distance_diff, 0.035);
-	// 	// std::cout<<mCurrentFrame<<", r: "<<r<<" , dist: "<<distance_diff.transpose()<<std::endl;
-	// 	foot_diff.push_back(r);
-
-	// 	if(mCurrentFrameOnPhase >=67.5){			
-	// 		r_param= std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0) / foot_diff.size();
-	// 		// std::cout<<mCurrentFrameOnPhase<<"/ r_param: "<<r_param<<std::endl;
-	// 		this->jump_stepon = true;
-	// 		mParamCur = mParamGoal;
-	// 		foot_diff.clear();
-
-	// 		if(mRecord) std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
-	// 	}
-	// }
 
 	return r_param;
 }
@@ -620,7 +597,7 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
+	double r_time = exp(-pow(mActions[mInterestedDof]-1 ,2)*40);
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
@@ -858,9 +835,20 @@ Reset(bool RSI)
 
 	#endif
 
-	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
-	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
+	dbg_LeftPoints= std::vector<Eigen::Vector3d>();
+	dbg_RightPoints= std::vector<Eigen::Vector3d>();
+	dbg_LeftConstraintPoint= Eigen::Vector3d::Zero();
+	dbg_RightConstraintPoint= Eigen::Vector3d::Zero();
+	
+	// std::cout<<"RSI : "<<mCurrentFrame<<std::endl;
+	if(leftHandConstraint) removeHandFromBar(true);
+	if(rightHandConstraint) removeHandFromBar(false);
+
+	left_detached= (mCurrentFrame >=45) ? true: false;
+	right_detached= (mCurrentFrame>=59) ? true: false;
+
+
 }
 int
 Controller::
@@ -1010,6 +998,49 @@ CheckCollisionWithObject(std::string bodyName){
 		std::cout << "check collision : bad body name" << std::endl;
 		return false;
 	}
+}
+
+void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
+	if(left && leftHandConstraint) removeHandFromBar(true);
+	else if(!left && rightHandConstraint) removeHandFromBar(false);
+
+	std::string hand = (left) ? "LeftHand" : "RightHand";
+	dart::dynamics::BodyNodePtr hand_bn = this->mCharacter->GetSkeleton()->getBodyNode(hand);
+	dart::dynamics::BodyNodePtr bar_bn = this->mObject->GetSkeleton()->getBodyNode("Jump_Box");
+	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
+
+	if(left) dbg_LeftConstraintPoint = jointPos;
+	else dbg_RightConstraintPoint = jointPos;
+
+	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( hand_bn, bar_bn, jointPos);
+	this->mWorld->getConstraintSolver()->addConstraint(cl);
+
+	if(left) leftHandConstraint = cl;
+	else rightHandConstraint = cl;
+
+	// std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
+	// if(left) std::cout<<"left : ";
+	// else std::cout<<"right : ";
+	// std::cout<<jointPos.transpose()<<std::endl;
+
+}
+
+void Controller::removeHandFromBar(bool left){
+	// std::cout<<"REMOVE "<<left<<std::endl;
+	if(left && leftHandConstraint) {
+	    mWorld->getConstraintSolver()->removeConstraint(leftHandConstraint);
+	    leftHandConstraint = nullptr;
+    	dbg_LeftConstraintPoint = Eigen::Vector3d::Zero();
+
+	}else if(!left && rightHandConstraint){
+	    mWorld->getConstraintSolver()->removeConstraint(rightHandConstraint);
+    	rightHandConstraint = nullptr;
+		dbg_RightConstraintPoint = Eigen::Vector3d::Zero();	    	
+	}
+
+	// std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
+	// if(left) std::cout<<"left : "<<std::endl;
+	// else std::cout<<"right : "<<std::endl;
 }
 
 Eigen::VectorXd 

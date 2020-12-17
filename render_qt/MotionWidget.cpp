@@ -763,6 +763,25 @@ DrawSkeletons()
 		if(this->mSkel_obj) {
 			GUI::DrawSkeleton(this->mSkel_obj, 0);
 		}
+
+	    auto hand_dbg = [&](bool left) 
+		{ 
+			Eigen::Vector3d offset(0.06, -0.025, 0);
+			if(!left) offset[0]*=-1;
+			std::string hand = (left) ? "LeftHand" : "RightHand";
+			dart::dynamics::BodyNodePtr hand_bn = mSkel_bvh->getBodyNode(hand);
+			Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
+
+			glPushMatrix();
+			glTranslated(jointPos[0], jointPos[1], jointPos[2]);
+			GUI::DrawSphere(0.02);
+			glPopMatrix();
+		};
+
+		hand_dbg(true);
+		hand_dbg(false);
+
+
 		glPopMatrix();
 	}
 
