@@ -174,6 +174,8 @@ Step()
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
 	// mAdaptiveStep = 1;
+	// std::cout<<nTotalSteps<<" "<<mAdaptiveStep<<std::endl;
+	
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (mAdaptiveStep);
@@ -462,7 +464,7 @@ GetSimilarityReward()
 	bool close_to_obj = (mCurrentFrameOnPhase >=22 && mCurrentFrameOnPhase<42) ;
 
 	double ref_obj_height = (close_to_obj)? 0.48 : 0;
-	double cur_obj_height = (close_to_obj)? mParamGoal[0]: 0;
+	double cur_obj_height = isAdaptive? ((close_to_obj)? mParamGoal[0]: 0) : ref_obj_height;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
@@ -511,7 +513,7 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx + 3) *= 10;
 			v_diff.segment<3>(idx) *= 5;
 			v_diff.segment<3>(idx + 3) *= 10;
-			v_diff(5) *= 2;
+			// v_diff(5) *= 2;
 		} 
 	}
 
@@ -584,7 +586,8 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
+	double r_time = exp(-pow((mActions[mInterestedDof] - 1),2)*40);
+	
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
@@ -787,6 +790,7 @@ Reset(bool RSI)
 		mTimeQueue.pop();
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
+	mAdaptiveStep = 1;
 
 	mPrevTargetPositions = mTargetPositions;
 	
@@ -800,7 +804,7 @@ Reset(bool RSI)
 	
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
-	obj_pos[6] = mParamGoal[0]-0.48;
+	if(isAdaptive) obj_pos[6] = mParamGoal[0]-0.48;
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
 	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
