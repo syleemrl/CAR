@@ -42,6 +42,7 @@ namespace GUI
 	void DrawForces(const std::vector<Eigen::VectorXd> forces, const Eigen::Vector3d& color = Eigen::Vector3d(1.0,0.0,0.0));
 
 	void DrawRuler(Eigen::Vector3d p0, Eigen::Vector3d p1, Eigen::Vector3d gaugeDirection, double unit=0.1, int biggerUnitPer=5, double lineWidth=4, const Eigen::Vector3d& color=Eigen::Vector3d(1,0.2,0.2));
+	void DrawCoordinate(Eigen::Vector3d center=Eigen::Vector3d(0,0.01,0));
 };
 
 #endif

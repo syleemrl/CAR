@@ -114,7 +114,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
-	std::vector<int> check_frame = { 0, 31, 88}; // {0, 41, 45, 81};
+	std::vector<int> check_frame = { 44}; // {0, 41, 45, 81};
 	for(int cf: check_frame){
 		mSkel_bvh->setPositions(mMotion_bvh[cf]);
 		mSkel_bvh->computeForwardKinematics(true, false, false);
@@ -125,8 +125,31 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
 		Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
 
-		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
+		Eigen::Vector3d left_hand = mSkel_bvh->getBodyNode("LeftHand")->getWorldTransform().translation();
+		Eigen::Vector3d right_hand = mSkel_bvh->getBodyNode("RightHand")->getWorldTransform().translation();
+
+		std::cout<<cf<<" lh ; "<<left_hand.transpose()<<"/ rh; "<<right_hand.transpose()<<std::endl;
+		// std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<left_toe.transpose()<<"/"<<right_toe.transpose()<<std::endl;
 	}
+	
+	double min_root = 10000;	int min_idx = -1;
+	double max_root = -10000;	int max_idx = -1;
+
+	for(int i=0; i<mReferenceManager->GetPhaseLength(); i++){
+		mSkel_bvh->setPositions(mMotion_bvh[i]);
+		mSkel_bvh->computeForwardKinematics(true, false, false);
+		Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
+		if(min_root > root[1]) {
+			min_root = root[1];
+			min_idx = i;
+		}
+		if(max_root < root[1]) {
+			max_root = root[1];
+			max_idx = i;
+		}
+	}
+	std::cout<<"min_root: "<<min_root<<"("<<min_idx<<")"<<std::endl;
+	std::cout<<"min_root: "<<max_root<<"("<<max_idx<<")"<<std::endl;
 
 	this->mJointsUEOrder.clear();
 	this->mJointsUEOrder.emplace_back("Hips");
@@ -804,6 +827,7 @@ paintGL()
 	mCamera->Apply();
 
 	DrawGround();
+	GUI::DrawCoordinate();
 	DrawSkeletons();
 
 	if(mRunSim) GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());

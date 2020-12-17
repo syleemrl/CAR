@@ -30,6 +30,38 @@ std::vector<std::string> split(std::string targetStr, std::string token)
     return ret;
 }
 
+std::vector<std::string> split2(std::string input, char delimiter) {
+    vector<string> answer;
+    stringstream ss(input);
+    string temp;
+ 
+    while (getline(ss, temp, delimiter)) {
+        answer.push_back(temp);
+    }
+ 
+    return answer;
+}
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
 //////////////////////////////////////////////// FLAIR cleanup //////////////////////////////////////////////////////////////////
 void stick_hand_to_ground(){
 	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_gen.xml");
@@ -297,19 +329,19 @@ void smooth_hand_transition()
 	outfile.close();
 }
 
-void align_zero_frame()
+void align_zero_frame(std::string raw_file)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
 	DPhy::Character* ref = new DPhy::Character(path);
 	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
 
-	std::string raw_file_path = "/motion/j2.bvh";
+	std::string raw_file_path = "/motion/"+raw_file+".bvh";
 	mReferenceManager->LoadMotionFromBVH(raw_file_path);
 	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
 
 	std::ofstream outfile;
-	std::string outfile_path = "/motion/j2_edit.bvh";
-	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::app); // append instead of overwrite
+	std::string outfile_path = "/motion/aligned.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
 
 	std::ifstream rawfile;
 	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
@@ -323,12 +355,10 @@ void align_zero_frame()
 		}
 	}
 
-
 	std::vector<Eigen::VectorXd> raw = mReferenceManager->getRawPositions();
 	Eigen::VectorXd zero_dir(6); zero_dir.setZero();
 	std::vector<Eigen::VectorXd> edited= DPhy::Align(raw, zero_dir) ;
 
-	int blend_width = 10;
 	for(int i=0; i<mReferenceManager->GetPhaseLength(); i++){
 
 		// IK Clean-up
@@ -343,21 +373,67 @@ void align_zero_frame()
 		aligned_p*= 100;
 
 		getline(rawfile, raw_line);
+		trim(raw_line);
 		std::vector<std::string> splitted= split(raw_line, " ");
-		
+		std::cout<<splitted[0]<<" "<<splitted[1]<<" "<<splitted[2]<<std::endl;
+		std::cout<<splitted[3]<<" "<<splitted[4]<<" "<<splitted[5]<<std::endl;
+
 		std::string newline = "";
 		for(int i=0; i<3; i++) newline+= std::to_string(aligned_p(i))+" ";
 		for(int i=0; i<3; i++) newline+= std::to_string(aligned_eulerZXY(i))+" ";
 		
 		for(int i=6; i<splitted.size(); i++) newline+= splitted[i]+" ";
-		outfile<<newline<<std::endl;
+		outfile<<newline;
 	}
 	rawfile.close();
 	outfile.close();
 
 }
 
-int main(){
+void shift_root(std::string filename, double shift_y){
+	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
+	DPhy::Character* ref = new DPhy::Character(path);
+	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
+
+	std::string raw_file_path = "/motion/"+filename+".bvh";
+	mReferenceManager->LoadMotionFromBVH(raw_file_path);
+	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
+
+	std::ofstream outfile;
+	std::string outfile_path = "/motion/tmp_2.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+
+	std::ifstream rawfile;
+	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+	while(true){
+		getline(rawfile, raw_line);
+		std::cout<<raw_line<<std::endl;
+		outfile<<raw_line<<std::endl;
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	for(int i=0; i<mReferenceManager->GetPhaseLength(); i++){
+
+		getline(rawfile, raw_line);
+		std::vector<std::string> splitted= split(raw_line, " ");
+		double new_height = stof(splitted[1])+ 100*(shift_y);
+		
+		std::string newline=splitted[0]+" "+std::to_string(new_height)+" ";
+		for(int i=2; i<splitted.size(); i++) newline+= splitted[i]+" ";
+		outfile<<newline;
+
+	}
+
+	rawfile.close();
+	outfile.close();
+
+	std::cout<<outfile_path<<", shift_y: "<<shift_y<<", done"<<std::endl;
+}
+
+int main(int argc, char ** argv){
 	
 	// FLAIR cleanup
 	//stick_hand_to_ground();
@@ -368,4 +444,7 @@ int main(){
 	// connect_root();	
 	
 	// align_zero_frame();
+	// shift_root(argv[1], std::stof(argv[2]));
+	align_zero_frame(argv[1]);
+	// shift_root("railing_vault", (-0.0813));
 }

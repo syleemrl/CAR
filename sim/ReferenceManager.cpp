@@ -302,7 +302,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 				skel->setPositions(p_gen.back()->GetPosition());
 				skel->computeForwardKinematics(true,false,false);
 
-				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+/*				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 				Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
 				// p_footl(1) = p0_footl(1);
@@ -319,6 +319,14 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 
 				//// rotate "root" to seamlessly stitch foot
 				pos = solveMCIKRoot(skel, constraints);
+				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+*/
+				Eigen::VectorXd p = p_phase[phase]->GetPosition();
+				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
+				skel->setPositions(p);
+				skel->computeForwardKinematics(true,false,false);
+
+				pos = p;
 				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 
 			} else {

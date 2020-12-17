@@ -998,3 +998,52 @@ DrawGround(int com_x, int com_z, double ground_height){
         glVertex3f(com_x+radius_b+1,ground_height-wall_height,com_z-radius_b);
     glEnd();
 }
+
+void GUI::DrawCoordinate(Eigen::Vector3d center)
+{
+    // glEnable(GL_LIGHTING);
+    glPushMatrix();
+    glTranslatef(center[0], center[1], center[2]);
+
+    glLineWidth(3);
+    glBegin(GL_LINES);
+    glColor3f(1.0, 0.3, 0.3);
+    glVertex3f(0,0,0);
+    glVertex3f(100,0,0);
+    glEnd();
+
+
+    glBegin(GL_LINES);
+    glColor3f(0.3, 1.0,0.3);
+    glVertex3f(0,0,0);
+    glVertex3f(0,100,0);
+    glEnd();
+
+    glBegin(GL_LINES);
+    glColor3f(0.3, 0.3,1.0);
+    glVertex3f(0,0,0);
+    glVertex3f(0,0,100);
+    glEnd();
+
+
+    glLineWidth(1);
+    glBegin(GL_LINES);
+    glColor3f(0.8, 0.3,0.3);
+    glVertex3f(0,0,0);
+    glVertex3f(-100,0,0);
+    glEnd();
+
+    glBegin(GL_LINES);
+    glColor3f(0.3, 0.3,0.8);
+    glVertex3f(0,0,0);
+    glVertex3f(0,0,-100);
+    glEnd();
+
+    glBegin(GL_LINES);
+    glColor3f(0.3, 0.8,0.3);
+    glVertex3f(0,0,0);
+    glVertex3f(0,-100,0);
+    glEnd();
+
+    glPopMatrix();
+}
