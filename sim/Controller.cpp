@@ -670,17 +670,19 @@ GetParamReward()
 			double r_y = exp(-pow(y_diff, 2)*150);
 
 			double curKickHeight = mKickHeight / 1.45;
-		//	double k_diff = mParamGoal(1) - curKickHeight;
-		//	double r_k = exp(-pow(k_diff, 2)*150);
+			double k_diff = mParamGoal(1) - curKickHeight;
+			double r_k = exp(-pow(k_diff, 2)*150);
 		
 			mConDiff /= mCountContact;
 			double r_c = exp(-mConDiff * 100);
 
 			mFootDiff /= mCountFoot;
 			double r_f = exp(-mFootDiff * 10);
-			r_param = r_c * r_y * r_f;
-			if(r_c > 0.5 && r_f > 0.5)
+			r_param = r_c * r_y * r_k;
+			if(r_c > 0.5) {
 				mParamCur(0) = curYrot;
+				mParamCur(1) = curKickHeight;
+			}
 			else
 				mParamCur(0) = -1;
 		//	mParamCur(1) = curKickHeight;
@@ -688,8 +690,10 @@ GetParamReward()
 			mControlFlag[0] = 3;
 
 			if(mRecord) {
+				std::cout << "current parameter: " <<mParamCur.transpose() << std::endl;
 				std::cout << "foot : " << mFootDiff << " / " << r_f << std::endl;
 				std::cout << "contact : " << mConDiff << " / " << r_c << std::endl;
+				std::cout << "kick : " << curKickHeight << " / " <<  k_diff << " / " << r_k << std::endl;
 				std::cout << "rotation : " << mTotalYrot << " / " <<  y_diff << " / " <<  r_y << std::endl;
 			}
 		}
