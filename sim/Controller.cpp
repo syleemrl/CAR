@@ -176,7 +176,7 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
-	// mAdaptiveStep = 1;
+	mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (mAdaptiveStep);
@@ -186,9 +186,9 @@ Step()
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
-	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
-	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
+	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+
+	this->mTargetPositions = p_now ; 
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
 
@@ -420,8 +420,6 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.5 * scale;		
 
-	// double foot_slide = (foot_diff.empty()) ? 0: std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0)/ foot_diff.size();
-
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
 	if(useVelocity)
@@ -501,7 +499,7 @@ GetSimilarityReward()
 	bool close_to_obj = (mCurrentFrameOnPhase <=29) ;
 
 	double ref_obj_height = (close_to_obj)? 0.47 : 0;
-	double cur_obj_height = (close_to_obj)? mParamGoal[0] : 0;
+	double cur_obj_height = (isAdaptive) ? ((close_to_obj)? mParamGoal[0] : 0 ) : ref_obj_height;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
@@ -515,11 +513,11 @@ GetSimilarityReward()
 
 	//double r_con = exp(-con_diff);
 	Eigen::VectorXd p_aligned = skel->getPositions();
-	// std::vector<Eigen::VectorXd> p_with_zero;
-	// p_with_zero.push_back(mRootZero);
-	// p_with_zero.push_back(p_aligned.segment<6>(0));
-	// p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
-	// p_aligned.segment<6>(0) = p_with_zero[1];
+	std::vector<Eigen::VectorXd> p_with_zero;
+	p_with_zero.push_back(mRootZero);
+	p_with_zero.push_back(p_aligned.segment<6>(0));
+	p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
+	p_aligned.segment<6>(0) = p_with_zero[1];
 
 	Eigen::VectorXd v = skel->getPositionDifferences(skel->getPositions(), mPosQueue.front()) / (mCurrentFrame - mTimeQueue.front() + 1e-10) / 0.033;
 	for(auto& jn : skel->getJoints()){
@@ -551,7 +549,7 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx + 3) *= 10;
 			v_diff.segment<3>(idx) *= 5;
 			v_diff.segment<3>(idx + 3) *= 10;
-			// v_diff(5) *= 2;
+			v_diff(5) *= 2;
 		} 
 	}
 
@@ -876,12 +874,6 @@ Reset(bool RSI)
 
 	this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
-
-	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	Eigen::Vector3d mf = (lf+rf)/2.; 
-	this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
-
 	#endif
 
 	foot_diff.clear();
@@ -1085,8 +1077,7 @@ GetState()
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
-	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
 	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
@@ -1103,28 +1094,9 @@ GetState()
 		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mAdaptiveStep, mParamGoal;
 	}
 	else {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
+		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mAdaptiveStep;
 	}
-
-	// if(mRecord && mCurrentFrame < 10){
-	// 	std::cout<<"i :: "<<mCurrentFrame<<std::endl;
-	// 	std::cout<< "p : "<< p.segment<6>(0).transpose() <<std::endl;
-	// 	std::cout<< "v : "<< v.segment<6>(0).transpose() <<std::endl;
-	// 	std::cout<< up_vec_angle <<std::endl;
-	// 	std::cout<< root_height <<std::endl;
-	// 	std::cout<< "p_next : "<<p_next.segment<6>(0).transpose() <<std::endl;
-	// 	std::cout<< "ee : "<<ee.transpose() <<std::endl;
-	// 	std::cout<< "mCurrentFrameOnPhase: "<<mCurrentFrameOnPhase <<std::endl;
-	// 	std::cout<< "mParamGoal: "<<mParamGoal.transpose() <<std::endl;
-	// 	std::cout<<std::endl;
-		
-	// 	// bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe");
-	// 	// bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe") ||  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe");
-
-	// 	bool contactWithObj =  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe") ||CheckCollisionWithObject("LeftHand") || CheckCollisionWithObject("RightHand") ;
-	// 	if(contactWithObj) std::cout<<" COLLISION WITH OBJECT ----------------------------------------------- "<<std::endl;
-	// }
 
 	return state;
 }

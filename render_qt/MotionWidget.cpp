@@ -128,6 +128,16 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
 	}
 
+	// double min_root_h = 10000; double max_root_h= -100000;
+	// for(int i=0; i<mReferenceManager->GetPhaseLength();i++){
+	// 	mSkel_bvh->setPositions(mMotion_bvh[i]);
+	// 	mSkel_bvh->computeForwardKinematics(true, false, false);
+	// 	Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
+	// 	if(min_root_h > root[1]) min_root_h = root[1];
+	// 	if(max_root_h < root[1]) max_root_h = root[1];
+	// }
+	// std::cout<<min_root_h<<" "<<max_root_h<<std::endl; //0.39, 1.6
+
 	this->mJointsUEOrder.clear();
 	this->mJointsUEOrder.emplace_back("Hips");
 	this->mJointsUEOrder.emplace_back("RightUpLeg");
