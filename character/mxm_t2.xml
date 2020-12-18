@@ -1,6 +1,5 @@
 <Skeleton name="Humanoid">
     <Joint type="FreeJoint" name="Hips" parent_name="None" size="0.2 0.203649 0.13 " mass="8" bvh="Hips">
-        <TorqueLimit norm="0" />
         <BodyPosition translation="0 0 0 " />
         <JointPosition translation="0 0 0 " />
         <TorqueLimit norm="0" />

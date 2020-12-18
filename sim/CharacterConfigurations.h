@@ -16,9 +16,9 @@
 // #define CHARACTER_TYPE "humanoid_mixamo_sm"
 // #define REF_CHARACTER_TYPE "humanoid_mixamo_sm"
 
-#define CHARACTER_TYPE "mxm_t2"
-#define REF_CHARACTER_TYPE "mxm_t2"
+#define CHARACTER_TYPE "mxm_t3"
+#define REF_CHARACTER_TYPE "mxm_t3"
 
-#define OBJECT_TYPE "push_box"
+// #define OBJECT_TYPE "push_box"
 
 #endif

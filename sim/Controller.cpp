@@ -185,9 +185,10 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -2.0, 1.0);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
+	if(!isAdaptive) mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += (mAdaptiveStep);
@@ -237,6 +238,7 @@ Step()
 	option.enableNearestPoints = true;
 	dart::collision::DistanceResult result;
 
+#ifdef OBJECT_TYPE
 	result.clear();
 	mCGOBJ->distance(mCGHR.get(), option, &result);
 	this->hr_dist= result.minDistance;
@@ -244,7 +246,7 @@ Step()
 	result.clear();
 	mCGOBJ->distance(mCGHL.get(), option, &result);
 	this->hl_dist= result.minDistance;
-
+#endif
 	// std::cout<<mCurrentFrame<<"\tmin: "<<hl_dist<<" "<<hr_dist<<std::endl;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -455,10 +457,10 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double r_com = exp_of_squared(com_diff,sig_com);
 
 	// BOX PUSHING ONLY
-	Eigen::VectorXd hand_diff(2); hand_diff.setZero();
-	if(mCurrentFrameOnPhase >=28 && mCurrentFrameOnPhase<=190) hand_diff << hl_dist, hr_dist;
-	double r_hand = exp_of_squared(hand_diff, sig_hand);
-	r_ee = (r_ee+r_hand)/2.;
+	// Eigen::VectorXd hand_diff(2); hand_diff.setZero();
+	// if(mCurrentFrameOnPhase >=28 && mCurrentFrameOnPhase<=190) hand_diff << hl_dist, hr_dist;
+	// double r_hand = exp_of_squared(hand_diff, sig_hand);
+	// r_ee = (r_ee+r_hand)/2.;
 
 	// std::cout<<mCurrentFrameOnPhase<<"\t"<<hand_diff.transpose()<<"\t"<<r_hand<<std::endl;
 
@@ -687,7 +689,7 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mActions[mInterestedDof],2)*40);
+	double r_time = exp(-pow((mActions[mInterestedDof]-1),2)*40);
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
@@ -1156,14 +1158,14 @@ GetState()
 
 	double com_diff = 0;
 	if(isParametric) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1+mParamGoal.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
-		// state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
+		// state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase, mParamGoal;
+		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal;
 	}
 	else {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+1);
-		state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
-		// state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
+		// state<< p, v, up_vec_angle, root_height, p_next, ee, mCurrentFrameOnPhase;
+		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
 	}
 
 	// if(mRecord && mCurrentFrame < 10){
