@@ -7,7 +7,7 @@ class Env(object):
 	def __init__(self, ref, directory, adaptive, parametric, num_slaves):
 		self.num_slaves = num_slaves
 		self.sim_env = simEnv.Env(num_slaves, "/motion/"+ref, directory, adaptive, parametric)
-		
+
 		self.num_state = self.sim_env.GetNumState()
 		self.num_action = self.sim_env.GetNumAction()
 		self.adaptive = adaptive
