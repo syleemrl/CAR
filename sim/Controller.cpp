@@ -153,11 +153,11 @@ Step()
 		return;
 	}
 
-	if(mCurrentFrame >=38 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
-	else if(mCurrentFrame >=45 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	// if(mCurrentFrame >=38 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	// else if(mCurrentFrame >=45 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrame >=38 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
-	else if(mCurrentFrame >=59 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	// if(mCurrentFrame >=38 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	// else if(mCurrentFrame >=59 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	Eigen::VectorXd s = this->GetState();
 
@@ -597,7 +597,8 @@ UpdateReward()
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
-	double r_time = exp(-pow(mActions[mInterestedDof]-1 ,2)*40);
+	double r_time = exp(-pow((mActions[mInterestedDof] - 1),2)*40);
+
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
@@ -842,8 +843,8 @@ Reset(bool RSI)
 	dbg_RightConstraintPoint= Eigen::Vector3d::Zero();
 	
 	// std::cout<<"RSI : "<<mCurrentFrame<<std::endl;
-	if(leftHandConstraint) removeHandFromBar(true);
-	if(rightHandConstraint) removeHandFromBar(false);
+	// if(leftHandConstraint) removeHandFromBar(true);
+	// if(rightHandConstraint) removeHandFromBar(false);
 
 	left_detached= (mCurrentFrame >=45) ? true: false;
 	right_detached= (mCurrentFrame>=59) ? true: false;
