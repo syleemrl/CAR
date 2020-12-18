@@ -403,6 +403,7 @@ RunPPO() {
 	int count = 0;
 	mController->Reset(false);
 	this->mTiming= std::vector<double>();
+	this->mTiming.push_back(this->mController->GetCurrentLength());
 
 	while(!this->mController->IsTerminalState()) {
 		Eigen::VectorXd state = this->mController->GetState();
