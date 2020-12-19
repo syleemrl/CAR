@@ -449,7 +449,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(2); // start box height, distance
-	mParamCur << 0.47, 1.7; //1.9 ? (bvh), dmm: 1.72
+	mParamCur << 0.47, 1.8; //1.9 ? (bvh), dmm: 1.72
 
 	mParamGoal.resize(2);
 	mParamGoal = mParamCur;
@@ -460,7 +460,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		paramUnit << mParamGoal[0]*0.1, mParamGoal[1]*0.1;
 
 		mParamBase.resize(2);
-		mParamBase << mParamGoal[0]*0.8, mParamGoal[1]*0.8;
+		mParamBase << mParamGoal[0]*0.9, mParamGoal[1]*0.9;
 
 		mParamEnd.resize(2);
 		mParamEnd << mParamGoal[0]*2, mParamGoal[1]*2;

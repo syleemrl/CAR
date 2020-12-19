@@ -201,6 +201,11 @@ protected:
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+
+
+	bool mLanded;
+	double min_land_foot;
+	
 };
 }
 #endif

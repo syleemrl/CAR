@@ -36,7 +36,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
 
-		Eigen::VectorXd obj_pos(7);
+		Eigen::VectorXd obj_pos(mSkel_obj->getNumDofs());
 		obj_pos.setZero();
 		mSkel_obj->setPositions(obj_pos);
 	#endif
