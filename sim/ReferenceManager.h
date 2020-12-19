@@ -81,8 +81,8 @@ public:
 
 	Eigen::Isometry3d getBodyGlobalTransform(Character* character, std::string bodyName, double t); //, Eigen::Vector3d mDefaultRootZero, Eigen::Vector3d mRootZero);
 
-	// Eigen::Vector3d tmp_debug= Eigen::Vector3d::Zero();
-	// double tmp_debug_frame=0;
+	Eigen::VectorXd getParamDmm(){return mParamDMM;}
+	
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -113,6 +113,7 @@ protected:
 	Eigen::VectorXd mParamCur;
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamEnd;
+	Eigen::VectorXd mParamDMM;
 
 	RegressionMemory* mRegressionMemory;
 	

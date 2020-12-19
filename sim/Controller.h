@@ -192,6 +192,16 @@ protected:
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+
+	bool gotParamReward;
+
+	Eigen::Vector3d mRootZeroDiff; 
+	Eigen::Vector3d mStartRoot;
+	Eigen::Vector3d mStartFoot;
+	Eigen::Vector3d stickLeftFoot;
+	Eigen::Vector3d stickRightFoot;
+	bool stickFoot;
+
 };
 }
 #endif

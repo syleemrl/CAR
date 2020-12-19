@@ -216,12 +216,12 @@ LoadMotionFromBVH(std::string filename)
 
 	delete bvh;
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::

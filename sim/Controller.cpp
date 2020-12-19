@@ -143,7 +143,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	// 	this->mObject = new DPhy::Character(path);	
 	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	// }
-	foot_diff = std::vector<double>();
 
 }
 const dart::dynamics::SkeletonPtr& 
@@ -275,8 +274,6 @@ Step()
 			mCountParam = 0;
 			mCountTracking = 0;
 			
-			foot_diff.clear();	
-
 		}
 
 
@@ -557,40 +554,10 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-
-	// if(mCurrentFrameOnPhase >= 47.5 && !(this->jump_stepon)){
-	// 	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	// 	Eigen::Vector3d lt = this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
-	// 	Eigen::Vector3d rt = this->mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
-
-	// 	//z distance
-	// 	//0.8 : foot: 0.7~, toe: ~0.9
-	// 	double obj_z = this->mObject->GetSkeleton()->getPositions()[5];
-
-	// 	Eigen::VectorXd distance_diff(4);
-	// 	distance_diff.setZero();
-
-	// 	if(lf[2] < (obj_z-0.1)) distance_diff[0]= (obj_z-0.1)-lf[2];
-	// 	if(rf[2] < (obj_z-0.1)) distance_diff[1]= (obj_z-0.1)-rf[2];
-
-	// 	if(lt[2] > (obj_z+0.1)) distance_diff[2]= lt[2]-(obj_z+0.1);
-	// 	if(rt[2] > (obj_z+0.1)) distance_diff[3]= rt[2]-(obj_z+0.1);
-
-	// 	double r = exp_of_squared(distance_diff, 0.035);
-	// 	// std::cout<<mCurrentFrame<<", r: "<<r<<" , dist: "<<distance_diff.transpose()<<std::endl;
-	// 	foot_diff.push_back(r);
-
-	// 	if(mCurrentFrameOnPhase >=67.5){			
-	// 		r_param= std::accumulate(foot_diff.begin(), foot_diff.end(), 0.0) / foot_diff.size();
-	// 		// std::cout<<mCurrentFrameOnPhase<<"/ r_param: "<<r_param<<std::endl;
-	// 		this->jump_stepon = true;
-	// 		mParamCur = mParamGoal;
-	// 		foot_diff.clear();
-
-	// 		if(mRecord) std::cout<<mParamGoal.transpose()<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
-	// 	}
-	// }
+	if(!gotParamReward && mCurrentFrameOnPhase>=80){
+		r_param = 1;
+		gotParamReward = true;
+	}
 
 	return r_param;
 }
@@ -718,7 +685,11 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 2;
 	}
-	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT){// || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT){
+		mIsTerminal = true;
+		terminationReason = 1;
+	}
+	if(!mRecord && root_y > mParamGoal[0]+TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;
 	}
@@ -880,26 +851,25 @@ Reset(bool RSI)
 	#ifdef OBJECT_TYPE
 	// place the object according to current Param Goal
 	
-	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-	obj_pos.setZero();
+		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+		obj_pos.setZero();
+		if(isAdaptive) obj_pos[6] = mParamGoal[0]- mReferenceManager->getParamDmm()[0];
 
-	this->mObject->GetSkeleton()->setPositions(obj_pos);
-	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		this->mObject->GetSkeleton()->setPositions(obj_pos);
+		this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 
-	this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
+		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+		this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
-	Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	Eigen::Vector3d mf = (lf+rf)/2.; 
-	this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
+		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::Vector3d mf = (lf+rf)/2.; 
+		this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
 
 	#endif
-
-	foot_diff.clear();
-
+	gotParamReward= false;
 	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
