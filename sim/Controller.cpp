@@ -145,6 +145,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	// }
 	foot_diff = std::vector<double>();
 
+
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -154,6 +155,7 @@ void
 Controller::
 Step()
 {			
+
 	if(IsTerminalState())
 		return;
 
@@ -240,6 +242,7 @@ Step()
 	// std::cout<<mCurrentFrameOnPhase<<" "<<min_land_foot<<" " <<mActions[mInterestedDof]<<std::endl;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
+
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mParamCur << mParamGoal[0], min_land_foot;
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
@@ -269,7 +272,8 @@ Step()
 			// std::cout<<mCurrentFrame<<" : "<<mTrackingRewardTrajectory<<std::endl;
 			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
 				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
-				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
+				double shift_height = - (mParamCur[0]- mReferenceManager->getParamDMM()[0]);
+				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur, shift_height);
 			}
 			data_raw.clear();
 
@@ -312,6 +316,7 @@ Step()
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrameOnPhase));
 	}
+
 	if(mPosQueue.size() >= 3)
 		mPosQueue.pop();
 	if(mTimeQueue.size() >= 3)
@@ -616,6 +621,7 @@ UpdateAdaptiveReward()
 	}
 	mTrackingRewardTrajectory += accum_bvh;
 	mCountTracking += 1;
+
 }
 void
 Controller::
@@ -625,7 +631,6 @@ UpdateReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, true);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
-
 	double r_time = exp(-pow((mActions[mInterestedDof]-1), 2) * 40);
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
@@ -640,6 +645,9 @@ UpdateReward()
 		mRewardParts.push_back(tracking_rewards_bvh[3]);
 		mRewardParts.push_back(r_time);
 	}
+	// mTrackingRewardTrajectory += accum_bvh;
+	// mCountTracking += 1;
+
 }
 void
 Controller::
@@ -675,6 +683,7 @@ UpdateTerminalInfo()
 	double angle = RadianClamp(root_diff_aa.angle());
 	Eigen::Vector3d root_pos_diff = root_diff.translation();
 
+	// std::cout<<"mTrackingRewardTrajectory: "<<(mTrackingRewardTrajectory/(mCountTracking+1))<<std::endl;
 
 	// check nan
 	if(dart::math::isNan(p)){
@@ -722,7 +731,7 @@ UpdateTerminalInfo()
 	}
 
 	if(mRecord) {
-		if(mIsTerminal) std::cout << "terminate Reason : "<<terminationReason << std::endl;
+		if(mIsTerminal) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
 	}
 
 	skel->setPositions(p_save);
@@ -873,7 +882,7 @@ Reset(bool RSI)
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
 	if(isAdaptive) obj_pos[6] = mParamGoal[0]-0.47;
-
+	
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
 	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -895,8 +904,7 @@ Reset(bool RSI)
 	min_land_foot = 100000;
 
 	gotParamReward = false;
-	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
-
+	
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
 int
@@ -1115,24 +1123,6 @@ GetState()
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
 	}
 
-	// if(mRecord && mCurrentFrame < 10){
-	// 	std::cout<<"i :: "<<mCurrentFrame<<std::endl;
-	// 	std::cout<< "p : "<< p.segment<6>(0).transpose() <<std::endl;
-	// 	std::cout<< "v : "<< v.segment<6>(0).transpose() <<std::endl;
-	// 	std::cout<< up_vec_angle <<std::endl;
-	// 	std::cout<< root_height <<std::endl;
-	// 	std::cout<< "p_next : "<<p_next.segment<6>(0).transpose() <<std::endl;
-	// 	std::cout<< "ee : "<<ee.transpose() <<std::endl;
-	// 	std::cout<< "mCurrentFrameOnPhase: "<<mCurrentFrameOnPhase <<std::endl;
-	// 	std::cout<< "mParamGoal: "<<mParamGoal.transpose() <<std::endl;
-	// 	std::cout<<std::endl;
-		
-	// 	// bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe");
-	// 	// bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe") ||  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe");
-
-	// 	bool contactWithObj =  CheckCollisionWithObject("LeftFoot") || CheckCollisionWithObject("LeftToe") || CheckCollisionWithObject("RightFoot") || CheckCollisionWithObject("RightToe") ||CheckCollisionWithObject("LeftHand") || CheckCollisionWithObject("RightHand") ;
-	// 	if(contactWithObj) std::cout<<" COLLISION WITH OBJECT ----------------------------------------------- "<<std::endl;
-	// }
 
 	return state;
 }

@@ -272,9 +272,13 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
 	mRegressionMemory->SetParamGoal(tp);
+
+	Eigen::VectorXd paramDmm = mReferenceManager->getParamDMM();
+	double shift_height = tp[0]-paramDmm[0];
+
 	if(mem_only) {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->LoadAdaptiveMotion(cps);
+		mReferenceManager->LoadAdaptiveMotion(cps, shift_height);
 	} else {
 		// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
 		// 	Eigen::VectorXd input(dof_input);
@@ -288,11 +292,21 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 		// mReferenceManager->SetCPSexp(cps);
 		// mReferenceManager->SelectReference();
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->LoadAdaptiveMotion(cps);
+		mReferenceManager->LoadAdaptiveMotion(cps, shift_height);
 	}
 
+	// std::cout<<"tp: "<<tp.transpose()<<", shift_height : "<<shift_height<<std::endl;
+	// std::vector<int> test_frames= {0, 10, 20, 30};
+	// for(int i: test_frames){
+	// 	Eigen::Vector3d p_0= mReferenceManager->GetMotion(i, true)->GetPosition().segment<3>(3);
+	// 	Eigen::Vector3d bvh_0= mReferenceManager->GetMotion(i, false)->GetPosition().segment<3>(3);
+
+	// 	std::cout<<i<<"th frame heigth:"<<p_0[1]<<" ( bvh : "<<bvh_0[1]<<")"<<std::endl;
+	// }
+	
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(tp);
+		mSlaves[id]->Reset(false);
 	}
 }
 np::ndarray 

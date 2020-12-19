@@ -306,8 +306,13 @@ UpdateParam(const bool& pressed) {
 	    //     np::ndarray na = np::from_object(a);
 	    //     cps[j] = DPhy::toEigenVector(na, dof);
 	    // }
+
+		Eigen::VectorXd paramDmm = mReferenceManager->getParamDMM();
+		double shift_height = tp_denorm[0]-paramDmm[0];
+		std::cout<<"shift_height: "<<shift_height<<std::endl;
+
 	   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-	    mReferenceManager->LoadAdaptiveMotion(cps);
+	    mReferenceManager->LoadAdaptiveMotion(cps, shift_height);
 
 	    double phase = 0;
 
@@ -355,7 +360,9 @@ UpdateParam(const bool& pressed) {
 	    } else {
 	     	mTotalFrame = 0;
 	     	// mController->SetGoalParameters(tp_denorm);
-	     	mController->SetGoalParameters(tp_denorm_raw);
+
+	     	mController->SetGoalParameters(tp_denorm);
+		    mController->Reset();
 	     	
 		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 		    // mReferenceManager->LoadAdaptiveMotion(cps);

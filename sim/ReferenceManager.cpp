@@ -39,13 +39,15 @@ SaveAdaptiveMotion(std::string postfix) {
 }
 void 
 ReferenceManager::
-LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
+LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement, double shift_height) {
 
 	std::vector<Eigen::VectorXd> d_space;
 	std::vector<Eigen::VectorXd> d_time;
 
 	for(int i = 0 ; i < displacement.size(); i++) {
-		d_space.push_back(displacement[i].head(displacement[i].rows()-1));
+		Eigen::VectorXd pos = displacement[i].head(displacement[i].rows()-1);
+		pos[4]+= shift_height;
+		d_space.push_back(pos);
 		d_time.push_back(displacement[i].tail(1));
 	}
 
@@ -57,8 +59,6 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 		mMotions_phase_adaptive[j]->SetPosition(newpos[j]);
 		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
 	}
-
-
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
@@ -450,6 +450,9 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mParamGoal.resize(2);
 	mParamGoal = mParamCur;
 
+	mParamDMM.resize(2);
+	mParamDMM = mParamCur;
+
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);
@@ -523,7 +526,8 @@ void
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
-				 Eigen::VectorXd parameters) {
+				 Eigen::VectorXd parameters, 
+				 double shift_height) {
 
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
@@ -561,9 +565,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	for(int i = 0; i < data_raw.size(); i++) {
 		trajectory.push_back(data_raw[i].first);
 	}
+
 	trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
 	for(int i = 0; i < data_raw.size(); i++) {
 		data_raw[i].first = trajectory[i];
+		data_raw[i].first[4]+= shift_height;
 	}
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_uniform;
