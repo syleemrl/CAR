@@ -3,26 +3,59 @@ import math
 from regression import Regression
 from IPython import embed
 from copy import copy
+
 class Sampler(object):
-	def __init__(self, sim_env, dim, path):
+	def __init__(self, sim_env, dim):
 		self.sim_env = sim_env
 		self.dim = dim
 		
-		self.v_mean = 0
+		self.v_mean = 1.0
+		self.v_mean_boundary = 0.0
 		self.random = True
 
-		self.k = 5
-		self.k_ex = 10
+		self.k = 10
+		self.k_ex = 20
 
 		self.total_iter = 0
-		self.n_learning = 0
-		self.path = path
 
-		self.start = 0
-		# 0: uniform 1: adaptive 2: ts
-		self.type_visit = 1
-		# 0: uniform 1 :adaptive(network) 2:adaptive(sampling) 3:ts(network) 4:ts(sampling)
+		# 0: uniform 1: adaptive
+		self.type_exploit = 1
+		# 0: uniform 1 :adaptive
 		self.type_explore = 0
+	
+		self.done = False
+
+		# value, progress, updated
+		self.v_list_explore = []
+		self.p_list_explore = []
+		self.progress_cur_list = []
+		self.distance = 2
+		self.unit = 1
+		# keep if added recently or data is rare ( <= 5)
+		self.vp_dict = dict()
+
+		self.eval_target_v = 0
+
+		self.progress_queue_exploit = [10.0]
+		self.progress_queue_explore = [0]
+
+		self.progress_cur = 0
+		self.evaluation_counter = 0
+		self.evaluation_done = False
+		self.eval_frequency = 0
+
+		self.progress_cur_new = 0
+		self.progress_cur_update = 0
+
+		self.use_table = True
+		print('=======================================')
+		print('curriculum option')
+		print('type exploit', self.type_exploit)
+		print('type explore', self.type_explore)
+		print('use table', self.use_table)
+
+		print('=======================================')
+
 
 	def randomSample(self, visited=True):
 		return self.sim_env.UniformSample(visited)
@@ -31,215 +64,271 @@ class Sampler(object):
 		target = np.reshape(target, (-1, self.dim))
 		v = v_func.getValue(target)[0]
 		if hard:
-			return math.exp(- self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+			return math.exp(-self.k * (v - self.v_mean) / self.v_mean) + 1e-10
 		else:
-			return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
+			return math.exp(self.k_ex * (v - self.v_mean) / self.v_mean) + 1e-10
 
-	def probTS(self, v_func, v_func_prev, target, hard=True):
-		target = np.reshape(target, (-1, self.dim))
-		v = v_func.getValue(target)[0]
-		v_prev = v_func_prev.getValue(target)[0]
-		if hard:
-			slope = (v_prev - v) / v_prev * self.k * 2
-		else:
-			slope = (v - v_prev) / v_prev * self.k * 2
-		if slope > 10:
-			slope = 10
-		return math.exp(slope) + 1e-10
-
-	def probAdaptiveSampling(self, idx):
-		v = self.v_sample[idx]
-		return math.exp(self.k * (v - self.v_mean) / self.v_mean) + 1e-10
-
-	def probTSSampling(self, idx):
-		v = self.v_sample[idx]
-		v_prev = self.v_prev_sample[idx]
-		slope = (v - v_prev) / v_prev * self.k * 2
-		if slope > 10:
-			slope = 10
-		return math.exp(slope) + 1e-10
-
-
-	def updateGoalDistribution(self, v_func, v_func_prev, results, idxs, visited, m=10, N=1000):
-		self.start += 1
-		if visited:
-			self.n_visit += 1
-		else:
+	def updateGoalDistribution(self, mode, v_func, m=2, N=400):
+		if mode == 0:
 			self.n_explore += 1
-			
-		self.v_mean_cur = np.array(results).mean()
-		self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
-
-		if visited:
-			if self.type_visit == 0:
+		elif mode == 1:
+			self.n_exploit += 1
+		else:
+			self.n_evaluation += 1
+		self.total_iter += 1
+		
+		if mode == 0:
+			if self.total_iter < 3:
+				return
+			if self.type_explore == 0:
+				self.sampleBatch(self.type_explore)
+			elif self.type_explore == 1:
+				self.pool_ex = []
+				for i in range(m):
+					x_cur = self.randomSample(mode)
+					for j in range(int(N/m)):
+						self.pool_ex.append(x_cur)
+						x_new = self.randomSample(mode)
+						alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
+						
+						if np.random.rand() <= alpha:          
+							x_cur = x_new
+				self.sampleBatch(self.type_explore)
+	
+		elif mode == 1:
+			if self.type_exploit == 0:
 				return
 			self.pool = []
 			for i in range(m):
-				x_cur = self.randomSample(visited)
+				x_cur = self.randomSample(mode)
 				for j in range(int(N/m)):
 					self.pool.append(x_cur)
-					x_new = self.randomSample(visited)
-					if self.type_visit == 1:
+					x_new = self.randomSample(mode)
+					if self.type_exploit == 1:
 						alpha = min(1.0, self.probAdaptive(v_func, x_new, True)/self.probAdaptive(v_func, x_cur, True))
 					else:
 						alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, True)/self.probTS(v_func, v_func_prev, x_cur, True))
 
 					if np.random.rand() <= alpha:          
 						x_cur = x_new
-		else:
-			if self.type_explore == 0:
-				return
-			self.pool_ex = []
-			self.idx_ex = []
-			if self.type_explore == 1 or self.type_explore == 3:
-				for i in range(m):
-					x_cur = self.randomSample(visited)
-					for j in range(int(N/m)):
-						self.pool_ex.append(x_cur)
-						x_new = self.randomSample(visited)
-						if self.type_explore == 1:
-							alpha = min(1.0, self.probAdaptive(v_func, x_new, False)/self.probAdaptive(v_func, x_cur, False))
-						else:
-							alpha = min(1.0, self.probTS(v_func, v_func_prev, x_new, False)/self.probTS(v_func, v_func_prev, x_cur, False))
+		elif mode == 2:
+			self.sample = []
+			self.evaluation_counter = 0
 
-						if np.random.rand() <= alpha:          
-							x_cur = x_new
-			else:
-				if self.n_explore <= 1:
-					return
-				v_mean_sample_cur = [0] * len(self.sample)
-				count_sample_cur = [0] * len(self.sample)
+			while len(self.sample) < 10:
+				t = self.randomSample(False) 
+				self.sample.append(t)
+	def saveProgress(self, mode):
+		plist = self.sim_env.GetExplorationRate()
+		p = plist[0] + plist[1]
+		self.progress_cur += p
+		self.progress_cur_new += plist[0]
+		self.progress_cur_update += plist[1]
+		if mode == 0 or mode == 2:
+			self.progress_cur_list.append(p * 10)
 
+	def updateCurrentStatus(self, mode, results, info):
+		if mode == 0 or mode == 2:
+			if len(self.progress_queue_explore) >= 5:
+				self.progress_queue_explore = self.progress_queue_explore[1:]
+			self.progress_queue_explore.append(self.progress_cur)
+
+			self.value_cur_list = []
+			self.count = []
+			for i in range(len(self.progress_cur_list)):
+				self.value_cur_list.append(0)
+				self.count.append(0)
+			for i in range(len(results)):
+				self.value_cur_list[info[i]] += results[i]
+				self.count[info[i]] += 1
+
+			for i in range(len(self.progress_cur_list)):
+				if self.count[i] != 0:	
+					v = self.value_cur_list[i] / self.count[i]
+					v_key = math.floor(v * 1 / self.unit)
+					if v_key in self.vp_dict:
+						while len( self.vp_dict[v_key]) >= 5 and (self.vp_dict[v_key][-1][2] - self.vp_dict[v_key][0][2]) > 3:
+							 self.vp_dict[v_key] = self.vp_dict[v_key][1:]
+						self.vp_dict[v_key].append([v, self.progress_cur_list[i], self.total_iter])
+					else:
+						self.vp_dict[v_key] = [[v, self.progress_cur_list[i], self.total_iter]] 
+
+			self.progress_cur_list = []
+			self.sample_counter = 0
+
+			if mode == 2 and self.n_evaluation == 3:
+				self.evaluation_done = True
+				self.printExplorationRateData()
+		elif mode == 1:		
+			if len(self.progress_queue_exploit) >= 10:
+				self.progress_queue_exploit = self.progress_queue_exploit[1:]
+			self.progress_queue_exploit.append(self.progress_cur)		
+
+			if len(results) != 0:
+				self.v_mean_cur = np.array(results).mean()
+				if self.v_mean == 0:
+					self.v_mean = self.v_mean_cur
+				else:
+					self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
+
+				p_mean = np.array(self.progress_queue_exploit).mean()
+
+				v_mean_boundary_cur = 0
+				count = 0
 				for i in range(len(results)):
-					v_mean_sample_cur[idxs[i]] += results[i]
-					count_sample_cur[idxs[i]] += 1
-				
-				for i in range(len(self.sample)):
-					if count_sample_cur[i] != 0:
-						self.v_prev_sample[i] = copy(self.v_sample[i])
-						self.v_sample[i] = 0.6 * self.v_sample[i] + 0.4 * v_mean_sample_cur[i] / count_sample_cur[i]
-
-				print('v prev goals: ', self.v_prev_sample)
-				print('v goals: ', self.v_sample)
-
-				prob = []
-				for i in range(len(self.sample)):
-					if self.type_explore == 2:
-						prob.append(self.probAdaptiveSampling(i))
+					if info[i] > 1.0 and info[i] < 1.15:
+						count += 1
+						v_mean_boundary_cur += results[i]
+				rate = 0		
+				if count != 0:
+					v_mean_boundary_cur /= count
+					if self.v_mean_boundary == 0:
+						self.v_mean_boundary = v_mean_boundary_cur
 					else:
-						prob.append(self.probTSSampling(i))
-				prob_mean = np.array(prob).mean() * len(self.sample)
-				
-				self.bound_sample = []
-				for i in range(len(self.sample)):
-					if i == 0:
-						self.bound_sample.append(prob[i] / prob_mean)
-					else:
-						self.bound_sample.append(self.bound_sample[-1] + prob[i] / prob_mean)
-				print(self.bound_sample)
+						rate = min(0.2, count * 0.0006)
+						self.v_mean_boundary = (1- rate) * self.v_mean_boundary + rate * v_mean_boundary_cur
+			
 
-	def adaptiveSample(self, visited):
-		if visited:
-			if self.n_explore < 2 or self.n_visit % 5 == 4:
-				return self.randomSample(visited), -1
+				print(self.progress_queue_exploit)
+				print("===========================================")
+				print("mean reward : ", self.v_mean)
+				print("current mean boundary reward: ", v_mean_boundary_cur, rate)
+				print("mean boundary reward : ", self.v_mean_boundary)
+				print("exploration rate : ", p_mean)
+				print("===========================================")
 
-			if self.type_visit == 0:
-				return self.randomSample(visited), -1
+		print(self.progress_cur_new, self.progress_cur_update)
+		self.progress_cur_new = 0
+		self.progress_cur_update = 0
+		self.progress_cur = 0
+
+	def adaptiveSample(self, mode, v_func):
+		if mode == 0:
+			if self.total_iter < 3:
+				target = self.randomSample(mode)
+
+				self.sample_counter += 1
+				t = self.sample_counter-1
+
+			elif self.type_explore == 0:
+				target = self.sample[self.sample_counter % len(self.sample)]
+				self.sample_counter += 1
+				t = self.sample_counter-1
 			else:
-				t = np.random.randint(len(self.pool))
+				target = self.sample[self.sample_counter % len(self.sample)]
+				self.sample_counter += 1
+				t = self.sample_counter-1
+
+			return target, t
+
+		elif mode == 1:
+			if self.n_exploit % 5 == 4:
+				target = self.randomSample(mode)
+				target_np = np.array(target, dtype=np.float32) 
+				t = self.sim_env.GetDensity(target_np)				
+			elif self.type_exploit == 0:
+				target = self.randomSample(mode)
+				target_np = np.array(target, dtype=np.float32) 
+				t = self.sim_env.GetDensity(target_np)
+			else:
+				t = np.random.randint(len(self.pool)) 
 				target = self.pool[t] 
+				target_np = np.array(target, dtype=np.float32) 
+				t = self.sim_env.GetDensity(target_np)
 			return target, t
 		else:
-			if self.type_explore == 0:
-				return self.randomSample(visited), -1
-			elif self.type_explore == 1 or self.type_explore == 3:
-				if self.start < 5:
-					return self.randomSample(visited), -1
-				t = np.random.randint(len(self.pool_ex))
-				target = self.pool_ex[t]
-				return target, t 
-			else:
-				if self.n_explore < 2:
-					t = np.random.randint(len(self.sample))	
-					target = self.sample[t]
-					idx = t
-				else:
-					t = np.random.rand()
-					idx = -1	
-					for i in range(len(self.bound_sample)):
-						if t <= self.bound_sample[i]:
-							target = self.sample[i]
-							idx = i
-							break
-					if idx == -1:
-						idx = len(self.bound_sample) - 1
-						target = self.sample[idx]
-				return target, idx
+			t = self.evaluation_counter % len(self.sample)
+			target = self.sample[t]
+			self.evaluation_counter += 1
 
-	def reset_visit(self):
-		self.random_start = True
-		self.v_mean = 0
-		self.n_visit = 0
+			return target, t
 
-	def sampleGoals(self, m=5):
-		self.sample = []
-		self.v_sample = []
-		for i in range(m):
-			self.sample.append(self.randomSample(False))
-			self.v_sample.append(1.0)
-		self.v_prev_sample = copy(self.v_sample)
-		print('new goals: ', self.sample)
+	def resetExploit(self):
+		self.n_exploit = 0
+		self.prev_progress = np.array(self.progress_queue_exploit).mean()
+		self.progress_queue_exploit = []
 
-	def reset_explore(self):
-		if self.type_explore == 2 or self.type_explore == 4:
-			self.sampleGoals()
+		self.printExplorationRateData()
+
+	def resetExplore(self):
 		self.n_explore = 0
+		self.prev_progress = np.array(self.progress_queue_explore).mean()
+		self.progress_queue_explore = []
+		self.v_list_explore = []
+		self.p_list_explore = []
+		self.sample_counter = 0 
 
-	def isEnough(self, v_func):
-		
-		self.random_start = False
+	def sampleBatch(self, type_explore):
+		self.sample = []
+		self.sample_counter = 0
+		for _ in range(20):
+			if type_explore == 0:
+				target = self.randomSample(False) 	
+			else:
+				t = np.random.randint(len(self.pool_ex)) 
+				target = self.pool_ex[t] 
+			self.sample.append(target)
 
-		print("===========================================")
-		print("mean reward : ", self.v_mean)
-		print("===========================================")
 
-		if self.n_visit % 5 == 4:
-			self.printSummary(v_func)
-			print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> v_mean_cur : ",self.v_mean_cur)
-			if self.v_mean_cur > 1.3:
+	def resetEvaluation(self):
+		self.n_evaluation = 0
+		self.sample = []
+		self.v_list_explore = []
+		self.p_list_explore = []
+		self.progress_queue_explore = []
+		self.evaluation_done = False
+		self.evaluation_counter = 0
+
+		while len(self.sample) < 10:
+			t = self.randomSample(False) 
+			self.sample.append(t)
+
+		self.eval_frequency = len(self.sample)
+
+	def printExplorationRateData(self):
+		for k, v in zip(self.vp_dict.keys(), self.vp_dict.values()):
+			print('(', k * self.unit, ',', (k+1)*self.unit,') : ',v, ' ', np.array(v).mean(axis=0)[1])
+
+	def predictWindow(self, v, scale):
+		v_min = v - scale
+		v_max = v + scale
+		mean = 0
+		count = 0
+
+		for v, p in zip(self.v_list_explore, self.p_list_explore):
+			if v >= v_min and v <= v_max:
+				mean += p
+				count += 1
+		return mean, count
+
+	def isEnough(self):
+
+		p_mean = np.array(self.progress_queue_exploit).mean()
+		p_mean_prev = np.array(self.progress_queue_explore).mean()
+
+		if self.n_exploit < 10:
+			return False
+
+		if self.use_table:
+			v_key = math.floor(self.v_mean * 1 / self.unit) - 1
+			count = 0
+			mean = 0
+			for n in range(5):
+				if v_key + n in self.vp_dict:
+					for i in range(len(self.vp_dict[v_key + n])):
+						if abs(self.v_mean - self.vp_dict[v_key + n][i][0]) < self.distance:
+							mean += self.vp_dict[v_key + n][i][1]
+							count += 1
+			
+			if count != 0:
+				mean /= count
+
+			print(p_mean, mean)
+			if p_mean < mean - 1.0:
 				return True
-		if self.v_mean > 1.3:
-			print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> v_mean_cur : ",self.v_mean)
-			return True
+		else:
+			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
+			if (p_mean + 1e-3) - p_mean_prev * 0.9 < 0:
+				return True
 
-		self.total_iter += 1
 		return False
-
-	def printSummary(self, v_func):
-		vs = []
-		cs = []
-		tuples_str = []
-		for _ in range(200):
-			c = self.randomSample()
-			c = np.reshape(c, (-1, self.dim))
-			v = v_func.getValue(c)[0]
-			cs.append(c[0])
-			vs.append(v)
-			tuples_str.append(str(c[0])+" "+str(v)+", ")
-		if self.path is not None:
-			out = open(self.path+"curriculum"+str(self.n_learning), "a")
-			out.write(str(self.total_iter)+'\n')
-			for i in range(200):
-				out.write(tuples_str[i])
-			out.write('\n')
-			vs = np.sort(np.array(vs))
-
-			vs_mean = vs.mean()
-			vs_mean_bottom = vs[:20].mean()
-			vs_mean_top = vs[180:].mean()
-
-			out.write(str(vs_mean)+'\n')
-			out.write(str(vs_mean_bottom)+'\n')
-			out.write(str(vs_mean_top)+'\n')
-			out.close()
-		return vs_mean, vs_mean_bottom, vs_mean_top

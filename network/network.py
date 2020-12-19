@@ -74,14 +74,14 @@ class Actor(object):
 
 
 class Critic(object):
-	def __init__(self, sess, scope, state, postfix=''):
+	def __init__(self, sess, scope, state, postfix='',critic_layer_size=critic_layer_size):
 		self.sess = sess
 		self.name = scope
 		self.scope = scope + '_Critic' + postfix
-		self.value = self.createNetwork(state, False, None)
+		self.value = self.createNetwork(state, False, None, critic_layer_size)
 
 		self.state = state
-	def createNetwork(self, state, reuse, is_training):	
+	def createNetwork(self, state, reuse, is_training, critic_layer_size):	
 		with tf.variable_scope(self.scope, reuse=reuse):
 			L1 = tf.layers.dense(state,critic_layer_size,activation=activ,name='L1',
 	            kernel_initializer=kernel_initialize_func,
