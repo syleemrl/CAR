@@ -237,7 +237,7 @@ Step()
 		if(min_now < min_land_foot) min_land_foot = min_now;
 	}
 
-	std::cout<<mCurrentFrameOnPhase<<" "<<min_land_foot<<" " <<mActions[mInterestedDof]<<std::endl;
+	// std::cout<<mCurrentFrameOnPhase<<" "<<min_land_foot<<" " <<mActions[mInterestedDof]<<std::endl;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -571,8 +571,10 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	if(mCurrentFrameOnPhase >= 60) r_param = 1;
-
+	if(mCurrentFrameOnPhase >= 60 && !gotParamReward) {
+		r_param = 1;
+		gotParamReward = true;
+	}
 	return r_param;
 }
 void
@@ -891,6 +893,8 @@ Reset(bool RSI)
 
 	mLanded = false;
 	min_land_foot = 100000;
+
+	gotParamReward = false;
 	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314

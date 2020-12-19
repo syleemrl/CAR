@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings(action='ignore') 
 from network import Actor
 from network import Critic
 from monitor import Monitor
@@ -17,7 +19,7 @@ from tensorflow.python import pywrap_tensorflow
 import scipy.integrate as integrate
 import types
 np.set_printoptions(threshold=sys.maxsize)
-
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
 if type(tf.contrib) != types.ModuleType:  # if it is LazyLoader
 	tf.contrib._warning = None
@@ -73,9 +75,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.25]
-
-		self.optim_frequency = [optim_frequency, optim_frequency * 4]
+		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.5]
+		self.optim_frequency = [optim_frequency, optim_frequency * 2]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -104,7 +105,11 @@ class PPO(object):
 			self.load(self.pretrain)
 			li = pretrain.split("network")
 			suffix = li[-1]
-			self.env.RMS.load(li[0]+'rms'+suffix)
+
+			if len(li) == 2:
+				self.env.RMS.load(li[0]+'rms'+suffix)
+			else:
+				self.env.RMS.load(li[0]+"network"+li[1]+'rms'+suffix)
 			self.env.RMS.setNumStates(self.num_state)
 		
 		self.printSetting()
@@ -191,8 +196,6 @@ class PPO(object):
 
 			if self.parametric:
 				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
-				self.critic_target_prev, _, _ = self.createCriticNetwork(name+'_target_prev', self.state_target, self.TD_target, False)
-				self.critic_target_prev2, _, _ = self.createCriticNetwork(name+'_target_prev2', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []
@@ -204,22 +207,6 @@ class PPO(object):
 		
 		self.sess.run(tf.global_variables_initializer())
 
-	def updateCriticTarget(self, update_all=False):
-		copy_op = []
-
-		cur_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target')
-		prev_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target_prev')
-
-		for cur_var, prev_var in zip(cur_vars, prev_vars):
-			copy_op.append(prev_var.assign(cur_var.value()))
-		self.sess.run(copy_op)
-
-		if update_all:
-			prev_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name+'_target_prev2')
-
-			for cur_var, prev_var in zip(cur_vars, prev_vars):
-				copy_op.append(prev_var.assign(cur_var.value()))
-			self.sess.run(copy_op)
 
 	def update(self, tuples):
 		state_batch, action_batch, TD_batch, neglogp_batch, GAE_batch = self.computeTDandGAE(tuples)
@@ -328,8 +315,9 @@ class PPO(object):
 				self.target_x_batch = state_target_batch
 				self.target_y_batch = TD_target_batch
 			else:
-				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
-				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
+				if len(state_target_batch) != 0:
+					self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
+					self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]
@@ -356,11 +344,11 @@ class PPO(object):
 		TD_target_batch = []
 		neglogp_batch = []
 		GAE_batch = []
-		idx_batch = []
+		param_info_batch = []
 
 		for data in tuples:
 			# get values
-			states, actions, rewards, values, neglogprobs, times, param, idx = zip(*data)
+			states, actions, rewards, values, neglogprobs, times, param, param_info = zip(*data)
 
 			if len(times) == self.env.phaselength:
 				if times[-1] < self.env.phaselength - 1.8:
@@ -375,7 +363,7 @@ class PPO(object):
 					neglogprobs = neglogprobs[:count+1]
 					times = times[:count+1]
 					param = param[:count+1]
-					idx = idx[:count+1]
+					param_info = param_info[:count+1]
 
 			size = len(times)		
 
@@ -384,9 +372,10 @@ class PPO(object):
 			advantages = np.zeros(size)
 			ad_t = 0
 
-			TD_t_dense = 0
-			TD_t_sparse = 0
-
+			count_V = 0
+			sum_V = 0
+			V = 0
+			flag = False
 			for i in reversed(range(size)):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -397,25 +386,27 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-
+				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
-
+					flag = True
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
-				TD_t_dense = rewards[i][0] + TD_t_dense
-				TD_t_sparse = rewards[i][1] + TD_t_sparse
 
+				sum_V += V
+				count_V += 1
 				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
-					if TD_t_sparse != 0:
-						idx_batch.append(idx[i])
+					if flag:
+						param_info_batch.append(param_info[i])
 						state_target_batch.append(param[i])
-						TD_target_batch.append(1 / self.env.phaselength * TD_t_dense + 1.0 / 10.0 * TD_t_sparse)
+						TD_target_batch.append(sum_V / count_V)
 
-					TD_t_dense = 0
-					TD_t_sparse = 0
-
+					count_V = 0
+					sum_V = 0
+					V = 0
+					flag = False
+					
 			TD = values[:size] + advantages
 
 			for i in range(size):
@@ -426,12 +417,49 @@ class PPO(object):
 				GAE_batch.append(advantages[i])
 		
 		self.v_target = TD_target_batch
-		self.idx_target = idx_batch
+		self.info_target = param_info_batch
 		return np.array(state_batch), np.array(state_target_batch), np.array(action_batch), \
 			   np.array(TD_batch), np.array(TD_target_batch), \
 			   np.array(neglogp_batch), np.array(GAE_batch)
 
+	def computeValue(self, tuples):
+		marginal_vs = []
 
+		for data in tuples:
+			rewards, times = zip(*data)
+
+			size = len(rewards)
+
+			count_V = 0
+			sum_V = 0
+			V = 0
+			flag = False
+			for i in reversed(range(len(rewards))):
+				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
+					timestep = 0
+				elif times[i] > times[i+1]:
+					timestep = self.env.phaselength - times[i] + times[i+1]
+				else:
+					timestep = times[i+1]  - times[i]
+				
+				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
+				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				if rewards[i][1] != 0:
+					flag = True
+
+				sum_V += V
+				count_V += 1
+				if i != size - 1 and (i == 0 or times[i-1] > times[i]):
+					if flag:
+						marginal_vs.append(sum_V / count_V)
+
+					count_V = 0
+					sum_V = 0
+					V = 0
+					flag = False
+
+		return marginal_vs
+					
 	def save(self):
 		self.saver.save(self.sess, self.directory + "network", global_step = 0)
 		self.env.RMS.save(self.directory+'rms-0')
@@ -493,13 +521,12 @@ class PPO(object):
 		for s in print_list:
 			print(s)
 
+
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		# self.env.sim_env.TrainRegressionNetwork()
-
-		update_counter = 0
-		self.env.sampler.reset_explore()
+		self.env.sampler.resetExplore()
+		it_cur = 0
 
 		for it in range(num_iteration):
 			for i in range(self.num_slaves):
@@ -509,8 +536,11 @@ class PPO(object):
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
+
 			if self.parametric:
-				p_idx = self.env.updateGoal(self.critic_target, self.critic_target_prev)
+				param_info = self.env.updateGoal(self.critic_target)
+			else:
+				param_info = -1
 
 			while True:
 				# set action
@@ -525,55 +555,44 @@ class PPO(object):
 							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j]])
 							local_step += 1
 						if self.adaptive and rewards[j][0] is not None:
-							if self.parametric:
-								epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], p_idx])
-							else:
-								epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], -1])
+							epi_info[j].append([states[j], actions[j], rewards[j], values[j], neglogprobs[j], times[j], params[j], param_info])
 							local_step += 1
 						if dones[j]:
 							if len(epi_info[j]) != 0:
 								epi_info_iter.append(deepcopy(epi_info[j]))
 							
-							if local_step < self.steps_per_iteration[self.env.mode]:
+							if local_step < self.steps_per_iteration[self.parametric]:
 								epi_info[j] = []
 								self.env.reset(j)
 							else:
 								self.env.setTerminated(j)
-
-				if local_step >= self.steps_per_iteration[self.env.mode]:
+				if local_step >= self.steps_per_iteration[self.parametric]:
 					if self.env.getAllTerminated():
-						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
+						print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.parametric]),end='\r')
 						break
 				if last_print + 100 < local_step: 
-					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.env.mode]),end='\r')
+					print('iter {} : {}/{}'.format(it+1, local_step, self.steps_per_iteration[self.parametric]),end='\r')
 					last_print = local_step
 				
 				states = self.env.getStates()
+			if self.parametric:
+				self.env.sampler.saveProgress(self.env.mode)
+			it_cur += 1
+
 			print('')
 
-			if it % self.optim_frequency[self.env.mode] == self.optim_frequency[self.env.mode] - 1:	
+			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.parametric] == self.optim_frequency[self.parametric] - 1) or \
+			    (self.env.mode == 2 and it_cur % self.env.sampler.eval_frequency == self.env.sampler.eval_frequency - 1):	
 				if self.parametric:
-					update_counter += 1
-					if not self.env.mode and update_counter >= 3:
-						self.updateCriticTarget(False)
-						update_counter = 0
-	
 					self.updateAdaptive(epi_info_iter)
-
-					t = self.env.updateMode(self.critic_target)
-					if t == 0:
-						self.updateCriticTarget(True)
-						update_counter = 0
-					
-					if t == 999:
+					t = self.env.updateCurriculum(self.critic_target, self.v_target, self.info_target)
+					if t == -1:
 						break
-					else:
-						if self.env.mode:
-							self.env.updateCurriculum(self.critic_target, self.critic_target_prev2, self.v_target, self.idx_target)
-						else:
-							self.env.updateCurriculum(self.critic_target, self.critic_target_prev, self.v_target, self.idx_target)
-
-					epi_info_iter_hind = []
+					elif t == 1:
+						it_cur = 0
+					
+					# if self.env.needEvaluation():
+					# 	self.eval(30)
 				elif self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					self.env.updateReference()
@@ -598,28 +617,51 @@ class PPO(object):
 
 				epi_info_iter = []
 
-			if (self.env.num_evaluation > 0) and (self.env.num_evaluation % 100 == 0) and (self.directory is not None) :
-				save_it = self.env.num_evaluation #it//5
-				self.env.RMS.save(self.directory+'rms-{}'.format(save_it))
-				os.system("cp {}/network-{}.data-00000-of-00001 {}/network-{}.data-00000-of-00001".format(self.directory, 0, self.directory, save_it))
-				os.system("cp {}/network-{}.index {}/network-{}.index".format(self.directory, 0, self.directory, save_it))
-				os.system("cp {}/network-{}.meta {}/network-{}.meta".format(self.directory, 0, self.directory, save_it))
+	def eval(self, num_samples):
+		tuples = []
+		for it in range(num_samples):
+			for i in range(self.num_slaves):
+				self.env.reset(i)
+			states = self.env.getStates()
+			local_step = 0
+			tuples_iter = [[] for _ in range(self.num_slaves)]	
+	
+			self.env.updateGoal(self.critic_target, False)
+			while True:
+				# set action
+				actions, neglogprobs = self.actor.getAction(states)
+				values = self.critic.getValue(states)
 
-
+				rewards, dones, times, params = self.env.step(actions, False)
+				for j in range(self.num_slaves):
+					if not self.env.getTerminated(j):
+						if rewards[j][0] is not None:
+							tuples_iter[j].append([rewards[j], times[j]])
+							local_step += 1
+						if dones[j]:
+							if len(tuples_iter[j]) != 0:
+								tuples.append(deepcopy(tuples_iter[j]))
+							
+							if local_step < 1000:
+								tuples_iter[j] = []
+								self.env.reset(j)
+							else:
+								self.env.setTerminated(j)
+				if self.env.getAllTerminated():
+					break
+				states = self.env.getStates()
+		marginal_vs = self.computeValue(tuples)
+		self.env.saveEvaluation(marginal_vs)
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
 		
 		values = self.critic.getValue(state)
-		# action, _ = self.actor.getAction(state)
+		#action, _ = self.actor.getAction(state)
 		action = self.actor.getMeanAction(state)
 
 		return action
 
-	# def saveAndShowParamSummary(self, grids):
-	# 	v_values = self.critic_target.getValue(grids)
-	# 	return v_values
-		
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--ntimesteps", type=int, default=1000000)

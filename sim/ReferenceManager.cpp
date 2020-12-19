@@ -432,10 +432,6 @@ ResetOptimizationParameters(bool reset_displacement) {
 
 	}
 	
-	if(isParametric) {
-		mRegressionMemory->ResetExploration();
-	}
-
 	mMeanTrackingReward = 0;
 	mMeanParamReward = 0;
 

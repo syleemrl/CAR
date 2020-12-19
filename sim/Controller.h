@@ -205,7 +205,8 @@ protected:
 
 	bool mLanded;
 	double min_land_foot;
-	
+
+	bool gotParamReward;	
 };
 }
 #endif

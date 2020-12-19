@@ -24,20 +24,12 @@ struct std::less<Eigen::VectorXd>
 
 namespace DPhy
 {
-struct GoalInfo
-{
-	Eigen::VectorXd param;
-	int numSamples;
-	double rewards;
-	double density;
-	double value;
-};
 struct Param
 {
 	Eigen::VectorXd param_normalized;
 	std::vector<Eigen::VectorXd> cps;
 	double reward;
-	bool update;
+	int update;
 };
 class ParamCube
 {
@@ -62,17 +54,17 @@ public:
 	RegressionMemory();
 	void InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::VectorXd> paramSpace , Eigen::VectorXd paramUnit, 
 						double nDOF, double nknots);
-	void SaveParamSpace(std::string path, bool old);
+	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
 	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
+	std::pair<Eigen::VectorXd , bool> UniformSample(double d0, double d1);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
-	void SelectNewParamGoalCandidate();
 
 	void AddMapping(Param* p);
 	void AddMapping(Eigen::VectorXd nearest, Param* p);
 	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps);
-
+	void UpdateParamState();
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
 	double GetDensity(Eigen::VectorXd p, bool old=false);
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
@@ -80,45 +72,38 @@ public:
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborPointsOnGrid(Eigen::VectorXd p, Eigen::VectorXd nearest, double radius);
 	std::vector<Eigen::VectorXd> GetNeighborParams(Eigen::VectorXd p);
-	std::vector<std::pair<double, Param*>> GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor=false, bool old=false);
+	std::vector<std::pair<double, Param*>> GetNearestParams(Eigen::VectorXd p, int n, bool search_neighbor=false, bool old=false, bool inside=false);
 
 	Eigen::VectorXd Normalize(Eigen::VectorXd p);
 	Eigen::VectorXd Denormalize(Eigen::VectorXd p);
 	void SaveContinuousParamSpace(std::string path);
 
-	bool IsSpaceExpanded();
-	bool IsSpaceFullyExplored();
+	double GetVisitedRatio();
 
 	Eigen::VectorXd GetParamGoal() {return mParamGoalCur; }
 	void SetParamGoal(Eigen::VectorXd paramGoal);
-	void SetGoalInfo(double v);
 	void SetRadius(double rn) { mRadiusNeighbor = rn; }
 	void SetParamGridUnit(Eigen::VectorXd gridUnit) { mParamGridUnit = gridUnit;}
 	int GetDim() {return mDim; }
-	void ResetExploration();
-	double GetVisitedRatio();
-	void UpdateParamState();
+
 	std::tuple<std::vector<Eigen::VectorXd>, 
 			   std::vector<Eigen::VectorXd>, 
-			   std::vector<double>> GetTrainingData(bool old=false);
-	int GetTimeFromLastUpdate() { return mTimeFromLastUpdate; }
+			   std::vector<double>> GetTrainingData();
 
 	double GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal);
 	std::vector<Eigen::VectorXd> GetCPSFromNearestParams(Eigen::VectorXd p_goal);
 	void SaveLog(std::string path);
-	double GetTrainedRatio() {return (double)mParamActivated.size() / (mParamDeactivated.size() + mParamActivated.size()); }
-	void SaveGoalInfo(std::string path);
-	void EvalExplorationStep();
-	bool SetNextCandidate();
-	std::vector<Eigen::VectorXd> GetCurrentCPS();
+	
+	std::vector<Param*> mloadAllSamples;
 
-std::vector<Param*> mloadAllSamples;
+	int GetNumSamples();
+	std::pair<double, double> GetExplorationRate() {return std::pair<double, double>(mNewSamplesNearGoal, mUpdatedSamplesNearGoal);}
 	std::tuple<std::vector<Eigen::VectorXd>, 
-			std::vector<Eigen::VectorXd>, 
+	   	   std::vector<Eigen::VectorXd>,  
 		   std::vector<double>, 
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
-	
+
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -139,13 +124,15 @@ private:
 	double mPrevReward;
 
 	double mRadiusNeighbor;
+	double mThresholdInside;
+	double mRangeExplore;
+
 	int mDim;
 	int mDimDOF;
 	int mNumKnots;
-	int mNumActivatedPrev;
 	int mThresholdUpdate;
 	int mThresholdActivate;
-	int mTimeFromLastUpdate;
+	int mUpdateInterval;
 	int mNumElite;
 	int mNumSamples;
 
@@ -164,10 +151,10 @@ private:
 	std::uniform_real_distribution<double> mUniform;
 
 	std::vector<std::string> mRecordLog;
+	double mEliteGoalDistance;
+	double mNewSamplesNearGoal;
+	double mUpdatedSamplesNearGoal;
 
-	GoalInfo mGoalInfo; 
-
-	
 };
 }
 #endif
