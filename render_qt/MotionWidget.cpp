@@ -115,7 +115,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
-	std::vector<int> check_frame = { 0, 28, 187, 196, 220}; // {0, 41, 45, 81};
+	std::vector<int> check_frame = { 0,10, 13, 24, 26};
 	for(int cf: check_frame){
 		mSkel_bvh->setPositions(mMotion_bvh[cf]);
 		mSkel_bvh->computeForwardKinematics(true, false, false);
@@ -127,7 +127,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 
 		root[0]+=0.75; left_hand[0]+=0.75; right_hand[0]+=0.75;
 
-		std::cout<<cf<<" : "<<root.transpose()<<"\tleft, right : "<<left_hand[2]<<" , "<<right_hand[2]<<std::endl; 
+		std::cout<<cf<<" : "<<root.transpose()<<"\tleft, right : "<<left_hand.transpose()<<" , "<<right_hand.transpose()<<std::endl; 
 
 		// Eigen::Vector3d left_foot = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		// Eigen::Vector3d right_foot = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();

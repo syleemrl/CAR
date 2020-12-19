@@ -1,0 +1,22 @@
+<Skeleton name="Box">
+ 	<Joint type="FreeJoint" name="Ground" parent_name="None" size="1 1.4 1" mass="100000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.7 -3"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+	<Joint type="Translational" name="Box" parent_name="Ground"  size="1.0 1.4 0.9 " mass="10">
+		<Limit lower = "-1 -1 -10000" upper= "1 1 10000"/>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.1 0.7 0.9"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.1 0.7 0.9"></JointPosition>
+	    <!-- <Box offset="0 0 0 " direction="1 0 0 " size="1.0 1.4 0.8 " /> -->
+	</Joint>
+ 
+
+<!-- 	<Joint type="Translation" name="Box" parent_name="None" size="1.0 1.4 0.8" axis="0 0 1" mass="50">
+		<Limit lower = "-100" upper= "100"/>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.7 1.1"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+ -->
+</Skeleton>
+
+
