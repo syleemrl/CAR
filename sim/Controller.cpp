@@ -138,12 +138,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("time");
 	}
 
-	// } else if(isAdaptive && mRecord) {
-	// 	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
-	// 	this->mObject = new DPhy::Character(path);	
-	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-	// }
-
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 

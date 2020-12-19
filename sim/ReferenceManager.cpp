@@ -451,10 +451,12 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mParamCur.resize(1); // jump height
 	mParamCur << 0.48; 
 
-
 	mParamGoal.resize(1);
 	mParamGoal = mParamCur;
-
+	
+	mParamDMM.resize(1);
+	mParamDMM = mParamCur;
+	
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(1);
