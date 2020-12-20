@@ -600,6 +600,11 @@ UpdateAdaptiveReward()
 	double r_param = this->GetParamReward();
 	double r_tot = r_tracking ;
 
+	std::cout<<mCurrentFrame<<" "<<accum_bvh<<" "<<r_similarity<<" "<<r_param<<std::endl;
+	// Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
+
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -633,6 +638,10 @@ UpdateReward()
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 	double r_time = exp(-pow((mActions[mInterestedDof]-1), 2) * 40);
 	mRewardParts.clear();
+
+
+	// std::cout<<mCurrentFrame<<" "<<accum_bvh<<" "<<tracking_rewards_bvh[0]<<" "<<tracking_rewards_bvh[1]<<" "<<tracking_rewards_bvh[2]<<" "<<tracking_rewards_bvh[3]<<std::endl;
+
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -697,7 +706,38 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 
-	// if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+	if(mCurrentFrameOnPhase >=80 && std::abs(forward_angle) > 1/3.*M_PI){
+		mIsTerminal = true;
+		terminationReason = 9;
+		// std::cout<<mCurrentFrameOnPhase<<", forward_angle: "<<forward_angle<<std::endl;
+	}
+
+	// Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
+
+	if(mCurrentFrameOnPhase<=25 ){
+		Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		double box_level = 0.47;
+		if(isAdaptive) box_level = mParamGoal[0];
+
+		if((lf[1]- box_level) >= 0.06 || (rf[1]- box_level) >= 0.06) {
+			mIsTerminal = true;
+			terminationReason =11;
+		}
+		// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
+	}
+
+	bool lh_ground = CheckCollisionWithGround("LeftHand");
+	bool rh_ground = CheckCollisionWithGround("RightHand");
+	
+	if(lh_ground || rh_ground){
+		mIsTerminal = true;
+		terminationReason = 12;
+	}
+	
+// if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 	// 	mIsTerminal = true;
 	// 	terminationReason = 2;
 	// }
@@ -706,6 +746,7 @@ UpdateTerminalInfo()
 	// if(mRecord && (root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD || root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT) ){
 	// 	std::cout<<mCurrentFrame<<", root_pos_diff.norm() : "<<root_pos_diff.norm()<<std::endl; 
 	// }
+
 	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
@@ -882,6 +923,7 @@ Reset(bool RSI)
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
 	if(isAdaptive) obj_pos[6] = mParamGoal[0]-0.47;
+	// std::cout<<"obj_pos[6]: "<<obj_pos[6]<<std::endl;
 	
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
 	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));

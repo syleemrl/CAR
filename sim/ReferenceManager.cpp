@@ -11,7 +11,7 @@ ReferenceManager::ReferenceManager(Character* character)
 :mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	mCharacter = character;
-	mBlendingInterval = 10;
+	mBlendingInterval = 20;
 	
 	mMotions_gen.clear();
 	mMotions_raw.clear();
@@ -216,12 +216,12 @@ LoadMotionFromBVH(std::string filename)
 
 	delete bvh;
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -638,6 +638,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;
+
+
+	std::cout<<"track, param, fitness"<<std::get<0>(rewards)<<"\t"<<std::get<1>(rewards)<<"\t"<<reward_trajectory<<std::endl;
 
 	// std::cout<<"sum_slide : "<<std::get<2>(rewards).sum_slide<<", r_slide : "<<r_slide<<"/ r_foot: "<<r_foot<<std::endl;
 	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
