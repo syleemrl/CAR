@@ -245,7 +245,7 @@ Step()
 		mTimeElapsed += 2 * (mAdaptiveStep);
 	}
 
-	std::cout<<"impulse_on_wrong_body : "<<impulse_on_wrong_body<<std::endl;
+	// std::cout<<"impulse_on_wrong_body : "<<impulse_on_wrong_body<<std::endl;
 
 	dart::collision::DistanceOption option;
 	option.enableNearestPoints = true;
