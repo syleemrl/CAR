@@ -19,6 +19,7 @@
 #define CHARACTER_TYPE "mxm_t3"
 #define REF_CHARACTER_TYPE "mxm_t3"
 
+#define OBJECT_TYPE "push_box"
 // #define OBJECT_TYPE "laf_push_stand_box"
 
 #endif

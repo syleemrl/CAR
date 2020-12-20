@@ -223,6 +223,7 @@ Step()
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
 	
+	impulse_on_wrong_body = 0;
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
@@ -230,23 +231,36 @@ Step()
 			mWorld->step(false);
 		}
 
+		for(auto bn: this->mCharacter->GetSkeleton()->getBodyNodes()){
+			if(bn->getName()== "LeftToe" || bn->getName()=="RightToe"|| bn->getName()== "LeftFoot" || bn->getName()=="RightFoot"|| bn->getName()=="LeftHand" || bn->getName()== "RightHand") continue;
+			impulse_on_wrong_body += bn->getConstraintImpulse().norm();
+		}
+		// head_force+= this->mCharacter->GetSkeleton()->getBodyNode("Head")->getConstraintImpulse();
+		// leftToe_force+= this->mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getConstraintImpulse();
+		// rightToe_force+= this->mCharacter->GetSkeleton()->getBodyNode("RightToe")->getConstraintImpulse();
+
+		// leftFoot_force+= this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getConstraintImpulse();
+		// rightFoot_force+= this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getConstraintImpulse();
 
 		mTimeElapsed += 2 * (mAdaptiveStep);
 	}
+
+	std::cout<<"impulse_on_wrong_body : "<<impulse_on_wrong_body<<std::endl;
 
 	dart::collision::DistanceOption option;
 	option.enableNearestPoints = true;
 	dart::collision::DistanceResult result;
 
-#ifdef OBJECT_TYPE
-	result.clear();
-	mCGOBJ->distance(mCGHR.get(), option, &result);
-	this->hr_dist= result.minDistance;
+// #ifdef OBJECT_TYPE
+// 	result.clear();
+// 	mCGOBJ->distance(mCGHR.get(), option, &result);
+// 	this->hr_dist= result.minDistance;
 	
-	result.clear();
-	mCGOBJ->distance(mCGHL.get(), option, &result);
-	this->hl_dist= result.minDistance;
-#endif
+// 	result.clear();
+// 	mCGOBJ->distance(mCGHL.get(), option, &result);
+// 	this->hl_dist= result.minDistance;
+// #endif
+
 	// std::cout<<mCurrentFrame<<"\tmin: "<<hl_dist<<" "<<hr_dist<<std::endl;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
@@ -463,6 +477,17 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	// r_ee = (r_ee+r_hand)/2.;
 
 	// std::cout<<mCurrentFrameOnPhase<<"\t"<<hand_diff.transpose()<<"\t"<<r_hand<<std::endl;
+
+#ifdef OBJECT_TYPE
+	Eigen::Vector3d lh_end = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform()* Eigen::Vector3d(0.06, -0.025, 0);
+	Eigen::Vector3d rh_end = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform()* Eigen::Vector3d(-0.06, -0.025, 0);
+	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
+	// std::cout<<mCurrentFrame<<"/ hand: "<<lh_end[2]<<", "<<rh_end[2]<<"/ box: "<<box_end_z<<std::endl;
+	Eigen::VectorXd hand_diff(2); hand_diff.setZero();
+	if(mCurrentFrameOnPhase >=28 && mCurrentFrameOnPhase<=190) hand_diff << lh_end[2]- box_end_z, rh_end[2]-box_end_z;
+	double r_hand = exp_of_squared(hand_diff, sig_hand);
+	r_ee = 0.7*r_ee + 0.3*r_hand; 
+#endif
 
 	std::vector<double> rewards;
 	rewards.clear();
@@ -768,6 +793,17 @@ UpdateTerminalInfo()
 		terminationReason =  8;
 	}
 
+	// bool head_collide_box = CheckCollisionWithObject("Head");
+	// if(head_collide_box) {
+	// 	mIsTerminal = true;
+	// 	terminationReason = 9;
+	// }
+
+	if(impulse_on_wrong_body > 10){
+		mIsTerminal = true;
+		terminationReason = 10;
+
+	}
 	if(mRecord) {
 		if(mIsTerminal) std::cout << "terminate Reason : "<<terminationReason << std::endl;
 	}

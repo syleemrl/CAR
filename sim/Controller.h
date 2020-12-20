@@ -205,6 +205,8 @@ protected:
 	double hl_dist;
 	double hr_dist;
 	bool pr_calculated= false;
+
+	double impulse_on_wrong_body = 0;
 };
 }
 #endif
