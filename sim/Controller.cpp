@@ -678,14 +678,10 @@ GetParamReward()
 
 			mFootDiff /= mCountFoot;
 			double r_f = exp(-mFootDiff * 10);
-			r_param = r_c * r_y * r_k;
-			if(r_c > 0.5) {
-				mParamCur(0) = curYrot;
-				mParamCur(1) = curKickHeight;
-			}
-			else
-				mParamCur(0) = -1;
-		//	mParamCur(1) = curKickHeight;
+			r_param = r_y * r_k;
+		
+			mParamCur(0) = curYrot;
+			mParamCur(1) = curKickHeight;
 
 			mControlFlag[0] = 3;
 

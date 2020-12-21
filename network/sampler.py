@@ -129,7 +129,7 @@ class Sampler(object):
 
 	def updateCurrentStatus(self, mode, results, info):
 		if mode == 0 or mode == 2:
-			if len(self.progress_queue_explore) >= 5:
+			if len(self.progress_queue_explore) >= 10:
 				self.progress_queue_explore = self.progress_queue_explore[1:]
 			self.progress_queue_explore.append(self.progress_cur)
 
@@ -311,7 +311,7 @@ class Sampler(object):
 		# if self.n_exploit < 3 and self.v_mean >= 14.5:
 		# 	return True
 
-		if self.n_exploit < 10:
+		if self.n_exploit < 5:
 			return False
 
 		if self.use_table:
