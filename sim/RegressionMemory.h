@@ -103,6 +103,7 @@ public:
 		   std::vector<double>, 
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
+	double GetFitnessMean();
 
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;

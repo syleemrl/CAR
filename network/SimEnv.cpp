@@ -397,7 +397,11 @@ GetExplorationRate() {
 	l.append(n.second);
 	return l;
 }
-
+double
+SimEnv::
+GetFitnessMean() {
+	return mRegressionMemory->GetFitnessMean();
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -437,6 +441,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("UpdateReference",&SimEnv::UpdateReference)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
-		.def("GetDensity",&SimEnv::GetDensity);
+		.def("GetDensity",&SimEnv::GetDensity)
+		.def("GetFitnessMean",&SimEnv::GetFitnessMean);
 
 }

@@ -13,7 +13,7 @@ class Sampler(object):
 		self.v_mean_boundary = 0.0
 		self.random = True
 
-		self.k = 10
+		self.k = 5
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -36,7 +36,7 @@ class Sampler(object):
 
 		self.eval_target_v = 0
 
-		self.progress_queue_exploit = [10.0]
+		self.progress_queue_exploit = [5.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -245,9 +245,11 @@ class Sampler(object):
 
 	def resetExploit(self):
 		self.n_exploit = 0
-		self.prev_progress = np.array(self.progress_queue_exploit).mean()
+		self.prev_progress_ex = np.array(self.progress_queue_exploit).mean()
+		self.prev_queue_exploit = copy(self.progress_queue_exploit)
 		self.progress_queue_exploit = []
-
+		self.v_mean = 0
+		
 		self.printExplorationRateData()
 
 	def resetExplore(self):
@@ -306,11 +308,14 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
+		# if self.n_exploit < 3 and self.v_mean >= 14.5:
+		# 	return True
+
 		if self.n_exploit < 10:
 			return False
 
 		if self.use_table:
-			v_key = math.floor(self.v_mean * 1 / self.unit) - 1
+			v_key = math.floor(self.v_mean * 1 / self.unit)
 			count = 0
 			mean = 0
 			for n in range(5):
@@ -324,7 +329,7 @@ class Sampler(object):
 				mean /= count
 
 			print(p_mean, mean)
-			if p_mean < mean - 1.0:
+			if p_mean < mean:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)

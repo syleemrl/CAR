@@ -66,6 +66,7 @@ class Monitor(object):
 		self.v_ratio = 0
 		self.mode = 0
 		self.mode_eval = False
+		self.eval_mean = 0
 
 		if self.plot:
 			plt.ion()
@@ -138,9 +139,9 @@ class Monitor(object):
 			self.sim_env.TrainRegressionNetwork()
 	
 	def saveEvaluation(self, li):
-		mean = np.array(li).mean()
-		self.sampler.v_mean_boundary = 0.6 * self.sampler.v_mean_boundary + 0.4 * mean
-		print('evaluation mean: ', mean)
+		self.eval_mean = np.array(li).mean()
+		self.sampler.v_mean_boundary = 0.6 * self.sampler.v_mean_boundary + 0.4 * self.eval_mean
+		print('evaluation mean: ', self.eval_mean)
 		if self.mode == 0:
 			if len(self.sampler.progress_queue_explore) == 0:
 				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
@@ -153,15 +154,17 @@ class Monitor(object):
 				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
 
 		self.v_ratio = self.sim_env.GetVisitedRatio()
+		f_mean = self.sim_env.GetFitnessMean()
+
 		if not os.path.isfile(self.directory+"curriculum_info") :
 			out = open(self.directory+"curriculum_info", "w")
 			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
-			out.write(str(mean)+':'+str(update_rate)+':'+str(self.v_ratio)+'\n')
+			out.write(str(self.eval_mean)+':'+str(update_rate)+':'+str(self.v_ratio)+':'+str(f_mean)+'\n')
 			out.close()
 		else:
 			out = open(self.directory+"curriculum_info", "a")
 			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
-			out.write(str(mean)+':'+str(update_rate)+':'+str(self.v_ratio)+'\n')
+			out.write(str(self.eval_mean)+':'+str(update_rate)+':'+str(self.v_ratio)+':'+str(f_mean)+'\n')
 			out.close()			
 
 	def saveVPtable(self):
@@ -187,7 +190,7 @@ class Monitor(object):
 			out.close()	
 
 	def saveParamSpaceSummary(self, v_func):
-		self.sim_env.SaveParamSpace(self.num_evaluation)
+		#self.sim_env.SaveParamSpace(self.num_evaluation)
 		li = self.sim_env.GetParamSpaceSummary()
 		grids = li[0]
 		grids_norm = li[1]
@@ -213,15 +216,27 @@ class Monitor(object):
 
 	def updateCurriculum(self, v_func, results, info):
 		self.sampler.updateCurrentStatus(self.mode, results, info)
-		self.sim_env.UpdateParamState()
 
 		mode_change = 0
 		if not self.mode_eval:
 			self.mode_counter += 1
 	
-		if self.num_evaluation % 10 == 9:
+		if self.num_evaluation % 20 == 19:
 			self.sim_env.SaveParamSpace(-1)
 
+		# if self.mode == 0:
+		# 	if self.num_evaluation >= 30:
+		# 		self.mode = 1
+		# 		self.mode_counter = 0
+		# 		self.sampler.resetExploit()
+		# 		mode_change = 1
+		# elif self.mode == 1:
+		# 	if self.sampler.isEnough():
+		# 		self.mode = 0
+		# 		self.mode_counter = 0
+		# 		self.sampler.resetExplore()
+		# 		mode_change = 1
+				
 		if self.mode == 0:
 			if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
 				self.saveVPtable()
@@ -243,6 +258,8 @@ class Monitor(object):
 			if self.mode_eval and len(self.sampler.progress_queue_exploit) >= 2:
 				self.mode = 0
 				self.mode_eval = False
+				if self.sampler.prev_progress_ex > np.array(self.sampler.progress_queue_exploit).mean():
+					self.sampler.progress_queue_exploit = copy(self.sampler.prev_queue_exploit)
 			elif not self.mode_eval and self.sampler.isEnough():
 				self.mode = 0
 				self.mode_counter = 0
@@ -258,7 +275,12 @@ class Monitor(object):
 			self.mode = 1
 			self.saveVPtable()
 
-		if self.v_ratio == 1:
+		if self.v_ratio == 1 and self.mode == 0:
+			self.mode = 1
+			self.mode_counter = 0
+			self.sampler.resetExploit()
+			mode_change = 1
+		elif self.v_ratio == 1 and self.eval_mean > 16:
 			mode_change = -1	
 
 		self.sampler.updateGoalDistribution(self.mode, v_func)
@@ -266,14 +288,14 @@ class Monitor(object):
 		return mode_change
 
 	def needEvaluation(self):
-		if self.num_evaluation > 5 and self.mode_counter % 5 == 0 and not self.mode_eval:
+		if self.num_evaluation > 5 and self.num_evaluation % 20 == 0:
 			return True
 
 	def updateGoal(self, v_func, record=True):
 		if record:
 			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		else:
-			t = self.sim_env.UniformSampleWithConstraints(1.0, 1.2)
+			t = self.sampler.randomSample(1)
 			idx = -1
 		
 		t = np.array(t, dtype=np.float32) 

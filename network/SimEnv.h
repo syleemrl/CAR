@@ -65,7 +65,7 @@ public:
 	p::list GetParamSpaceSummary();
 	p::list GetNearestParams(np::ndarray np_array);
 	p::list GetExplorationRate();
-
+	double GetFitnessMean();
 
 private:
 	std::vector<DPhy::Controller*> mSlaves;
