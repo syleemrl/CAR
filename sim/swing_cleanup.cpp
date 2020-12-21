@@ -613,6 +613,78 @@ void remove_foot_penetration(std::string filename){
 	std::cout<<outfile_path<<" DONE"<<std::endl;
 }
 
+
+void stitch_toe(std::string filename){
+	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
+	DPhy::Character* ref = new DPhy::Character(path);
+	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
+
+	std::string raw_file_path = "/motion/"+filename+".bvh";
+	mReferenceManager->LoadMotionFromBVH(raw_file_path);
+	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
+
+	std::ofstream outfile;
+	std::string outfile_path = "/motion/"+filename+"_stitch_toe.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+
+	std::ifstream rawfile;
+	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+	while(true){
+		getline(rawfile, raw_line);
+		std::cout<<raw_line<<std::endl;
+		outfile<<raw_line<<std::endl;
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	for(int f=0; f<mReferenceManager->GetPhaseLength(); f++){
+		ref->GetSkeleton()->setPositions(mReferenceManager->GetPosition(f, false));
+		ref->GetSkeleton()->computeForwardKinematics(true, false, false);
+
+		if(f>=57 && f<=71){
+			getline(rawfile, raw_line); 
+			outfile<<raw_line;
+		}else{
+
+			getline(rawfile, raw_line); trim(raw_line);
+			std::vector<std::string> splitted= split(raw_line, " ");
+
+		    Eigen::Matrix3d lf_wrot = ref->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().linear();
+		    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftToe")->getLocalTransform().linear().inverse();
+		    Eigen::Matrix3d lf_edited= lf_pRot.inverse();
+
+		    Eigen::Matrix3d rf_wrot = ref->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().linear();
+		    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightToe")->getLocalTransform().linear().inverse();
+		    Eigen::Matrix3d rf_edited= rf_pRot.inverse();
+				
+			Eigen::Vector3d lf_eulerZXY = dart::math::matrixToEulerZXY(lf_edited);
+			lf_eulerZXY*= 180./M_PI;
+
+			Eigen::Vector3d rf_eulerZXY = dart::math::matrixToEulerZXY(rf_edited);
+			rf_eulerZXY*= 180./M_PI;
+
+			std::string newline = "";		
+			for(int i=0; i<54; i++) newline+= splitted[i]+" ";
+
+				newline+= std::to_string(lf_eulerZXY[0])+" "+std::to_string(lf_eulerZXY[1])+" "+std::to_string(lf_eulerZXY[2])+" ";
+
+			for(int i=57; i<66; i++) newline+= splitted[i]+" ";
+
+				newline+= std::to_string(rf_eulerZXY[0])+" "+std::to_string(rf_eulerZXY[1])+" "+std::to_string(rf_eulerZXY[2])+" ";
+
+			for(int i=69; i<splitted.size(); i++) newline+= splitted[i]+" ";
+
+			newline+="\n";
+			outfile<<newline;
+		}
+	}
+
+	rawfile.close();
+	outfile.close();
+	std::cout<<outfile_path<<" DONE"<<std::endl;
+}
 int main(int argc, char ** argv){
 	
 	// FLAIR cleanup
@@ -622,35 +694,15 @@ int main(int argc, char ** argv){
 	// SWING cleanup
 	// dart_to_bvh_check();
 	// connect_root();	
-	
-	// shift_root(argv[1], std::stof(argv[2]));
-	// align_zero_frame(argv[1]);
+
 	std::string command = argv[1];
 
 	if(command.compare("align") == 0) align_zero_frame(argv[2]);
 	else if(command.compare("foot_end") == 0)stitch_foot_end_to_ground(argv[2]);
 	else if(command.compare("shift_root") == 0) shift_root(argv[2], std::stof(argv[3]));
 	else if(command.compare("rotate_foot") == 0) remove_foot_penetration(argv[2]);
+	else if(command.compare("stitch_toe") == 0) stitch_toe(argv[2]);
 
 	else std::cout<<"NO COMMAND FOUND"<<std::endl;
 }
 
-
- //    int frame = 0;
- //    ref->GetSkeleton()->setPositions(mMotion_bvh[frame]);
-    
- //    Eigen::Matrix3d lf_wrot = ref->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().linear();
- //    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftFoot")->getLocalTransform().linear().inverse();
- //    Eigen::Matrix3d lf_edited= lf_pRot.inverse();
-	// ref->GetSkeleton()->getBodyNode("LeftFoot")->getParentJoint()->setPositions(dart::dynamics::BallJoint::convertToPositions(lf_edited));
-
- //    Eigen::Matrix3d rf_wrot = ref->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().linear();
- //    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightFoot")->getLocalTransform().linear().inverse();
- //    Eigen::Matrix3d rf_edited= rf_pRot.inverse();
-	// ref->GetSkeleton()->getBodyNode("RightFoot")->getParentJoint()->setPositions(dart::dynamics::BallJoint::convertToPositions(rf_edited));
-
-	// mMotion_bvh[frame] = ref->GetSkeleton()->getPositions();
-
-	// Eigen::Vector3d lf = ref->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// Eigen::Vector3d rf = ref->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	// std::cout<<"foot height: "<<lf[1]<<" "<<rf[1]<<std::endl;
