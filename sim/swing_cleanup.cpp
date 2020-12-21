@@ -30,6 +30,38 @@ std::vector<std::string> split(std::string targetStr, std::string token)
     return ret;
 }
 
+std::vector<std::string> split2(std::string input, char delimiter) {
+    vector<string> answer;
+    stringstream ss(input);
+    string temp;
+ 
+    while (getline(ss, temp, delimiter)) {
+        answer.push_back(temp);
+    }
+ 
+    return answer;
+}
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
 //////////////////////////////////////////////// FLAIR cleanup //////////////////////////////////////////////////////////////////
 void stick_hand_to_ground(){
 	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_gen.xml");
@@ -50,8 +82,8 @@ void stick_hand_to_ground(){
 	std::ofstream outfile;
 	outfile.open( std::string(CAR_DIR)+"/motion/mxm_flair.bvh", std::ios_base::app); // append instead of overwrite
 
-	for(int i=0; i<mReferenceManager->GetPhaseLength(); i++){
-		Eigen::VectorXd p = mReferenceManager->GetPosition(i, false);
+	for(int f=0; f<mReferenceManager->GetPhaseLength(); f++){
+		Eigen::VectorXd p = mReferenceManager->GetPosition(f, false);
 		ref->GetSkeleton()->setPositions(p);
 		ref->GetSkeleton()->computeForwardKinematics(true, false, false);
 		Eigen::Vector3d lh= ref->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform().translation();
@@ -59,7 +91,8 @@ void stick_hand_to_ground(){
 
 		double error= std::min(lh[1], rh[1])-0.035;
 
-		getline(rawfile, raw_line);
+		getline(rawfile, raw_line); trim(raw_line);
+		
 		std::vector<std::string> splitted= split(raw_line, " ");
 		double new_height = stof(splitted[1])- 100*(error);
 		
@@ -125,7 +158,8 @@ void dart_to_bvh_check()
 		ref->GetSkeleton()->computeForwardKinematics(true, false, false);
 		Eigen::Isometry3d r_i= ref->GetSkeleton()->getBodyNode("Hips")->getWorldTransform();
 
-		getline(rawfile, raw_line);
+		getline(rawfile, raw_line); trim(raw_line);
+		
 		std::vector<std::string> splitted= split(raw_line, " ");
 		Eigen::VectorXd bvh_root(6);
 
@@ -208,7 +242,8 @@ void connect_root()
 		Eigen::Vector3d aligned_p = aligned.translation();
 		aligned_p*= 100;
 
-		getline(rawfile, raw_line);
+		getline(rawfile, raw_line); trim(raw_line);
+		
 		std::vector<std::string> splitted= split(raw_line, " ");
 		
 		std::string newline = "";
@@ -216,6 +251,7 @@ void connect_root()
 		for(int i=0; i<3; i++) newline+= std::to_string(aligned_eulerZXY(i))+" ";
 		
 		for(int i=6; i<splitted.size(); i++) newline+= splitted[i]+" ";
+		newline+="\n";
 		outfile<<newline;
 	}
 	rawfile.close();
@@ -283,7 +319,8 @@ void smooth_hand_transition()
 		Eigen::Vector3d aligned_p = aligned.translation();
 		aligned_p*= 100;
 
-		getline(rawfile, raw_line);
+		getline(rawfile, raw_line); trim(raw_line);
+		
 		std::vector<std::string> splitted= split(raw_line, " ");
 		
 		std::string newline = "";
@@ -291,25 +328,26 @@ void smooth_hand_transition()
 		for(int i=0; i<3; i++) newline+= std::to_string(aligned_eulerZXY(i))+" ";
 		
 		for(int i=6; i<splitted.size(); i++) newline+= splitted[i]+" ";
+		newline+="\n";
 		outfile<<newline;
 	}
 	rawfile.close();
 	outfile.close();
 }
 
-void align_zero_frame()
+void align_zero_frame(std::string raw_file)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
 	DPhy::Character* ref = new DPhy::Character(path);
 	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
 
-	std::string raw_file_path = "/motion/j2.bvh";
+	std::string raw_file_path = "/motion/"+raw_file+".bvh";
 	mReferenceManager->LoadMotionFromBVH(raw_file_path);
 	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
 
 	std::ofstream outfile;
-	std::string outfile_path = "/motion/j2_edit.bvh";
-	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::app); // append instead of overwrite
+	std::string outfile_path = "/motion/aligned.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
 
 	std::ifstream rawfile;
 	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
@@ -323,16 +361,14 @@ void align_zero_frame()
 		}
 	}
 
-
 	std::vector<Eigen::VectorXd> raw = mReferenceManager->getRawPositions();
 	Eigen::VectorXd zero_dir(6); zero_dir.setZero();
 	std::vector<Eigen::VectorXd> edited= DPhy::Align(raw, zero_dir) ;
 
-	int blend_width = 10;
-	for(int i=0; i<mReferenceManager->GetPhaseLength(); i++){
+	for(int f=0; f<mReferenceManager->GetPhaseLength(); f++){
 
 		// IK Clean-up
-		ref->GetSkeleton()->setPositions(edited[i]);
+		ref->GetSkeleton()->setPositions(edited[f]);
 		ref->GetSkeleton()->computeForwardKinematics(true, false, false);
 		Eigen::Isometry3d edited_root = ref->GetSkeleton()->getBodyNode("Hips")->getWorldTransform();
 
@@ -343,21 +379,241 @@ void align_zero_frame()
 		aligned_p*= 100;
 
 		getline(rawfile, raw_line);
+		trim(raw_line);
 		std::vector<std::string> splitted= split(raw_line, " ");
-		
+		std::cout<<splitted[0]<<" "<<splitted[1]<<" "<<splitted[2]<<std::endl;
+		std::cout<<splitted[3]<<" "<<splitted[4]<<" "<<splitted[5]<<std::endl;
+
 		std::string newline = "";
 		for(int i=0; i<3; i++) newline+= std::to_string(aligned_p(i))+" ";
 		for(int i=0; i<3; i++) newline+= std::to_string(aligned_eulerZXY(i))+" ";
 		
 		for(int i=6; i<splitted.size(); i++) newline+= splitted[i]+" ";
-		outfile<<newline<<std::endl;
+		newline+="\n";
+
+		outfile<< newline;
 	}
 	rawfile.close();
 	outfile.close();
 
 }
 
-int main(){
+void shift_root(std::string filename, double shift_y){
+	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
+	DPhy::Character* ref = new DPhy::Character(path);
+	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
+
+	std::string raw_file_path = "/motion/"+filename+".bvh";
+	mReferenceManager->LoadMotionFromBVH(raw_file_path);
+	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
+
+	std::ofstream outfile;
+	std::string outfile_path = "/motion/"+filename+"_shifted.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+
+	std::ifstream rawfile;
+	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+	while(true){
+		getline(rawfile, raw_line);
+		std::cout<<raw_line<<std::endl;
+		outfile<<raw_line<<std::endl;
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	for(int f=0; f<mReferenceManager->GetPhaseLength(); f++){
+
+		getline(rawfile, raw_line);trim(raw_line);
+		
+		std::vector<std::string> splitted= split(raw_line, " ");
+		double new_height = stof(splitted[1])+ 100*(shift_y);
+		
+		std::string newline=splitted[0]+" "+std::to_string(new_height)+" ";
+		for(int i=2; i<splitted.size(); i++) newline+= splitted[i]+" ";
+		newline+="\n";
+		outfile<<newline;
+
+	}
+
+	rawfile.close();
+	outfile.close();
+
+	std::cout<<outfile_path<<", shift_y: "<<shift_y<<", done"<<std::endl;
+}
+
+void stitch_foot_end_to_ground(std::string filename)//, int start, int end)
+{
+	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
+	DPhy::Character* ref = new DPhy::Character(path);
+	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
+
+	std::string raw_file_path = "/motion/"+filename+".bvh";
+	mReferenceManager->LoadMotionFromBVH(raw_file_path);
+	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
+
+	std::ofstream outfile;
+	std::string outfile_path = "/motion/"+filename+"_edit.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+
+	std::ifstream rawfile;
+	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+	while(true){
+		getline(rawfile, raw_line);
+		std::cout<<raw_line<<std::endl;
+		outfile<<raw_line<<std::endl;
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+		
+	for(int frame=0; frame<mReferenceManager->GetPhaseLength(); frame++){
+		ref->GetSkeleton()->setPositions(mReferenceManager->GetPosition(frame, false));
+		ref->GetSkeleton()->computeForwardKinematics(true, false, false);
+
+		Eigen::Matrix3d lf = ref->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().linear();
+		Eigen::Matrix3d rf = ref->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().linear();
+
+		Eigen::Matrix3d lf_new= DPhy::projectToXZ(lf);
+		Eigen::Matrix3d rf_new= DPhy::projectToXZ(rf);
+
+		Eigen::VectorXd lpos = ref->GetSkeleton()->getBodyNode("LeftFoot")->getParentJoint()->getPositions();
+		Eigen::VectorXd rpos = ref->GetSkeleton()->getBodyNode("RightFoot")->getParentJoint()->getPositions();
+
+		Eigen::Matrix3d lRot = dart::dynamics::BallJoint::convertToRotation(lpos);
+		Eigen::Matrix3d rRot = dart::dynamics::BallJoint::convertToRotation(rpos);
+
+		lRot = (lf_new*lf.inverse())*lRot;
+		rRot = (rf_new*rf.inverse())*rRot;
+
+		ref->GetSkeleton()->getBodyNode("LeftFoot")->getParentJoint()->setPositions(dart::dynamics::BallJoint::convertToPositions(lRot));
+		ref->GetSkeleton()->getBodyNode("RightFoot")->getParentJoint()->setPositions(dart::dynamics::BallJoint::convertToPositions(rRot));
+
+		Eigen::VectorXd newpos = ref->GetSkeleton()->getPositions();
+
+		Eigen::Vector3d lf_eulerZXY = dart::math::matrixToEulerZXY(lRot);
+		lf_eulerZXY*= 180./M_PI;
+
+		Eigen::Vector3d rf_eulerZXY = dart::math::matrixToEulerZXY(rRot);
+		rf_eulerZXY*= 180./M_PI;
+
+
+		getline(rawfile, raw_line);
+		trim(raw_line);
+		std::vector<std::string> splitted= split(raw_line, " ");
+
+		// left foot 17 th joint: 3+3*16= 51, 
+		// right foot 21 th joint: 3+3*20 =63
+
+		std::string newline = "";		
+		for(int i=0; i<51; i++) newline+= splitted[i]+" ";
+
+			newline+= std::to_string(lf_eulerZXY[0])+" "+std::to_string(lf_eulerZXY[1])+" "+std::to_string(lf_eulerZXY[2])+" ";
+
+		for(int i=54; i<63; i++) newline+= splitted[i]+" ";
+
+			newline+= std::to_string(rf_eulerZXY[0])+" "+std::to_string(rf_eulerZXY[1])+" "+std::to_string(rf_eulerZXY[2])+" ";
+
+		for(int i=66; i<splitted.size(); i++) newline+= splitted[i]+" ";
+
+		newline +="\n";
+		outfile<<newline;
+
+	}
+
+	rawfile.close();
+	outfile.close();
+
+}
+
+void remove_foot_penetration(std::string filename){
+	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
+	DPhy::Character* ref = new DPhy::Character(path);
+	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
+
+	std::string raw_file_path = "/motion/"+filename+".bvh";
+	mReferenceManager->LoadMotionFromBVH(raw_file_path);
+	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
+
+	std::ofstream outfile;
+	std::string outfile_path = "/motion/"+filename+"_rotated.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+
+	std::ifstream rawfile;
+	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+	while(true){
+		getline(rawfile, raw_line);
+		std::cout<<raw_line<<std::endl;
+		outfile<<raw_line<<std::endl;
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	int frame = 0;
+	ref->GetSkeleton()->setPositions(mReferenceManager->GetPosition(frame, false));
+	ref->GetSkeleton()->computeForwardKinematics(true, false, false);
+
+    Eigen::Matrix3d lf_wrot = ref->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().linear();
+    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftFoot")->getLocalTransform().linear().inverse();
+    Eigen::Matrix3d lf_edited= lf_pRot.inverse();
+
+    Eigen::Matrix3d rf_wrot = ref->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().linear();
+    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightFoot")->getLocalTransform().linear().inverse();
+    Eigen::Matrix3d rf_edited= rf_pRot.inverse();
+
+	Eigen::Matrix3d lf_plus = ref->GetSkeleton()->getJoint("LeftFoot")->getLocalTransform().linear().inverse()*lf_edited;
+	Eigen::Matrix3d rf_plus = ref->GetSkeleton()->getJoint("RightFoot")->getLocalTransform().linear().inverse()*rf_edited;
+
+	for(int f=0; f<mReferenceManager->GetPhaseLength(); f++){
+		ref->GetSkeleton()->setPositions(mReferenceManager->GetPosition(f, false));
+		ref->GetSkeleton()->computeForwardKinematics(true, false, false);
+
+		getline(rawfile, raw_line); trim(raw_line);
+		std::vector<std::string> splitted= split(raw_line, " ");
+			
+		Eigen::VectorXd lpos = ref->GetSkeleton()->getBodyNode("LeftFoot")->getParentJoint()->getPositions();
+		Eigen::VectorXd rpos = ref->GetSkeleton()->getBodyNode("RightFoot")->getParentJoint()->getPositions();
+
+		Eigen::Matrix3d lRot = dart::dynamics::BallJoint::convertToRotation(lpos);
+		Eigen::Matrix3d rRot = dart::dynamics::BallJoint::convertToRotation(rpos);
+
+		lRot = lRot*lf_plus;
+		rRot = rRot*rf_plus;
+
+		Eigen::Vector3d lf_eulerZXY = dart::math::matrixToEulerZXY(lRot);
+		lf_eulerZXY*= 180./M_PI;
+
+		Eigen::Vector3d rf_eulerZXY = dart::math::matrixToEulerZXY(rRot);
+		rf_eulerZXY*= 180./M_PI;
+
+
+		std::string newline = "";		
+		for(int i=0; i<51; i++) newline+= splitted[i]+" ";
+
+			newline+= std::to_string(lf_eulerZXY[0])+" "+std::to_string(lf_eulerZXY[1])+" "+std::to_string(lf_eulerZXY[2])+" ";
+
+		for(int i=54; i<63; i++) newline+= splitted[i]+" ";
+
+			newline+= std::to_string(rf_eulerZXY[0])+" "+std::to_string(rf_eulerZXY[1])+" "+std::to_string(rf_eulerZXY[2])+" ";
+
+		for(int i=66; i<splitted.size(); i++) newline+= splitted[i]+" ";
+
+		newline+="\n";
+		outfile<<newline;
+
+	}
+
+	rawfile.close();
+	outfile.close();
+	std::cout<<outfile_path<<" DONE"<<std::endl;
+}
+
+int main(int argc, char ** argv){
 	
 	// FLAIR cleanup
 	//stick_hand_to_ground();
@@ -367,5 +623,34 @@ int main(){
 	// dart_to_bvh_check();
 	// connect_root();	
 	
-	// align_zero_frame();
+	// shift_root(argv[1], std::stof(argv[2]));
+	// align_zero_frame(argv[1]);
+	std::string command = argv[1];
+
+	if(command.compare("align") == 0) align_zero_frame(argv[2]);
+	else if(command.compare("foot_end") == 0)stitch_foot_end_to_ground(argv[2]);
+	else if(command.compare("shift_root") == 0) shift_root(argv[2], std::stof(argv[3]));
+	else if(command.compare("rotate_foot") == 0) remove_foot_penetration(argv[2]);
+
+	else std::cout<<"NO COMMAND FOUND"<<std::endl;
 }
+
+
+ //    int frame = 0;
+ //    ref->GetSkeleton()->setPositions(mMotion_bvh[frame]);
+    
+ //    Eigen::Matrix3d lf_wrot = ref->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().linear();
+ //    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftFoot")->getLocalTransform().linear().inverse();
+ //    Eigen::Matrix3d lf_edited= lf_pRot.inverse();
+	// ref->GetSkeleton()->getBodyNode("LeftFoot")->getParentJoint()->setPositions(dart::dynamics::BallJoint::convertToPositions(lf_edited));
+
+ //    Eigen::Matrix3d rf_wrot = ref->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().linear();
+ //    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightFoot")->getLocalTransform().linear().inverse();
+ //    Eigen::Matrix3d rf_edited= rf_pRot.inverse();
+	// ref->GetSkeleton()->getBodyNode("RightFoot")->getParentJoint()->setPositions(dart::dynamics::BallJoint::convertToPositions(rf_edited));
+
+	// mMotion_bvh[frame] = ref->GetSkeleton()->getPositions();
+
+	// Eigen::Vector3d lf = ref->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// Eigen::Vector3d rf = ref->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// std::cout<<"foot height: "<<lf[1]<<" "<<rf[1]<<std::endl;

@@ -501,10 +501,12 @@ GetSimilarityReward()
 	vel *= (mCurrentFrame - mPrevFrame); 
 	delete p_v_target;
 
-	bool close_to_obj = (mCurrentFrameOnPhase <=29) ;
+	double ref_obj_height = 0;
+	double cur_obj_height = 0;
+	// bool close_to_obj = (mCurrentFrameOnPhase <=29) ;
 
-	double ref_obj_height = (close_to_obj)? 0.47 : 0;
-	double cur_obj_height = (isAdaptive)? ((close_to_obj)? mParamGoal[0] : 0) : ref_obj_height;
+	// double ref_obj_height = (close_to_obj)? 0.47 : 0;
+	// double cur_obj_height = (isAdaptive)? ((close_to_obj)? mParamGoal[0] : 0) : ref_obj_height;
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
@@ -706,29 +708,29 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 
-	if(mCurrentFrameOnPhase >=80 && std::abs(forward_angle) > 1/3.*M_PI){
-		mIsTerminal = true;
-		terminationReason = 9;
-		// std::cout<<mCurrentFrameOnPhase<<", forward_angle: "<<forward_angle<<std::endl;
-	}
+	// if(mCurrentFrameOnPhase >=80 && std::abs(forward_angle) > 1/3.*M_PI){
+	// 	mIsTerminal = true;
+	// 	terminationReason = 9;
+	// 	// std::cout<<mCurrentFrameOnPhase<<", forward_angle: "<<forward_angle<<std::endl;
+	// }
 
 	// Eigen::Vector3d lt= mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
 	// Eigen::Vector3d rt= mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
 	// std::cout<<"foot: "<<(lt[1]-mParamGoal[0])<<" "<<(rt[1]-mParamGoal[0])<<std::endl;
 
-	if(mCurrentFrameOnPhase<= 20 ){
-		Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-		double box_level = 0.47;
-		if(isAdaptive) box_level = mParamGoal[0];
+	// if(mCurrentFrameOnPhase<= 20 ){
+	// 	Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 	Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// 	double box_level = 0.47;
+	// 	if(isAdaptive) box_level = mParamGoal[0];
 
-		if((lf[1]- box_level) >= 0.06 || (rf[1]- box_level) >= 0.06) {
-			mIsTerminal = true;
-			terminationReason =11;
-			// std::cout<<(lf[1]-box_level)<<" "<<(rf[1]-box_level)<<std::endl;
-		}
-		// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
-	}
+	// 	if((lf[1]- box_level) >= 0.06 || (rf[1]- box_level) >= 0.06) {
+	// 		mIsTerminal = true;
+	// 		terminationReason =11;
+	// 		// std::cout<<(lf[1]-box_level)<<" "<<(rf[1]-box_level)<<std::endl;
+	// 	}
+	// 	// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
+	// }
 
 	bool lh_ground = CheckCollisionWithGround("LeftHand");
 	bool rh_ground = CheckCollisionWithGround("RightHand");

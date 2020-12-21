@@ -11,7 +11,7 @@ ReferenceManager::ReferenceManager(Character* character)
 :mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	mCharacter = character;
-	mBlendingInterval = 20;
+	mBlendingInterval = 10;
 	
 	mMotions_gen.clear();
 	mMotions_raw.clear();

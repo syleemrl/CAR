@@ -25,7 +25,7 @@
         <TorqueLimit norm="37.5" />
     </Joint>
     <Joint type="BallJoint" parent_name="Neck" size="0.1 0.126012 0.11 " name="Head" bvh="Head" mass="3">
-        <BodyPosition translation="0 0.616769 -0.0228687 " />
+        <BodyPosition translation="0 0.616769 -0.0328687 " />
         <JointPosition translation="0 0.527693 -0.0357936 " />
         <TorqueLimit norm="37.5" />
     </Joint>
