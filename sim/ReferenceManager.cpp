@@ -459,10 +459,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		paramUnit << mParamGoal[0]*0.1, mParamGoal[1]*0.1;
 
 		mParamBase.resize(2);
-		mParamBase << mParamGoal[0]*0.9, mParamGoal[1]*0.9;
+		mParamBase << mParamGoal[0]*0.6, mParamGoal[1]*0.9;
 
 		mParamEnd.resize(2);
-		mParamEnd << mParamGoal[0]*2, mParamGoal[1]*2;
+		mParamEnd << mParamGoal[0]*2, mParamGoal[1]*1.5;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -640,13 +640,16 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;
 
 
-	std::cout<<"track, param, fitness"<<std::get<0>(rewards)<<"\t"<<std::get<1>(rewards)<<"\t"<<reward_trajectory<<std::endl;
+	// std::cout<<"track, param, fitness"<<std::get<0>(rewards)<<"\t"<<std::get<1>(rewards)<<"\t"<<reward_trajectory<<std::endl;
 
 	// std::cout<<"sum_slide : "<<std::get<2>(rewards).sum_slide<<", r_slide : "<<r_slide<<"/ r_foot: "<<r_foot<<std::endl;
 	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
+	if(reward_trajectory < 0.6) return ;
 
 	mLock.lock();
 
+	//TODO ; if(reward_trajectory > 0.6) 일때만 save .. 
+	
 	if(isParametric) {
 		mRegressionMemory->UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>
 											(d, parameters, reward_trajectory));

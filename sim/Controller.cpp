@@ -600,7 +600,7 @@ UpdateAdaptiveReward()
 	double r_param = this->GetParamReward();
 	double r_tot = r_tracking ;
 
-	std::cout<<mCurrentFrame<<" "<<accum_bvh<<" "<<r_similarity<<" "<<r_param<<std::endl;
+	// std::cout<<mCurrentFrame<<" "<<accum_bvh<<" "<<r_similarity<<" "<<r_param<<std::endl;
 	// Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 	// Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 	// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
@@ -712,11 +712,11 @@ UpdateTerminalInfo()
 		// std::cout<<mCurrentFrameOnPhase<<", forward_angle: "<<forward_angle<<std::endl;
 	}
 
-	// Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-	// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
+	// Eigen::Vector3d lt= mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().translation();
+	// Eigen::Vector3d rt= mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
+	// std::cout<<"foot: "<<(lt[1]-mParamGoal[0])<<" "<<(rt[1]-mParamGoal[0])<<std::endl;
 
-	if(mCurrentFrameOnPhase<=25 ){
+	if(mCurrentFrameOnPhase<= 20 ){
 		Eigen::Vector3d lf= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d rf= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
 		double box_level = 0.47;
@@ -725,6 +725,7 @@ UpdateTerminalInfo()
 		if((lf[1]- box_level) >= 0.06 || (rf[1]- box_level) >= 0.06) {
 			mIsTerminal = true;
 			terminationReason =11;
+			// std::cout<<(lf[1]-box_level)<<" "<<(rf[1]-box_level)<<std::endl;
 		}
 		// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
 	}
@@ -736,7 +737,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 12;
 	}
-	
+
 // if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 	// 	mIsTerminal = true;
 	// 	terminationReason = 2;
