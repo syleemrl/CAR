@@ -273,9 +273,10 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 	std::vector<Eigen::VectorXd> cps;
 	mRegressionMemory->SetParamGoal(tp);
 
-	Eigen::VectorXd paramDmm = mReferenceManager->getParamDMM();
-	double shift_height = tp[0]-paramDmm[0];
-
+	// Eigen::VectorXd paramDmm = mReferenceManager->getParamDMM();
+	// double shift_height = tp[0]-paramDmm[0];
+	double shift_height = (tp[0] < 0)? -tp[0] : 0;
+	
 	if(mem_only) {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 		mReferenceManager->LoadAdaptiveMotion(cps, shift_height);

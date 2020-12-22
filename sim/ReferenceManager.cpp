@@ -445,7 +445,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(2); // start box height, distance
-	mParamCur << 0.47, 1.8; //1.9 ? (bvh), dmm: 1.72
+	mParamCur << 0, 1.37; //1.9 ? (bvh), dmm: 1.72
 
 	mParamGoal.resize(2);
 	mParamGoal = mParamCur;
@@ -456,15 +456,14 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);
-		paramUnit << mParamGoal[0]*0.1, mParamGoal[1]*0.1;
+		paramUnit << 0.1, 0.2;
 
 		mParamBase.resize(2);
-		mParamBase << mParamGoal[0]*0.6, mParamGoal[1]*0.9;
+		mParamBase << -1.5, 1.3; 
 
 		mParamEnd.resize(2);
-		mParamEnd << mParamGoal[0]*2, mParamGoal[1]*1.5;
+		mParamEnd << 1.5, 4;
 
-		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
 

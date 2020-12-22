@@ -30,15 +30,17 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
-	mSkel_obj = nullptr;
+	mSkel_obj_s = nullptr;
+	mSkel_obj_e = nullptr;
 	#ifdef OBJECT_TYPE 
 		std::cout<<"\nMotionWidget OBJ"<<std::endl;
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
-		mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
-
-		Eigen::VectorXd obj_pos(mSkel_obj->getNumDofs());
+		mSkel_obj_s = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
+		mSkel_obj_e = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
+		Eigen::VectorXd obj_pos(mSkel_obj_s->getNumDofs());
 		obj_pos.setZero();
-		mSkel_obj->setPositions(obj_pos);
+		mSkel_obj_s->setPositions(obj_pos);
+		mSkel_obj_e->setPositions(obj_pos);
 	#endif
 	
 	if(ppo == "") {
@@ -114,7 +116,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
-	std::vector<int> check_frame = { 0, 31, 57, 94}; // {0, 41, 45, 81};
+	std::vector<int> check_frame = { 0, 31, 57, 94, 120}; // {0, 41, 45, 81};
 	for(int cf: check_frame){
 		mSkel_bvh->setPositions(mMotion_bvh[cf]);
 		mSkel_bvh->computeForwardKinematics(true, false, false);
@@ -392,7 +394,8 @@ RunPPO() {
 	std::vector<Eigen::VectorXd> pos_bvh;
 	std::vector<Eigen::VectorXd> pos_reg;
 	std::vector<Eigen::VectorXd> pos_sim;
-	std::vector<Eigen::VectorXd> pos_obj;
+	std::vector<Eigen::VectorXd> pos_obj_s;
+	std::vector<Eigen::VectorXd> pos_obj_e;
 
 	int count = 0;
 	mController->Reset(false);
@@ -426,7 +429,11 @@ RunPPO() {
 		
 		#ifdef OBJECT_TYPE
 		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
-		pos_obj.push_back(position_obj);
+		pos_obj_s.push_back(position_obj);
+		
+		position_obj = this->mController->GetObjPositions(i, false);
+		pos_obj_e.push_back(position_obj);
+
 		#endif
 	}
 	// Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
@@ -436,7 +443,8 @@ RunPPO() {
 	UpdateMotion(pos_sim, 1);
 	UpdateMotion(pos_reg, 2);
 	#ifdef OBJECT_TYPE
-	UpdateMotion(pos_obj, 5);
+	UpdateMotion(pos_obj_s, 5);
+	UpdateMotion(pos_obj_e, 6);
 	#endif
 }
 void
@@ -735,7 +743,8 @@ SetFrame(int n)
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
     	#ifdef OBJECT_TYPE
-	    	mSkel_obj->setPositions(mMotion_obj[n]);
+	    	mSkel_obj_s->setPositions(mMotion_obj_s[n]);
+	    	mSkel_obj_e->setPositions(mMotion_obj_e[n]);
     	#endif
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
@@ -755,8 +764,11 @@ DrawSkeletons()
 		glPushMatrix();
 		glTranslated(-0.75, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
-		if(this->mSkel_obj) {
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
+		if(this->mSkel_obj_s) {
+			GUI::DrawSkeleton(this->mSkel_obj_s, 0);
+		}
+		if(this->mSkel_obj_e) {
+			GUI::DrawSkeleton(this->mSkel_obj_e, 0);
 		}
 		glPopMatrix();
 	}
@@ -765,10 +777,10 @@ DrawSkeletons()
 		glPushMatrix();
 		glTranslated(0.75, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
-		if(this->mSkel_obj) {
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
-			GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
-		}
+		// if(this->mSkel_obj) {
+		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// 	GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
+		// }
 		glPopMatrix();
 	}
 	if(mDrawReg) {
@@ -777,9 +789,9 @@ DrawSkeletons()
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 		// if(!mRunSim) {
 		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-		if(this->mSkel_obj) {
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
-		}
+		// if(this->mSkel_obj) {
+		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// }
 		glPopMatrix();
 	}
 	if(mDrawExp) {
@@ -787,9 +799,9 @@ DrawSkeletons()
 		glTranslated(2.25, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
 		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-		if(this->mSkel_obj) {
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
-		}
+		// if(this->mSkel_obj) {
+		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// }
 		glPopMatrix();
 	}
 
@@ -987,8 +999,11 @@ UpdateMotion(std::vector<Eigen::VectorXd> motion, int type)
 	} else if(type == 4) {
 		mMotion_points = motion;
 	} else if(type == 5){
-		mMotion_obj = motion;
+		mMotion_obj_s = motion;
+	} else if(type == 6){
+		mMotion_obj_e = motion;
 	}
+
 	mCurFrame = 0;
 	if(mTotalFrame == 0)
 		mTotalFrame = motion.size();

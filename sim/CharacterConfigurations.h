@@ -19,6 +19,6 @@
 #define CHARACTER_TYPE "mxm_t3"
 #define REF_CHARACTER_TYPE "mxm_t3"
 
-// #define OBJECT_TYPE "j2_box"
+#define OBJECT_TYPE "j2_box"
 
 #endif

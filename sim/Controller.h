@@ -65,7 +65,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	// get record (for visualization)
 
-	Eigen::VectorXd GetObjPositions(int idx) { return this->mRecordObjPosition[idx]; }
+	Eigen::VectorXd GetObjPositions(int idx, bool start=true) {if(start) return this->mRecordObjPosition_s[idx]; else return this->mRecordObjPosition_e[idx]; }
 	Eigen::VectorXd GetPositions(int idx) { return this->mRecordPosition[idx]; }
 	Eigen::Vector3d GetCOM(int idx) { return this->mRecordCOM[idx]; }
 	Eigen::VectorXd GetVelocities(int idx) { return this->mRecordVelocity[idx]; }
@@ -111,8 +111,8 @@ protected:
 	double mTrackingRewardTrajectory;
 
 	Character* mCharacter;
-	Character* mObject;
-	Character* mObject_base;
+	Character* mObject_start;
+	Character* mObject_end;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 
@@ -135,14 +135,15 @@ protected:
 	std::vector<double> mRewardParts;
 	std::vector<double> mRewardSimilarity;
 	// for foot collision, left, right foot, ground
-	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGOBJ; 
+	std::unique_ptr<dart::collision::CollisionGroup> mCGEL, mCGER, mCGL, mCGR, mCGG, mCGHR, mCGHL, mCGOBJ_s, mCGOBJ_e; 
 
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::VectorXd> mRecordVelocity;
 	std::vector<Eigen::Vector3d> mRecordCOM;
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
-	std::vector<Eigen::VectorXd> mRecordObjPosition;
+	std::vector<Eigen::VectorXd> mRecordObjPosition_s;
+	std::vector<Eigen::VectorXd> mRecordObjPosition_e;
 	
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	std::vector<double> mRecordPhase;
@@ -207,6 +208,9 @@ protected:
 	double min_land_foot;
 
 	bool gotParamReward;	
+
+	double impulse_on_wrong_body= 0;
+
 };
 }
 #endif

@@ -4,7 +4,7 @@
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
 	<Joint type="PrismaticJoint" name="Jump_Box" parent_name="Ground" size="0.8 0.47 0.6" axis="0 1 0" mass="500.0">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.1 0.235 0"></BodyPosition>
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 -0.235 0"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
 </Skeleton>

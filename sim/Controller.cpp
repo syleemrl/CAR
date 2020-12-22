@@ -43,23 +43,34 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mCharacter = new DPhy::Character(path);
 	this->mWorld->addSkeleton(this->mCharacter->GetSkeleton());
 
-	// this->mObject = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/jump_box.xml")).first;
-	// this->mWorld->addSkeleton(this->mObject);
-
 	#ifdef OBJECT_TYPE 
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
-		this->mObject = new DPhy::Character(object_path);	
-		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
-		this->mObject->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
+		///// mObject_start /////
+		this->mObject_start = new DPhy::Character(object_path);	
+		this->mWorld->addSkeleton(this->mObject_start->GetSkeleton());
+		this->mObject_start->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
+		this->mObject_start->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
 
-		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+		Eigen::VectorXd obj_pos(mObject_start->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
+		obj_pos[5] = -0.7; //z-axis
+		mObject_start->GetSkeleton()->setPositions(obj_pos);
+		mObject_start->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_start->GetSkeleton()->getNumDofs()));
+		mObject_start->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_start->GetSkeleton()->getNumDofs()));
+		mObject_start->GetSkeleton()->computeForwardKinematics(true,false,false);
 
-		mObject->GetSkeleton()->setPositions(obj_pos);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+		///// mObject_end /////
+		this->mObject_end = new DPhy::Character(object_path);	
+		this->mWorld->addSkeleton(this->mObject_end->GetSkeleton());
+		this->mObject_end->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
+		this->mObject_end->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
+
+		obj_pos.setZero();
+		obj_pos[5] = 0.65; //z-axis
+		mObject_end->GetSkeleton()->setPositions(obj_pos);
+		mObject_end->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_end->GetSkeleton()->getNumDofs()));
+		mObject_end->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_end->GetSkeleton()->getNumDofs()));
+		mObject_end->GetSkeleton()->computeForwardKinematics(true,false,false);
 		
 	#endif
 
@@ -91,7 +102,8 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	this->mCGG = collisionEngine->createCollisionGroup(this->mGround.get());
 
 #ifdef OBJECT_TYPE
-	this->mCGOBJ = collisionEngine->createCollisionGroup(this->mObject->GetSkeleton()->getBodyNode("Jump_Box"));
+	this->mCGOBJ_s = collisionEngine->createCollisionGroup(this->mObject_start->GetSkeleton()->getBodyNode("Jump_Box"));
+	this->mCGOBJ_e = collisionEngine->createCollisionGroup(this->mObject_end->GetSkeleton()->getBodyNode("Jump_Box"));
 #endif
 	int num_body_nodes = mInterestedDof / 3;
 	int dof = this->mCharacter->GetSkeleton()->getNumDofs(); 
@@ -138,11 +150,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("time");
 	}
 
-	// } else if(isAdaptive && mRecord) {
-	// 	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
-	// 	this->mObject = new DPhy::Character(path);	
-	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-	// }
 	foot_diff = std::vector<double>();
 
 
@@ -217,34 +224,40 @@ Step()
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
 	
+	impulse_on_wrong_body = 0;
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			mWorld->step(false);
 		}
+		for(auto bn: this->mCharacter->GetSkeleton()->getBodyNodes()){
+			if(bn->getName()== "LeftToe" || bn->getName()=="RightToe"|| bn->getName()== "LeftFoot" || bn->getName()=="RightFoot") continue;
+			impulse_on_wrong_body += bn->getConstraintImpulse().norm();
+		}
 
 		mTimeElapsed += 2 * (mAdaptiveStep);
 	}
 
-	if(! mLanded){
-		bool left_land = (CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe"));
-		bool right_land = (CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe"));
-		if(left_land || right_land) mLanded = true;
-	}
-	if(mLanded){
-		Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-		double min_now = std::min(lf[2], rf[2]);
-		if(min_now < min_land_foot) min_land_foot = min_now;
-	}
+	// if(! mLanded){
+	// 	bool left_land = (CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe"));
+	// 	bool right_land = (CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe"));
+	// 	if(left_land || right_land) mLanded = true;
+	// }
+	// if(mLanded){
+	// 	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// 	double min_now = std::min(lf[2], rf[2]);
+	// 	if(min_now < min_land_foot) min_land_foot = min_now;
+	// }
 
 	// std::cout<<mCurrentFrameOnPhase<<" "<<min_land_foot<<" " <<mActions[mInterestedDof]<<std::endl;
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-		mParamCur << mParamGoal[0], min_land_foot;
+		// mParamCur << mParamGoal[0], min_land_foot;
+		mParamCur = mParamGoal;
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 		// stickLeftFoot = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		// stickRightFoot = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
@@ -269,10 +282,9 @@ Step()
 			mFitness.sum_vel/= mCountTracking;
 			mFitness.sum_slide/= mCountTracking;
 
-			// std::cout<<mCurrentFrame<<" : "<<mTrackingRewardTrajectory<<std::endl;
 			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
-				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
-				double shift_height = - (mParamCur[0]- mReferenceManager->getParamDMM()[0]);
+				// double shift_height = - (mParamCur[0]- mReferenceManager->getParamDMM()[0]);
+				double shift_height = (mParamGoal[0] < 0) ? mParamGoal[0] : 0;
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur, shift_height);
 			}
 			data_raw.clear();
@@ -346,7 +358,8 @@ SaveStepInfo()
 	mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
 
 	#ifdef OBJECT_TYPE
-	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
+	mRecordObjPosition_s.push_back(mObject_start->GetSkeleton()->getPositions());
+	mRecordObjPosition_e.push_back(mObject_end->GetSkeleton()->getPositions());
 	#endif
 }
 void 
@@ -358,9 +371,10 @@ ClearRecord()
 	this->mRecordCOM.clear();
 	this->mRecordTargetPosition.clear();
 	this->mRecordBVHPosition.clear();
-	this->mRecordObjPosition.clear();
 	this->mRecordPhase.clear();
 	this->mRecordFootContact.clear();
+	this->mRecordObjPosition_s.clear();
+	this->mRecordObjPosition_e.clear();
 
 	this->mControlFlag.resize(4);
 	this->mControlFlag.setZero();
@@ -503,6 +517,13 @@ GetSimilarityReward()
 
 	double ref_obj_height = 0;
 	double cur_obj_height = 0;
+	if(isAdaptive){
+		if(mCurrentFrameOnPhase <= 60){
+			cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
+		}else if(mCurrentFrameOnPhase >70){
+			cur_obj_height = mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
+		}
+	}
 	// bool close_to_obj = (mCurrentFrameOnPhase <=29) ;
 
 	// double ref_obj_height = (close_to_obj)? 0.47 : 0;
@@ -578,7 +599,7 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	if(mCurrentFrameOnPhase >= 60 && !gotParamReward) {
+	if(mCurrentFrameOnPhase >= 100 && !gotParamReward) {
 		r_param = 1;
 		gotParamReward = true;
 	}
@@ -740,6 +761,11 @@ UpdateTerminalInfo()
 		terminationReason = 12;
 	}
 
+	if(!mRecord && impulse_on_wrong_body > 10){
+		mIsTerminal = true;
+		terminationReason = 13;
+	}
+
 // if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 	// 	mIsTerminal = true;
 	// 	terminationReason = 2;
@@ -759,7 +785,7 @@ UpdateTerminalInfo()
 		terminationReason = 1;
 	}
 
-	double cur_root_limit = mParamGoal[0] +TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
+	double cur_root_limit = TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
 	if(!mRecord && root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;
@@ -922,16 +948,25 @@ Reset(bool RSI)
 
 	#ifdef OBJECT_TYPE
 	// place the object according to current Param Goal
+	// 012: rotation, 345: xyz(base), 6: height(prismatic joint)
+	Eigen::VectorXd obj_pos(mObject_start->GetSkeleton()->getNumDofs());
+	obj_pos.setZero(); 
+	obj_pos[5] = -0.7; //z-axis
+	if(isAdaptive && mParamGoal[0] < 0) obj_pos[6] = -mParamGoal[0];
 	
-	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-	obj_pos.setZero();
-	if(isAdaptive) obj_pos[6] = mParamGoal[0]-0.47;
-	// std::cout<<"obj_pos[6]: "<<obj_pos[6]<<std::endl;
-	
-	this->mObject->GetSkeleton()->setPositions(obj_pos);
-	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+	this->mObject_start->GetSkeleton()->setPositions(obj_pos);
+	this->mObject_start->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_start->GetSkeleton()->getNumDofs()));
+	this->mObject_start->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_start->GetSkeleton()->getNumDofs()));
+	this->mObject_start->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+	obj_pos.setZero(); 
+	obj_pos[5] = 0.65; //z-axis
+	if(isAdaptive && mParamGoal[0] > 0) obj_pos[6] = mParamGoal[0];
+	if(isAdaptive) obj_pos[5] += (mParamGoal[1] - mReferenceManager->getParamDMM()[1]);
+	this->mObject_end->GetSkeleton()->setPositions(obj_pos);
+	this->mObject_end->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_end->GetSkeleton()->getNumDofs()));
+	this->mObject_end->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_end->GetSkeleton()->getNumDofs()));
+	this->mObject_end->GetSkeleton()->computeForwardKinematics(true,false,false);
 
 	this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
@@ -1066,41 +1101,41 @@ CheckCollisionWithGround(std::string bodyName){
 	}
 }
 
-bool
-Controller::
-CheckCollisionWithObject(std::string bodyName){
-	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
-	dart::collision::CollisionOption option;
-	dart::collision::CollisionResult result;
-	if(bodyName == "RightFoot"){
-		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "LeftFoot"){
-		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "RightToe"){
-		bool isCollide = collisionEngine->collide(this->mCGER.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "LeftToe"){
-		bool isCollide = collisionEngine->collide(this->mCGEL.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "RightHand"){
-		bool isCollide = collisionEngine->collide(this->mCGHR.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "LeftHand"){
-		bool isCollide = collisionEngine->collide(this->mCGHL.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else{ // error case
-		std::cout << "check collision : bad body name" << std::endl;
-		return false;
-	}
-}
+// bool
+// Controller::
+// CheckCollisionWithObject(std::string bodyName){
+// 	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
+// 	dart::collision::CollisionOption option;
+// 	dart::collision::CollisionResult result;
+// 	if(bodyName == "RightFoot"){
+// 		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGOBJ_e.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "LeftFoot"){
+// 		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGOBJ_e.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "RightToe"){
+// 		bool isCollide = collisionEngine->collide(this->mCGER.get(), this->mCGOBJ_e.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "LeftToe"){
+// 		bool isCollide = collisionEngine->collide(this->mCGEL.get(), this->mCGOBJ_e.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "RightHand"){
+// 		bool isCollide = collisionEngine->collide(this->mCGHR.get(), this->mCGOBJ_e.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "LeftHand"){
+// 		bool isCollide = collisionEngine->collide(this->mCGHL.get(), this->mCGOBJ_e.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else{ // error case
+// 		std::cout << "check collision : bad body name" << std::endl;
+// 		return false;
+// 	}
+// }
 
 Eigen::VectorXd 
 Controller::

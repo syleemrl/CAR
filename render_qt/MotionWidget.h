@@ -88,17 +88,19 @@ protected:
 	std::vector<Eigen::VectorXd> 	mMotion_reg;
 	std::vector<Eigen::VectorXd> 	mMotion_sim;
 	std::vector<Eigen::VectorXd> 	mMotion_exp;
-	std::vector<Eigen::VectorXd> 	mMotion_obj;
 	std::vector<Eigen::VectorXd> 	mMotion_points;
 	std::vector<double>				mTiming; // Controller->GetCurrentLength()
 
+	std::vector<Eigen::VectorXd> 	mMotion_obj_s;
+	std::vector<Eigen::VectorXd> 	mMotion_obj_e;
 
 
 	dart::dynamics::SkeletonPtr 	mSkel_bvh;
 	dart::dynamics::SkeletonPtr 	mSkel_reg;
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
 	dart::dynamics::SkeletonPtr 	mSkel_exp;
-	dart::dynamics::SkeletonPtr 	mSkel_obj;
+	dart::dynamics::SkeletonPtr 	mSkel_obj_s;
+	dart::dynamics::SkeletonPtr 	mSkel_obj_e;
 
 	bool							mTrackCamera;
 
