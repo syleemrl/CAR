@@ -274,9 +274,6 @@ Step()
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
 
-			// for(int i = 0; i < mRewardSimilarity.size(); i++) {
-			// 	mRewardSimilarity[i] /= mCountTracking;
-			// }
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
@@ -576,8 +573,8 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 5;
 			p_diff.segment<3>(idx + 3) *= 10;
-			v_diff.segment<3>(idx) *= 5;
-			v_diff.segment<3>(idx + 3) *= 10;
+			// v_diff.segment<3>(idx) *= 5;
+			// v_diff.segment<3>(idx + 3) *= 10;
 			// v_diff(5) *= 2;
 		} 
 	}

@@ -309,9 +309,11 @@ UpdateParam(const bool& pressed) {
 	    //     cps[j] = DPhy::toEigenVector(na, dof);
 	    // }
 
-		Eigen::VectorXd paramDmm = mReferenceManager->getParamDMM();
-		double shift_height = tp_denorm[0]-paramDmm[0];
-		std::cout<<"shift_height: "<<shift_height<<std::endl;
+	    tp_denorm = tp_denorm_raw;
+    	double shift_height = (tp_denorm[0] < 0)? -tp_denorm[0] : 0;
+		// Eigen::VectorXd paramDmm = mReferenceManager->getParamDMM();
+		// double shift_height = tp_denorm[0]-paramDmm[0];
+		// std::cout<<"shift_height: "<<shift_height<<std::endl;
 
 	   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 	    mReferenceManager->LoadAdaptiveMotion(cps, shift_height);
@@ -777,6 +779,13 @@ DrawSkeletons()
 		glPushMatrix();
 		glTranslated(0.75, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
+		if(this->mSkel_obj_s) {
+			GUI::DrawSkeleton(this->mSkel_obj_s, 0);
+		}
+		if(this->mSkel_obj_e) {
+			GUI::DrawSkeleton(this->mSkel_obj_e, 0);
+		}
+
 		// if(this->mSkel_obj) {
 		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
 		// 	GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
