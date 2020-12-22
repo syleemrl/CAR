@@ -247,9 +247,9 @@ Step()
 
 	// std::cout<<"impulse_on_wrong_body : "<<impulse_on_wrong_body<<std::endl;
 
-	dart::collision::DistanceOption option;
-	option.enableNearestPoints = true;
-	dart::collision::DistanceResult result;
+	// dart::collision::DistanceOption option;
+	// option.enableNearestPoints = true;
+	// dart::collision::DistanceResult result;
 
 // #ifdef OBJECT_TYPE
 // 	result.clear();
@@ -434,6 +434,15 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	skel->setPositions(position);
 	skel->computeForwardKinematics(true,false,false);
 
+#ifdef OBJECT_TYPE
+	Eigen::Vector3d lh_end = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform()* Eigen::Vector3d(0.06, -0.025, 0);
+	Eigen::Vector3d rh_end = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform()* Eigen::Vector3d(-0.06, -0.025, 0);
+	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
+	// std::cout<<mCurrentFrame<<"/ hand: "<<lh_end[2]<<", "<<rh_end[2]<<"/ box: "<<box_end_z<<std::endl;
+	Eigen::VectorXd hand_diff(2); hand_diff.setZero();
+	if(mCurrentFrameOnPhase >=28 && mCurrentFrameOnPhase<=190) hand_diff << lh_end[2]- box_end_z, rh_end[2]-box_end_z;
+#endif
+
 	std::vector<Eigen::Isometry3d> ee_transforms;
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
 	ee_diff.setZero();	
@@ -459,7 +468,6 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.5 * scale;		
-	double sig_hand = 0.15* scale;		
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -479,13 +487,9 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	// std::cout<<mCurrentFrameOnPhase<<"\t"<<hand_diff.transpose()<<"\t"<<r_hand<<std::endl;
 
 #ifdef OBJECT_TYPE
-	Eigen::Vector3d lh_end = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform()* Eigen::Vector3d(0.06, -0.025, 0);
-	Eigen::Vector3d rh_end = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform()* Eigen::Vector3d(-0.06, -0.025, 0);
-	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
-	// std::cout<<mCurrentFrame<<"/ hand: "<<lh_end[2]<<", "<<rh_end[2]<<"/ box: "<<box_end_z<<std::endl;
-	Eigen::VectorXd hand_diff(2); hand_diff.setZero();
-	if(mCurrentFrameOnPhase >=28 && mCurrentFrameOnPhase<=190) hand_diff << lh_end[2]- box_end_z, rh_end[2]-box_end_z;
+	double sig_hand = 0.07* scale;		
 	double r_hand = exp_of_squared(hand_diff, sig_hand);
+	// std::cout<<mCurrentFrame<<" "<<hand_diff.transpose()<<", r_hand: "<<r_hand<<std::endl;
 	r_ee = 0.7*r_ee + 0.3*r_hand; 
 #endif
 
@@ -623,11 +627,17 @@ GetSimilarityReward()
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+		if(name.compare("LeftHand")==0 ||name.compare("RightHand")==0){
+			p_diff.segment<3>(idx) *= 5;
+			p_diff.segment<3>(idx + 3) *= 10;
+			// v_diff.segment<3>(idx) *= 5;
+			// v_diff.segment<3>(idx + 3) *= 10;
+		}
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 5;
 			p_diff.segment<3>(idx + 3) *= 10;
-			v_diff.segment<3>(idx) *= 5;
-			v_diff.segment<3>(idx + 3) *= 10;
+			// v_diff.segment<3>(idx) *= 5;
+			// v_diff.segment<3>(idx + 3) *= 10;
 			v_diff(5) *= 2;
 		} 
 	}

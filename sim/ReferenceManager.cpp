@@ -450,7 +450,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.85;
 
 	mParamCur.resize(1); // box weight, ground friction coefficient
-	mParamCur << 23 ; 
+	mParamCur << 18; 
 
 	mParamGoal.resize(1);
 	mParamGoal = mParamCur;
@@ -464,7 +464,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamBase << 8;
 
 		mParamEnd.resize(1);
-		mParamEnd << 103;
+		mParamEnd << 123;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -635,6 +635,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
 	double reward_trajectory = r_foot * r_pos * r_vel ; 
+
+	if(reward_trajectory < 0.7) return;
 
 	mLock.lock();
 
