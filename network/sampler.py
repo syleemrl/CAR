@@ -319,27 +319,23 @@ class Sampler(object):
 		if self.n_exploit < 10:
 			return False
 
-		##########BASELINE
-		if self.v_mean > 16:
-			return True
-		##########OURS
-		# if self.use_table:
-		# 	v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
-		# 	count = 0
-		# 	mean = 0
-		# 	for i in range(len(self.vp_dict[v_key])):
-		# 		mean += self.vp_dict[v_key][i][1]
-		# 		count += 1
-			
-		# 	if count != 0:
-		# 		mean /= count
-
-		# 	print(v_key, p_mean, mean)
-		# 	if p_mean <= mean + 0.5:
-		# 		return True
-		# else:
-		# 	print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
-		# 	if (p_mean + 1e-3) - p_mean_prev * 0.9 < 0:
-		# 		return True
+		if self.use_table:
+			v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
+			count = 0
+			mean = 0
+			if v_key in self.vp_dict:
+				for i in range(len(self.vp_dict[v_key])):
+					mean += self.vp_dict[v_key][i][1]
+					count += 1
+				
+				if count != 0:
+					mean /= count			
+			print((self.v_mean - self.delta), p_mean, mean)
+			if p_mean <= mean + 0.5:
+				return True
+		else:
+			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
+			if (p_mean + 1e-3) - p_mean_prev * 0.9 < 0:
+				return True
 
 		return False

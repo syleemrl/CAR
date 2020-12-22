@@ -142,9 +142,8 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.5, -3.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
-
-	/////BASELINE
-	mAdaptiveStep = 1;
+	// /////BASELINE
+	// mAdaptiveStep = 1;
 	// if(!isAdaptive)
 	// 	mAdaptiveStep = 1;
 
@@ -521,7 +520,7 @@ GetSimilarityReward()
 		} 
 	}
 	double footSlide = 0;
-	if(mCurrentFrameOnPhase >= 39){
+	if(mCurrentFrameOnPhase >= 41){
 		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
 		lf /= 2.0;
@@ -537,8 +536,7 @@ GetSimilarityReward()
 
 		footSlide += foot_diff.segment<3>(0).norm() + foot_diff.segment<3>(3).norm();
 		mCountSlide += 1;
-		stickRightFoot = rf;
-		stickLeftFoot = lf;
+	
 	} else if(mCurrentFrameOnPhase >= 35) {
 		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
@@ -571,7 +569,26 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 30 && mControlFlag[0] == 0) {
+	if(mCurrentFrameOnPhase >= 26 && mControlFlag[0] == 0) {
+		Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
+		Eigen::Vector3d m_diff = momentumGoal - mMomentum;
+		m_diff *= 0.1;
+		m_diff(1) *= 4;
+
+		double r_m = exp_of_squared(m_diff, 1.5); 
+		if(r_m < 0.4) {
+			mParamCur(0) = -5;
+		} else {
+			mParamCur(0) = mParamGoal(0);
+		}
+		mFitness.sum_reward = (0.7 + 0.3 * r_m);
+		r_param = 0.6 * r_m;
+
+		mControlFlag[0] = 1;
+		if(mRecord) {
+			std::cout << "momentum: " << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_m << std::endl;
+		}
+	} if(mCurrentFrameOnPhase >= 30 && mControlFlag[0] == 1) {
 		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
@@ -585,44 +602,36 @@ GetParamReward()
 		mCountContact += 1;
 
 		if(mCurrentFrameOnPhase >= 44) {
-			// double r_c = exp(-mCondiff * 10);
 
-			/////BASELINE
-			Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
-			Eigen::Vector3d m_diff = momentumGoal - mMomentum;
-			m_diff *= 0.1;
-			m_diff(1) *= 4;
-
-			double r_m = exp_of_squared(m_diff, 1.5); 
-			if(r_m < 0.4) {
-				mParamCur(0) = -5;
-			} else {
-				mParamCur(0) = mParamGoal(0);
-			}
-			r_param = r_m;
-			mParamRewardMax = r_param;
-
+			// /////BASELINE
 			// Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
 			// Eigen::Vector3d m_diff = momentumGoal - mMomentum;
 			// m_diff *= 0.1;
 			// m_diff(1) *= 4;
 
 			// double r_m = exp_of_squared(m_diff, 1.5); 
-			// if(r_m < 0.4 || r_c < 0.4) {
+			// if(r_m < 0.4) {
 			// 	mParamCur(0) = -5;
 			// } else {
 			// 	mParamCur(0) = mParamGoal(0);
 			// }
-			// mFitness.sum_reward = r_m;
-			// r_param = 0.4 * r_c + 0.6* r_m;
+			// r_param = r_m;
+			// mParamRewardMax = r_param;
 
-			mControlFlag[0] = 1;
+			double r_c = exp(-mCondiff * 10);
+			// if(r_c < 0.4) {
+			// 	mParamCur(0) = -5;
+			// } else {
+			// 	mParamCur(0) = mParamGoal(0);
+			// }
+			r_param = 0.4 * r_c;
+			mFitness.sum_reward *= r_c;
+
+			mControlFlag[0] = 2;
 
 			if(mRecord) {
+				std::cout << "contact: " << mCondiff << " / " << r_c << std::endl;
 				std::cout << "final parameter: " <<  mParamCur.transpose() << std::endl;
-			//	std::cout << "contact: " << mCondiff << " / " << r_c << std::endl;
-				std::cout << "momentum: " << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_m << std::endl;
-
 			}
 		}
 	} 
@@ -642,17 +651,12 @@ UpdateAdaptiveReward()
 	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
-	/////OURS
-	// double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
+	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
 
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
 
-	
-	/////BASELINE
-
-	double r_tot = accum_bvh;
-	r_tot = r_tot + 2 * mParamRewardMax;
+	double r_tot = r_tracking;
 
 	// if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 38) {
 	// 	Eigen::VectorXd p_diff_bvh(15);
@@ -672,11 +676,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-	/////OURS
-		//mRewardParts.push_back(20 * r_param);
-	/////BASELINE		
-		mRewardParts.push_back(0);
-
+		mRewardParts.push_back(20 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);

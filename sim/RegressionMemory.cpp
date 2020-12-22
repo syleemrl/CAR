@@ -754,11 +754,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	double prev_max = 0;
 	bool flag = true;
 
-	////////////BASELINE
-	double update_max = 0;
-
-	////////////OURS
-	// double update_max = 1;
+	double update_max = 2;
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Param*>>> to_be_deleted;
 	for(int i = 0 ; i < checklist.size(); i++) {
 		auto iter = mGridMap.find(checklist[i]);
@@ -778,10 +774,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 						prev_max = ps[j]->reward;
 					if(ps[j]->reward < std::get<2>(candidate)) {
 						p_delete.push_back(ps[j]);
-////////////OURS
-//						if(update_max < ps[j]->update || update_max == 1)
-////////////BASELINE
-						if(update_max < ps[j]->update || update_max == 0)
+						if(update_max < ps[j]->update || update_max == 2)
 							update_max = ps[j]->update;
 					} else {
 						flag = false;
