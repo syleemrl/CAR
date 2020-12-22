@@ -89,7 +89,8 @@ protected:
 	std::vector<Eigen::VectorXd> 	mMotion_sim;
 	std::vector<Eigen::VectorXd> 	mMotion_exp;
 	std::vector<Eigen::VectorXd> 	mMotion_obj;
-	std::vector<Eigen::VectorXd> 	mMotion_points;
+	std::vector<Eigen::VectorXd> 	mMotion_points_left;
+	std::vector<Eigen::VectorXd> 	mMotion_points_right;
 	std::vector<double>				mTiming; // Controller->GetCurrentLength()
 
 

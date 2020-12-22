@@ -90,7 +90,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	void SetSkeletonWeight(double mass);
 
 	Eigen::Isometry3d getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel);
-
+	// Eigen::Vector3d getConstraintPoint(bool left){ if (left) return dbg_LeftConstraintPoint; else return dbg_RightConstraintPoint;}
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -202,6 +202,14 @@ protected:
 	Fitness mFitness;
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+
+	Eigen::Vector6d mRootZero;
+	Eigen::Vector6d mDefaultRootZero;
+	Eigen::Vector3d mStartRoot; //root 0th frame
+	Eigen::Vector3d mRootZeroDiff; //root 0th frame
+	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
+	std::vector<double> foot_diff;
+
 };
 }
 #endif

@@ -415,7 +415,7 @@ RunPPO() {
 		this->mController->SetAction(action);
 		this->mController->Step();
 		this->mTiming.push_back(this->mController->GetCurrentLength());
-
+		
 		count += 1;
 	}
 
@@ -1011,9 +1011,11 @@ UpdateMotion(std::vector<Eigen::VectorXd> motion, int type)
 	else if(type == 3) {
 		mMotion_exp = motion;	
 	} else if(type == 4) {
-		mMotion_points = motion;
+		mMotion_points_left = motion;
 	} else if(type == 5){
 		mMotion_obj = motion;
+	} else if(type == 6){
+		mMotion_points_right = motion;
 	}
 	mCurFrame = 0;
 	if(mTotalFrame == 0)
