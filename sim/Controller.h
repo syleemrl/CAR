@@ -181,6 +181,10 @@ protected:
 	std::queue<double> mTimeQueue;
 
 	Eigen::VectorXd mSumTorque;
+	Eigen::Vector3d stickLeftFoot;
+	Eigen::Vector3d stickRightFoot;
+	int mCountSlide;
+	double mParamRewardMax;
 /////////////////////////////////////////////////
 // for action parameter design
 	double mVelocity;

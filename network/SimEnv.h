@@ -44,7 +44,7 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 	np::ndarray GetParamGoal();
-	np::ndarray UniformSample(bool visited);
+	np::ndarray UniformSample(int visited);
 	np::ndarray UniformSampleWithConstraints(double d0, double d1);
 
 	void LoadAdaptiveMotion();
@@ -66,7 +66,7 @@ public:
 	p::list GetNearestParams(np::ndarray np_array);
 	p::list GetExplorationRate();
 
-
+	double GetFitnessMean();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;

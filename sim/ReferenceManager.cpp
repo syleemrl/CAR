@@ -428,24 +428,29 @@ ReferenceManager::
 InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
-	
-	mThresholdTracking = 0.8;
+
+	/////BASELINE
+	mThresholdTracking = 0.6;
+
+	/////OURS
+	// mThresholdTracking = 0.8;
+
 
 	mParamCur.resize(1);
-	mParamCur << 1.0;
+	mParamCur << 0.0;
 
 	mParamGoal.resize(1);
-	mParamGoal << 1.0;
+	mParamGoal << 0.0;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(1);
 		paramUnit<< 0.1;
 
 		mParamBase.resize(1);
-		mParamBase << 0.2;
+		mParamBase << -2.0;
 
 		mParamEnd.resize(1);
-		mParamEnd << 1.5;
+		mParamEnd << 0.5;
 
 		// mParamBase.resize(2);
 		// mParamBase << 0.5, 0.5;
@@ -523,10 +528,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
-	if(std::get<2>(rewards).sum_contact > 0.4) {
-		return;
-	}
 
+	// if(std::get<2>(rewards).sum_contact > 0.6) {
+	// 	return;
+	// }
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 
 	std::vector<Eigen::VectorXd> trajectory;
@@ -596,18 +601,26 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd d_t(mDOF + 1);
-		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
+
+		/////OURS
+		//d_t << displacement[i].first, data_uniform[i].first.tail<1>();
+		
+		/////BASELINE
+		d_t.setZero();
+
 		d.push_back(d_t);
 	}
 
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact*0.6); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
+	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2.0);
+	double reward_trajectory = r_foot * r_pos * r_vel * r_slide;
+	reward_trajectory = 1;
 
-	double reward_trajectory = r_foot * r_pos * r_vel;
-	if(reward_trajectory < 0.55)
-		return;
-
+	/////OURS
+	// if(reward_trajectory < 0.55)
+	// 	return;
 	if(std::get<2>(rewards).sum_reward != 0) {
 		reward_trajectory = reward_trajectory * (0.95 + 0.05 * std::get<2>(rewards).sum_reward);
 	}

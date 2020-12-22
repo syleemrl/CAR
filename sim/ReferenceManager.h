@@ -18,6 +18,8 @@ struct Fitness
 	double sum_pos;
 	double sum_vel;
 	double sum_reward;
+	double sum_slide;
+
 };
 class Motion
 {

@@ -588,8 +588,8 @@ class PPO(object):
 					elif t == 1:
 						it_cur = 0
 					
-					# if self.env.needEvaluation():
-					# 	self.eval(30)
+					if self.env.needEvaluation():
+						self.eval(30)
 				elif self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					self.env.updateReference()

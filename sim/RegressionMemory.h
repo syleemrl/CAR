@@ -57,7 +57,7 @@ public:
 	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
-	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
+	std::pair<Eigen::VectorXd , bool> UniformSample(int visited);
 	std::pair<Eigen::VectorXd , bool> UniformSample(double d0, double d1);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
 
@@ -103,7 +103,7 @@ public:
 		   std::vector<double>, 
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
-
+	double GetFitnessMean();
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
