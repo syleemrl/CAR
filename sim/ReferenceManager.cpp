@@ -319,6 +319,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 
 				pos = p_phase[phase]->GetPosition(); 
 				pos.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
+				pos(4) = p_phase[phase]->GetPosition()(4);
 				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 
 			} else {
@@ -605,12 +606,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2.0);
-	double reward_trajectory = r_foot * r_pos * r_vel * r_slide;
-	// if(std::get<2>(rewards).sum_reward != 0) {
-	// 	reward_trajectory = reward_trajectory * (0.8 + 0.2 * std::get<2>(rewards).sum_reward);
-	// }
-	// if(reward_trajectory < 0.5)
-	// 	return;
+	double reward_trajectory = r_pos * r_vel * r_slide;
+	if(std::get<2>(rewards).sum_reward != 0) {
+		reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
+	}
+	if(reward_trajectory < 0.5)
+		return;
 
 	mLock.lock();
 

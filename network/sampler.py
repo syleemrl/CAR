@@ -13,7 +13,7 @@ class Sampler(object):
 		self.v_mean_boundary = 0.0
 		self.random = True
 
-		self.k = 5
+		self.k = 8
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -254,7 +254,8 @@ class Sampler(object):
 
 	def resetExploit(self):
 		self.n_exploit = 0
-		self.prev_progress = np.array(self.progress_queue_exploit).mean()
+		self.prev_progress_ex = np.array(self.progress_queue_exploit).mean()
+		self.prev_queue_exploit = copy(self.progress_queue_exploit)
 		self.progress_queue_exploit = []
 		self.v_mean = 0
 		self.printExplorationRateData()
