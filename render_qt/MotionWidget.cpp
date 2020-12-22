@@ -419,13 +419,13 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
-		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		pos_reg.push_back(position_reg);
 		pos_sim.push_back(position);
 		pos_bvh.push_back(position_bvh);
 		
 		#ifdef OBJECT_TYPE
+		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 		pos_obj.push_back(position_obj);
 		#endif
 	}
