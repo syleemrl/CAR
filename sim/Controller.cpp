@@ -749,6 +749,35 @@ UpdateTerminalInfo()
 	// 	}
 	// 	// std::cout<<"foot: "<<(lf[1]-mParamGoal[0])<<" "<<(rf[1]-mParamGoal[0])<<std::endl;
 	// }
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
+	if(mParamGoal[0]< 0.1 && mCurrentFrameOnPhase >=70){
+
+		if(!mLanded){
+			bool lf_ground = CheckCollisionWithGround("LeftFoot") ||CheckCollisionWithGround("LeftToe"); 
+			bool rf_ground = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
+			mLanded = lf_ground || rf_ground;			
+		}
+
+		if(mLanded){
+			Eigen::Vector3d lt= mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+			Eigen::Vector3d rt= mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+			double box_z= mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[2];
+			bool left_stepon = (lt[2] >= box_z-0.25) && (lt[2] <= box_z+0.25);
+			bool right_stepon = (rt[2] >= box_z-0.25) && (rt[2] <= box_z+0.25);
+
+			// std::cout<<mCurrentFrame<<"/ box_z : "<<box_z<<", lf: "<<lt[2]<<"/ rf: "<<rf[2]<<std::endl;
+			if(!left_stepon || !right_stepon) {
+				mIsTerminal = true;
+				terminationReason = 14;
+			}
+
+		}
+	}
+
 
 	bool lh_ground = CheckCollisionWithGround("LeftHand");
 	bool rh_ground = CheckCollisionWithGround("RightHand");
@@ -782,8 +811,8 @@ UpdateTerminalInfo()
 		terminationReason = 1;
 	}
 
-	double cur_root_limit = TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
-	if(!mRecord && root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+	double cur_root_limit = std::abs(mParamGoal[0])+ TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
+	if(!mRecord && root_y > cur_root_limit){
 		mIsTerminal = true;
 		terminationReason = 1;
 	}
@@ -801,9 +830,6 @@ UpdateTerminalInfo()
 		if(mIsTerminal) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
 	}
 
-	skel->setPositions(p_save);
-	skel->setVelocities(v_save);
-	skel->computeForwardKinematics(true,true,false);
 
 }
 bool
