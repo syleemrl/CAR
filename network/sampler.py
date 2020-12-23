@@ -332,7 +332,7 @@ class Sampler(object):
 				if count != 0:
 					mean /= count			
 			print((self.v_mean - self.delta), p_mean, mean)
-			if p_mean <= mean + 0.5:
+			if p_mean <= mean:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)

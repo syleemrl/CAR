@@ -507,18 +507,39 @@ GetSimilarityReward()
 	for(int i =0 ; i < vel.rows(); i++) {
 		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
 	}
+	// if(mCurrentFrame < mReferenceManager->GetPhaseLength()) {
+	// 	std::cout << mCurrentFrameOnPhase << std::endl;
+	// }
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
+		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.compare("Hips") == 0) {
+		// 	std::cout << name << " : " << p_diff.segment<6>(0).transpose() << " / " << v_diff.segment<6>(0).transpose() << std::endl;
+		// }
+		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Spine") != std::string::npos) {
+		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
+		// }
+		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Shoulder") != std::string::npos) {
+		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
+		// }
+		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Leg") != std::string::npos) {
+		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
+		// }
+		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Arm") != std::string::npos) {
+		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
+		// }
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<2>(idx + 1) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
+			p_diff(4) *= 0;
 			v_diff.segment<3>(idx + 3) *= 5;
+			v_diff(4) *= 0;
 		} else if(name.compare("Spine") == 0 ) {
 			p_diff.segment<2>(idx + 1) *= 3;
 			v_diff.segment<2>(idx + 1) *= 3;
 		} 
 	}
+
 	double footSlide = 0;
 	if(mCurrentFrameOnPhase >= 41){
 		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
@@ -603,27 +624,27 @@ GetParamReward()
 
 		if(mCurrentFrameOnPhase >= 44) {
 
-			// /////BASELINE
-			// Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
-			// Eigen::Vector3d m_diff = momentumGoal - mMomentum;
-			// m_diff *= 0.1;
-			// m_diff(1) *= 4;
+			// // /////BASELINE
+			// // Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
+			// // Eigen::Vector3d m_diff = momentumGoal - mMomentum;
+			// // m_diff *= 0.1;
+			// // m_diff(1) *= 4;
 
-			// double r_m = exp_of_squared(m_diff, 1.5); 
-			// if(r_m < 0.4) {
-			// 	mParamCur(0) = -5;
-			// } else {
-			// 	mParamCur(0) = mParamGoal(0);
-			// }
-			// r_param = r_m;
-			// mParamRewardMax = r_param;
+			// // double r_m = exp_of_squared(m_diff, 1.5); 
+			// // if(r_m < 0.4) {
+			// // 	mParamCur(0) = -5;
+			// // } else {
+			// // 	mParamCur(0) = mParamGoal(0);
+			// // }
+			// // r_param = r_m;
+			// // mParamRewardMax = r_param;
 
 			double r_c = exp(-mCondiff * 10);
-			// if(r_c < 0.4) {
-			// 	mParamCur(0) = -5;
-			// } else {
-			// 	mParamCur(0) = mParamGoal(0);
-			// }
+			if(r_c < 0.4) {
+				mParamCur(0) = -5;
+			} else {
+				mParamCur(0) = mParamGoal(0);
+			}
 			r_param = 0.4 * r_c;
 			mFitness.sum_reward *= r_c;
 

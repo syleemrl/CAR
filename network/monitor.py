@@ -231,7 +231,7 @@ class Monitor(object):
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
 			if self.num_evaluation >= 20 and self.sampler.n_explore >= 10 and \
-			   np.array(self.sampler.progress_queue_explore).mean() < np.array(self.sampler.progress_queue_exploit).mean() - 0.5:
+			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9:
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.resetExploit()

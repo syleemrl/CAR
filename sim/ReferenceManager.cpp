@@ -333,7 +333,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, p_gen.back()->GetPosition()) / 0.033;
 			p_gen.back()->SetVelocity(vel);
 			p_gen.push_back(new Motion(pos, vel));
-
+	
 			if(blend && phase == mBlendingInterval) {
 				for(int j = 2 * mBlendingInterval - 1; j > 0; j--) {
 					double weight = 1.0 - j / (double)(2 * mBlendingInterval);
@@ -610,7 +610,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(std::get<2>(rewards).sum_reward != 0) {
 		reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
 	}
-	if(reward_trajectory < 0.5)
+	// std::cout << r_pos << " " << r_vel << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory << std::endl;
+	if(reward_trajectory < 0.3)
 		return;
 
 	mLock.lock();
