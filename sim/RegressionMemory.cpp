@@ -56,13 +56,13 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.2;
+	mRadiusNeighbor = 0.15;
 	mThresholdInside = 0.7;
 	mRangeExplore = 0.4;
-	mUpdateInterval = 5;
+	mUpdateInterval = 2;
 	mThresholdActivate = 3;
 
-	for(int i = 0; i < 2; i++) {
+	for(int i = 0; i < 5; i++) {
 		mParamBVH = new Param();
 		mParamBVH->cps.clear();
 		for(int i = 0; i < mNumKnots; i++) {
@@ -818,9 +818,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && to_be_deleted.size() == 0) {
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && to_be_deleted.size() == 0) {
 			mNewSamplesNearGoal += 1;
-		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
+		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && p->reward >= prev_max + 0.01) {
 			mUpdatedSamplesNearGoal += 1;
 		}
 
@@ -900,7 +900,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*ps[i].second->reward;
-
+		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << std::endl;
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		// } else {

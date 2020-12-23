@@ -9,7 +9,7 @@ class Sampler(object):
 		self.sim_env = sim_env
 		self.dim = dim
 		
-		self.v_mean = 1.0
+		self.v_mean = 0.0
 		self.v_mean_boundary = 0.0
 		self.random = True
 
@@ -36,7 +36,7 @@ class Sampler(object):
 
 		self.eval_target_v = 0
 
-		self.progress_queue_exploit = [5.0]
+		self.progress_queue_exploit = [10.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -118,6 +118,7 @@ class Sampler(object):
 			while len(self.sample) < 10:
 				t = self.randomSample(False) 
 				self.sample.append(t)
+
 	def saveProgress(self, mode):
 		plist = self.sim_env.GetExplorationRate()
 		p = plist[0] + plist[1]
@@ -159,6 +160,13 @@ class Sampler(object):
 			if mode == 2 and self.n_evaluation == 3:
 				self.evaluation_done = True
 				self.printExplorationRateData()
+			if len(self.progress_queue_explore) < 5 and self.v_mean != 0:
+				if len(self.progress_queue_explore) == 1:
+					self.delta = self.v_mean - np.array(results).mean()
+					print('new delta :', self.delta)
+				else:
+					self.delta = 0.9 * self.delta + 0.1 * (self.v_mean - np.array(results).mean())
+					print('delta updated:', self.delta)
 		elif mode == 1:		
 			if len(self.progress_queue_exploit) >= 10:
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
@@ -259,6 +267,7 @@ class Sampler(object):
 		self.v_list_explore = []
 		self.p_list_explore = []
 		self.sample_counter = 0 
+		self.delta = 0
 
 	def sampleBatch(self, type_explore):
 		self.sample = []
@@ -315,21 +324,24 @@ class Sampler(object):
 			return False
 
 		if self.use_table:
-			v_key = math.floor(self.v_mean * 1 / self.unit)
+			v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
 			count = 0
 			mean = 0
-			for n in range(5):
-				if v_key + n in self.vp_dict:
-					for i in range(len(self.vp_dict[v_key + n])):
-						if abs(self.v_mean - self.vp_dict[v_key + n][i][0]) < self.distance:
-							mean += self.vp_dict[v_key + n][i][1]
-							count += 1
-			
+			# for n in range(5):
+			# 	if v_key + n in self.vp_dict:
+			# 		for i in range(len(self.vp_dict[v_key + n])):
+			# 			if abs(self.v_mean - self.vp_dict[v_key + n][i][0]) < self.distance:
+			# 				mean += self.vp_dict[v_key + n][i][1]
+			# 				count += 1
+			for i in range(len(self.vp_dict[v_key])):
+				mean += self.vp_dict[v_key][i][1]
+				count += 1	
+
 			if count != 0:
 				mean /= count
 
 			print(p_mean, mean)
-			if p_mean < mean:
+			if p_mean <= mean + 0.5:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)

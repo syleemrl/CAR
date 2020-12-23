@@ -137,6 +137,10 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
+
+	//for ablation
+	// mAdaptiveStep = 1;
+
 	// if(!isAdaptive)
 	// 	mAdaptiveStep = 1;
 
@@ -710,7 +714,10 @@ UpdateAdaptiveReward()
 	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
-	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
+	//double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
+	//for ablation
+	double r_tracking = accum_bvh;
+
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
 

@@ -225,7 +225,7 @@ class Monitor(object):
 			self.sim_env.SaveParamSpace(-1)
 
 		# if self.mode == 0:
-		# 	if self.num_evaluation >= 30:
+		# 	if self.mode_counter >= 30:
 		# 		self.mode = 1
 		# 		self.mode_counter = 0
 		# 		self.sampler.resetExploit()
