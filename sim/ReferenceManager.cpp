@@ -288,6 +288,8 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 	T01.translation()[1] = 0;
 
 	int smooth_time = 10;
+	blend = true;
+	mBlendingInterval = 10;
 	for(int i = 0; i < frames; i++) {
 		
 		int phase = i % mPhaseLength;
@@ -432,9 +434,9 @@ ResetOptimizationParameters(bool reset_displacement) {
 
 	}
 	
-	if(isParametric) {
-		mRegressionMemory->ResetExploration();
-	}
+	// if(isParametric) {
+	// 	mRegressionMemory->ResetExploration();
+	// }
 
 	mMeanTrackingReward = 0;
 	mMeanParamReward = 0;
@@ -447,7 +449,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
-	mThresholdTracking = 0.85;
+	mThresholdTracking = 0.8;
 
 	mParamCur.resize(1); // box weight, ground friction coefficient
 	mParamCur << 18; 
@@ -458,13 +460,13 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(1);
-		paramUnit << 5;
+		paramUnit << 10;
 
 		mParamBase.resize(1);
 		mParamBase << 8;
 
 		mParamEnd.resize(1);
-		mParamEnd << 123;
+		mParamEnd << 208;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -529,6 +531,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
 
+	if(std::get<2>(rewards).sum_fall > 0.15)
+		return;
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
@@ -582,7 +586,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 			double weight = 1.0 - (mPhaseLength + i - data_raw[size-1].second) / (mPhaseLength + data_raw[count].second - data_raw[size-1].second);
 			double t1 = data_raw[count+1].second - data_raw[count].second;
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[size-1].first, data_raw[0].first, weight);
-			p_blend.segment<3>(3) = data_raw[0].first.segment<3>(3);
+			p_blend.segment<6>(0) = data_raw[0].first.segment<6>(0);
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
 		} else if(count == data_raw.size() - 1 && i > data_raw[count].second) {
@@ -591,7 +595,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 			double t1 = data_raw[1].second - data_raw[0].second;
 			
 			Eigen::VectorXd p_blend = DPhy::BlendPosition(data_raw[count].first, data_raw[0].first, weight);
-			p_blend.segment<3>(3) = data_raw[count].first.segment<3>(3);
+			p_blend.segment<6>(0) = data_raw[count].first.segment<6>(0);
 	
 			double t_blend = (1 - weight) * t0 + weight * t1;
 			p << p_blend, log(t_blend);
@@ -635,8 +639,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
 	double reward_trajectory = r_foot * r_pos * r_vel ; 
-
-	if(reward_trajectory < 0.7) return;
+	if(std::get<2>(rewards).sum_reward != 0) {
+		reward_trajectory = 0.7 * reward_trajectory + 0.3 * std::get<2>(rewards).sum_reward;
+	}
+	// if(reward_trajectory < 0.7) return;
 
 	mLock.lock();
 

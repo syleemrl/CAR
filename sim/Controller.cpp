@@ -170,6 +170,8 @@ Step()
 	if(IsTerminalState())
 		return;
 
+
+
 	Eigen::VectorXd s = this->GetState();
 
 	Eigen::VectorXd a = mActions;
@@ -199,7 +201,7 @@ Step()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
@@ -284,6 +286,7 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
+			mFitness.sum_fall /= mCountFall;
 			// mFitness.sum_slide/= mCountTracking;
 
 			// std::cout<<mCurrentFrame<<" : "<<mTrackingRewardTrajectory<<std::endl;
@@ -300,7 +303,9 @@ Step()
 			mFitness.sum_vel.resize(skel->getNumDofs());
 			mFitness.sum_pos.setZero();
 			mFitness.sum_vel.setZero();
-
+			mFitness.sum_reward = 0;
+			mFitness.sum_fall = 0;
+			
 			mTrackingRewardTrajectory = 0;
 			mParamRewardTrajectory = 0;
 
@@ -313,6 +318,10 @@ Step()
 			foot_diff.clear();	
 			pr_calculated = false;
 
+			mCountFall = 0;
+			mRootFall = 0;
+			mStickFoot = 0;
+
 		}
 
 		#ifdef OBJECT_TYPE
@@ -323,6 +332,7 @@ Step()
 		Eigen::VectorXd obj_pos(box_dof);
 		obj_pos.setZero();
 		obj_pos[box_dof-1]= root_diff[2]; // z-direction
+		obj_pos[box_dof-3] = root_diff[0];
 
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -402,7 +412,12 @@ ClearRecord()
 	mCountParam = 0;
 	mCountTracking = 0;
 	data_raw.clear();
+	mFitness.sum_reward = 0;
 
+	mCountFall = 0;
+	mRootFall = 0;
+	mStickFoot = 0;
+	mFitness.sum_fall = 0;
 	// mEnergy.setZero();
 	// mVelocity = 0;
 	// mPrevVelocity = 0;
@@ -629,16 +644,20 @@ GetSimilarityReward()
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("LeftHand")==0 ||name.compare("RightHand")==0){
 			p_diff.segment<3>(idx) *= 5;
-			p_diff.segment<3>(idx + 3) *= 10;
 			// v_diff.segment<3>(idx) *= 5;
 			// v_diff.segment<3>(idx + 3) *= 10;
 		}
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx) *= 5;
-			p_diff.segment<3>(idx + 3) *= 10;
+			p_diff.segment<3>(idx) *= 2;
+			p_diff.segment<3>(idx + 3) *= 5;
+			if(mCurrentFrameOnPhase >= 215) {
+				p_diff.segment<3>(idx) *= 5;
+				p_diff.segment<3>(idx + 3) *= 5;
+				mFitness.sum_fall += p_aligned(0);
+				mCountFall += 1;
+			}
 			// v_diff.segment<3>(idx) *= 5;
 			// v_diff.segment<3>(idx + 3) *= 10;
-			v_diff(5) *= 2;
 		} 
 	}
 
@@ -667,10 +686,14 @@ GetParamReward()
 		double distance_diff= travel_distance - (4-0.7);
 		r_param = exp_of_squared(distance_diff, 0.65);
 
-		mParamCur = mParamGoal;
+		if(abs(distance_diff) < 0.5) {
+			mParamCur = mParamGoal;
+		} else {
+			mParamCur(0) = -1;
+		}
 		pr_calculated = true;
 
-		if(mRecord) std::cout<<travel_distance<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
+		if(mRecord) std::cout<<travel_distance<<"/ goal: " <<mParamGoal<<"/ cur: "<<mParamCur.transpose()<<" / r: "<<r_param<<std::endl;
 	}
 
 	return r_param;
@@ -688,10 +711,10 @@ UpdateAdaptiveReward()
 	double time_diff = (mAdaptiveStep) - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
-	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
+	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
-	double r_tot = r_tracking ;
+	double r_tot = r_tracking;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
@@ -798,7 +821,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 4+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 2+ 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -808,7 +831,17 @@ UpdateTerminalInfo()
 	// 	mIsTerminal = true;
 	// 	terminationReason = 9;
 	// }
+	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
+	double lf_z = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[2];
+	lf_z = std::max(skel->getBodyNode("LeftToe")->getWorldTransform().translation()[2], lf_z);
 
+	double rf_z = 0.5 * skel->getBodyNode("RightFoot")->getWorldTransform().translation()[2];
+	rf_z = std::max(skel->getBodyNode("RightToe")->getWorldTransform().translation()[2], rf_z);
+
+	// if(mCurrentFrameOnPhase >= 40 &&  mCurrentFrameOnPhase <= 200 && (lf_z + 0.15 > box_end_z || rf_z + 0.15 > box_end_z)) {
+	// 	mIsTerminal = true;
+	// 	terminationReason = 10;
+	// }
 	if(impulse_on_wrong_body > 10){
 		mIsTerminal = true;
 		terminationReason = 10;
@@ -995,6 +1028,8 @@ Reset(bool RSI)
 	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
+
+	// std::cout<<"RSI : "<<mCurrentFrame<<std::endl;
 }
 int
 Controller::
@@ -1191,7 +1226,7 @@ GetState()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
 	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
@@ -1303,4 +1338,6 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
 	ofs.close();
 }
+
+
 }

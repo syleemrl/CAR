@@ -44,7 +44,8 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 	np::ndarray GetParamGoal();
-	np::ndarray UniformSample(bool visited);
+	np::ndarray UniformSample(int visited);
+	np::ndarray UniformSampleWithConstraints(double d0, double d1);
 
 	void LoadAdaptiveMotion();
 	void TrainRegressionNetwork();
@@ -52,11 +53,20 @@ public:
 	double GetPhaseLength();
 	int GetDOF();
 	
-	void SetGoalParameters(np::ndarray np_array, bool visited);
-	bool NeedExploration();
+	void SetGoalParameters(np::ndarray np_array, bool mem_only);
 	void UpdateReference();
 	void SaveParamSpace(int n);
 	void SaveParamSpaceLog(int n);
+
+	double GetVisitedRatio();
+	double GetDensity(np::ndarray np_array);
+	void UpdateParamState();
+
+	p::list GetParamSpaceSummary();
+	p::list GetNearestParams(np::ndarray np_array);
+	p::list GetExplorationRate();
+
+	double GetFitnessMean();
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;
@@ -66,7 +76,6 @@ private:
 	int mNumSlaves;
 	int mNumState;
 	int mNumAction;
-	bool mNeedExploration;
 	
 	p::object mRegression;
 

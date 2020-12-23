@@ -301,41 +301,44 @@ void
 MotionWidget::
 UpdateParam(const bool& pressed) {
 	if(mRunReg) {
-		Eigen::VectorXd tp(2);
+		Eigen::VectorXd tp(1);
 		std::cout<<"MW / "<<v_param.transpose()<<std::endl;
-		tp << v_param(0)*0.1, v_param(1)*0.1;
+		tp << v_param(0)*0.05;
 		std::cout<<tp.transpose()<<" / ";
 
 		Eigen::VectorXd tp_denorm_raw = mRegressionMemory->Denormalize(tp);
 
-	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
-	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
+	    // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
+	    // Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    
 	    // Eigen::VectorXd tp_denorm = tp_denorm_raw;
 
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
-	    std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
+	    std::cout << tp.transpose() <<"/"<<tp_denorm_raw.transpose()<< " / d: " << d << std::endl;
 
 
-	    std::vector<Eigen::VectorXd> cps;
-	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
-	        cps.push_back(Eigen::VectorXd::Zero(dof));
-	    }
-	    for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	        Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
-	        input << j, tp;
-	        p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
+	    // std::vector<Eigen::VectorXd> cps;
+	    // for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
+	    //     cps.push_back(Eigen::VectorXd::Zero(dof));
+	    // }
+	    // for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
+	    //     Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
+	    //     input << j, tp;
+	    //     p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
 	    
-	        np::ndarray na = np::from_object(a);
-	        cps[j] = DPhy::toEigenVector(na, dof);
-	    }
+	    //     np::ndarray na = np::from_object(a);
+	    //     cps[j] = DPhy::toEigenVector(na, dof);
+	    // }
 
-	    mReferenceManager->LoadAdaptiveMotion(cps);
+	    // mReferenceManager->LoadAdaptiveMotion(cps);
 
 	    double phase = 0;
 
 	    if(!mRunSim) {
+     	
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm_raw);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
 		    ///// REGRESSION MOTION UPDATE
 		    std::vector<Eigen::VectorXd> pos;
 		    double phase = 0;
@@ -363,7 +366,7 @@ UpdateParam(const bool& pressed) {
 
 		    //// BLEND MOTION UPDATE
 		    pos.clear();
-		   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+		   	cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm_raw);
 		    mReferenceManager->LoadAdaptiveMotion(cps);
 
 		    phase = 0;
@@ -385,14 +388,14 @@ UpdateParam(const bool& pressed) {
 	     	// mController->SetGoalParameters(tp_denorm);
 	     	mController->SetGoalParameters(tp_denorm_raw);
 	     	
-		    // std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-		    // mReferenceManager->LoadAdaptiveMotion(cps);
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm_raw);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
 
 
-		mPoints= Eigen::Vector3d(0, tp_denorm[0], tp_denorm[1]); //height: min(foot), distance(com)
-		mPoints[0]+=2.25;
+		// mPoints= Eigen::Vector3d(0, tp_denorm[0], tp_denorm[1]); //height: min(foot), distance(com)
+		// mPoints[0]+=2.25;
 
 	    Eigen::VectorXd restore = mSkel_exp->getPositions();
 	    Eigen::VectorXd targetPose= mReferenceManager->GetPosition(41, true);

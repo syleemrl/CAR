@@ -18,6 +18,9 @@ struct Fitness
 	Eigen::VectorXd sum_pos;
 	Eigen::VectorXd sum_vel;
 	double sum_slide;
+	double sum_reward;
+	double sum_fall;
+
 };
 class Motion
 {

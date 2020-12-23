@@ -207,6 +207,12 @@ protected:
 	bool pr_calculated= false;
 
 	double impulse_on_wrong_body = 0;
+
+	double mCountFall;
+	double mRootFall;
+	double mStickFoot;
+
+
 };
 }
 #endif

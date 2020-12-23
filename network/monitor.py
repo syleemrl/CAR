@@ -8,7 +8,17 @@ import numpy as np
 import copy
 from utils import RunningMeanStd
 from IPython import embed
-
+import os
+def vector_to_str(vec):
+	s = ''
+	for v in vec:
+		s += str(v) + ' '
+	return s
+def matrix_to_str(mat):
+	s = ''
+	for m in mat:
+		s += '(' + vector_to_str(m) + ')'
+	return s
 class Monitor(object):
 	def __init__(self, ref, num_slaves, directory, adaptive, parametric, plot=True, verbose=True):
 		self.env = Env(ref, directory, adaptive, parametric, num_slaves)
@@ -50,12 +60,12 @@ class Monitor(object):
 
 		self.phaselength = self.sim_env.GetPhaseLength()
 		self.dim_param = len(self.sim_env.GetParamGoal())
-		self.sampler = Sampler(self.sim_env, self.dim_param, self.directory)
+		self.sampler = Sampler(self.sim_env, self.dim_param)
 
-		self.mode = 0
 		self.mode_counter = 0
-		self.flag_updated = False
-		self.exploration_done = False
+		self.v_ratio = 0
+		self.mode = 0
+		self.mode_eval = False
 
 		if self.plot:
 			plt.ion()
@@ -75,17 +85,12 @@ class Monitor(object):
 				return False
 		return True 
 	
-	def reset(self, i, b=False):
+	def reset(self, i, b=True):
 		self.env.reset(i, b)
 		state = np.array([self.sim_env.GetState(i)])
 		self.states[i] = self.RMS.apply(state)[0]
 		self.terminated[i] = False
 		self.prevframes[i] = 0
-
-	def stepForEval(self, action, i):
-		s, r, t =  self.env.stepForEval(action, i)
-		states_updated = self.RMS.apply(s.reshape(1, -1))
-		return states_updated, r, t
 
 	def step(self, actions, record=True):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
@@ -114,73 +119,189 @@ class Monitor(object):
 
 						if frames[i] > self.max_episode_length:
 							self.max_episode_length = frames[i]
-
-			if self.adaptive:
-				rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
-			else:	
-				rewards = [rewards[i][0] for i in range(len(rewards))]
-				
 			self.prevframes = curframes
 
+		if self.adaptive:
+			rewards = [[rewards[i][0], rewards[i][1]] for i in range(len(rewards))]
+		else:	
+			rewards = [rewards[i][0] for i in range(len(rewards))]
+				
 		return rewards, dones, curframes, params
 
 	def updateReference(self):
-		self.mode_counter += 1
-		if self.mode_counter % 10 == 0:
+		self.num_evaluation += 1
+		if self.num_evaluation % 2 == 0:
+			self.sim_env.UpdateParamState()
+		if self.num_evaluation % 10 == 0:
 			self.sim_env.SaveParamSpace(-1)
 			self.env.sim_env.UpdateReference()
 			self.sim_env.TrainRegressionNetwork()
-
-	def updateMode(self, v_func):
-		mode_change = -1
-		self.mode_counter += 1
-		if self.num_evaluation % 50 == 0:
-			self.sim_env.SaveParamSpace(self.num_evaluation)
-		if self.mode == 0:
-			if self.mode_counter % 10 == 0:
-				self.sim_env.SaveParamSpace(-1)
-				self.sampler.reset_explore()
-			if self.mode_counter >= 20 or not self.sim_env.NeedExploration():
-				self.sim_env.TrainRegressionNetwork()
-				self.mode = 1
-				self.mode_counter = 0
-				self.sampler.reset_visit()
-				mode_change = 1
-		else:
-			if self.mode_counter % 10 == 0:
-				self.sim_env.SaveParamSpace(-1)
-				self.sim_env.TrainRegressionNetwork()
-			enough = self.sampler.isEnough(v_func)
-			if enough and self.sim_env.NeedExploration():
-				self.mode = 0
-				self.mode_counter = 0
-				self.sampler.reset_explore()
-				mode_change = 0
-			elif enough and not self.sim_env.NeedExploration():
-				mode_change = 999
-				print("training done")
-		return mode_change
 	
-	def updateCurriculum(self, v_func, v_func_prev, results, idxs):
-		self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
-		if not self.mode and not self.sim_env.NeedExploration():
-			self.sim_env.TrainRegressionNetwork()
-			self.mode = 1
-			self.mode_counter = 0
-			self.sampler.reset_visit()
-			self.sampler.updateGoalDistribution(v_func, v_func_prev, results, idxs, self.mode)
+	def saveEvaluation(self, li):
+		mean = np.array(li).mean()
+		self.sampler.v_mean_boundary = 0.6 * self.sampler.v_mean_boundary + 0.4 * mean
+		print('evaluation mean: ', mean)
+		if self.mode == 0:
+			if len(self.sampler.progress_queue_explore) == 0:
+				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
+			else:
+				update_rate = np.array(self.sampler.progress_queue_explore).mean()
+		else:
+			if len(self.sampler.progress_queue_exploit) == 0:
+				update_rate = np.array(self.sampler.progress_queue_explore).mean()
+			else:
+				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
 
-	def updateGoal(self, v_func, v_func_prev):
-		t, idx = self.sampler.adaptiveSample(self.mode)
+		self.v_ratio = self.sim_env.GetVisitedRatio()
+		f_mean = self.sim_env.GetFitnessMean()
+
+		if not os.path.isfile(self.directory+"curriculum_info") :
+			out = open(self.directory+"curriculum_info", "w")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			out.write(str(mean)+':'+str(update_rate)+':'+str(self.v_ratio)+':'+str(f_mean)+'\n')
+			out.close()
+		else:
+			out = open(self.directory+"curriculum_info", "a")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			out.write(str(mean)+':'+str(update_rate)+':'+str(self.v_ratio)+':'+str(f_mean)+'\n')
+			out.close()			
+
+	def saveVPtable(self):
+		if not os.path.isfile(self.directory+"vp_table") :
+			out = open(self.directory+"vp_table", "w")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			for k, v in zip(self.sampler.vp_dict.keys(), self.sampler.vp_dict.values()):
+				out.write('(' + str(k * self.sampler.unit)+ ','+ str((k+1)*self.sampler.unit) + ') : ' + matrix_to_str(v)+ ' / '+str(np.array(v).mean(axis=0)[1]))
+				out.write('\n')
+			out.write('\n')
+
+			#out.write(matrix_to_str(self.sampler.vp_table)+'\n')
+			out.close()
+		else:
+			out = open(self.directory+"vp_table", "a")
+			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
+			for k, v in zip(self.sampler.vp_dict.keys(), self.sampler.vp_dict.values()):
+				out.write('(' + str(k * self.sampler.unit)+ ','+ str((k+1)*self.sampler.unit) + ') : ' + matrix_to_str(v)+ ' / '+str(np.array(v).mean(axis=0)[1]))
+				out.write('\n')
+			out.write('\n')
+
+		#	out.write(matrix_to_str(self.sampler.vp_table)+'\n')
+			out.close()	
+
+	def saveParamSpaceSummary(self, v_func):
+		self.sim_env.SaveParamSpace(self.num_evaluation)
+		li = self.sim_env.GetParamSpaceSummary()
+		grids = li[0]
+		grids_norm = li[1]
+		fitness = li[2]
+		density = li[3]
+		v_values = v_func.getValue(grids)
+		
+		out = open(self.directory+"param_summary"+str(self.num_evaluation), "w")
+		for i in range(len(grids)):
+			out.write(vector_to_str(grids_norm[i])+' '+str(v_values[i])+' '+str(density[i])+' '+str(fitness[i])+'\n')
+		out.close()		
+
+		self.v_ratio = self.sim_env.GetVisitedRatio()
+		
+		if not os.path.isfile(self.directory+"v_ratio") :
+			out = open(self.directory+"v_ratio", "w")
+			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+			out.close()
+		else:
+			out = open(self.directory+"v_ratio", "a")
+			out.write(str(self.num_episodes)+':'+str(self.mode)+':'+str(self.v_ratio)+'\n')
+			out.close()		
+
+	def updateCurriculum(self, v_func, results, info):
+		self.sampler.updateCurrentStatus(self.mode, results, info)
+
+		mode_change = 0
+		if not self.mode_eval:
+			self.mode_counter += 1
+		
+		#self.sim_env.UpdateParamState()
+			# self.saveParamSpaceSummary(v_func)
+		if self.num_evaluation % 10 == 9:
+			self.sim_env.SaveParamSpace(-1)
+
+		# if self.mode == 0 and self.mode_counter > 10:
+		# 	self.mode = 1
+		# 	self.mode_counter = 0
+		# 	self.sampler.resetExploit()
+		# 	mode_change = 1
+		# elif self.mode == 1 and self.sampler.isEnough():
+		# 	self.mode = 0
+		# 	self.mode_counter = 0
+		# 	self.sampler.resetExplore()
+		# 	mode_change = 1
+		
+		# if self.mode == 0:
+		# 	# if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
+		# 	# 	self.saveVPtable()
+		# 	print(self.sampler.progress_queue_explore)
+		# 	print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
+		# 	if self.num_evaluation >= 10 and self.sampler.n_explore >= 5 and \
+		# 	   np.array(self.sampler.progress_queue_explore).mean() < np.array(self.sampler.progress_queue_exploit).mean() - 0.5:
+		# 		self.mode = 1
+		# 		self.mode_counter = 0
+		# 		self.sampler.resetExploit()
+		# 		# if self.mode_counter % 5 != 0:
+		# 		# 	self.saveVPtable()
+		# 		mode_change = 1
+		# 	elif self.mode_counter % 30 == 29:
+		# 		self.mode = 1
+		# 		self.mode_eval = True
+		# 		self.sampler.resetExploit()
+		# elif self.mode == 1:
+		# 	if self.mode_eval and len(self.sampler.progress_queue_exploit) >= 2:
+		# 		self.mode = 0
+		# 		self.mode_eval = False
+		# 		if self.sampler.prev_progress_ex > np.array(self.sampler.progress_queue_exploit).mean():
+		# 			self.sampler.progress_queue_exploit = self.sampler.prev_queue_exploit
+		# 	elif not self.mode_eval and self.sampler.isEnough():
+		# 		self.mode = 0
+		# 		self.mode_counter = 0
+		# 		self.sampler.resetExplore()
+		# 		mode_change = 1
+		# 	elif not self.mode_eval and self.mode_counter % 30 == 29:
+		# 		self.sampler.resetEvaluation()
+		# 		self.mode = 2
+		# 		self.mode_eval = True
+		# 		mode_change = 1
+		# elif self.mode == 2 and self.sampler.evaluation_done:
+		# 	self.mode_eval = False
+		# 	self.mode = 1
+		# 	# self.saveVPtable()
+
+		if self.v_ratio == 1:
+			mode_change = -1	
+
+		self.sampler.updateGoalDistribution(self.mode, v_func)
+
+		return mode_change
+
+	def needEvaluation(self):
+		if self.num_evaluation > 5 and self.num_evaluation % 20 == 0:
+			return True
+
+	def updateGoal(self, v_func, record=True):
+		if record:
+			t = self.sampler.randomSample(-1)
+			idx = -1
+			# t, idx = self.sampler.adaptiveSample(self.mode, v_func)
+		else:
+			t = self.sampler.randomSample(1)
+			idx = -1
+		
 		t = np.array(t, dtype=np.float32) 
-
 		self.sim_env.SetGoalParameters(t, self.mode)
 		
-		t = np.reshape(t, (-1, self.dim_param))
-		v = v_func.getValue(t)[0]
-		v_prev = v_func_prev.getValue(t)[0]
+		if record:		
+			t = np.reshape(t, (-1, self.dim_param))
+			v = v_func.getValue(t)[0]
 
-		print(t[0], v, v - v_prev)
+			print(t[0], v)
 		return idx
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):
@@ -246,7 +367,8 @@ class Monitor(object):
 			if self.num_transitions_per_iteration is not 0:
 				te_per_t = self.total_frames_elapsed / self.num_transitions_per_iteration;
 			print_list.append('frame elapsed per transition : {:.2f}'.format(te_per_t))
-			print_list.append('param goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetParamGoal()]))			
+			if self.adaptive:
+				print_list.append('param goal: ' + ' '.join(['%f' % p for p in self.sim_env.GetParamGoal()]))			
 			if self.num_nan_per_iteration != 0:
 				print_list.append('nan count : {}'.format(self.num_nan_per_iteration))
 			print_list.append('===============================================================')
