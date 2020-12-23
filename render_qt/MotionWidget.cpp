@@ -421,7 +421,7 @@ RunPPO() {
 	int count = 0;
 	mController->Reset(false);
 	this->mTiming= std::vector<double>();
-
+	this->mTiming.push_back(this->mController->GetCurrentFrameOnPhase());
 	while(!this->mController->IsTerminalState()) {
 		Eigen::VectorXd state = this->mController->GetState();
 
@@ -431,7 +431,7 @@ RunPPO() {
 
 		this->mController->SetAction(action);
 		this->mController->Step();
-		this->mTiming.push_back(this->mController->GetCurrentLength());
+		this->mTiming.push_back(this->mController->GetCurrentFrameOnPhase());
 
 		count += 1;
 	}

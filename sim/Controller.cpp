@@ -170,6 +170,11 @@ Step()
 	if(IsTerminalState())
 		return;
 
+	if(mCurrentFrameOnPhase >=21 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=190 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+
+	if(mCurrentFrameOnPhase >=21 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=190 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 
 	Eigen::VectorXd s = this->GetState();
@@ -339,7 +344,8 @@ Step()
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 		this->mObjectStartPosition = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2];
-
+		left_detached = false;
+		right_detached = false;
 		#endif
 
 	}
@@ -1025,6 +1031,13 @@ Reset(bool RSI)
 	foot_diff.clear();
 	pr_calculated= false;
 
+
+	if(leftHandConstraint && mCurrentFrame <=20 ) removeHandFromBar(true);
+	if(rightHandConstraint && mCurrentFrame <=20) removeHandFromBar(false);
+
+	//45, 59
+	left_detached= (mCurrentFrame >=190) ? true: false; 
+	right_detached= (mCurrentFrame >=190) ? true: false;
 	// std::cout<<"controller, placed : "<<this->mObject->GetSkeleton()->getPositions().transpose()<<std::endl;
 
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
@@ -1339,5 +1352,57 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	ofs.close();
 }
 
+void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
+
+	std::string hand = (left) ? "LeftHand" : "RightHand";
+	dart::dynamics::BodyNodePtr hand_bn = this->mCharacter->GetSkeleton()->getBodyNode(hand);
+	dart::dynamics::BodyNodePtr bar_bn = this->mObject->GetSkeleton()->getBodyNode("Box");
+	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
+
+	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
+	double distance = std::pow(jointPos[2]- box_end_z, 2.0);
+
+	if(mRecord)	std::cout<<mCurrentFrameOnPhase<<" "<<box_end_z<<" "<<jointPos[2]<<" : "<<distance<<std::endl;
+	if(distance >0.05) return;
+	// if(distance > 0.05 || jointPos[2] < 3.5 || jointPos[2] > 3.7 || jointPos[1] > 0.95) return;
+
+	// std::cout<<"success"<<std::endl;
+
+	if(left && leftHandConstraint) removeHandFromBar(true);
+	else if(!left && rightHandConstraint) removeHandFromBar(false);
+
+	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( hand_bn, bar_bn, jointPos);
+	this->mWorld->getConstraintSolver()->addConstraint(cl);
+
+	if(left) leftHandConstraint = cl;
+	else rightHandConstraint = cl;
+
+	if(mRecord)	{
+		std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
+		if(left) std::cout<<"left : ";
+		else std::cout<<"right : ";
+		std::cout<<jointPos.transpose()<<std::endl;		
+	}
+
+}
+
+void Controller::removeHandFromBar(bool left){
+	// std::cout<<"REMOVE "<<left<<std::endl;
+	if(left && leftHandConstraint) {
+	    mWorld->getConstraintSolver()->removeConstraint(leftHandConstraint);
+	    leftHandConstraint = nullptr;
+    	
+	}else if(!left && rightHandConstraint){
+	    mWorld->getConstraintSolver()->removeConstraint(rightHandConstraint);
+    	rightHandConstraint = nullptr;
+		
+	}
+
+	if(mRecord){
+		std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
+		if(left) std::cout<<"left : "<<std::endl;
+		else std::cout<<"right : "<<std::endl;		
+	}
+}
 
 }

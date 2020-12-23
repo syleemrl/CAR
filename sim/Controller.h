@@ -88,7 +88,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass);
-
+	double GetCurrentFrameOnPhase(){return mCurrentFrameOnPhase;}
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -211,6 +211,16 @@ protected:
 	double mCountFall;
 	double mRootFall;
 	double mStickFoot;
+
+	dart::constraint::BallJointConstraintPtr leftHandConstraint= nullptr;
+	dart::constraint::BallJointConstraintPtr rightHandConstraint= nullptr;
+
+	bool left_detached = false;
+	bool right_detached = false;
+
+	void attachHandToBar(bool left, Eigen::Vector3d offset);
+	void removeHandFromBar(bool left);
+
 
 
 };
