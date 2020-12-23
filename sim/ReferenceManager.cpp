@@ -539,7 +539,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
-	
+	if(std::get<2>(rewards).com_rot_norm > 0.1) return;
+	// if(std::get<2>(rewards).fall_cnt > 10) return;
+
 	// if(std::get<2>(rewards).sum_contact > 1.0) {
 	// 	// std::cout<<" sum_contact : "<<std::get<2>(rewards).sum_contact<<std::endl;
 	// 	return;
@@ -643,7 +645,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 
 	// std::cout<<"sum_slide : "<<std::get<2>(rewards).sum_slide<<", r_slide : "<<r_slide<<"/ r_foot: "<<r_foot<<std::endl;
 	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
-	if(reward_trajectory < 0.6) return ;
+	// std::cout<<"r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"/reward_trajectory : "<<reward_trajectory<<std::endl;
+	
+	if(reward_trajectory < 0.7) return ;
 
 	mLock.lock();
 

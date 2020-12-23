@@ -278,6 +278,7 @@ Step()
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
 			mFitness.sum_slide/= mCountTracking;
+			mFitness.com_rot_norm/= mFitness.fall_cnt;
 
 			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
 				// double shift_height = - (mParamCur[0]- mReferenceManager->getParamDMM()[0]);
@@ -288,6 +289,8 @@ Step()
 
 			mFitness.sum_contact = 0;
 			mFitness.sum_slide = 0;
+			mFitness.fall_cnt = 0;
+			mFitness.com_rot_norm= 0;
 			auto& skel = mCharacter->GetSkeleton();
 			mFitness.sum_pos.resize(skel->getNumDofs());
 			mFitness.sum_vel.resize(skel->getNumDofs());
@@ -579,6 +582,19 @@ GetSimilarityReward()
 		} 
 	}
 
+	if(mCurrentFrameOnPhase>=115) {
+		// Eigen::Vector3d com = mCharacter->GetSkeleton()->getCOM();
+		// Eigen::Vector3d foot_middle = 0.5*(mCharacter->getBodyWorldTrans("LeftFoot")+ mCharacter->getBodyWorldTrans("RightFoot"));
+		// Eigen::Vector3d toe_middle = 0.5*(mCharacter->getBodyWorldTrans("LeftToe")+ mCharacter->getBodyWorldTrans("RightToe"));
+		Eigen::VectorXd com_vel = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+		// if(com_vel.segment<3>(3).norm() > 0.1) mFitness.fall_cnt++;
+		mFitness.com_rot_norm += com_vel.segment<3>(3).norm();
+		mFitness.fall_cnt++;
+		// std::cout<<mCurrentFrameOnPhase<<" "<<mFitness.fall_cnt<<std::endl;		
+		// std::cout<<mCurrentFrameOnPhase<<" "<<p_aligned(0)<<"\t"<<com[2]<<"/"<<foot_middle[2]<<" "<<toe_middle[2]<<"/"<<com_vel.segment<3>(3).norm()<<" "<<fall_cnt<<std::endl;
+		// std::cout<<mCurrentFrameOnPhase<<" "<<com_vel.segment<3>(3).norm()<<" "<<mFitness.fall_cnt<<std::endl;
+	}
+
 	double r_con = exp(-abs(con_diff));
 	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff,0.3);
@@ -756,8 +772,8 @@ UpdateTerminalInfo()
 	if(mParamGoal[0]< 0.1 && mCurrentFrameOnPhase >=70){
 
 		if(!mLanded){
-			bool lf_ground = CheckCollisionWithGround("LeftFoot") ||CheckCollisionWithGround("LeftToe"); 
-			bool rf_ground = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
+			bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
+			bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
 			mLanded = lf_ground || rf_ground;			
 		}
 
@@ -777,7 +793,14 @@ UpdateTerminalInfo()
 
 		}
 	}
-
+	else if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >=70){
+		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
+		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
+		if(lf_ground || rf_ground) {
+			mIsTerminal = true;
+			 terminationReason = 14;
+		}
+	}
 
 	bool lh_ground = CheckCollisionWithGround("LeftHand");
 	bool rh_ground = CheckCollisionWithGround("RightHand");
@@ -901,6 +924,8 @@ Reset(bool RSI)
 		this->mTrackingRewardTrajectory = 0;
 		mFitness.sum_contact = 0;
 		mFitness.sum_slide = 0;
+		mFitness.fall_cnt = 0;
+		mFitness.com_rot_norm = 0;
 		mFitness.sum_pos.resize(skel->getNumDofs());
 		mFitness.sum_vel.resize(skel->getNumDofs());
 		mFitness.sum_pos.setZero();

@@ -315,9 +315,8 @@ class PPO(object):
 				self.target_x_batch = state_target_batch
 				self.target_y_batch = TD_target_batch
 			else:
-				if len(state_target_batch) != 0:
-					self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
-					self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
+				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
+				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]
@@ -386,7 +385,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 					flag = True
@@ -443,7 +442,7 @@ class PPO(object):
 					timestep = times[i+1]  - times[i]
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
-				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					flag = True
 
@@ -657,7 +656,7 @@ class PPO(object):
 		state = self.RMS.apply(state)
 		
 		values = self.critic.getValue(state)
-		# action, _ = self.actor.getAction(state)
+		#action, _ = self.actor.getAction(state)
 		action = self.actor.getMeanAction(state)
 
 		return action

@@ -29,6 +29,9 @@ public:
 	std::map<std::string,std::string> GetBVHMap() {return mBVHMap;} //body_node name and bvh_node name
 
 	void LoadBVHMap();
+	Eigen::Vector3d getBodyWorldTrans(std::string name){
+		return GetSkeleton()->getBodyNode(name)->getWorldTransform().translation();
+	}
 
 protected:
 	std::string mPath;
