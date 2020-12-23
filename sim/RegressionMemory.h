@@ -29,7 +29,7 @@ struct Param
 	Eigen::VectorXd param_normalized;
 	std::vector<Eigen::VectorXd> cps;
 	double reward;
-	int update;
+	bool update;
 };
 class ParamCube
 {
@@ -130,9 +130,9 @@ private:
 	int mDim;
 	int mDimDOF;
 	int mNumKnots;
+	int mNumActivatedPrev;
 	int mThresholdUpdate;
 	int mThresholdActivate;
-	int mUpdateInterval;
 	int mNumElite;
 	int mNumSamples;
 

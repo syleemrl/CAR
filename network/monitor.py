@@ -213,21 +213,23 @@ class Monitor(object):
 
 	def updateCurriculum(self, v_func, results, info):
 		self.sampler.updateCurrentStatus(self.mode, results, info)
-		self.sim_env.UpdateParamState()
 
 		mode_change = 0
 		if not self.mode_eval:
 			self.mode_counter += 1
-	
-		if self.num_evaluation % 10 == 9:
-			self.sim_env.SaveParamSpace(-1)
+		
+		if self.num_evaluation % 2 == 0:
+			self.sim_env.UpdateParamState()
+			# self.saveParamSpaceSummary(v_func)
+		if self.num_evaluation % 20 == 19:
+			self.sim_env.SaveParamSpace(self.num_evaluation)
 
 		if self.mode == 0:
 			if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
 				self.saveVPtable()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.num_evaluation >= 20 and self.sampler.n_explore >= 5 and \
+			if self.num_evaluation >= 10 and self.sampler.n_explore >= 10 and \
 			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9:
 				self.mode = 1
 				self.mode_counter = 0
@@ -273,7 +275,7 @@ class Monitor(object):
 		if record:
 			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		else:
-			t = self.sim_env.UniformSampleWithConstraints(1.0, 1.2)
+			t = self.sim_env.UniformSampleWithConstraints(0.6, 0.75)
 			idx = -1
 		
 		t = np.array(t, dtype=np.float32) 
