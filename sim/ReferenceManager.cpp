@@ -546,6 +546,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	}
 
 	if(abs(std::get<2>(rewards).com_rot_norm) > 0.2) return;
+	if(std::get<2>(rewards).sum_slide > 0.1) return;
+
 	// if(std::get<2>(rewards).fall_cnt > 10) return;
 
 	// if(std::get<2>(rewards).sum_contact > 1.0) {
@@ -647,7 +649,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;
 
 
-	// std::cout<<"r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"r_slide: "<<r_slide<<"/reward_trajectory : "<<reward_trajectory<<std::endl;
+	// std::cout<<"r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"r_slide: "<<r_slide<<"("<<std::get<2>(rewards).sum_slide<<") /reward_trajectory : "<<reward_trajectory<<std::endl;
 	// std::cout << "2 : " << reward_trajectory << std::endl;
 
 	if(reward_trajectory < 0.6) return ;
