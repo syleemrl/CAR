@@ -250,6 +250,12 @@ Step()
 	// }
 
 	if(mCurrentFrameOnPhase >= 80){
+		if(!stickFoot){
+			stickLeftFoot = mCharacter->getBodyWorldTrans("LeftFoot");
+			stickRightFoot = mCharacter->getBodyWorldTrans("RightFoot");
+			stickFoot = true;
+		}
+
 		double foot = (mCharacter->getBodyWorldTrans("LeftFoot")[2]+ mCharacter->getBodyWorldTrans("RightFoot")[2])/2;
 		mean_land_foot+= foot;
 		land_foot_cnt++;
@@ -587,6 +593,17 @@ GetSimilarityReward()
 		} 
 	}
 
+	if(stickFoot){
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::VectorXd foot_diff (6);
+		foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
+
+		mFitness.sum_slide += foot_diff.norm();
+		// r_footSlide = exp_of_squared(foot_diff, 0.1);
+	}
+
+
 	if(mCurrentFrameOnPhase>=115) {
 		// Eigen::Vector3d com = mCharacter->GetSkeleton()->getCOM();
 		// Eigen::Vector3d foot_middle = 0.5*(mCharacter->getBodyWorldTrans("LeftFoot")+ mCharacter->getBodyWorldTrans("RightFoot"));
@@ -921,9 +938,7 @@ Reset(bool RSI)
 	mRootZero = mTargetPositions.segment<6>(0);
 	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
-	stickLeftFoot = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	stickRightFoot = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-	stickFoot = true;
+	stickFoot = false;
 	// mFootZero = (lf+rf)/2.;
 	mDefaultRootZero = mRootZero; 
 

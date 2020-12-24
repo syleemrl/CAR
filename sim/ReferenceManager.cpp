@@ -647,10 +647,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;
 
 
-	// std::cout<<"r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"/reward_trajectory : "<<reward_trajectory<<std::endl;
+	// std::cout<<"r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"r_slide: "<<r_slide<<"/reward_trajectory : "<<reward_trajectory<<std::endl;
 	// std::cout << "2 : " << reward_trajectory << std::endl;
 
-	if(reward_trajectory < 0.5) return ;
+	if(reward_trajectory < 0.6) return ;
 
 	mLock.lock();
 	
