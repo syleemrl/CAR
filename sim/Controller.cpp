@@ -642,9 +642,10 @@ GetParamReward()
 			double r_c = exp(-mCondiff * 10);
 			if(r_c < 0.4) {
 				mParamCur(0) = -5;
-			} else {
-				mParamCur(0) = mParamGoal(0);
-			}
+			} 
+			// else {
+			// 	mParamCur(0) = mParamGoal(0);
+			// }
 			r_param = 0.4 * r_c;
 			mFitness.sum_reward *= r_c;
 

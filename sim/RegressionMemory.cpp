@@ -580,18 +580,30 @@ Denormalize(Eigen::VectorXd p) {
 void
 RegressionMemory::
 DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps) {
+	auto iter_trash = mTrashMap.find(nearest);
 	auto iter = mGridMap.find(nearest);
 	if (iter != mGridMap.end()) {
 		ParamCube* pcube = iter->second;
 
 		std::vector<Param*> ps_new;
 		std::vector<Param*> ps_old = pcube->GetParams();
-		
+		std::vector<std::pair<Eigen::VectorXd, double>>	v;
+		if(iter_trash != mTrashMap.end()) {
+			v = iter_trash->second;
+		}
+		for(int i = 0; i < ps_old.size(); i++) {
+			v.push_back(std::pair<Eigen::VectorXd, double>(ps_old[i]->param_normalized, ps_old[i]->reward));
+		}
+		while(v.size() > 100) {
+			v.erase(v.begin());
+		}
+		iter_trash->second = v;
+
 		int count = 0;
 		for(int i = 0; i < ps_old.size(); i++) {
 			if(count < ps.size() && IsEqualParam(ps_old[i], ps[count])) {
+
 				delete ps_old[i];
-				count += 1;
 			} else {
 				ps_new.push_back(ps_old[i]);
 			}
@@ -681,7 +693,7 @@ UniformSample(int visited) {
 				return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 			}
 		}
-		if(visited && d > mThresholdInside) {
+		if(visited && d > mThresholdInside && Denormalize(p)(0) > -0.6) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 		count += 1;
@@ -782,7 +794,6 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 					}
 				} 
 			}
-
 			if(!flag)
 				break;
 			else if(p_delete.size() != 0) {
@@ -790,12 +801,33 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 			}
 		}
 	}
+
 	if(n_compare == 0) {
 		mRecordLog.push_back("new parameter: " + vectorXd_to_string(nearest) + ", " + std::to_string(std::get<2>(candidate)));
 	}
 
 	if(flag) {
-		std::cout << candidate_scaled.transpose() << " " << std::get<2>(candidate) - prev_max << " "<<update_max << std::endl;
+		for(int i = 0 ; i < checklist.size(); i++) {
+			double d = GetDensity(candidate_scaled);
+			if(d > mThresholdInside) {
+				auto iter_trash = mTrashMap.find(checklist[i]);
+				if (iter_trash != mTrashMap.end()) {
+					std::vector<std::pair<Eigen::VectorXd, double>> flist = iter_trash->second;
+					for(int j =0; j < flist.size(); j++) {
+						double dist = GetDistanceNorm(candidate_scaled, flist[j].first);
+						if(dist < mRadiusNeighbor) {
+							if(flist[j].second < std::get<2>(candidate)) {
+								update_max = 0;
+							} else {
+								flag = false;
+								return flag;
+							}
+						} 
+					}
+				}
+			}
+		}
+		std::cout << candidate_scaled.transpose() << " " << std::get<2>(candidate) << " "<< update_max << std::endl;
 
 		// std::cout << Denormalize(std::get<1>(candidate)).transpose() << " " <<to_be_deleted.size() << std::endl; 
 		for(int i = 0; i < to_be_deleted.size(); i++) {
@@ -818,9 +850,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	
 		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && to_be_deleted.size() == 0) {
-			mNewSamplesNearGoal += 1;
+			mNewSamplesNearGoal = 1;
 		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
-			mUpdatedSamplesNearGoal += 1;
+			mUpdatedSamplesNearGoal = 1;
 		}
 
 	}
@@ -935,7 +967,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
-	   // std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
 	}
 
 

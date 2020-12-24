@@ -230,8 +230,8 @@ class Monitor(object):
 			# 	self.saveVPtable()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.num_evaluation >= 20 and self.sampler.n_explore >= 10 and \
-			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9:
+			if (self.num_evaluation >= 20 and self.sampler.n_explore >= 10 and \
+			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9) or self.num_evaluation == 0:
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.resetExploit()
@@ -252,12 +252,12 @@ class Monitor(object):
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.resetExplore()
-				mode_change = 1
-			elif not self.mode_eval and self.mode_counter % 30 == 29:
-				self.sampler.resetEvaluation()
-				self.mode = 2
-				self.mode_eval = True
-				mode_change = 1
+				mode_change = -1
+			# elif not self.mode_eval and self.mode_counter % 30 == 29:
+			# 	self.sampler.resetEvaluation()
+			# 	self.mode = 2
+			# 	self.mode_eval = True
+			# 	mode_change = 1
 		elif self.mode == 2 and self.sampler.evaluation_done:
 			self.mode_eval = False
 			self.mode = 1

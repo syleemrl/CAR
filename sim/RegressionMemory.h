@@ -109,6 +109,8 @@ private:
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
 	std::map<Eigen::VectorXd, Param*> mParamNew;
 
+	std::map<Eigen::VectorXd, std::vector<std::pair<Eigen::VectorXd, double>>> mTrashMap;
+
 	Eigen::VectorXd mParamScale;
 	Eigen::VectorXd mParamScaleInv;
 	Eigen::VectorXd mParamGoalCur;

@@ -13,7 +13,7 @@ class Sampler(object):
 		self.v_mean_boundary = 0.0
 		self.random = True
 
-		self.k = 8
+		self.k = 5
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -317,7 +317,7 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
-		if self.n_exploit < 10:
+		if self.n_exploit < 10 or self.v_mean < 17:
 			return False
 
 		if self.use_table:

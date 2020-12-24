@@ -289,7 +289,9 @@ class PPO(object):
 		lossval_ac = 0
 		lossval_c = 0
 		lossval_ct = 0
-
+		if self.env.num_evaluation == 0:
+			self.lossvals = []
+			return
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
 			val = self.sess.run([self.actor_train_op, self.critic_train_op,
