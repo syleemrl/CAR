@@ -234,17 +234,25 @@ Step()
 		mTimeElapsed += 2 * (mAdaptiveStep);
 	}
 
-	if(! mLanded && mCurrentFrameOnPhase >= 60){
-		bool left_land = (mParamGoal[0] > 0)? CheckCollisionWithObject("LeftFoot") :  CheckCollisionWithGround("LeftFoot");
-		bool right_land = (mParamGoal[0] > 0)? CheckCollisionWithObject("RightFoot") :  CheckCollisionWithGround("RightFoot");
-		if(left_land || right_land) mLanded = true;
-	}
-	if(mLanded){
+	// // std::cout<<mCurrentFrame<<"/ obj: "<<CheckCollisionWithObject("LeftFoot")<<" "<<CheckCollisionWithObject("RightFoot")<<" / ground : "<<CheckCollisionWithGround("LeftFoot")<<" "<<CheckCollisionWithGround("RightFoot")<<std::endl;
+	// if(! mLanded && mCurrentFrameOnPhase >= 70){
+	// 	bool left_land = (mParamGoal[0] > 0)? CheckCollisionWithObject("LeftFoot") :  (CheckCollisionWithGround("LeftFoot") || CheckCollisionWithObject("LeftFoot") );
+	// 	bool right_land = (mParamGoal[0] > 0)? CheckCollisionWithObject("RightFoot") :  (CheckCollisionWithGround("RightFoot") || CheckCollisionWithObject("RightFoot") );
+	// 	if(left_land || right_land) mLanded = true;
+	// }
+	// if(mLanded){
+	// 	double foot = (mCharacter->getBodyWorldTrans("LeftFoot")[2]+ mCharacter->getBodyWorldTrans("RightFoot")[2])/2;
+	// 	mean_land_foot+= foot;
+	// 	land_foot_cnt++;
+	// 	std::cout<<mCurrentFrame<<"/ obj: "<<CheckCollisionWithObject("LeftFoot")<<" "<<CheckCollisionWithObject("RightFoot")<<" / ground : "<<CheckCollisionWithGround("LeftFoot")<<" "<<CheckCollisionWithGround("RightFoot")<<std::endl;
+	// 	// std::cout<<mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation().transpose()<<std::endl;
+	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<foot<<" " <<land_foot_cnt<<std::endl;
+	// }
+
+	if(mCurrentFrameOnPhase >= 80){
 		double foot = (mCharacter->getBodyWorldTrans("LeftFoot")[2]+ mCharacter->getBodyWorldTrans("RightFoot")[2])/2;
 		mean_land_foot+= foot;
 		land_foot_cnt++;
-
-		// std::cout<<mCurrentFrameOnPhase<<" "<<foot<<" " <<land_foot_cnt<<std::endl;
 	}
 
 
@@ -259,7 +267,7 @@ Step()
 			mFitness.sum_slide/= mCountTracking;
 			mFitness.com_rot_norm/= mFitness.fall_cnt;
 
-			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength()  && land_foot_cnt > 0){
+			if((mCurrentFrame < 2*mReferenceManager->GetPhaseLength())  && (land_foot_cnt > 0)){
 				mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
 				std::cout<<mParamCur.transpose()<<std::endl;
 				// double shift_height = - (mParamCur[0]- mReferenceManager->getParamDMM()[0]);
@@ -744,50 +752,59 @@ UpdateTerminalInfo()
 	skel->computeForwardKinematics(true,true,false);
 
 
-	if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >=70){
+	// mRecord = true;
+	if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >= 90){
 		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
 		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
 		if(lf_ground || rf_ground) {
 			mIsTerminal = true;
 			terminationReason = 15;
-			if(mRecord) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
+			if(mRecord) 
+				std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
 		}
 	}
 
 	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
-		if(mRecord) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
+		if(mRecord) 
+			std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
 
 	}
 	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;
-		if(mRecord) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
+		if(mRecord) 
+			std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
 	}
 
 	double cur_root_limit = std::abs(mParamGoal[0])+ TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
 	if(!mRecord && root_y > cur_root_limit){
 		mIsTerminal = true;
 		terminationReason = 1;
-		if(mRecord) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
+		if(mRecord) 
+			std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
 	}
 
 	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-		if(mRecord) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
+		if(mRecord) 
+			std::cout <<mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
 
 	}
 	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
-		if(mRecord) std::cout << "terminate Reason : "<<terminationReason <<std::endl;
+		if(mRecord) 
+			std::cout << mCurrentFrame<<", terminate Reason : "<<terminationReason <<std::endl;
 	}
 
 	if(mRecord) {
 		if(mIsTerminal) std::cout << mCurrentFrame<<", terminate Reason : "<<terminationReason <<std::endl;
 	}
+
+	// mRecord = false;
 	// if(mIsTerminal) std::cout << mCurrentFrame<<", terminate Reason : "<<terminationReason <<std::endl;
 
 

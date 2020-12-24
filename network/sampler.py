@@ -164,7 +164,11 @@ class Sampler(object):
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
 			self.progress_queue_exploit.append(self.progress_cur)		
 
-			self.v_mean_cur = np.array(results).mean()
+			if len(results) != 0:
+				self.v_mean_cur = np.array(results).mean()
+			else:
+				self.v_mean_cur = 0
+				
 			if self.v_mean == 0:
 				self.v_mean = self.v_mean_cur
 			else:

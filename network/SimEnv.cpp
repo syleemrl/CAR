@@ -272,9 +272,11 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 	int dof_input = 1 + mRegressionMemory->GetDim();
 	std::vector<Eigen::VectorXd> cps;
 	mRegressionMemory->SetParamGoal(tp);
+	double shift_height = (tp[0] < 0)? -tp[0] : 0;
+
 	if(mem_only) {
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->LoadAdaptiveMotion(cps);
+		mReferenceManager->LoadAdaptiveMotion(cps, shift_height);
 	} else {
 		// for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
 		// 	Eigen::VectorXd input(dof_input);
@@ -288,11 +290,12 @@ SetGoalParameters(np::ndarray np_array, bool mem_only) {
 		// mReferenceManager->SetCPSexp(cps);
 		// mReferenceManager->SelectReference();
 		cps = mRegressionMemory->GetCPSFromNearestParams(tp);
-		mReferenceManager->LoadAdaptiveMotion(cps);
+		mReferenceManager->LoadAdaptiveMotion(cps, shift_height);
 	}
 
 	for(int id = 0; id < mNumSlaves; ++id) {
 		mSlaves[id]->SetGoalParameters(tp);
+		mSlaves[id]->Reset(false);
 	}
 }
 np::ndarray 
