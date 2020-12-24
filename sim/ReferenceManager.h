@@ -89,6 +89,8 @@ public:
 		for(auto m: mMotions_raw) pos_only.push_back(m->GetPosition());
 		return pos_only;
 	}
+
+	Eigen::VectorXd getParamDMM(){return mParamDMM;}
 	
 protected:
 	Character* mCharacter;
@@ -121,6 +123,8 @@ protected:
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamEnd;
 
+	Eigen::VectorXd mParamDMM;
+
 	RegressionMemory* mRegressionMemory;
 	
 	double mMeanTrackingReward;
@@ -131,6 +135,8 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+
+	double min_hand;
 };
 }
 

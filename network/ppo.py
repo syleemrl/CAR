@@ -315,8 +315,9 @@ class PPO(object):
 				self.target_x_batch = state_target_batch
 				self.target_y_batch = TD_target_batch
 			else:
-				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
-				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
+				if len(state_target_batch) != 0:
+					self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
+					self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]

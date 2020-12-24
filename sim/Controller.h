@@ -210,6 +210,12 @@ protected:
 	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
 	std::vector<double> foot_diff;
 
+	bool gotParamReward;
+
+	double min_hand;
+
+	void attachTwoHandsAtOnce(Eigen::Vector3d left_offset, Eigen::Vector3d right_offset);
+
 };
 }
 #endif
