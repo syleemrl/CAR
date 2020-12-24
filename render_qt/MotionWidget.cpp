@@ -35,8 +35,9 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	#ifdef OBJECT_TYPE 
 		std::cout<<"\nMotionWidget OBJ"<<std::endl;
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
+		std::string object_path_2 = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE_2) + std::string(".xml");
 		mSkel_obj_s = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
-		mSkel_obj_e = DPhy::SkeletonBuilder::BuildFromFile(object_path).first;
+		mSkel_obj_e = DPhy::SkeletonBuilder::BuildFromFile(object_path_2).first;
 		Eigen::VectorXd obj_pos(mSkel_obj_s->getNumDofs());
 		obj_pos.setZero();
 		mSkel_obj_s->setPositions(obj_pos);
@@ -376,17 +377,6 @@ UpdateParam(const bool& pressed) {
 
 		mPoints= Eigen::Vector3d(0, tp_denorm[0], tp_denorm[1]); //height: min(foot), distance(com)
 		mPoints[0]+=2.25;
-
-	    Eigen::VectorXd restore = mSkel_exp->getPositions();
-	    Eigen::VectorXd targetPose= mReferenceManager->GetPosition(41, true);
-		mSkel_exp->setPositions(targetPose);
-		mSkel_exp->computeForwardKinematics(true, false, false);
-		Eigen::Vector3d lf= mSkel_exp->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf= mSkel_exp->getBodyNode("RightFoot")->getWorldTransform().translation();
-		std::cout<<"jumped : "<<std::min(lf[1], rf[1])<<" "<<mSkel_exp->getPositions()[5]<<std::endl;
-
-		mSkel_exp->setPositions(restore);
-		mSkel_exp->computeForwardKinematics(true, false, false);
 	}
 
 }
@@ -437,6 +427,7 @@ RunPPO() {
 		pos_obj_e.push_back(position_obj);
 
 		#endif
+
 	}
 	// Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
 	// pos_sim =  DPhy::Align(pos_sim, root_bvh);

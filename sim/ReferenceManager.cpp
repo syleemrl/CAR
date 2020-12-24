@@ -288,6 +288,8 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 	T01.translation()[1] = 0;
 
 	int smooth_time = 10;
+	blend = true;
+	mBlendingInterval = 10;
 	for(int i = 0; i < frames; i++) {
 		
 		int phase = i % mPhaseLength;
@@ -444,8 +446,8 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	
 	mThresholdTracking = 0.85;
 
-	mParamCur.resize(2); // start box height, distance
-	mParamCur << 0, 1.37; //1.9 ? (bvh), dmm: 1.72
+	mParamCur.resize(2); 
+	mParamCur << 0, 1.37; 
 
 	mParamGoal.resize(2);
 	mParamGoal = mParamCur;
@@ -535,11 +537,15 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
+
+	// std::cout<<"1 ; "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).com_rot_norm<<std::endl;
+
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
-	if(std::get<2>(rewards).com_rot_norm > 0.1) return;
+
+	if(abs(std::get<2>(rewards).com_rot_norm) > 0.2) return;
 	// if(std::get<2>(rewards).fall_cnt > 10) return;
 
 	// if(std::get<2>(rewards).sum_contact > 1.0) {
@@ -641,17 +647,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;
 
 
-	// std::cout<<"track, param, fitness"<<std::get<0>(rewards)<<"\t"<<std::get<1>(rewards)<<"\t"<<reward_trajectory<<std::endl;
-
-	// std::cout<<"sum_slide : "<<std::get<2>(rewards).sum_slide<<", r_slide : "<<r_slide<<"/ r_foot: "<<r_foot<<std::endl;
-	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
 	// std::cout<<"r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"/reward_trajectory : "<<reward_trajectory<<std::endl;
-	
-	if(reward_trajectory < 0.7) return ;
+	// std::cout << "2 : " << reward_trajectory << std::endl;
+
+	if(reward_trajectory < 0.5) return ;
 
 	mLock.lock();
-
-	//TODO ; if(reward_trajectory > 0.6) 일때만 save .. 
 	
 	if(isParametric) {
 		mRegressionMemory->UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double>

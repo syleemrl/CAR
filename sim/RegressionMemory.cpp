@@ -775,7 +775,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	}
 
 	if(flag) {
-		std::cout << candidate_scaled << " " << std::get<2>(candidate) - prev_max << std::endl;
+		std::cout << candidate_param.transpose() << " " << std::get<2>(candidate) << std::endl;
 
 		// std::cout << Denormalize(std::get<1>(candidate)).transpose() << " " <<to_be_deleted.size() << std::endl; 
 		for(int i = 0; i < to_be_deleted.size(); i++) {

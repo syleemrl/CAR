@@ -1,0 +1,12 @@
+<Skeleton name="Jump_Box">
+	<Joint type="FreeJoint" name="Ground" parent_name="None" size="0.8 0.0000001 0.6" mass="50000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0.00000005 0"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+	<Joint type="PrismaticJoint" name="Jump_Box" parent_name="Ground" size="0.8 0.47 3.0" axis="0 1 0" mass="500.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 -0.235 1.15"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 1.1"></JointPosition>
+	</Joint>
+</Skeleton>
+
+ <!-- -2.62556 0.514566  1.41596 -->

@@ -205,11 +205,14 @@ protected:
 
 
 	bool mLanded;
-	double min_land_foot;
+	double mean_land_foot;
+	int land_foot_cnt;
+	// double min_land_foot;
 
 	bool gotParamReward;	
 
-	double impulse_on_wrong_body= 0;
+	bool placedObject; 
+
 
 };
 }
