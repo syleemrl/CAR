@@ -221,7 +221,7 @@ protected:
 	void attachHandToBar(bool left, Eigen::Vector3d offset);
 	void removeHandFromBar(bool left);
 
-
+	Eigen::VectorXd mSumTorque;
 
 };
 }

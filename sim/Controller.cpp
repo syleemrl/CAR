@@ -231,11 +231,30 @@ Step()
 	double end_f_sum = 0;	
 	
 	impulse_on_wrong_body = 0;
+	mSumTorque.resize(dof);
+	mSumTorque.setZero();
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
-			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
+			//mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
+			
+			// torque limit
+			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			// for(int j = 0; j < num_body_nodes; j++) {
+			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			// 	double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			
+			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			// }
+
+			//mCharacter->GetSkeleton()->setForces(torque);
+
 			mWorld->step(false);
+			mSumTorque += torque.cwiseAbs();
+
 		}
 
 		for(auto bn: this->mCharacter->GetSkeleton()->getBodyNodes()){
@@ -720,7 +739,11 @@ UpdateAdaptiveReward()
 	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
-	double r_tot = r_tracking;
+	
+	mSumTorque /= mSimPerCon;
+	double r_torque = exp_of_squared(mSumTorque, 50);
+
+	double r_tot = 0.99*r_tracking +0.01*r_torque;
 
 	mRewardParts.clear();
 	if(dart::math::isNan(r_tot)){
