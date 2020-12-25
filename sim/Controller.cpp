@@ -139,13 +139,13 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.5, -3.0, 1.0);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -3.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
 	// /////BASELINE
 	// mAdaptiveStep = 1;
-	// if(!isAdaptive)
-	// 	mAdaptiveStep = 1;
+	if(!isAdaptive)
+		mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += mAdaptiveStep;
@@ -184,8 +184,8 @@ Step()
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
-			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			//Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			//mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
+			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
 			// for(int j = 0; j < num_body_nodes; j++) {
 			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
 			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
@@ -196,22 +196,15 @@ Step()
 			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
 			// }
 
-			//mCharacter->GetSkeleton()->setForces(torque);
+			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
-			//mSumTorque += torque.cwiseAbs();
+			mSumTorque += torque.cwiseAbs();
 
-		}
-		if(mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
-			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
-			double rf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation()(1);
-			double lf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation()(1);
-			if(mVelocity < c_vel(1)) {
-				mVelocity = c_vel(1);
-				mMomentum = mCharacter->GetSkeleton()->getMass() * c_vel;
-			}
 		}
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
+
+
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
@@ -220,7 +213,8 @@ Step()
 			mTrackingRewardTrajectory /= mCountTracking;
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
-			mFitness.sum_slide /= mCountSlide;
+			mFitness.sum_reward /= mCountKE;
+			mFitness.sum_contact /= mCountContact;
 
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
@@ -228,7 +222,7 @@ Step()
 			mFitness.sum_contact = 0;
 			mFitness.sum_pos = 0;
 			mFitness.sum_vel = 0;
-			mFitness.sum_slide = 0;
+			mFitness.sum_energy = 0;
 			mFitness.sum_reward = 0;
 
 			mTrackingRewardTrajectory = 0;
@@ -237,16 +231,8 @@ Step()
 			mControlFlag.setZero();
 			mCountParam = 0;
 			mCountTracking = 0;
-			mCondiff = 0;
+			mCountKE = 0;
 			mCountContact = 0;
-			mCountSlide = 0;
-
-			mVelocity = 0;
-			mMomentum.setZero();
-			mMaxCOM.setZero();
-
-			////BASELINE
-			mParamRewardMax = 0;
 		}
 	}
 	if(isAdaptive) {
@@ -322,14 +308,8 @@ ClearRecord()
 		mTimeQueue.pop();
 
 	data_raw.clear();
-	mVelocity = 0;
-	mMomentum.setZero();
-	mMaxCOM.setZero();
-	mCondiff = 0;
+	mCountKE = 0;
 	mCountContact = 0;
-
-	////BASELINE
-	mParamRewardMax = 0;
 }
 
 std::vector<double> 
@@ -464,20 +444,28 @@ GetSimilarityReward()
 	Eigen::VectorXd vel = p_v_target->GetVelocity();
 	delete p_v_target;
 
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
 	double con_diff = 0;
-
-	for(int i = 0; i < contacts_cur.size(); i++) {
-		if(contacts_ref[i].first && !contacts_cur[i].first) {
-			con_diff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
-		} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-			con_diff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
+	if( mCurrentFrameOnPhase >= 78.5 || mCurrentFrameOnPhase <= 1 
+		|| (mCurrentFrameOnPhase >= 38.5 && mCurrentFrameOnPhase <= 41)) {
+		for(int i = 0; i < 2; i++) {
+			if(!contacts_cur[i].first) {
+				con_diff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
+			} 
 		}
+		mCountContact += 1;
+	} else if( (mCurrentFrameOnPhase >= 18.5 && mCurrentFrameOnPhase <= 21)
+				|| (mCurrentFrameOnPhase >= 58.5 && mCurrentFrameOnPhase <= 61)) {
+		for(int i = 2; i < 4; i++) {
+			if(!contacts_cur[i].first) {
+				con_diff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
+			} 
+		}
+		mCountContact += 1;
 	}
+	mFitness.sum_contact += con_diff;
 
-	//double r_con = exp(-con_diff);
 	Eigen::VectorXd p_aligned = skel->getPositions();
 	std::vector<Eigen::VectorXd> p_with_zero;
 	p_with_zero.push_back(mRootZero);
@@ -507,82 +495,29 @@ GetSimilarityReward()
 	for(int i =0 ; i < vel.rows(); i++) {
 		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
 	}
-	// if(mCurrentFrame < mReferenceManager->GetPhaseLength()) {
-	// 	std::cout << mCurrentFrameOnPhase << std::endl;
-	// }
+
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.compare("Hips") == 0) {
-		// 	std::cout << name << " : " << p_diff.segment<6>(0).transpose() << " / " << v_diff.segment<6>(0).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Spine") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Shoulder") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Leg") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Arm") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
+
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<2>(idx + 1) *= 3;
+			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
-			p_diff(4) *= 0;
+			p_diff(4) *= 0.2;
 			v_diff.segment<3>(idx + 3) *= 5;
-			v_diff(4) *= 0;
-		} else if(name.compare("Spine") == 0 ) {
-			p_diff.segment<2>(idx + 1) *= 3;
-			v_diff.segment<2>(idx + 1) *= 3;
+			v_diff(4) *= 0.2;
 		} 
 	}
 
-	double footSlide = 0;
-	if(mCurrentFrameOnPhase >= 41){
-		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-		lf /= 2.0;
-
-		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
-		rf /= 2.0;
-		
-		Eigen::VectorXd foot_diff (6);
-		foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
-		foot_diff(1) = 0;
-		foot_diff(4) = 0;
-
-		footSlide += foot_diff.segment<3>(0).norm() + foot_diff.segment<3>(3).norm();
-		mCountSlide += 1;
-	
-	} else if(mCurrentFrameOnPhase >= 35) {
-		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-		lf /= 2.0;
-
-		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
-		rf /= 2.0;
-
-		stickRightFoot = rf;
-		stickLeftFoot = lf;
-	}
-
-
-	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff, 0.3);
 
 	mPrevFrame = mCurrentFrame;
 
-	mFitness.sum_contact += con_diff;
+	// mFitness.sum_contact += con_diff;
 	mFitness.sum_pos += p_diff.dot(p_diff) / p_diff.rows();
 	mFitness.sum_vel += v_diff.dot(v_diff) / v_diff.rows();
-	mFitness.sum_slide += footSlide;
-	return exp(-r_con)  * r_p * r_ee;
+	return  r_p * r_ee;
 }
 double 
 Controller::
@@ -590,72 +525,72 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 26 && mControlFlag[0] == 0) {
-		Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
-		Eigen::Vector3d m_diff = momentumGoal - mMomentum;
-		m_diff *= 0.1;
-		m_diff(1) *= 4;
+	Eigen::VectorXd p_save = skel->getPositions();
+	if((mControlFlag[0] == 0 && mCurrentFrameOnPhase >= 0.5)
+		|| (mControlFlag[0] == 2 && mCurrentFrameOnPhase >= 20.5)
+		|| (mControlFlag[0] == 4 && mCurrentFrameOnPhase >= 40.5)
+		|| (mControlFlag[0] == 6 && mCurrentFrameOnPhase >= 60.5)) {
+		if(mCurrentFrame >= 20) {
+			if(mPECur != 0) {
+				mPECur += skel->computePotentialEnergy();
+				mPECur /= 2;
 
-		double r_m = exp_of_squared(m_diff, 1.5); 
-		if(r_m < 0.4) {
-			mParamCur(0) = -5;
-		} else {
-			mParamCur(0) = mParamGoal(0);
-		}
-		mFitness.sum_reward = (0.7 + 0.3 * r_m);
-		r_param = 0.6 * r_m;
+				double deltaPE = mPECur - mPEPrev;
 
-		mControlFlag[0] = 1;
-		if(mRecord) {
-			std::cout << "momentum: " << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_m << std::endl;
-		}
-	} if(mCurrentFrameOnPhase >= 30 && mControlFlag[0] == 1) {
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
+				mPEPrev = mPECur;
+				mPECur = 0;
 
-		for(int i = 0; i < contacts_cur.size(); i++) {
-			if(contacts_ref[i].first && !contacts_cur[i].first) {
-				mCondiff += pow(std::max(0.0, (contacts_cur[i].second)(1) - 0.07), 2);
-			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-				mCondiff += pow(std::max(0.0, (contacts_ref[i].second)(1) - 0.07), 2);
-			}
-		}
-		mCountContact += 1;
+				double ke_diff = deltaPE + 35;
+				double r_ke = exp(-pow(ke_diff * 0.1, 2));
 
-		if(mCurrentFrameOnPhase >= 44) {
+				r_param = r_ke;
+				
+				mCountKE += 1;
+				mFitness.sum_reward += r_ke;
+				mControlFlag[0] += 1;
 
-			// // /////BASELINE
-			// // Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
-			// // Eigen::Vector3d m_diff = momentumGoal - mMomentum;
-			// // m_diff *= 0.1;
-			// // m_diff(1) *= 4;
-
-			// // double r_m = exp_of_squared(m_diff, 1.5); 
-			// // if(r_m < 0.4) {
-			// // 	mParamCur(0) = -5;
-			// // } else {
-			// // 	mParamCur(0) = mParamGoal(0);
-			// // }
-			// // r_param = r_m;
-			// // mParamRewardMax = r_param;
-
-			double r_c = exp(-mCondiff * 10);
-			if(r_c < 0.4) {
-				mParamCur(0) = -5;
+				if(mRecord) {
+					std::cout << mCurrentFrameOnPhase << " : " <<  mPEPrev << " " << deltaPE << " / " << ke_diff << " / " << r_ke << std::endl;
+				}
 			} else {
-				mParamCur(0) = mParamGoal(0);
+				mPECur += skel->computePotentialEnergy();
 			}
-			r_param = 0.4 * r_c;
-			mFitness.sum_reward *= r_c;
+		} else {
+			mPEPrev = 560 * exp(mParamGoal(0));
+			mPECur = 0;
+			mControlFlag[0] += 1;
+		}
+		
+	} else if((mControlFlag[0] == 1 && mCurrentFrameOnPhase >= 11.5) 
+				|| (mControlFlag[0] == 3 && mCurrentFrameOnPhase >= 31.5) 
+				|| (mControlFlag[0] == 5 && mCurrentFrameOnPhase >= 51.5)
+				|| (mControlFlag[0] == 7 && mCurrentFrameOnPhase >= 71.5)) {
+		if(mPECur != 0) {
+			mPECur += skel->computePotentialEnergy();
+			mPECur /= 2;
 
-			mControlFlag[0] = 2;
+			double deltaPE = mPECur - mPEPrev;
+
+			mPEPrev = mPECur;
+			mPECur = 0;
+
+			double ke_diff = deltaPE - 35;
+			double r_ke = exp(-pow(ke_diff * 0.1, 2));
+
+			r_param = r_ke;
+			
+			mCountKE += 1;
+			mFitness.sum_reward += r_ke;
+			mControlFlag[0] += 1;
 
 			if(mRecord) {
-				std::cout << "contact: " << mCondiff << " / " << r_c << std::endl;
-				std::cout << "final parameter: " <<  mParamCur.transpose() << std::endl;
+				std::cout << mCurrentFrameOnPhase << " : " <<  mPEPrev << " " << deltaPE << " / " << ke_diff << " / " << r_ke << std::endl;
 			}
+		} else {
+			mPECur += skel->computePotentialEnergy();
 		}
-	} 
+	}
+
 	return r_param;
 	
 }
@@ -678,6 +613,16 @@ UpdateAdaptiveReward()
 	double r_param = this->GetParamReward();
 
 	double r_tot = r_tracking;
+	// double energy = 0;
+	// double num_body_nodes = skel->getNumBodyNodes();
+	// for(int i =0 ; i < num_body_nodes; i++) {
+	// 	Eigen::Vector6d V = skel->getBodyNode(i)->getSpatialVelocity();
+	// 	Eigen::Matrix6d G = skel->getBodyNode(i)->getSpatialInertia();
+	// 	V.segment<4>(0).setZero();
+	// 	V(6) = 0;
+	// 	energy += 0.5 * V.dot(G * V);
+	// }
+
 
 	// if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 38) {
 	// 	Eigen::VectorXd p_diff_bvh(15);
@@ -697,7 +642,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(20 * r_param);
+		mRewardParts.push_back(5 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -728,8 +673,11 @@ UpdateReward()
 	double r_torque = exp_of_squared(mSumTorque, 50);
 
 	mRewardParts.clear();
-	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
-	// r_tot = 0.99 * r_tot + 0.01 * r_torque;
+	double r_tot = 0.9 * (0.4 * tracking_rewards_bvh[0] + 0.15 * tracking_rewards_bvh[1] + 0.2 * tracking_rewards_bvh[2] + 0.15 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
+	// double energy = skel->computeKineticEnergy() + skel->computePotentialEnergy();
+	// double r_e = exp(-pow((energy - 630)*0.02, 2));
+
+	r_tot = 0.98 * r_tot + 0.02 * r_torque;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -833,6 +781,7 @@ SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
 	this->mWorld->setGravity(exp(mParamGoal(0))*mBaseGravity);
+	mParamCur = mParamGoal;
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 

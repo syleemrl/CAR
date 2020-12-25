@@ -86,7 +86,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass);
-
+	Eigen::Vector3d GetGRF(std::string joint);
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -184,14 +184,14 @@ protected:
 	Eigen::Vector3d stickLeftFoot;
 	Eigen::Vector3d stickRightFoot;
 	int mCountSlide;
-	double mParamRewardMax;
+
 /////////////////////////////////////////////////
 // for action parameter design
-	double mVelocity;
-	Eigen::Vector3d mMomentum;
-	double mCondiff;
-	double mCountContact;
-	Eigen::Vector3d mMaxCOM;
+	double mPEPrev;
+	double mPECur;
+	int mCountKE;
+	int mCountContact;
+
 //////////////////////////////////////////////////
 };
 }

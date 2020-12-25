@@ -19,6 +19,7 @@ struct Fitness
 	double sum_vel;
 	double sum_reward;
 	double sum_slide;
+	double sum_energy;
 
 };
 class Motion

@@ -515,6 +515,8 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
+	if(std::get<2>(rewards).sum_reward < 0.5)
+		return;
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
@@ -606,11 +608,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2.0);
-	double reward_trajectory = r_pos * r_vel * r_slide;
-	if(std::get<2>(rewards).sum_reward != 0) {
-		reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
-	}
-	// std::cout << r_pos << " " << r_vel << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory << std::endl;
+	double reward_trajectory = r_foot * r_pos * r_vel * std::get<2>(rewards).sum_reward;
+
 	if(reward_trajectory < 0.3)
 		return;
 
