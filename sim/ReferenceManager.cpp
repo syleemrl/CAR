@@ -538,7 +538,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
 
-	// std::cout<<"1 ; "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).com_rot_norm<<std::endl;
+	if(mRecord) std::cout<<"1 ; "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).com_rot_norm<<" "<<std::get<2>(rewards).sum_slide<<std::endl;
 
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
@@ -546,7 +546,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	}
 
 	if(abs(std::get<2>(rewards).com_rot_norm) > 0.2) return;
-	if(std::get<2>(rewards).sum_slide > 0.1) return;
+	if(std::get<2>(rewards).sum_slide > 0.2) return;
 
 	// if(std::get<2>(rewards).fall_cnt > 10) return;
 
@@ -563,10 +563,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	right_vector[1]= 0;
 	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
 	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
-	// if(std::abs(forward_angle) > M_PI/4.) {
-	// 	// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
-	// 	return;
-	// }
+
+	if(std::abs(forward_angle) > M_PI/4.) {
+		// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
+		return;
+	}
 	if (std::abs(data_raw[0].second) > 1e-8) return ;
 	
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
@@ -643,16 +644,16 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	
 	}
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
-	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.1, 2.0));
+	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.1/1.5, 2.0));
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;
 
 
-	// std::cout<<"r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"r_slide: "<<r_slide<<"("<<std::get<2>(rewards).sum_slide<<") /reward_trajectory : "<<reward_trajectory<<std::endl;
+	if(mRecord) std::cout<<parameters.transpose()<<" :: r_foot:"<<r_foot<<"/ r_pos: "<<r_pos<<"/ r_vel: "<<r_vel<<"r_slide: "<<r_slide<<"("<<std::get<2>(rewards).sum_slide<<") /reward_trajectory : "<<reward_trajectory<<std::endl;
 	// std::cout << "2 : " << reward_trajectory << std::endl;
 
-	if(reward_trajectory < 0.6) return ;
+	// if(reward_trajectory < 0.6) return ;
 
 	mLock.lock();
 	

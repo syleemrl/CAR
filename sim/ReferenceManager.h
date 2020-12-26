@@ -18,6 +18,7 @@ struct Fitness
 	Eigen::VectorXd sum_pos;
 	Eigen::VectorXd sum_vel;
 	double sum_slide;
+	int slide_cnt;
 	int fall_cnt;
 	double com_rot_norm;
 
@@ -94,7 +95,9 @@ public:
 	}
 
 	Eigen::VectorXd getParamDMM(){ return mParamDMM;}
-	
+	void setRecord(){mRecord = true;}
+	void setRegressionMemoryRecord(){mRegressionMemory->setRecord();}
+
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -138,6 +141,8 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+
+	bool mRecord = false;
 };
 }
 

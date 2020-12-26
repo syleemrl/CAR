@@ -726,7 +726,7 @@ bool
 RegressionMemory::
 UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate) {
 	Eigen::VectorXd candidate_param = std::get<1>(candidate);
-
+	// std::cout<<"update param space : "<<candidate_param.transpose()<<std::endl;
 	for(int i = 0; i < mDim; i++) {
 		if(candidate_param(i) > mParamMax(i) || candidate_param(i) < mParamMin(i)) {
 			return false;
@@ -755,8 +755,10 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 					if(prev_max < ps[j]->reward)
 						prev_max = ps[j]->reward;
 					if(ps[j]->reward < std::get<2>(candidate)) {
+						if(mRecord) std::cout<<"delete : "<<ps[j]->param_normalized.transpose()<<" "<<ps[j]->reward<<" > "<<std::get<2>(candidate)<<std::endl;
 						p_delete.push_back(ps[j]);
 					} else {
+						if(mRecord) std::cout<<ps[j]->param_normalized.transpose()<<" "<<ps[j]->reward<<" > "<<std::get<2>(candidate)<<std::endl;
 						flag = false;
 						break;
 					}
@@ -773,6 +775,12 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	if(n_compare == 0) {
 		mRecordLog.push_back("new parameter: " + vectorXd_to_string(nearest) + ", " + std::to_string(std::get<2>(candidate)));
 	}
+
+if(mRecord){
+	std::cout<<"flag ; "<<flag<<std::endl;
+	std::cout << candidate_param.transpose() << " " << std::get<2>(candidate) << std::endl;
+	return false;	
+}
 
 	if(flag) {
 		std::cout << candidate_param.transpose() << " " << std::get<2>(candidate) << std::endl;
@@ -872,6 +880,7 @@ std::vector<Eigen::VectorXd>
 RegressionMemory::
 GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	// naive implementation
+	if(mRecord) std::cout<<"GetNearestParams -- "<<std::endl;
 	std::vector<std::pair<double, Param*>> ps = GetNearestParams(Normalize(p_goal), mNumElite * 10, false, true);
 	// std::cout << p_goal.transpose() << " " << GetDensity(Normalize(p_goal)) << std::endl;
 	if(ps.size() < mNumElite) {
@@ -884,7 +893,8 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*ps[i].second->reward;
-		// if(fitness>0.3) std::cout << Denormalize(ps[i].second->param_normalized).transpose() << "/ " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
+		// if(fitness>0.3) 
+			if(mRecord) std::cout << Denormalize(ps[i].second->param_normalized).transpose() << "/ " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
 		// if(fitness>0.3) std::cout << (Denormalize(ps[i].second->param_normalized)- p_goal).transpose() << "/ " << preward << " " << ps[i].second->reward << " " << fitness << std::endl;
 
 	//	if(f_baseline < fitness) {

@@ -214,6 +214,7 @@ protected:
 	bool placedObject; 
 
 
+	int jump_phase; //0 stand, 1 jump (in the air) 2 landed
 };
 }
 #endif

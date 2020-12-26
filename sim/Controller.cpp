@@ -153,7 +153,10 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 	foot_diff = std::vector<double>();
 
-
+	if(mRecord) {
+		mReferenceManager->setRecord();
+		mReferenceManager->setRegressionMemoryRecord();
+	}
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -249,18 +252,28 @@ Step()
 	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<foot<<" " <<land_foot_cnt<<std::endl;
 	// }
 
-	if(mCurrentFrameOnPhase >= 80){
+	double min_foot = std::min(mCharacter->getBodyWorldTrans("LeftFoot")[1], mCharacter->getBodyWorldTrans("RightFoot")[1]);
+	
+	if(mCurrentFrameOnPhase >=55 && mCurrentFrameOnPhase <60 && stickFoot) {
+		stickFoot = false;
+		jump_phase = 1;
+	}
+	if(mCurrentFrameOnPhase >= 80 || (mCurrentFrameOnPhase>70 &&  min_foot < 0.05)){
 		if(!stickFoot){
 			stickLeftFoot = mCharacter->getBodyWorldTrans("LeftFoot");
 			stickRightFoot = mCharacter->getBodyWorldTrans("RightFoot");
 			stickFoot = true;
+			jump_phase= 2;
+			if(mRecord) std::cout<<"stickFoot @ "<<mCurrentFrameOnPhase<<std::endl;
 		}
+	}
 
+	if(stickFoot && (jump_phase ==2)){
+		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" / stickFoot : "<<mCharacter->getBodyWorldTrans("LeftFoot").transpose()<<" , "<<mCharacter->getBodyWorldTrans("RightFoot").transpose()<<std::endl;
 		double foot = (mCharacter->getBodyWorldTrans("LeftFoot")[2]+ mCharacter->getBodyWorldTrans("RightFoot")[2])/2;
 		mean_land_foot+= foot;
 		land_foot_cnt++;
 	}
-
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 
@@ -270,12 +283,12 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
-			mFitness.sum_slide/= mCountTracking;
+			mFitness.sum_slide/= mFitness.slide_cnt;
 			mFitness.com_rot_norm/= mFitness.fall_cnt;
 
 			if((mCurrentFrame < 2*mReferenceManager->GetPhaseLength())  && (land_foot_cnt > 0)){
 				mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
-				std::cout<<mParamCur.transpose()<<std::endl;
+				// std::cout<<mParamCur.transpose()<<std::endl;
 				// double shift_height = - (mParamCur[0]- mReferenceManager->getParamDMM()[0]);
 				double shift_height = (mParamGoal[0] < 0) ? mParamGoal[0] : 0;
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur, shift_height);
@@ -296,6 +309,7 @@ Step()
 
 			mFitness.sum_contact = 0;
 			mFitness.sum_slide = 0;
+			mFitness.slide_cnt = 0;
 			mFitness.fall_cnt = 0;
 			mFitness.com_rot_norm= 0;
 			auto& skel = mCharacter->GetSkeleton();
@@ -440,6 +454,9 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	for(int i=0;i<mEndEffectors.size();i++){
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
+		ee_diff(3*i) *= 2; //x
+		ee_diff(3*i+1) *= 0.5; //y
+		ee_diff(3*i+2) *= 0.5; //z
 	}
 	com_diff -= skel->getCOM();
 
@@ -585,13 +602,28 @@ GetSimilarityReward()
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx) *= 5;
-			p_diff.segment<3>(idx + 3) *= 10;
+			p_diff.segment<3>(idx) *=5;
+			p_diff(idx+3) *= 10; // x-axis
+
+			// y-axis (up)
+			p_diff(idx+4) *= 0;
+			v_diff(idx+4) *= 0;
+
+			// z- axis (forward)
+			if(jump_phase !=0) {
+				p_diff(idx+5) *=0;
+				v_diff(idx+5) *=0;
+			}
+
+			// p_diff.segment<3>(idx) *= 5;
+			// p_diff.segment<3>(idx + 3) *= 10;
 			// v_diff.segment<3>(idx) *= 5;
 			// v_diff.segment<3>(idx + 3) *= 10;
 			// v_diff(5) *= 2;
 		} 
 	}
+
+	// std::cout<<mCurrentFrameOnPhase<<" "<<jump_phase<<" "<<stickFoot<<" "<<stickLeftFoot.transpose()<<" "<<stickRightFoot.transpose()<<std::endl;
 
 	if(stickFoot){
 		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
@@ -600,6 +632,7 @@ GetSimilarityReward()
 		foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
 
 		mFitness.sum_slide += foot_diff.norm();
+		mFitness.slide_cnt++;
 		// r_footSlide = exp_of_squared(foot_diff, 0.1);
 	}
 
@@ -895,6 +928,7 @@ Reset(bool RSI)
 		this->mTrackingRewardTrajectory = 0;
 		mFitness.sum_contact = 0;
 		mFitness.sum_slide = 0;
+		mFitness.slide_cnt = 0;
 		mFitness.fall_cnt = 0;
 		mFitness.com_rot_norm = 0;
 		mFitness.sum_pos.resize(skel->getNumDofs());
@@ -939,6 +973,13 @@ Reset(bool RSI)
 	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
 	stickFoot = false;
+	if(mCurrentFrameOnPhase <55){
+		stickLeftFoot = mCharacter->getBodyWorldTrans("LeftFoot");
+		stickRightFoot = mCharacter->getBodyWorldTrans("RightFoot");
+		stickFoot = true;
+		jump_phase =0;
+	}else if(mCurrentFrameOnPhase < 74) jump_phase =1;
+	else jump_phase = 2;
 	// mFootZero = (lf+rf)/2.;
 	mDefaultRootZero = mRootZero; 
 

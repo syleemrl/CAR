@@ -104,6 +104,7 @@ public:
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
 
+	void setRecord(){mRecord = true;}
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
@@ -154,6 +155,8 @@ private:
 	double mEliteGoalDistance;
 	double mNewSamplesNearGoal;
 	double mUpdatedSamplesNearGoal;
+
+	bool mRecord = false;
 
 };
 }

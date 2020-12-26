@@ -291,11 +291,12 @@ UpdateParam(const bool& pressed) {
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    
 	    // Eigen::VectorXd tp_denorm = tp_denorm_raw;
+	    tp_denorm = tp_denorm_raw;
 
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
-	    std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
 
+	    std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
 
 	    // std::vector<Eigen::VectorXd> cps;
 	    // for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
@@ -310,7 +311,6 @@ UpdateParam(const bool& pressed) {
 	    //     cps[j] = DPhy::toEigenVector(na, dof);
 	    // }
 
-	    tp_denorm = tp_denorm_raw;
     	double shift_height = (tp_denorm[0] < 0)? -tp_denorm[0] : 0;
 		// Eigen::VectorXd paramDmm = mReferenceManager->getParamDMM();
 		// double shift_height = tp_denorm[0]-paramDmm[0];
@@ -877,7 +877,7 @@ initLights()
 	glDepthFunc(GL_LEQUAL);
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_NORMALIZE);
-
+	
 	glEnable(GL_FOG);
 	GLfloat fogColor[] = {200.0/256.0,200.0/256.0,200.0/256.0,1};
 	glFogfv(GL_FOG_COLOR,fogColor);
