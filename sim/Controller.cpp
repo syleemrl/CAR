@@ -254,15 +254,21 @@ Step()
 
 	double min_foot = std::min(mCharacter->getBodyWorldTrans("LeftFoot")[1], mCharacter->getBodyWorldTrans("RightFoot")[1]);
 	
-	if(mCurrentFrameOnPhase >=55 && mCurrentFrameOnPhase <60 && stickFoot) {
+	if(mCurrentFrameOnPhase >=56 && mCurrentFrameOnPhase <60 && stickFoot) {
 		stickFoot = false;
 		jump_phase = 1;
+		mFitness.sum_slide+= (stickFoot_max - stickFoot_min);
+		// std::cout<<mCurrentFrameOnPhase<<" "<<mFitness.sum_slide<<" ( "<<stickFoot_min<<" , "<<stickFoot_max<<")"<<std::endl;
 	}
 	if(mCurrentFrameOnPhase >= 80 || (mCurrentFrameOnPhase>70 &&  min_foot < 0.05)){
 		if(!stickFoot){
-			stickLeftFoot = mCharacter->getBodyWorldTrans("LeftFoot");
-			stickRightFoot = mCharacter->getBodyWorldTrans("RightFoot");
+			stickLeftFoot = mCharacter->getBodyWorldTrans("LeftToe");
+			stickRightFoot = mCharacter->getBodyWorldTrans("RightToe");
 			stickFoot = true;
+
+			stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
+			stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
+
 			jump_phase= 2;
 			if(mRecord) std::cout<<"stickFoot @ "<<mCurrentFrameOnPhase<<std::endl;
 		}
@@ -283,7 +289,10 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
-			mFitness.sum_slide/= mFitness.slide_cnt;
+			// mFitness.sum_slide/= mFitness.slide_cnt;
+			mFitness.sum_slide+= (stickFoot_max - stickFoot_min);
+			// std::cout<<mCurrentFrameOnPhase<<" "<<mFitness.sum_slide<<" ( "<<stickFoot_min<<" , "<<stickFoot_max<<")"<<std::endl;
+
 			mFitness.com_rot_norm/= mFitness.fall_cnt;
 
 			if((mCurrentFrame < 2*mReferenceManager->GetPhaseLength())  && (land_foot_cnt > 0)){
@@ -626,13 +635,20 @@ GetSimilarityReward()
 	// std::cout<<mCurrentFrameOnPhase<<" "<<jump_phase<<" "<<stickFoot<<" "<<stickLeftFoot.transpose()<<" "<<stickRightFoot.transpose()<<std::endl;
 
 	if(stickFoot){
-		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-		Eigen::VectorXd foot_diff (6);
-		foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
+		Eigen::Vector3d lf = skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		Eigen::Vector3d rf = skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		
+		double foot_min = std::min(lf[2], rf[2]);
+		double foot_max = std::max(lf[2], rf[2]);
 
-		mFitness.sum_slide += foot_diff.norm();
-		mFitness.slide_cnt++;
+		if(foot_min < stickFoot_min) stickFoot_min = foot_min;
+		else if(foot_max > stickFoot_max) stickFoot_max = foot_max;
+
+		// Eigen::VectorXd foot_diff (6);
+		// foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
+
+		// mFitness.sum_slide += foot_diff.norm();
+		// mFitness.slide_cnt++;
 		// r_footSlide = exp_of_squared(foot_diff, 0.1);
 	}
 
@@ -974,9 +990,12 @@ Reset(bool RSI)
 
 	stickFoot = false;
 	if(mCurrentFrameOnPhase <55){
-		stickLeftFoot = mCharacter->getBodyWorldTrans("LeftFoot");
-		stickRightFoot = mCharacter->getBodyWorldTrans("RightFoot");
+		stickLeftFoot = mCharacter->getBodyWorldTrans("LeftToe");
+		stickRightFoot = mCharacter->getBodyWorldTrans("RightToe");
 		stickFoot = true;
+
+		stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
+		stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
 		jump_phase =0;
 	}else if(mCurrentFrameOnPhase < 74) jump_phase =1;
 	else jump_phase = 2;

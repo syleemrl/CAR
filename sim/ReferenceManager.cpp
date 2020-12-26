@@ -546,7 +546,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	}
 
 	if(abs(std::get<2>(rewards).com_rot_norm) > 0.2) return;
-	if(std::get<2>(rewards).sum_slide > 0.2) return;
+	if(std::get<2>(rewards).sum_slide > 0.25) return;
 
 	// if(std::get<2>(rewards).fall_cnt > 10) return;
 
