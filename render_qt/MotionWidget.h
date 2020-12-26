@@ -3,6 +3,7 @@
 #include <vector>
 #include <QOpenGLWidget>
 #include <QTimerEvent>
+#include <QGLShader>
 #include <QKeyEvent>
 #pragma push_macro("slots")
 #undef slots
@@ -114,6 +115,7 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+	QGLShaderProgram shaderProgram;
 
 };
 #endif

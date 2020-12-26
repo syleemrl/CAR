@@ -7,7 +7,7 @@
 #include <QSlider>
 #include <QPushButton>
 #include "MotionWidget.h"
-
+#include "BVHWidget.h"
 #pragma push_macro("slots")
 #undef slots
 #include <boost/python.hpp>
@@ -30,14 +30,17 @@ public slots:
 	void togglePlay(const bool& toggled);
 public:
     MainWindow();
+    MainWindow(std::vector<std::string> motion);
     MainWindow(std::string motion, std::string ppo, std::string reg);
 
 protected:
 	QHBoxLayout* mMainLayout;
 	MotionWidget* mMotionWidget;
+	BVHWidget* mBVHWidget;
 	QPushButton* mButton;
 	std::vector<QSlider*> mParams;
 
+	void initLayoutSetting(std::vector<std::string> motion);
 	void initLayoutSetting(std::string motion, std::string ppo, std::string reg) ;
 
 };

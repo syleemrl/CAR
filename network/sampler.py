@@ -130,7 +130,7 @@ class Sampler(object):
 
 	def updateCurrentStatus(self, mode, results, info):
 		if mode == 0 or mode == 2:
-			if len(self.progress_queue_explore) >= 10:
+			if len(self.progress_queue_explore) >= 5:
 				self.progress_queue_explore = self.progress_queue_explore[1:]
 			self.progress_queue_explore.append(self.progress_cur)
 
@@ -169,7 +169,7 @@ class Sampler(object):
 					print('delta updated:', self.delta)
 
 		elif mode == 1:		
-			if len(self.progress_queue_exploit) >= 10:
+			if len(self.progress_queue_exploit) >= 5:
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
 			self.progress_queue_exploit.append(self.progress_cur)		
 
@@ -317,7 +317,7 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
-		if self.n_exploit < 10 or self.v_mean < 17:
+		if self.n_exploit < 10:
 			return False
 
 		if self.use_table:

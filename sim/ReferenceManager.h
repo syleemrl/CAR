@@ -16,10 +16,11 @@ struct Fitness
 {
 	double sum_contact;
 	double sum_pos;
+	double sum_pos_threshold;
 	double sum_vel;
+	double sum_vel_threshold;
 	double sum_reward;
 	double sum_slide;
-
 };
 class Motion
 {

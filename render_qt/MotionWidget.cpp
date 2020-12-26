@@ -102,11 +102,11 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     UpdateMotion(pos, 0);
 	initNetworkSetting(ppo, reg);
 
+	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(255./255., 102./255., 46./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
 
-	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
-	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
-	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
@@ -356,6 +356,11 @@ void
 MotionWidget::
 initializeGL()
 {
+	// shaderProgram.addShaderFromSourceFile(QGLShader::Vertex, QString::fromStdString(std::string(CAR_DIR)+std::string("/render_qt/vertexshader.txt")));
+	// shaderProgram.addShaderFromSourceFile(QGLShader::Fragment, QString::fromStdString(std::string(CAR_DIR)+std::string("/render_qt/fragshader.txt")));
+	// shaderProgram.link();
+	// shaderProgram.bind();
+
 	glClearColor(1,1,1,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -403,12 +408,12 @@ DrawSkeletons()
 	if(mDrawReg) {
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 		// if(!mRunSim) {
-		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		// GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 	//	}
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
-		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		// GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 
 	}
 
@@ -486,11 +491,11 @@ initLights()
 	glEnable(GL_NORMALIZE);
 
 	glEnable(GL_FOG);
-	GLfloat fogColor[] = {200.0/256.0,200.0/256.0,200.0/256.0,1};
+	GLfloat fogColor[] = {0.9,0.9,0.9,1};
 	glFogfv(GL_FOG_COLOR,fogColor);
 	glFogi(GL_FOG_MODE,GL_LINEAR);
-	glFogf(GL_FOG_DENSITY,0.05);
-	glFogf(GL_FOG_START,20.0);
+	// glFogf(GL_FOG_DENSITY,0.05);
+	glFogf(GL_FOG_START,10.0);
 	glFogf(GL_FOG_END,40.0);
 }
 void

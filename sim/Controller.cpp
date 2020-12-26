@@ -220,6 +220,8 @@ Step()
 			mTrackingRewardTrajectory /= mCountTracking;
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
+			mFitness.sum_pos_threshold /= mCountTracking;
+			mFitness.sum_vel_threshold /= mCountTracking;
 			mFitness.sum_slide /= mCountSlide;
 
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
@@ -228,6 +230,8 @@ Step()
 			mFitness.sum_contact = 0;
 			mFitness.sum_pos = 0;
 			mFitness.sum_vel = 0;
+			mFitness.sum_pos_threshold = 0;
+			mFitness.sum_vel_threshold = 0;
 			mFitness.sum_slide = 0;
 			mFitness.sum_reward = 0;
 
@@ -501,12 +505,16 @@ GetSimilarityReward()
 	}
 
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(pos, p_aligned);
+	Eigen::VectorXd p_diff_th = p_diff;
+
 	Eigen::VectorXd v_diff = skel->getVelocityDifferences(vel, v);
 
 	int num_body_nodes = skel->getNumBodyNodes();
 	for(int i =0 ; i < vel.rows(); i++) {
 		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
 	}
+	Eigen::VectorXd v_diff_th = v_diff;
+
 	// if(mCurrentFrame < mReferenceManager->GetPhaseLength()) {
 	// 	std::cout << mCurrentFrameOnPhase << std::endl;
 	// }
@@ -531,12 +539,29 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<2>(idx + 1) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
-			p_diff(4) *= 0;
+			p_diff(4) *= 0.2;
+
+			p_diff_th.segment<2>(idx + 1) *= 3;
+			p_diff_th.segment<3>(idx + 3) *= 5;
+			p_diff_th(4) *= 0;
+
 			v_diff.segment<3>(idx + 3) *= 5;
-			v_diff(4) *= 0;
-		} else if(name.compare("Spine") == 0 ) {
-			p_diff.segment<2>(idx + 1) *= 3;
-			v_diff.segment<2>(idx + 1) *= 3;
+			v_diff(4) *= 0.6;
+
+			v_diff_th.segment<3>(idx + 3) *= 5;
+			v_diff_th(4) *= 0;
+		} else if(name.compare("Spine") != std::string::npos ) {
+			p_diff.segment<2>(idx + 1) *= 2;
+			v_diff.segment<2>(idx + 1) *= 2;
+
+			p_diff_th.segment<2>(idx + 1) *= 2;
+			v_diff_th.segment<2>(idx + 1) *= 2;
+		} else if(name.compare("UpLeg") != std::string::npos ) {
+			p_diff.segment<3>(idx) *= 2;
+			v_diff.segment<3>(idx) *= 2;
+			
+			p_diff_th.segment<3>(idx) *= 2;
+			v_diff_th.segment<3>(idx) *= 2;
 		} 
 	}
 
@@ -581,6 +606,10 @@ GetSimilarityReward()
 	mFitness.sum_contact += con_diff;
 	mFitness.sum_pos += p_diff.dot(p_diff) / p_diff.rows();
 	mFitness.sum_vel += v_diff.dot(v_diff) / v_diff.rows();
+
+	mFitness.sum_pos_threshold += p_diff_th.dot(p_diff_th) / p_diff_th.rows();
+	mFitness.sum_vel_threshold += v_diff_th.dot(v_diff_th) / v_diff_th.rows();
+
 	mFitness.sum_slide += footSlide;
 	return exp(-r_con)  * r_p * r_ee;
 }
@@ -602,8 +631,8 @@ GetParamReward()
 		} else {
 			mParamCur(0) = mParamGoal(0);
 		}
-		mFitness.sum_reward = (0.7 + 0.3 * r_m);
-		r_param = 0.6 * r_m;
+		mFitness.sum_reward = (0.5 + 0.5 * r_m);
+		r_param = 0.8 * r_m;
 
 		mControlFlag[0] = 1;
 		if(mRecord) {
@@ -876,6 +905,8 @@ Reset(bool RSI)
 		mFitness.sum_contact = 0;
 		mFitness.sum_pos = 0;
 		mFitness.sum_vel = 0;
+		mFitness.sum_pos_threshold = 0;
+		mFitness.sum_pos_threshold = 0;
 		mFitness.sum_reward = 0;
 
 	}
@@ -1085,9 +1116,22 @@ GetState()
 	Eigen::VectorXd state;
 
 	double com_diff = 0;
+
+	std::vector<std::string> contact;
+	contact.push_back("RightFoot");
+	contact.push_back("RightToe");
+	contact.push_back("LeftFoot");
+	contact.push_back("LeftToe");
+
+	Eigen::Vector4d foot_height;
+	for(int i = 0; i < contact.size(); i++) {
+		Eigen::Vector3d p = skel->getBodyNode(contact[i])->getWorldTransform().translation();
+		foot_height[i] = p[1];
+	}
+
 	if(isParametric) {
-		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal;
+		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows()+4);
+		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal, foot_height;
 	}
 	else {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
@@ -1111,7 +1155,7 @@ Controller::SaveTimeData(std::string directory) {
 
 }
 void
-Controller::SaveDisplayedData(std::string directory, bool bvh) {
+Controller::SaveDisplayedData(std::string directory, bool normalized) {
 	std::string path = directory;
 	std::cout << "save results to" << path << std::endl;
 	std::vector<std::string> HIERARCHY = mReferenceManager->GetHierarchyStr();
@@ -1132,28 +1176,61 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	bvh_order.push_back("RightArm");
 	bvh_order.push_back("RightForeArm");
 	bvh_order.push_back("RightHand");
-	bvh_order.push_back("RightUpLeg");
-	bvh_order.push_back("RightLeg");
-	bvh_order.push_back("RightFoot");
-	bvh_order.push_back("RightToe");
 	bvh_order.push_back("LeftUpLeg");
 	bvh_order.push_back("LeftLeg");
 	bvh_order.push_back("LeftFoot");
 	bvh_order.push_back("LeftToe");
+	bvh_order.push_back("RightUpLeg");
+	bvh_order.push_back("RightLeg");
+	bvh_order.push_back("RightFoot");
+	bvh_order.push_back("RightToe");
 
+	std::vector<Eigen::VectorXd> normalizedPosition;
+	std::vector<double> normalizedDPhase;
 
-	if(bvh) {
-		ofs << "HIERARCHY" << std::endl;
-		ofs << "ROOT Hips" << std::endl;
-		for(int i = 0; i < HIERARCHY.size(); i++) {
-			ofs << HIERARCHY[i] << std::endl;
+	if(normalized){
+		int count = 0;
+		for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+			while(count + 1 < mRecordPosition.size() && i >= mRecordPhase[count+1])
+				count += 1;
+			Eigen::VectorXd p(mCharacter->GetSkeleton()->getNumDofs());
+			double dp = 0;
+			if(i < mRecordPhase[count]) {
+				p = mRecordPosition[count];
+				dp = mRecordPhase[count + 1] - mRecordPhase[count - 1];
+			} else if(count == data_raw.size() - 1 && i > mRecordPhase[count]) {
+				p = mRecordPosition[count];
+				dp = mRecordPhase[count] - mRecordPhase[count - 1];
+			} else if(i == mRecordPhase[count]) {
+				p = mRecordPosition[count];
+				dp = mRecordPhase[count+1] - mRecordPhase[count];
+			} else {
+				double weight = 1.0 - (mRecordPhase[count+1] - i) / (mRecordPhase[count+1] - mRecordPhase[count]);
+				double dp0 = mRecordPhase[count+1] - mRecordPhase[count];
+				double dp1 = mRecordPhase[count+2] - mRecordPhase[count+1];
+				p = DPhy::BlendPosition(mRecordPosition[count], mRecordPosition[count+1], weight);
+				dp = (1 - weight) * dp0 + weight * dp1;
+			}
+			normalizedPosition.push_back(p);
+			normalizedDPhase.push_back(dp);
 		}
-		ofs << "MOTION" << std::endl;
-		ofs << "Frames: " << std::to_string(mRecordPosition.size()) << std::endl;
-		ofs << "Frame Time:	0.0333333" << std::endl;
 	}
-	for(auto t: mRecordPosition) {
-		if(bvh) {
+
+	ofs << "HIERARCHY" << std::endl;
+	ofs << "ROOT Hips" << std::endl;
+	for(int i = 0; i < HIERARCHY.size(); i++) {
+		ofs << HIERARCHY[i] << std::endl;
+	}
+	ofs << "MOTION" << std::endl;
+	if(normalized) {
+		ofs << "Frames: " << std::to_string(normalizedPosition.size()) << std::endl;
+	} else {
+		ofs << "Frames: " << std::to_string(mRecordPosition.size()) << std::endl;
+	}
+	ofs << "Frame Time:	0.0333333" << std::endl;
+	if(normalized) {
+		for(auto t: normalizedPosition) {
+
 			ofs << t.segment<3>(3).transpose() * 100 << " ";
 
 			for(int i = 0; i < bvh_order.size(); i++) {
@@ -1165,12 +1242,31 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 				ofs << v.transpose() * 180 / M_PI << " ";			
 			}
 			ofs << std::endl;
-		} else {
-			ofs << t.transpose() << std::endl;
+		}
+	} else {
+		for(auto t: mRecordPosition) {
+			ofs << t.segment<3>(3).transpose() * 100 << " ";
+
+			for(int i = 0; i < bvh_order.size(); i++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(bvh_order[i])->getParentJoint()->getIndexInSkeleton(0);
+				Eigen::AngleAxisd aa(t.segment<3>(idx).norm(), t.segment<3>(idx).normalized());
+				Eigen::Matrix3d m;
+				m = aa;
+				Eigen::Vector3d v = dart::math::matrixToEulerZXY(m);
+				ofs << v.transpose() * 180 / M_PI << " ";			
+			}
+			ofs << std::endl;		
 		}
 		
 	}
 	std::cout << "saved position: " << mRecordPosition.size() << ", "<< mReferenceManager->GetPhaseLength() << ", " << mRecordPosition[0].rows() << std::endl;
 	ofs.close();
+
+	ofs.open(path+"time");
+	for(auto t: normalizedDPhase) {
+		ofs << t << std::endl;	
+	}
+	ofs.close();
+
 }
 }

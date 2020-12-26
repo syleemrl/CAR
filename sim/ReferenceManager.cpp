@@ -515,7 +515,6 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-	return;
 	
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
@@ -523,9 +522,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
-	if(std::get<0>(rewards) < mThresholdTracking) {
-		return;
-	}
+	// if(std::get<0>(rewards) < mThresholdTracking) {
+	// 	return;
+	// }
 
 	// if(std::get<2>(rewards).sum_contact > 0.6) {
 	// 	return;
@@ -607,13 +606,18 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact*0.6); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
+	double r_vel_th = exp(-std::get<2>(rewards).sum_vel_threshold*0.01);
+	double r_pos_th = exp(-std::get<2>(rewards).sum_pos_threshold*8);
 	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide, 2.0) * 2.0);
 	double reward_trajectory = r_pos * r_vel * r_slide;
+	double reward_trajectory_th = r_pos_th * r_vel_th * r_slide;
+
 	if(std::get<2>(rewards).sum_reward != 0) {
-		reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
+		reward_trajectory = reward_trajectory * (0.9 + 0.1 * std::get<2>(rewards).sum_reward);
+		reward_trajectory_th = reward_trajectory_th * (0.9 + 0.1 * std::get<2>(rewards).sum_reward);
 	}
-	// std::cout << r_pos << " " << r_vel << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory << std::endl;
-	// if(reward_trajectory < 0.4)
+	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
+	// if(reward_trajectory_th < 0.45)
 	// 	return;
 
 	mLock.lock();

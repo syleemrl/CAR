@@ -289,9 +289,7 @@ class PPO(object):
 		lossval_ac = 0
 		lossval_c = 0
 		lossval_ct = 0
-		if self.env.num_evaluation == 0:
-			self.lossvals = []
-			return
+	
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
 			val = self.sess.run([self.actor_train_op, self.critic_train_op,
@@ -324,19 +322,20 @@ class PPO(object):
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]
 					self.target_y_batch = self.target_y_batch[-2000:]
-			for n in range(50):
-				ind = np.arange(len(self.target_x_batch))
-				np.random.shuffle(ind)
-				for s in range(int(len(ind)//self.batch_size_target)):
-					selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
-					val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
-						feed_dict={
-							self.state_target: self.target_x_batch[selectedIndex], 
-							self.TD_target: self.target_y_batch[selectedIndex]
-						}
-					)
-					lossval_ct += val[1]
-			self.lossvals.append(['loss critic target', lossval_ct / 50])
+			if self.env.mode == 0 and self.env.mode_counter % 3 == 1:
+				for n in range(50):
+					ind = np.arange(len(self.target_x_batch))
+					np.random.shuffle(ind)
+					for s in range(int(len(ind)//self.batch_size_target)):
+						selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
+						val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
+							feed_dict={
+								self.state_target: self.target_x_batch[selectedIndex], 
+								self.TD_target: self.target_y_batch[selectedIndex]
+							}
+						)
+						lossval_ct += val[1]
+				self.lossvals.append(['loss critic target', lossval_ct / 50])
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []

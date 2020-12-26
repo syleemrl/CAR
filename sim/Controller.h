@@ -57,7 +57,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	const dart::dynamics::SkeletonPtr& GetSkeleton();
 
-	void SaveDisplayedData(std::string directory, bool bvh=false);
+	void SaveDisplayedData(std::string directory, bool normalized=false);
 	void SaveTimeData(std::string directory);
 	void SaveStepInfo();
 	void ClearRecord();
@@ -185,6 +185,7 @@ protected:
 	Eigen::Vector3d stickRightFoot;
 	int mCountSlide;
 	double mParamRewardMax;
+
 /////////////////////////////////////////////////
 // for action parameter design
 	double mVelocity;
@@ -192,6 +193,13 @@ protected:
 	double mCondiff;
 	double mCountContact;
 	Eigen::Vector3d mMaxCOM;
+
+	Eigen::Vector3d mPrevLF;
+	Eigen::Vector3d mPrevRF;
+
+	Eigen::Vector3d mPrevLF_bvh;
+	Eigen::Vector3d mPrevRF_bvh;
+
 //////////////////////////////////////////////////
 };
 }
