@@ -55,13 +55,18 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
-		if(isAdaptive) obj_pos[6] = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
-	
-		mObject->GetSkeleton()->setPositions(obj_pos);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		
+		if(isAdaptive) {
+			double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+			auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+			std::cout<<"DeformBodyNode! "<<std::endl;
+			DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
+		}
+
+		this->mObject->GetSkeleton()->setPositions(obj_pos);
+		this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+
 	#endif
 
 	this->mBaseMass = mCharacter->GetSkeleton()->getMass();
@@ -157,22 +162,37 @@ Step()
 	// left ; [38, 45) -> [30, 37)
 	// right; [38, 59) -> [30, 51)
 
-	Eigen::Vector3d left_hand = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform().translation();
-	Eigen::Vector3d right_hand = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
+	// Eigen::Vector3d left_hand = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform().translation();
+	// Eigen::Vector3d right_hand = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
 
-	if(left_hand[2]>3.4 && left_hand[2]<3.7) {
-		if(left_hand[1]< min_hand) min_hand = left_hand[1];
-	}
-	if(right_hand[2]>3.4 && right_hand[2]<3.7) {
-		if(right_hand[1]< min_hand) min_hand = right_hand[1];
-	}
+	// if((l1left_hand[2]>3.5 && left_hand[2]<3.7) {
+	// 	if(left_hand[1]< min_hand) min_hand = left_hand[1];
+	// }
+	// if(right_hand[2]>3.5 && right_hand[2]<3.7) {
+	// 	if(right_hand[1]< min_hand) min_hand = right_hand[1];
+	// }
 
-	if(mCurrentFrame >=30 &&!left_detached && !leftHandConstraint && !right_detached && !rightHandConstraint) attachTwoHandsAtOnce(Eigen::Vector3d(0.06, -0.025, 0), Eigen::Vector3d(-0.06, -0.025, 0));
+	// dart::dynamics::BodyNodePtr left_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("LeftHand");
+	// dart::dynamics::BodyNodePtr right_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("RightHand");
 
-	// if(mCurrentFrame >=30 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	// Eigen::Vector3d l1= (left_hand_bn->getTransform() * Eigen::Vector3d(0.06, -0.025, 0));
+	// Eigen::Vector3d l2= (left_hand_bn->getTransform() * Eigen::Vector3d(-0.06, -0.025, 0));
+	// Eigen::Vector3d r1= (right_hand_bn->getTransform() * Eigen::Vector3d(0.06, -0.025, 0));
+	// Eigen::Vector3d r2= (right_hand_bn->getTransform() * Eigen::Vector3d(-0.06, -0.025, 0));
+
+	// if(l1[2]>3.5 && l1[2]<3.7 && l1[1]< min_hand) min_hand = l1[1];
+	// if(l2[2]>3.5 && l2[2]<3.7 && l2[1]< min_hand) min_hand = l2[1];
+	// if(r1[2]>3.5 && r1[2]<3.7 && r1[1]< min_hand) min_hand = r1[1];
+	// if(r2[2]>3.5 && r2[2]<3.7 && r2[1]< min_hand) min_hand = r2[1];
+
+	// if(mCurrentFrame >=30 &&!left_detached && !leftHandConstraint && !right_detached && !rightHandConstraint) attachTwoHandsAtOnce(Eigen::Vector3d(0.06, -0.025, 0), Eigen::Vector3d(-0.06, -0.025, 0));
+	// else if(mCurrentFrame >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	// else if(mCurrentFrame >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+
+	if(mCurrentFrame >=30 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
 	else if(mCurrentFrame >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	// if(mCurrentFrame >=30 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	if(mCurrentFrame >=30 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
 	else if(mCurrentFrame >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	Eigen::VectorXd s = this->GetState();
@@ -737,8 +757,25 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
-	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
+
+	#ifdef OBJECT_TYPE
+	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+	obj_pos.setZero();
+	if(isAdaptive) {
+		double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+		auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+		DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
+	}
+
+	this->mObject->GetSkeleton()->setPositions(obj_pos);
+	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+   this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+   this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
+	#endif
+
 }
 
 void
@@ -846,7 +883,11 @@ Reset(bool RSI)
 	
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
-	if(isAdaptive) obj_pos[6] = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+	if(isAdaptive) {
+		double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+		auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+		DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
+	}
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
 	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -1039,6 +1080,7 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 
 	if(distance > 0.07 || jointPos[2] < 3.5 || jointPos[2] > 3.7 || jointPos[1] > (obj_height+0.05) ) return;
 
+	mParamCur[0]= mParamGoal[0];
 	// std::cout<<"success"<<std::endl;
 
 	if(left && leftHandConstraint) removeHandFromBar(true);
@@ -1071,18 +1113,20 @@ void Controller::attachTwoHandsAtOnce( Eigen::Vector3d left_offset,  Eigen::Vect
 
 	double cur_min_hand = std::min(left_attach_pt[1], right_attach_pt[1]);
 	if(cur_min_hand <0.8 || cur_min_hand >1.8) return;
-	if(min_hand < cur_min_hand) return;
+	// if(min_hand < cur_min_hand && ((cur_min_hand- min_hand) > 0.05) ) return;
 	
 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
 		obj_pos[6] = (cur_min_hand) - mReferenceManager->getParamDMM()[0];
-	
+
+
+			std::cout<<mCurrentFrameOnPhase<<" "<<obj_pos[6]<<std::endl;
+
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-	
-	mParamCur[0]= cur_min_hand;
+		mParamCur[0]= cur_min_hand;
 
 	dart::dynamics::BodyNodePtr bar_bn = this->mObject->GetSkeleton()->getBodyNode("Jump_Box");
 

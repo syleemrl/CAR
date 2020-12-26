@@ -181,6 +181,10 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	this->mBuffer = new char[(this->mJointsUEOrder.size()+3)*4*4*sizeof(double)];
 	this->mBuffer2 = new char[128];
 
+
+	if(mRunSim){
+		mSkel_obj = mController->GetObjectPtr();
+	}
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
     for(int i = 0; i < p1.rows(); i++) {

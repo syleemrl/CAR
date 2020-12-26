@@ -91,6 +91,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	Eigen::Isometry3d getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel);
 	// Eigen::Vector3d getConstraintPoint(bool left){ if (left) return dbg_LeftConstraintPoint; else return dbg_RightConstraintPoint;}
+
+	const dart::dynamics::SkeletonPtr& GetObjectPtr(){return mObject->GetSkeleton();}
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;

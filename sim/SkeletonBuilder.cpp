@@ -49,22 +49,74 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 	std::tuple<std::string, Eigen::Vector3d, double> deform) {
 	
 	auto shape_old = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
-	// auto box = dynamic_cast<BoxShape*>(shape_old);
-	// Eigen::Vector3d origin = box->getSize();
-	// Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
-	// ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
-
+	
 	auto inertia = bn->getInertia();
 	inertia.setMass(inertia.getMass() * std::get<2>(deform));
 	inertia.setMoment(shape_old->computeInertia(inertia.getMass()));
 	bn->setInertia(inertia);
 
+	if(std::get<1>(deform)(0) != 1 || std::get<1>(deform)(1) != 1 || std::get<1>(deform)(2) != 1) {
+		auto box = dynamic_cast<BoxShape*>(shape_old);
+		Eigen::Vector3d origin(2,0.9,0.2);// = box->getSize();
+		Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
+		ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
+		// std::cout<<(std::get<1>(deform)).transpose()<<" "<<size.transpose()<<std::endl;
+		bn->removeAllShapeNodes();
+	    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
+		
+		auto props = bn->getParentJoint()->getJointProperties();
+		Eigen::Vector3d translation = props.mT_ChildBodyToJoint.translation();
+
+		
+		for(int i = 0; i < 3; i++) {
+			if(translation[i] != 0) {
+				double sign = translation[i];
+				sign = sign / fabs(sign);
+
+				Eigen::Isometry3d T = Eigen::Isometry3d::Identity();
+				T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+				props.mT_ChildBodyToJoint = props.mT_ChildBodyToJoint * T;
+				bn->getParentJoint()->setProperties(props);
+			}
+		}
+
+		auto children = GetChildren(skel, bn);
+		for(auto child : children) {
+			props = child->getParentJoint()->getJointProperties();
+			translation = props.mT_ParentBodyToJoint.translation();
+			for(int i = 0; i < 3; i++) {
+				if(translation[i] != 0) {
+
+					double sign = translation[i];
+					sign = sign / fabs(sign);
+
+					Eigen::Isometry3d  T = Eigen::Isometry3d::Identity();
+					T.translation()[i] = sign * origin[i] * (std::get<1>(deform)[i] - 1) / 2.0;
+
+					props.mT_ParentBodyToJoint =  props.mT_ParentBodyToJoint * T;
+					child->getParentJoint()->setProperties(props);
+				}
+			}
+		}
+
+	}
+
+	// auto shape_old = bn->getShapeNodesWith<VisualAspect>()[0]->getShape().get();
+	// auto box = dynamic_cast<BoxShape*>(shape_old);
+	// Eigen::Vector3d origin = box->getSize();
+	// Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
+	// ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
+
 	// bn->removeAllShapeNodes();
  //    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
 	
+	// auto inertia = bn->getInertia();
+	// inertia.setMass(inertia.getMass() * std::get<2>(deform));
+	// inertia.setMoment(shape->computeInertia(inertia.getMass()));
+	// bn->setInertia(inertia);
+
 	// auto props = bn->getParentJoint()->getJointProperties();
 	// Eigen::Vector3d translation = props.mT_ChildBodyToJoint.translation();
-
 	
 	// for(int i = 0; i < 3; i++) {
 	// 	if(translation[i] != 0) {
@@ -97,6 +149,7 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 	// 	}
 	// }
 }
+
 // torque limit map, position limit map
 std::pair<SkeletonPtr, std::map<std::string, double>*>
 SkeletonBuilder::
