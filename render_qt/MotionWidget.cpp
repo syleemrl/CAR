@@ -285,6 +285,7 @@ UpdateParam(const bool& pressed) {
 		tp << v_param(0)*0.1, v_param(1)*0.1;
 		std::cout<<tp.transpose()<<" / ";
 
+		Eigen::VectorXd tp_raw = tp;
 		Eigen::VectorXd tp_denorm_raw = mRegressionMemory->Denormalize(tp);
 
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
@@ -294,9 +295,9 @@ UpdateParam(const bool& pressed) {
 	    tp_denorm = tp_denorm_raw;
 
 	    int dof = mReferenceManager->GetDOF() + 1;
-	    double d = mRegressionMemory->GetDensity(tp);
+	    double d = mRegressionMemory->GetDensity(tp_raw);
 
-	    std::cout << tp.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
+	    std::cout << tp_raw.transpose() <<"/"<<tp_denorm.transpose()<< " / d: " << d << std::endl;
 
 	    // std::vector<Eigen::VectorXd> cps;
 	    // for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {

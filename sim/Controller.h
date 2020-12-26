@@ -216,8 +216,10 @@ protected:
 
 	int jump_phase; //0 stand, 1 jump (in the air) 2 landed
 
-	double stickFoot_min;
-	double stickFoot_max;
+	double stickFoot_left_min;
+	double stickFoot_left_max;
+	double stickFoot_right_min;
+	double stickFoot_right_max;
 };
 }
 #endif

@@ -777,7 +777,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	}
 
 if(mRecord){
-	std::cout<<"flag ; "<<flag<<std::endl;
+	std::cout<<"flag ; "<<flag<<" / to_be_deleted: "<<to_be_deleted.size()<<std::endl;
 	std::cout << candidate_param.transpose() << " " << std::get<2>(candidate) << std::endl;
 	return false;	
 }

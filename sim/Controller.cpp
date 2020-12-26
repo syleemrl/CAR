@@ -257,8 +257,9 @@ Step()
 	if(mCurrentFrameOnPhase >=56 && mCurrentFrameOnPhase <60 && stickFoot) {
 		stickFoot = false;
 		jump_phase = 1;
-		mFitness.sum_slide+= (stickFoot_max - stickFoot_min);
-		// std::cout<<mCurrentFrameOnPhase<<" "<<mFitness.sum_slide<<" ( "<<stickFoot_min<<" , "<<stickFoot_max<<")"<<std::endl;
+		double slide = std::max((stickFoot_left_max - stickFoot_left_min), (stickFoot_right_max- stickFoot_right_min));
+		mFitness.sum_slide+= slide;
+		// std::cout<<mCurrentFrameOnPhase<<" "<<slide<<std::endl;
 	}
 	if(mCurrentFrameOnPhase >= 80 || (mCurrentFrameOnPhase>70 &&  min_foot < 0.05)){
 		if(!stickFoot){
@@ -266,8 +267,10 @@ Step()
 			stickRightFoot = mCharacter->getBodyWorldTrans("RightToe");
 			stickFoot = true;
 
-			stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
-			stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
+			stickFoot_left_min = stickFoot_left_max = stickLeftFoot[2];
+			stickFoot_right_min = stickFoot_right_max = stickRightFoot[2];
+			// stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
+			// stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
 
 			jump_phase= 2;
 			if(mRecord) std::cout<<"stickFoot @ "<<mCurrentFrameOnPhase<<std::endl;
@@ -290,8 +293,10 @@ Step()
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
 			// mFitness.sum_slide/= mFitness.slide_cnt;
-			mFitness.sum_slide+= (stickFoot_max - stickFoot_min);
-			// std::cout<<mCurrentFrameOnPhase<<" "<<mFitness.sum_slide<<" ( "<<stickFoot_min<<" , "<<stickFoot_max<<")"<<std::endl;
+			// mFitness.sum_slide+= 0.5*(stickFoot_max - stickFoot_min);
+			double slide = std::max((stickFoot_left_max - stickFoot_left_min), (stickFoot_right_max- stickFoot_right_min));
+			mFitness.sum_slide+= 0.5*slide;
+			// std::cout<<mCurrentFrameOnPhase<<" "<<slide<<std::endl;
 
 			mFitness.com_rot_norm/= mFitness.fall_cnt;
 
@@ -638,12 +643,17 @@ GetSimilarityReward()
 		Eigen::Vector3d lf = skel->getBodyNode("LeftToe")->getWorldTransform().translation();
 		Eigen::Vector3d rf = skel->getBodyNode("RightToe")->getWorldTransform().translation();
 		
-		double foot_min = std::min(lf[2], rf[2]);
-		double foot_max = std::max(lf[2], rf[2]);
+		// double foot_min = std::min(lf[2], rf[2]);
+		// double foot_max = std::max(lf[2], rf[2]);
+		// if(foot_min < stickFoot_min) stickFoot_min = foot_min;
+		// else if(foot_max > stickFoot_max) stickFoot_max = foot_max;
 
-		if(foot_min < stickFoot_min) stickFoot_min = foot_min;
-		else if(foot_max > stickFoot_max) stickFoot_max = foot_max;
+		if(lf[2] < stickFoot_left_min) stickFoot_left_min = lf[2];
+		if(lf[2] > stickFoot_left_max) stickFoot_left_max = lf[2];
 
+		if(rf[2] < stickFoot_right_min) stickFoot_right_min = rf[2];
+		if(rf[2] > stickFoot_right_max) stickFoot_right_max = rf[2];
+		
 		// Eigen::VectorXd foot_diff (6);
 		// foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
 
@@ -830,36 +840,40 @@ UpdateTerminalInfo()
 		}
 	}
 
-	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
-		mIsTerminal = true;
-		terminationReason = 2;
-		if(mRecord) 
-			std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
+	if(!mRecord){
 
-	}
-	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT){
-		mIsTerminal = true;
-		terminationReason = 1;
-		if(mRecord) 
-			std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
+		if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+			mIsTerminal = true;
+			terminationReason = 2;
+			if(mRecord) 
+				std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
+
+		}
+		if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT){
+			mIsTerminal = true;
+			terminationReason = 1;
+			if(mRecord) 
+				std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
+		}
+
+		double cur_root_limit = std::abs(mParamGoal[0])+ TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
+		if(root_y > cur_root_limit){
+			mIsTerminal = true;
+			terminationReason = 1;
+			if(mRecord) 
+				std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
+		}
+
+		else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
+			mIsTerminal = true;
+			terminationReason = 5;
+			if(mRecord) 
+				std::cout <<mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
+
+		}
 	}
 
-	double cur_root_limit = std::abs(mParamGoal[0])+ TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
-	if(!mRecord && root_y > cur_root_limit){
-		mIsTerminal = true;
-		terminationReason = 1;
-		if(mRecord) 
-			std::cout << mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
-	}
-
-	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
-		mIsTerminal = true;
-		terminationReason = 5;
-		if(mRecord) 
-			std::cout <<mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
-
-	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
+	if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 		if(mRecord) 
@@ -993,9 +1007,11 @@ Reset(bool RSI)
 		stickLeftFoot = mCharacter->getBodyWorldTrans("LeftToe");
 		stickRightFoot = mCharacter->getBodyWorldTrans("RightToe");
 		stickFoot = true;
+		stickFoot_left_min = stickFoot_left_max = stickLeftFoot[2];
+		stickFoot_right_min = stickFoot_right_max = stickRightFoot[2];
 
-		stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
-		stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
+		// stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
+		// stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
 		jump_phase =0;
 	}else if(mCurrentFrameOnPhase < 74) jump_phase =1;
 	else jump_phase = 2;
