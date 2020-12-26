@@ -169,6 +169,9 @@ Step()
 {			
 	if(IsTerminalState())
 		return;
+	Eigen::Vector3d lh_end = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform()* Eigen::Vector3d(0.06, -0.025, 0);
+	Eigen::Vector3d rh_end = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform()* Eigen::Vector3d(-0.06, -0.025, 0);
+	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
 
 	if(mCurrentFrameOnPhase >=21 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=190 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
@@ -240,17 +243,17 @@ Step()
 			
 			// torque limit
 			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			// for(int j = 0; j < num_body_nodes; j++) {
-			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			// 	double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
-			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			for(int j = 0; j < num_body_nodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+				double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+				double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
-			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			// }
+				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			}
 
-			//mCharacter->GetSkeleton()->setForces(torque);
+			mCharacter->GetSkeleton()->setForces(torque);
 
 			mWorld->step(false);
 			mSumTorque += torque.cwiseAbs();
@@ -527,10 +530,10 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	// std::cout<<mCurrentFrameOnPhase<<"\t"<<hand_diff.transpose()<<"\t"<<r_hand<<std::endl;
 
 #ifdef OBJECT_TYPE
-	double sig_hand = 0.07* scale;		
-	double r_hand = exp_of_squared(hand_diff, sig_hand);
-	// std::cout<<mCurrentFrame<<" "<<hand_diff.transpose()<<", r_hand: "<<r_hand<<std::endl;
-	r_ee = 0.7*r_ee + 0.3*r_hand; 
+	// double sig_hand = 0.07* scale;		
+	// double r_hand = exp_of_squared(hand_diff, sig_hand);
+	// // std::cout<<mCurrentFrame<<" "<<hand_diff.transpose()<<", r_hand: "<<r_hand<<std::endl;
+	// r_ee = 0.7*r_ee + 0.3*r_hand; 
 #endif
 
 	std::vector<double> rewards;
@@ -825,6 +828,9 @@ UpdateTerminalInfo()
 	double angle = RadianClamp(root_diff_aa.angle());
 	Eigen::Vector3d root_pos_diff = root_diff.translation();
 
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
 
 	// check nan
 	if(dart::math::isNan(p)){
@@ -860,14 +866,21 @@ UpdateTerminalInfo()
 	// 	mIsTerminal = true;
 	// 	terminationReason = 9;
 	// }
-	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
-	double lf_z = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[2];
-	lf_z = std::max(skel->getBodyNode("LeftToe")->getWorldTransform().translation()[2], lf_z);
+	// double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
+	// double lf_z = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[2];
+	// lf_z = std::max(skel->getBodyNode("LeftToe")->getWorldTransform().translation()[2], lf_z);
 
-	double rf_z = 0.5 * skel->getBodyNode("RightFoot")->getWorldTransform().translation()[2];
-	rf_z = std::max(skel->getBodyNode("RightToe")->getWorldTransform().translation()[2], rf_z);
+	// double rf_z = 0.5 * skel->getBodyNode("RightFoot")->getWorldTransform().translation()[2];
+	// rf_z = std::max(skel->getBodyNode("RightToe")->getWorldTransform().translation()[2], rf_z);
 
 	// if(mCurrentFrameOnPhase >= 40 &&  mCurrentFrameOnPhase <= 200 && (lf_z + 0.15 > box_end_z || rf_z + 0.15 > box_end_z)) {
+	// 	mIsTerminal = true;
+	// 	terminationReason = 10;
+	// }
+	// Eigen::Vector3d lh_end = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform()* Eigen::Vector3d(0.06, -0.025, 0);
+	// Eigen::Vector3d rh_end = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform()* Eigen::Vector3d(-0.06, -0.025, 0);
+	// double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
+	// if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 35 && ((!left_detached && !leftHandConstraint) ||  (!right_detached && !rightHandConstraint))){
 	// 	mIsTerminal = true;
 	// 	terminationReason = 10;
 	// }
@@ -880,9 +893,6 @@ UpdateTerminalInfo()
 		if(mIsTerminal) std::cout << "terminate Reason : "<<terminationReason << std::endl;
 	}
 
-	skel->setPositions(p_save);
-	skel->setVelocities(v_save);
-	skel->computeForwardKinematics(true,true,false);
 
 }
 bool
@@ -913,6 +923,13 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
+
+	auto bn = this->mObject->GetSkeleton()->getBodyNode("Box");
+	auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+	auto inertia = bn->getInertia();
+	inertia.setMass(mParamGoal[0]);
+	inertia.setMoment(shape_old->computeInertia(inertia.getMass()));
+	bn->setInertia(inertia);
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
@@ -1383,10 +1400,10 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
 
 	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
-	double distance = std::pow(jointPos[2]- box_end_z, 2.0);
+	double distance = abs(jointPos[2]- box_end_z);
 
 	if(mRecord)	std::cout<<mCurrentFrameOnPhase<<" "<<box_end_z<<" "<<jointPos[2]<<" : "<<distance<<std::endl;
-	if(distance >0.05) return;
+	if(distance >0.015) return;
 	// if(distance > 0.05 || jointPos[2] < 3.5 || jointPos[2] > 3.7 || jointPos[1] > 0.95) return;
 
 	// std::cout<<"success"<<std::endl;
@@ -1400,12 +1417,12 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	if(left) leftHandConstraint = cl;
 	else rightHandConstraint = cl;
 
-	if(mRecord)	{
-		std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
-		if(left) std::cout<<"left : ";
-		else std::cout<<"right : ";
-		std::cout<<jointPos.transpose()<<std::endl;		
-	}
+	// if(mRecord)	{
+	// 	std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
+	// 	if(left) std::cout<<"left : ";
+	// 	else std::cout<<"right : ";
+	// 	std::cout<<jointPos.transpose()<<std::endl;		
+	// }
 
 }
 
@@ -1421,11 +1438,11 @@ void Controller::removeHandFromBar(bool left){
 		
 	}
 
-	if(mRecord){
-		std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
-		if(left) std::cout<<"left : "<<std::endl;
-		else std::cout<<"right : "<<std::endl;		
-	}
+	// if(mRecord){
+	// 	std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
+	// 	if(left) std::cout<<"left : "<<std::endl;
+	// 	else std::cout<<"right : "<<std::endl;		
+	// }
 }
 
 }

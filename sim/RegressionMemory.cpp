@@ -1878,9 +1878,11 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	
 		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && to_be_deleted.size() == 0) {
-			mNewSamplesNearGoal += 1;
+			if(mUpdatedSamplesNearGoal != 1)
+				mNewSamplesNearGoal = 1;
 		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
-			mUpdatedSamplesNearGoal += 1;
+			if(mNewSamplesNearGoal != 1)
+				mUpdatedSamplesNearGoal = 1;
 		}
 
 	}
