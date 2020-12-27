@@ -56,10 +56,10 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
 		if(isAdaptive) {
-			double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
-			auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
-			std::cout<<"DeformBodyNode! "<<std::endl;
-			DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
+			// double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+			// auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+			// std::cout<<"DeformBodyNode! "<<std::endl;
+			// DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
 		}
 
 		this->mObject->GetSkeleton()->setPositions(obj_pos);
@@ -251,6 +251,7 @@ Step()
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			mWorld->step(false);
+			
 		}
 
 		mTimeElapsed += 2 * (mAdaptiveStep);
@@ -274,7 +275,7 @@ Step()
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
 			mFitness.sum_slide/= mCountTracking;
-
+			mFitness.sum_hand_ct/= mFitness.hand_ct_cnt;
 			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
 				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
@@ -283,6 +284,9 @@ Step()
 
 			mFitness.sum_contact = 0;
 			mFitness.sum_slide = 0;
+			mFitness.sum_hand_ct = 0;
+			mFitness.hand_ct_cnt = 0;
+
 			auto& skel = mCharacter->GetSkeleton();
 			mFitness.sum_pos.resize(skel->getNumDofs());
 			mFitness.sum_vel.resize(skel->getNumDofs());
@@ -453,9 +457,11 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	return rewards;
 
 }
+
+
 std::vector<std::pair<bool, Eigen::Vector3d>> 
 Controller::
-GetContactInfo(Eigen::VectorXd pos, double base_height) 
+GetContactInfo(Eigen::VectorXd pos, std::vector<std::string>contact, double base_height) 
 {
 	auto& skel = this->mCharacter->GetSkeleton();
 	Eigen::VectorXd p_save = skel->getPositions();
@@ -463,12 +469,6 @@ GetContactInfo(Eigen::VectorXd pos, double base_height)
 	
 	skel->setPositions(pos);
 	skel->computeForwardKinematics(true,false,false);
-
-	std::vector<std::string> contact;
-	contact.push_back("RightFoot");
-	contact.push_back("RightToe");
-	contact.push_back("LeftFoot");
-	contact.push_back("LeftToe");
 
 	std::vector<std::pair<bool, Eigen::Vector3d>> result;
 	result.clear();
@@ -488,6 +488,8 @@ GetContactInfo(Eigen::VectorXd pos, double base_height)
 
 	return result;
 }
+
+
 double
 Controller::
 GetSimilarityReward()
@@ -502,11 +504,14 @@ GetSimilarityReward()
 	vel *= (mCurrentFrame - mPrevFrame); 
 	delete p_v_target;
 
-	double ref_obj_height = 0;
-	double cur_obj_height = ref_obj_height;
+	std::vector<std::string> foot_label;
+	foot_label.push_back("RightFoot");
+	foot_label.push_back("RightToe");
+	foot_label.push_back("LeftFoot");
+	foot_label.push_back("LeftToe");
 
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, ref_obj_height);
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), cur_obj_height);
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos, foot_label, 0);
+	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions(), foot_label, 0);
 	double con_diff = 0;
 
 	for(int i = 0; i < contacts_cur.size(); i++) {
@@ -514,7 +519,24 @@ GetSimilarityReward()
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1))*3, 2);
 		}
 	}
+	double hand_con_diff = 0;
+	if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 40){
+		std::vector<std::string> hand_label;
+		hand_label.push_back("LeftHand");
+		hand_label.push_back("RightHand");
+		std::vector<std::pair<bool, Eigen::Vector3d>> hand_contacts_ref = GetContactInfo(pos, hand_label, 0.9);
+		std::vector<std::pair<bool, Eigen::Vector3d>> hand_contacts_cur = GetContactInfo(skel->getPositions(), hand_label, mParamGoal[0]);
+		for(int i = 0; i < hand_contacts_cur.size(); i++) {
+			if(std::abs(hand_contacts_ref[i].second[1])<0.07 || std::abs(hand_contacts_cur[i].second[1])<0.07) {
+				hand_con_diff += pow(((hand_contacts_cur[i].second)(1) - (hand_contacts_ref[i].second)(1))*3, 2);
+			}
+		}
 
+		mFitness.sum_hand_ct += abs(hand_con_diff);
+		mFitness.hand_ct_cnt++;
+		// std::cout<<mCurrentFrame<<" "<<foot_con_diff<<" "<<con_diff<<std::endl;
+	}
+	
 	Eigen::VectorXd p_aligned = skel->getPositions();
 	std::vector<Eigen::VectorXd> p_with_zero;
 	p_with_zero.push_back(mRootZero);
@@ -763,8 +785,16 @@ SetGoalParameters(Eigen::VectorXd tp)
 	obj_pos.setZero();
 	if(isAdaptive) {
 		double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+	
 		auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
-		DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
+
+		auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+		auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
+		Eigen::Vector3d origin = box->getSize();
+
+		// std::cout<<mParamGoal[0]<<std::endl; //<<" "<<h_grow<<" "<<origin[1]<<" "<<(h_grow+0.9)/origin[1]<<std::endl;
+
+		DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
 	}
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
@@ -815,6 +845,8 @@ Reset(bool RSI)
 		this->mTrackingRewardTrajectory = 0;
 		mFitness.sum_contact = 0;
 		mFitness.sum_slide = 0;
+		mFitness.sum_hand_ct = 0;
+		mFitness.hand_ct_cnt = 0;
 		mFitness.sum_pos.resize(skel->getNumDofs());
 		mFitness.sum_vel.resize(skel->getNumDofs());
 		mFitness.sum_pos.setZero();
@@ -884,9 +916,9 @@ Reset(bool RSI)
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
 	if(isAdaptive) {
-		double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
-		auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
-		DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
+		// double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+		// auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+		// DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
 	}
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);

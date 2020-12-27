@@ -84,7 +84,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	double GetParamReward();
 	double GetSimilarityReward();
 	std::vector<double> GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2, Eigen::VectorXd velocity, Eigen::VectorXd velocity2, std::vector<std::string> list, bool useVelocity);
-	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos, double base_height=0);
+	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos, std::vector<std::string>contact, double base_height=0);
 
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass);

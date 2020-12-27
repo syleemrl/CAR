@@ -57,17 +57,27 @@ DeformBodyNode(const dart::dynamics::SkeletonPtr& skel,
 
 	if(std::get<1>(deform)(0) != 1 || std::get<1>(deform)(1) != 1 || std::get<1>(deform)(2) != 1) {
 		auto box = dynamic_cast<BoxShape*>(shape_old);
-		Eigen::Vector3d origin(2,0.9,0.2);// = box->getSize();
+		Eigen::Vector3d origin = box->getSize();
 		Eigen::Vector3d size = origin.cwiseProduct(std::get<1>(deform));
 		ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
-		// std::cout<<(std::get<1>(deform)).transpose()<<" "<<size.transpose()<<std::endl;
+
 		bn->removeAllShapeNodes();
 	    bn->createShapeNodeWith<VisualAspect, CollisionAspect, DynamicsAspect>(shape);
+
+		// auto props = bn->getParentJoint()->getJointProperties();
+		// Eigen::Isometry3d joint_position = Eigen::Isometry3d::Identity(); 
+		// Eigen::Isometry3d body_position =  Eigen::Isometry3d::Identity(); body_position.translation() = bn->getWorldTransform().translation();
+		// body_position.translation()[1]= 0.5*size[1];
+
+		// if(parent!=nullptr)
+		// 	props.mT_ParentBodyToJoint = parent->getTransform().inverse()*joint_position;
+		// props.mT_ChildBodyToJoint = body_position.inverse()*joint_position;
+		// props.mActuatorType = dart::dynamics::Joint::LOCKED;
+		// bn->getParentJoint()->setProperties(props);
 		
 		auto props = bn->getParentJoint()->getJointProperties();
 		Eigen::Vector3d translation = props.mT_ChildBodyToJoint.translation();
 
-		
 		for(int i = 0; i < 3; i++) {
 			if(translation[i] != 0) {
 				double sign = translation[i];
