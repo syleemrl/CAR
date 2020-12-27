@@ -199,7 +199,7 @@ protected:
 
 	Eigen::Vector3d mPrevLF_bvh;
 	Eigen::Vector3d mPrevRF_bvh;
-
+	double mPrevHeight;
 //////////////////////////////////////////////////
 };
 }

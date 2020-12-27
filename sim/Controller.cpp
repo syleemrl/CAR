@@ -247,7 +247,8 @@ Step()
 
 			mVelocity = 0;
 			mMomentum.setZero();
-			mMaxCOM.setZero();
+			mMaxCOM.setZero();		
+			mPrevHeight = 0;
 
 			////BASELINE
 			mParamRewardMax = 0;
@@ -334,6 +335,7 @@ ClearRecord()
 
 	////BASELINE
 	mParamRewardMax = 0;
+	mPrevHeight = 0;
 }
 
 std::vector<double> 
@@ -515,33 +517,16 @@ GetSimilarityReward()
 	}
 	Eigen::VectorXd v_diff_th = v_diff;
 
-	// if(mCurrentFrame < mReferenceManager->GetPhaseLength()) {
-	// 	std::cout << mCurrentFrameOnPhase << std::endl;
-	// }
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.compare("Hips") == 0) {
-		// 	std::cout << name << " : " << p_diff.segment<6>(0).transpose() << " / " << v_diff.segment<6>(0).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Spine") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Shoulder") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Leg") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
-		// if(mCurrentFrame < mReferenceManager->GetPhaseLength() && name.find("Arm") != std::string::npos) {
-		// 	std::cout << name << " : " << p_diff.segment<3>(idx).transpose() << " / " << v_diff.segment<3>(idx).transpose() << std::endl;
-		// }
+
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<2>(idx + 1) *= 3;
+			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
 			p_diff(4) *= 0.2;
 
-			p_diff_th.segment<2>(idx + 1) *= 3;
+			p_diff_th.segment<3>(idx) *= 3;
 			p_diff_th.segment<3>(idx + 3) *= 5;
 			p_diff_th(4) *= 0;
 
@@ -550,13 +535,20 @@ GetSimilarityReward()
 
 			v_diff_th.segment<3>(idx + 3) *= 5;
 			v_diff_th(4) *= 0;
-		} else if(name.compare("Spine") != std::string::npos ) {
+		} 
+		else if(name.find("Spine") != std::string::npos ) {
 			p_diff.segment<2>(idx + 1) *= 2;
 			v_diff.segment<2>(idx + 1) *= 2;
 
 			p_diff_th.segment<2>(idx + 1) *= 2;
 			v_diff_th.segment<2>(idx + 1) *= 2;
-		} else if(name.compare("UpLeg") != std::string::npos ) {
+		} else if(name.find("UpLeg") != std::string::npos ) {
+			p_diff.segment<2>(idx + 1) *= 2;
+			v_diff.segment<2>(idx + 1) *= 2;
+			
+			p_diff_th.segment<2>(idx + 1) *= 2;
+			v_diff_th.segment<2>(idx + 1) *= 2;
+		} else if(name.find("tArm") != std::string::npos ) {
 			p_diff.segment<3>(idx) *= 2;
 			v_diff.segment<3>(idx) *= 2;
 			
@@ -632,7 +624,7 @@ GetParamReward()
 			mParamCur(0) = mParamGoal(0);
 		}
 		mFitness.sum_reward = (0.5 + 0.5 * r_m);
-		r_param = 0.8 * r_m;
+		r_param = 0.6 * r_m;
 
 		mControlFlag[0] = 1;
 		if(mRecord) {
@@ -668,14 +660,14 @@ GetParamReward()
 			// // r_param = r_m;
 			// // mParamRewardMax = r_param;
 
-			double r_c = exp(-mCondiff * 10);
-			if(r_c < 0.4) {
+			double r_c = exp(-mCondiff * 7.5);
+			if(r_c < 0.5) {
 				mParamCur(0) = -5;
 			} 
 			// else {
 			// 	mParamCur(0) = mParamGoal(0);
 			// }
-			r_param = 0.4 * r_c;
+			r_param = 0.6 * r_c;
 			mFitness.sum_reward *= r_c;
 
 			mControlFlag[0] = 2;
@@ -709,17 +701,6 @@ UpdateAdaptiveReward()
 
 	double r_tot = r_tracking;
 
-	// if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 38) {
-	// 	Eigen::VectorXd p_diff_bvh(15);
-	// 	Eigen::VectorXd p_bvh = mReferenceManager->GetPosition(mCurrentFrame, false);
-	// 	Eigen::VectorXd p_diff = skel->getPositionDifferences(skel->getPositions(), p_bvh);
-	// 	p_diff_bvh = p_diff.segment<15>(0);
-	// 	p_diff_bvh(4) = 0;
-
-	// 	double r_pbvh = exp_of_squared(p_diff_bvh, 0.1);
-	// 	r_tot = 0.97 * r_tot + 0.03 * r_pbvh;
-	// }
-	// std::cout << mCurrentFrameOnPhase << " " << con_diff << " " <<exp(-con_diff*3) << std::endl;
 	mRewardParts.clear();
 
 	if(dart::math::isNan(r_tot)){
@@ -924,6 +905,7 @@ Reset(bool RSI)
 
 	this->mPDTargetPositions = mTargetPositions;
 	this->mPDTargetVelocities = mTargetVelocities;
+	int num_body_nodes = skel->getNumBodyNodes();
 
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);

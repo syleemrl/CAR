@@ -617,8 +617,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		reward_trajectory_th = reward_trajectory_th * (0.9 + 0.1 * std::get<2>(rewards).sum_reward);
 	}
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
-	// if(reward_trajectory_th < 0.45)
-	// 	return;
+	if(reward_trajectory_th < 0.2)
+		return;
 
 	mLock.lock();
 

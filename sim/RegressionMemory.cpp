@@ -686,7 +686,7 @@ UniformSample(int visited) {
 		double d = GetDensity(p, true);
 
 		if(!visited) {
-			if(abs(p(0) - 1) < 1e-2 || abs(p(0)) < 1e-2) {
+			if((abs(p(0) - 1) < 1e-2 || abs(p(0)) < 1e-2) && d > (mThresholdInside - 0.2)){
 				continue;
 			}
 			if(mNumSamples < 10 && d > 0.05 && d < mThresholdInside) {
@@ -768,7 +768,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	double prev_max = 0;
 	bool flag = true;
 
-	double update_max = 20;
+	double update_max = 5;
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Param*>>> to_be_deleted;
 	for(int i = 0 ; i < checklist.size(); i++) {
 		auto iter = mGridMap.find(checklist[i]);
@@ -787,7 +787,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 						prev_max = ps[j]->reward;
 					if(ps[j]->reward < std::get<2>(candidate)) {
 						p_delete.push_back(ps[j]);
-						if(update_max < ps[j]->update || update_max == 20)
+						if(update_max < ps[j]->update || update_max == 5)
 							update_max = ps[j]->update;
 					} else {
 						flag = false;
