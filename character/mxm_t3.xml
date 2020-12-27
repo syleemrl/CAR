@@ -76,8 +76,9 @@
     </Joint>
     <Joint type="BallJoint" parent_name="LeftUpLeg" size="0.1 0.445279 0.1 " name="LeftLeg" bvh="LeftLeg" mass="3">
         <BodyPosition translation="0.0820778 -0.733362 -0.0280601 " />
-        <JointPosition translation="0.0820778 -0.511222 -0.0131492 " />
+        <JointPosition translation="0.0820778 -0.511222 -0.0131492 " lower="0.0 -0.05  -0.05" upper="3 0.05 0.05"  />
         <TorqueLimit norm="112.5" />
+        <!-- <JointPosition translation="0.0820778 -0.511222 -0.0131492 " /> -->
     </Joint>
     <Joint type="BallJoint" name="LeftFoot" parent_name="LeftLeg" size="0.08 0.081531 0.132018 " mass="0.6" bvh="LeftFoot">
         <BodyPosition translation="0.0820778 -0.999144 0.0105819 " />
@@ -96,8 +97,9 @@
     </Joint>
     <Joint type="BallJoint" parent_name="RightUpLeg" size="0.1 0.445278 0.1 " name="RightLeg" bvh="RightLeg" mass="3">
         <BodyPosition translation="-0.082078 -0.73336 -0.028053 " />
-        <JointPosition translation="-0.082078 -0.511222 -0.013134 " />
+        <JointPosition translation="-0.082078 -0.511222 -0.013134 " lower="0.0 -0.05  -0.05" upper="3 0.05 0.05" />
         <TorqueLimit norm="112.5" />
+        <!-- <JointPosition translation="-0.082078 -0.511222 -0.013134 " /> -->
     </Joint>
     <Joint type="BallJoint" name="RightFoot" parent_name="RightLeg" size="0.08 0.081536 0.132018 " mass="0.6" bvh="RightFoot">
         <BodyPosition translation="-0.082078 -0.999142 0.0105811 " />

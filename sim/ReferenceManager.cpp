@@ -458,7 +458,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);
-		paramUnit << 0.1, 0.2;
+		paramUnit << 0.1, 0.1;
 
 		mParamBase.resize(2);
 		mParamBase << -1.3, 1.3; 
