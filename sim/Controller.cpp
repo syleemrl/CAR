@@ -278,7 +278,7 @@ Step()
 	}
 
 	if(stickFoot && (jump_phase ==2)){
-		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" / stickFoot : "<<mCharacter->getBodyWorldTrans("LeftFoot").transpose()<<" , "<<mCharacter->getBodyWorldTrans("RightFoot").transpose()<<std::endl;
+		// if(mRecord) std::cout<<mCurrentFrameOnPhase<<" / stickFoot : "<<mCharacter->getBodyWorldTrans("LeftFoot").transpose()<<" , "<<mCharacter->getBodyWorldTrans("RightFoot").transpose()<<std::endl;
 		double foot = (mCharacter->getBodyWorldTrans("LeftFoot")[2]+ mCharacter->getBodyWorldTrans("RightFoot")[2])/2;
 		mean_land_foot+= foot;
 		land_foot_cnt++;

@@ -464,7 +464,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamBase << -1.3, 1.3; 
 
 		mParamEnd.resize(2);
-		mParamEnd << 1.3, 3.7;
+		mParamEnd << 1.3, 3.2;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -564,7 +564,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
 	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
 
-	if(std::abs(forward_angle) > M_PI/4.) {
+	if(std::abs(forward_angle) > 0.3*M_PI) {
 		// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
 		return;
 	}
