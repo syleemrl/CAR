@@ -9,11 +9,11 @@ class Sampler(object):
 		self.sim_env = sim_env
 		self.dim = dim
 		
-		self.v_mean = 1.0
+		self.v_mean = 0.0
 		self.v_mean_boundary = 0.0
 		self.random = True
 
-		self.k = 10
+		self.k = 5
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -30,7 +30,7 @@ class Sampler(object):
 		self.p_list_explore = []
 		self.progress_cur_list = []
 		self.distance = 2
-		self.unit = 1
+		self.unit = 1.5
 		# keep if added recently or data is rare ( <= 5)
 		self.vp_dict = dict()
 
@@ -48,6 +48,7 @@ class Sampler(object):
 		self.progress_cur_update = 0
 
 		self.use_table = True
+		self.delta = 0
 		print('=======================================')
 		print('curriculum option')
 		print('type exploit', self.type_exploit)
@@ -57,7 +58,7 @@ class Sampler(object):
 		print('=======================================')
 
 
-	def randomSample(self, visited=True):
+	def randomSample(self, visited=1):
 		return self.sim_env.UniformSample(visited)
 		
 	def probAdaptive(self, v_func, target, hard=True):
@@ -115,12 +116,12 @@ class Sampler(object):
 			self.sample = []
 			self.evaluation_counter = 0
 
-			while len(self.sample) < 40:
+			while len(self.sample) < 10:
 				t = self.randomSample(False) 
 				self.sample.append(t)
 	def saveProgress(self, mode):
 		plist = self.sim_env.GetExplorationRate()
-		p = plist[0] + 3 * plist[1]
+		p = plist[0] + plist[1]
 		self.progress_cur += p
 		self.progress_cur_new += plist[0]
 		self.progress_cur_update += plist[1]
@@ -159,48 +160,52 @@ class Sampler(object):
 			if mode == 2 and self.n_evaluation == 3:
 				self.evaluation_done = True
 				self.printExplorationRateData()
+			if len(self.progress_queue_explore) < 5 and self.v_mean != 0:
+				if len(self.progress_queue_explore) == 1:
+					self.delta = self.v_mean - np.array(results).mean()
+					print('new delta :', self.delta)
+				else:
+					self.delta = 0.9 * self.delta + 0.1 * (self.v_mean - np.array(results).mean())
+					print('delta updated:', self.delta)
+
 		elif mode == 1:		
 			if len(self.progress_queue_exploit) >= 10:
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
 			self.progress_queue_exploit.append(self.progress_cur)		
 
-			# embed()
-			if len(results)==0:
-				self.v_mean_cur = 1e-8
-			else:
+			if len(results) != 0:
 				self.v_mean_cur = np.array(results).mean()
-	
-			if self.v_mean == 0:
-				self.v_mean = self.v_mean_cur
-			else:
-				self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
-
-			p_mean = np.array(self.progress_queue_exploit).mean()
-
-			v_mean_boundary_cur = 0
-			count = 0
-			for i in range(len(results)):
-				if info[i] > 0.5 and info[i] < 0.7:
-					count += 1
-					v_mean_boundary_cur += results[i]
-			rate = 0		
-			if count != 0:
-				v_mean_boundary_cur /= count
-				if self.v_mean_boundary == 0:
-					self.v_mean_boundary = v_mean_boundary_cur
+				if self.v_mean == 0:
+					self.v_mean = self.v_mean_cur
 				else:
-					rate = min(0.2, count * 0.0006)
-					self.v_mean_boundary = (1- rate) * self.v_mean_boundary + rate * v_mean_boundary_cur
-		
+					self.v_mean = 0.6 * self.v_mean + 0.4 * self.v_mean_cur
 
-			print(self.progress_queue_exploit)
-			print("===========================================")
-			print("mean reward : ", self.v_mean)
-			print("current mean boundary reward: ", v_mean_boundary_cur, rate)
-			print("mean boundary reward : ", self.v_mean_boundary)
-			print("exploration rate : ", p_mean)
-			print("===========================================")
-		
+				p_mean = np.array(self.progress_queue_exploit).mean()
+
+				v_mean_boundary_cur = 0
+				count = 0
+				for i in range(len(results)):
+					if info[i] > 1.0 and info[i] < 1.15:
+						count += 1
+						v_mean_boundary_cur += results[i]
+				rate = 0		
+				if count != 0:
+					v_mean_boundary_cur /= count
+					if self.v_mean_boundary == 0:
+						self.v_mean_boundary = v_mean_boundary_cur
+					else:
+						rate = min(0.2, count * 0.0006)
+						self.v_mean_boundary = (1- rate) * self.v_mean_boundary + rate * v_mean_boundary_cur
+			
+
+				print(self.progress_queue_exploit)
+				print("===========================================")
+				print("mean reward : ", self.v_mean)
+				print("current mean boundary reward: ", v_mean_boundary_cur, rate)
+				print("mean boundary reward : ", self.v_mean_boundary)
+				print("exploration rate : ", p_mean)
+				print("===========================================")
+
 		print(self.progress_cur_new, self.progress_cur_update)
 		self.progress_cur_new = 0
 		self.progress_cur_update = 0
@@ -249,9 +254,10 @@ class Sampler(object):
 
 	def resetExploit(self):
 		self.n_exploit = 0
-		self.prev_progress = np.array(self.progress_queue_exploit).mean()
+		self.prev_progress_ex = np.array(self.progress_queue_exploit).mean()
+		self.prev_queue_exploit = copy(self.progress_queue_exploit)
 		self.progress_queue_exploit = []
-
+		self.v_mean = 0
 		self.printExplorationRateData()
 
 	def resetExplore(self):
@@ -261,6 +267,7 @@ class Sampler(object):
 		self.v_list_explore = []
 		self.p_list_explore = []
 		self.sample_counter = 0 
+		self.delta = 0
 
 	def sampleBatch(self, type_explore):
 		self.sample = []
@@ -283,7 +290,7 @@ class Sampler(object):
 		self.evaluation_done = False
 		self.evaluation_counter = 0
 
-		while len(self.sample) < 40:
+		while len(self.sample) < 10:
 			t = self.randomSample(False) 
 			self.sample.append(t)
 
@@ -306,6 +313,7 @@ class Sampler(object):
 		return mean, count
 
 	def isEnough(self):
+
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
@@ -313,21 +321,18 @@ class Sampler(object):
 			return False
 
 		if self.use_table:
-			v_key = math.floor(self.v_mean_boundary * 1 / self.unit) - 2
+			v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
 			count = 0
 			mean = 0
-			for n in range(5):
-				if v_key + n in self.vp_dict:
-					for i in range(len(self.vp_dict[v_key + n])):
-						if abs(self.v_mean_boundary - self.vp_dict[v_key + n][i][0]) < self.distance:
-							mean += self.vp_dict[v_key + n][i][1]
-							count += 1
-			
-			if count != 0:
-				mean /= count
-
-			print(p_mean, mean)
-			if p_mean < mean * 0.9:
+			if v_key in self.vp_dict:
+				for i in range(len(self.vp_dict[v_key])):
+					mean += self.vp_dict[v_key][i][1]
+					count += 1
+				
+				if count != 0:
+					mean /= count			
+			print((self.v_mean - self.delta), p_mean, mean)
+			if p_mean <= mean:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
