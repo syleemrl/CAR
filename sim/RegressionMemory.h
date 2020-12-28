@@ -29,7 +29,7 @@ struct Param
 	Eigen::VectorXd param_normalized;
 	std::vector<Eigen::VectorXd> cps;
 	double reward;
-	bool update;
+	int update;
 };
 class ParamCube
 {
@@ -57,7 +57,7 @@ public:
 	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
-	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
+	std::pair<Eigen::VectorXd , bool> UniformSample(int visited);
 	std::pair<Eigen::VectorXd , bool> UniformSample(double d0, double d1);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
 
@@ -103,12 +103,14 @@ public:
 		   std::vector<double>, 
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
-
-	void setRecord(){mRecord = true;}
+	double GetFitnessMean();
+	void setRecord(){mRecord= true;}
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
 	std::map<Eigen::VectorXd, Param*> mParamNew;
+
+	std::map<Eigen::VectorXd, std::vector<std::pair<Eigen::VectorXd, double>>> mTrashMap;
 
 	Eigen::VectorXd mParamScale;
 	Eigen::VectorXd mParamScaleInv;
@@ -155,9 +157,7 @@ private:
 	double mEliteGoalDistance;
 	double mNewSamplesNearGoal;
 	double mUpdatedSamplesNearGoal;
-
-	bool mRecord = false;
-
+	bool mRecord=false;
 };
 }
 #endif
