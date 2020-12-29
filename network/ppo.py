@@ -522,7 +522,10 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		self.env.sampler.resetExplore()
+		self.env.sampler.resetExploit()
+		self.env.sampler.updateGoalDistribution(1, self.critic_target)
+
+		# self.env.sampler.resetExplore()
 		it_cur = 0
 
 		for it in range(num_iteration):
@@ -588,8 +591,8 @@ class PPO(object):
 					elif t == 1:
 						it_cur = 0
 					
-					if self.env.needEvaluation():
-						self.eval(30)
+					# if self.env.needEvaluation():
+					# 	self.eval(30)
 				elif self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					self.env.updateReference()
