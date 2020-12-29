@@ -850,6 +850,24 @@ UpdateTerminalInfo()
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
+	if(jump_phase==0){
+		Eigen::Vector3d lt= mCharacter->getBodyWorldTrans("LeftToe");
+		Eigen::Vector3d rt= mCharacter->getBodyWorldTrans("RightToe");
+		
+		Eigen::Vector3d lf_v = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getLinearVelocity();
+		Eigen::Vector3d rf_v = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getLinearVelocity();
+		
+		double cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
+
+		if(!mRecord){
+			if( ((lt[1]-cur_obj_height)> 0.1) || ((rt[1]-cur_obj_height) >0.1) || (lf_v.norm()>1.2) || (rf_v.norm()> 1.2) ){
+				mIsTerminal = true;
+				terminationReason = 16;
+			}			
+		}
+		// std::cout<<mCurrentFrameOnPhase<<" "<<(lf[1]-cur_obj_height)<<" "<<(rf[1]-cur_obj_height)<<(lt[1]-cur_obj_height)<<" "<<(rt[1]-cur_obj_height)<<std::endl;
+		// std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<" "<<lt_v.norm()<<" "<<rt_v.norm()<<std::endl;
+	}
 
 	// mRecord = true;
 	if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >= 90){
