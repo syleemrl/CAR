@@ -559,15 +559,15 @@ void remove_foot_penetration(std::string filename){
 	ref->GetSkeleton()->computeForwardKinematics(true, false, false);
 
     Eigen::Matrix3d lf_wrot = ref->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().linear();
-    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftFoot")->getLocalTransform().linear().inverse();
+    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftFoot")->getRelativeTransform().linear().inverse();
     Eigen::Matrix3d lf_edited= lf_pRot.inverse();
 
     Eigen::Matrix3d rf_wrot = ref->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().linear();
-    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightFoot")->getLocalTransform().linear().inverse();
+    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightFoot")->getRelativeTransform().linear().inverse();
     Eigen::Matrix3d rf_edited= rf_pRot.inverse();
 
-	Eigen::Matrix3d lf_plus = ref->GetSkeleton()->getJoint("LeftFoot")->getLocalTransform().linear().inverse()*lf_edited;
-	Eigen::Matrix3d rf_plus = ref->GetSkeleton()->getJoint("RightFoot")->getLocalTransform().linear().inverse()*rf_edited;
+	Eigen::Matrix3d lf_plus = ref->GetSkeleton()->getJoint("LeftFoot")->getRelativeTransform().linear().inverse()*lf_edited;
+	Eigen::Matrix3d rf_plus = ref->GetSkeleton()->getJoint("RightFoot")->getRelativeTransform().linear().inverse()*rf_edited;
 
 	for(int f=0; f<mReferenceManager->GetPhaseLength(); f++){
 		ref->GetSkeleton()->setPositions(mReferenceManager->GetPosition(f, false));
@@ -652,11 +652,11 @@ void stitch_toe(std::string filename){
 			std::vector<std::string> splitted= split(raw_line, " ");
 
 		    Eigen::Matrix3d lf_wrot = ref->GetSkeleton()->getBodyNode("LeftToe")->getWorldTransform().linear();
-		    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftToe")->getLocalTransform().linear().inverse();
+		    Eigen::Matrix3d lf_pRot= lf_wrot* ref->GetSkeleton()->getJoint("LeftToe")->getRelativeTransform().linear().inverse();
 		    Eigen::Matrix3d lf_edited= lf_pRot.inverse();
 
 		    Eigen::Matrix3d rf_wrot = ref->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().linear();
-		    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightToe")->getLocalTransform().linear().inverse();
+		    Eigen::Matrix3d rf_pRot= rf_wrot* ref->GetSkeleton()->getJoint("RightToe")->getRelativeTransform().linear().inverse();
 		    Eigen::Matrix3d rf_edited= rf_pRot.inverse();
 				
 			Eigen::Vector3d lf_eulerZXY = dart::math::matrixToEulerZXY(lf_edited);

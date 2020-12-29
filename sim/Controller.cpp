@@ -483,9 +483,9 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	for(int i=0;i<mEndEffectors.size();i++){
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
-		ee_diff(3*i) *= 2; //x
-		ee_diff(3*i+1) *= 0.5; //y
-		ee_diff(3*i+2) *= 0.5; //z
+		// ee_diff(3*i) *= 2; //x
+		// ee_diff(3*i+1) *= 0.5; //y
+		// ee_diff(3*i+2) *= 0.5; //z
 	}
 	com_diff -= skel->getCOM();
 
