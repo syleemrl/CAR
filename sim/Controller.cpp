@@ -155,8 +155,9 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 
 	if(mRecord) {
 		mReferenceManager->setRecord();
-		mReferenceManager->setRegressionMemoryRecord();
+		if(isAdaptive)mReferenceManager->setRegressionMemoryRecord();
 	}
+
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -299,7 +300,6 @@ Step()
 	}
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
-
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
 
@@ -363,6 +363,7 @@ Step()
 
 
 	}
+
 	if(isAdaptive) {
 		this->UpdateAdaptiveReward();
 
@@ -638,9 +639,12 @@ GetSimilarityReward()
 			v_diff(idx+4) *= 0;
 
 			// z- axis (forward)
-			if(jump_phase !=0) {
+			if(jump_phase == 1) {
 				p_diff(idx+5) *=0;
 				v_diff(idx+5) *=0;
+			} else if(jump_phase == 2){
+				p_diff(idx+5) *=0;
+				v_diff.segment<3>(idx+3) *= 5;
 			}
 
 			// p_diff.segment<3>(idx) *= 5;

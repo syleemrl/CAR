@@ -161,10 +161,10 @@ class Sampler(object):
 				self.evaluation_done = True
 				self.printExplorationRateData()
 			if len(self.progress_queue_explore) < 5 and self.v_mean != 0:
-				if len(self.progress_queue_explore) == 1:
+				if len(self.progress_queue_explore) == 1 and len(results) != 0:
 					self.delta = self.v_mean - np.array(results).mean()
 					print('new delta :', self.delta)
-				else:
+				elif len(results) != 0:
 					self.delta = 0.9 * self.delta + 0.1 * (self.v_mean - np.array(results).mean())
 					print('delta updated:', self.delta)
 
