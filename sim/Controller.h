@@ -216,7 +216,7 @@ protected:
 
 	double min_hand;
 
-	void attachTwoHandsAtOnce(Eigen::Vector3d left_offset, Eigen::Vector3d right_offset);
+	// void attachTwoHandsAtOnce(Eigen::Vector3d left_offset, Eigen::Vector3d right_offset);
 
 };
 }

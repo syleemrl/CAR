@@ -254,6 +254,8 @@ BuildFromFile(const std::string& filename){
 			if(shapeElem->Attribute("offset")!=nullptr)
 				shape_offset = DPhy::string_to_vector3d(shapeElem->Attribute("offset"));;
 			shape_type = 3;
+
+			std::cout<<"CYLINDER ! shape_radius : "<<shape_radius<<"/ shape_height: "<<shape_height<<" "<<"shape_direction: "<<shape_direction.transpose()<<std::endl;
 		}
 
 		// box
@@ -269,8 +271,26 @@ BuildFromFile(const std::string& filename){
 		double mass = atof(body->Attribute("mass"));
 
 		bool contact = true;
-		
-		if(!jointType.compare("FreeJoint") ){
+	
+		if(shape_type==3 && (!jointType.compare("WeldJoint"))){
+			SkeletonBuilder::MakeWeldJointBody_Shape(
+				name,
+				skel,
+				parent,
+				size,
+				jointPosition,
+				bodyPosition,
+				mass,
+				contact,
+				shape_type,
+				shape_radius, 
+				shape_height, 
+				shape_direction,
+				shape_offset,
+				shape_size
+				);			
+		}		
+		else if(!jointType.compare("FreeJoint") ){
 			SkeletonBuilder::MakeFreeJointBody(
 				name,
 				skel,
@@ -793,6 +813,7 @@ BodyNode* SkeletonBuilder::MakePrismaticJointBody(
 
 	return bn;
 }
+
 BodyNode* SkeletonBuilder::MakeWeldJointBody(
 	const std::string& body_name,
 	const dart::dynamics::SkeletonPtr& target_skel,
@@ -827,5 +848,73 @@ BodyNode* SkeletonBuilder::MakeWeldJointBody(
 	bn->setInertia(inertia);
 
 	return bn;
+}
+
+BodyNode* SkeletonBuilder::MakeWeldJointBody_Shape(
+	const std::string& body_name,
+	const dart::dynamics::SkeletonPtr& target_skel,
+	dart::dynamics::BodyNode* const parent,
+	const Eigen::Vector3d& size,
+	const Eigen::Isometry3d& joint_position,
+	const Eigen::Isometry3d& body_position,
+	double mass,
+	bool contact,
+	int shape_type,
+	double shape_radius, 
+	double shape_height, 
+	Eigen::Vector3d shape_direction,
+	Eigen::Vector3d shape_offset,
+	Eigen::Vector3d shape_size
+)
+{
+	std::cout<<"MakeWeldJointBody SHAPE!"<<std::endl;
+	ShapePtr shape = std::shared_ptr<BoxShape>(new BoxShape(size));
+
+	double r = shape_radius;
+	double h = shape_height;
+	Eigen::Vector3d direction = shape_direction;
+	ShapePtr shapeVisual;
+	if(shape_type == 1)
+		shapeVisual = std::shared_ptr<CapsuleShape>(new CapsuleShape(r, h));
+	if(shape_type == 2)
+		shapeVisual = std::shared_ptr<SphereShape>(new SphereShape(r));
+	if(shape_type == 3)
+		shapeVisual = std::shared_ptr<CylinderShape>(new CylinderShape(r, h));
+	if(shape_type == 4)
+		shapeVisual = std::shared_ptr<BoxShape>(new BoxShape(shape_size));
+
+	dart::dynamics::Inertia inertia;
+	inertia.setMass(mass);
+	inertia.setMoment(shape->computeInertia(mass));
+
+	BodyNode* bn;
+	FreeJoint::Properties props;
+	props.mName = body_name;
+	// props.mT_ChildBodyToJoint = joint_position;
+	props.mT_ParentBodyToJoint = body_position;
+
+	bn = target_skel->createJointAndBodyNodePair<FreeJoint>(
+		parent,props,BodyNode::AspectProperties(body_name)).second;
+
+	//assert(contact);
+	if(contact){
+		// bn->createShapeNodeWith<VisualAspect,CollisionAspect,DynamicsAspect>(shape);
+		bn->createShapeNodeWith<CollisionAspect,DynamicsAspect>(shape);
+		if(shape_type == 0){
+			bn->createShapeNodeWith<VisualAspect>(shape);
+		}
+		else if(shape_type == 1 || shape_type == 3){
+			bn->createShapeNodeWith<VisualAspect>(shapeVisual);
+			auto shapeNode = bn->getShapeNodesWith<VisualAspect>()[0];
+			Eigen::Isometry3d transform;
+			transform.setIdentity();
+			transform.linear() = Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), direction).toRotationMatrix();
+			transform.translation() = shape_offset;
+			shapeNode->setRelativeTransform(transform);
+		}
+	}
+	bn->setInertia(inertia);
+	return bn;
+
 }
 }
