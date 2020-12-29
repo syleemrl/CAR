@@ -94,7 +94,7 @@ public:
 	}
 
 	Eigen::VectorXd getParamDMM(){return mParamDMM;}
-	
+	void setRecord(){mRecord = true;}
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -140,6 +140,7 @@ protected:
 	std::uniform_real_distribution<double> mUniform;
 
 	double min_hand;
+	bool mRecord = false;
 };
 }
 

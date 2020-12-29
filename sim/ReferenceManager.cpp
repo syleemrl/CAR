@@ -551,6 +551,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
+
+	if(mRecord) std::cout<<"r_tracking : "<<std::get<0>(rewards)<<std::endl;
 	
 	// if(std::get<2>(rewards).sum_contact > 1.0) {
 	// 	// std::cout<<" sum_contact : "<<std::get<2>(rewards).sum_contact<<std::endl;
@@ -645,15 +647,17 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
 	double r_hand =  exp(-std::get<2>(rewards).sum_hand_ct); 
 	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.1, 2.0));
-	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
-	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 1);
+	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 4);
+	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.5);
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide * r_hand;
 
-	// std::cout<<"sum_slide : "<<std::get<2>(rewards).sum_slide<<", r_slide : "<<r_slide<<"/ r_foot: "<<r_foot<<"("<<std::get<2>(rewards).sum_contact<<")/ r_hand: "<<r_hand<<"("<<std::get<2>(rewards).sum_hand_ct<<")"<<std::endl;
-	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
+if(mRecord){
+	std::cout<<"r_pos: "<<r_pos<<", r_vel: "<<r_vel<<std::endl;
+	std::cout<<"r_slide : "<<r_slide<<"(sum_slide : "<<std::get<2>(rewards).sum_slide<<"), r_foot: "<<r_foot<<"("<<std::get<2>(rewards).sum_contact<<")/ r_hand: "<<r_hand<<"("<<std::get<2>(rewards).sum_hand_ct<<")"<<std::endl;
+	return ;
+}	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
 
 	// if(reward_trajectory < 0.7) return;
-// return;
 	mLock.lock();
 
 	if(isParametric) {

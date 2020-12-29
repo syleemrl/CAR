@@ -144,6 +144,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("time");
 	}
 
+	if(mRecord) mReferenceManager->setRecord();
 
 }
 const dart::dynamics::SkeletonPtr& 
@@ -189,10 +190,10 @@ Step()
 	// else if(mCurrentFrame >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 	// else if(mCurrentFrame >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
-	if(mCurrentFrame >=30 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	if(mCurrentFrame >=27 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
 	else if(mCurrentFrame >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrame >=30 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	if(mCurrentFrame >=27 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
 	else if(mCurrentFrame >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	Eigen::VectorXd s = this->GetState();
@@ -546,7 +547,7 @@ GetSimilarityReward()
 			}
 		}
 
-		mFitness.sum_hand_ct += abs(hand_con_diff);
+		mFitness.sum_hand_ct += std::pow(hand_con_diff,2.0);
 		mFitness.hand_ct_cnt++;
 		// std::cout<<mCurrentFrame<<" "<<foot_con_diff<<" "<<con_diff<<std::endl;
 	}
@@ -586,6 +587,11 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 5;
 			p_diff.segment<3>(idx + 3) *= 10;
+
+			if(mCurrentFrameOnPhase>=25 && mCurrentFrameOnPhase<=55){
+				p_diff(idx+4) *= 0;
+				v_diff(idx+4) *= 0;
+			}
 			// v_diff.segment<3>(idx) *= 5;
 			// v_diff.segment<3>(idx + 3) *= 10;
 			// v_diff(5) *= 2;
@@ -1127,7 +1133,6 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	if(distance > 0.07 || jointPos[2] < 3.5 || jointPos[2] > 3.7 || jointPos[1] > (obj_height+0.05) ) return;
 
 	mParamCur[0]= mParamGoal[0];
-	// std::cout<<"success"<<std::endl;
 
 	if(left && leftHandConstraint) removeHandFromBar(true);
 	else if(!left && rightHandConstraint) removeHandFromBar(false);
@@ -1141,10 +1146,12 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	if(left) leftHandConstraint = cl;
 	else rightHandConstraint = cl;
 
-	// std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
-	// if(left) std::cout<<"left : ";
-	// else std::cout<<"right : ";
-	// std::cout<<jointPos.transpose()<<std::endl;
+	if(mRecord){
+		std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
+		if(left) std::cout<<"left : ";
+		else std::cout<<"right : ";
+		std::cout<<jointPos.transpose()<<" distance :"<<distance<<std::endl;
+	}
 
 }
 
