@@ -653,6 +653,11 @@ GetSimilarityReward()
 			// v_diff.segment<3>(idx + 3) *= 10;
 			// v_diff(5) *= 2;
 		} 
+
+		if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
+			// std::cout<<mCurrentFrameOnPhase<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
+			p_diff(idx+2)*=5;
+		}
 	}
 
 	// std::cout<<mCurrentFrameOnPhase<<" "<<jump_phase<<" "<<stickFoot<<" "<<stickLeftFoot.transpose()<<" "<<stickRightFoot.transpose()<<std::endl;
