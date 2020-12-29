@@ -893,7 +893,7 @@ BodyNode* SkeletonBuilder::MakeWeldJointBody_Shape(
 	// props.mT_ChildBodyToJoint = joint_position;
 	props.mT_ParentBodyToJoint = body_position;
 
-	bn = target_skel->createJointAndBodyNodePair<FreeJoint>(
+	bn = target_skel->createJointAndBodyNodePair<WeldJoint>(
 		parent,props,BodyNode::AspectProperties(body_name)).second;
 
 	//assert(contact);

@@ -49,7 +49,6 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		this->mObject = new DPhy::Character(object_path);	
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
-		this->mObject->GetSkeleton()->getBodyNode(1)->setFrictionCoeff(1.0);
 
 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
@@ -826,7 +825,7 @@ Reset(bool RSI)
 	this->nTotalSteps = 0;
 	this->mTimeElapsed = 0;
 
-	std::cout<<"-------------------------- "<<mCurrentFrameOnPhase<<std::endl;
+	// std::cout<<"-------------------------- "<<mCurrentFrameOnPhase<<std::endl;
 	if(leftHandConstraint && mCurrentFrame <24) removeHandFromBar(true);
 	if(rightHandConstraint && mCurrentFrame <24) removeHandFromBar(false);
 
@@ -1067,9 +1066,13 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
 
 	Eigen::Vector3d bar_pos = bar_bn->getWorldTransform().translation();
-	double distance= (jointPos- bar_pos).norm();
+	Eigen::Vector3d diff = jointPos- bar_pos; 
+	diff[0]=0;
+	double distance= diff.norm();
 
-	if(distance > 0.08 ) return;
+	// std::cout<<"attach; "<<left<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
+
+	if(distance > 0.09) return;
 
 	if(isAdaptive) mParamCur[0]= mParamGoal[0];
 
@@ -1085,12 +1088,12 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	if(left) leftHandConstraint = cl;
 	else rightHandConstraint = cl;
 
-	// if(mRecord){
+	if(mRecord){
 		std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
 		if(left) std::cout<<"left : ";
 		else std::cout<<"right : ";
 		std::cout<<jointPos.transpose()<<" distance :"<<distance<<std::endl;
-	// }
+	}
 
 }
 
@@ -1152,9 +1155,11 @@ void Controller::removeHandFromBar(bool left){
 		dbg_RightConstraintPoint = Eigen::Vector3d::Zero();	    	
 	}
 
-	std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
-	if(left) std::cout<<"left : "<<std::endl;
-	else std::cout<<"right : "<<std::endl;
+	if(mRecord){
+		std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
+		if(left) std::cout<<"left : "<<std::endl;
+		else std::cout<<"right : "<<std::endl;		
+	}
 }
 
 Eigen::VectorXd 
