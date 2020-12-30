@@ -17,7 +17,7 @@ MotionWidget()
 }
 MotionWidget::
 MotionWidget(std::string motion, std::string ppo, std::string reg)
-  :MotionWidget()
+  :MotionWidget() ,motionFile(motion)
 {
 	mCurFrame = 0;
 	mTotalFrame = 0;
@@ -809,3 +809,145 @@ ResetController()
         PyErr_Print();
     }    
 }
+
+
+ 
+std::vector<std::string> split(std::string targetStr, std::string token)
+{
+    // Check parameters
+    if(token.length() == 0 || targetStr.find(token) == std::string::npos)
+        return std::vector<std::string>({targetStr});
+ 
+    // return var
+    std::vector<std::string> ret;
+ 
+    int findOffset  = 0;
+    int splitOffset = 0;
+    while ((splitOffset = targetStr.find(token, findOffset)) != std::string::npos)
+    {
+         ret.push_back(targetStr.substr(findOffset, splitOffset - findOffset));
+         findOffset = splitOffset + token.length();
+    }
+    ret.push_back(targetStr.substr(findOffset, targetStr.length() - findOffset));
+    
+    return ret;
+}
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
+template<typename K, typename V>
+std::unordered_map<V,K> inverse_map(std::unordered_map<K,V> &map)
+{
+    std::unordered_map<V,K> inv;
+    std::for_each(map.begin(), map.end(),
+                [&inv] (const std::pair<K,V> &p)
+                {
+                    inv.insert(std::make_pair(p.second, p.first));
+                });
+    return inv;
+}
+
+void 
+MotionWidget::
+saveCurrentResult()
+{
+	std::string raw_file_path = std::string(CAR_DIR) + "/motion/"+motionFile;
+	Eigen::VectorXd paramGoal = mReferenceManager->GetParamGoal();
+	std::string paramGoal_str= "";
+	for(int d=0; d<paramGoal.rows(); d++) paramGoal+= "_"+std::to_string(paramGoal[d]);
+
+	std::ofstream outfile;
+	std::string outfile_path = "/motion/"+raw_file_path+paramGoal_str+".bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+
+	std::vector<std::string> joint_order;
+
+	std::ifstream rawfile;
+	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+	while(true){
+		getline(rawfile, raw_line);
+		
+		if(raw_line.find("Frames:")!=std::string::npos){
+			outfile<<"Frames: "<<mTotalFrame<<std::endl;
+		}
+		else outfile<<raw_line<<std::endl;
+
+		if(raw_line.find("Joint")!=std::string::npos){
+			std::string line_copy = raw_line;
+			trim(line_copy);
+			joint_order.push_back(split(line_copy)[1]);
+			std::cout<<joint_order.back()<<std::endl;
+		}
+
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	std::map<std::string,std::string> bvhMap = mReferenceManager->GetBVHMap();
+	std::map<std::string,std::string> bvhMap_inverse = inverse_map(bvhMap);
+
+	for(int i=0; i<mTotalFrame; i++){
+		mSkel_sim->setPositions(mMotion_sim[i]);
+		mSkel_sim->computeForwardKinematics(true, false, false);
+
+		std::string newline="";
+		for(std::string& joint: joint_order){
+			if(bvhMap_inverse.find(joint)!=bvhMap_inverse.end()){
+				std::string skelJoint = bvhMap_inverse.find(joint);
+				
+				// if(i==0) std::cout<<skelJoint<<std::endl;
+
+				Eigen::VectorXd pos = mSkel_sim->getBodyNode(skelJoint)->getParentJoint()->getPositions();
+
+				if(pos.rows()==3){
+					Eigen::Matrix3d rot = dart::dynamics::BallJoint::convertToRotation(pos);
+
+					Eigen::Vector3d pos_eulerZXY = dart::math::matrixToEulerZXY(rot);
+					pos_eulerZXY*= 180./M_PI;
+					newline+=pos_eulerZXY[0]+" "+pos_eulerZXY[1]+" "+pos_eulerZXY[2]+" ";
+
+				}else if(pos.rows()==6){
+					Eigen::Vector3d trans = pos.segment<3>(0);
+					trans*=100;
+					Eigen::Matrix3d rot = dart::dynamics::BallJoint::convertToRotation(pos.segment<3>(3));
+					Eigen::Vector3d pos_eulerZXY = dart::math::matrixToEulerZXY(rot);
+					pos_eulerZXY*= 180./M_PI;
+
+					newline+= trans[0]+" "+trans[1]+" "+trans[2]+" ";
+					newline+= pos_eulerZXY[0]+" "+pos_eulerZXY[1]+" "+pos_eulerZXY[2]+" ";
+				}			
+			}
+		}
+
+		newline+="\n";
+		outfile<<newline;
+	}
+
+	outfile.close();
+	rawfile.close();
+
+	mSkel_sim->setPositions(mMotion_sim[mCurFrame]);
+	mSkel_sim->computeForwardKinematics(true, false, false);
+
+}
+

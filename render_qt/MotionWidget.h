@@ -110,5 +110,9 @@ protected:
 	Eigen::Vector3d 				mPoints_exp;
 
 	int regMemShow_idx = 0;
+
+	void saveCurrentResult();
+
+	std::string motionFile;
 };
 #endif
