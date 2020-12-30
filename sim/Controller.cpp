@@ -496,23 +496,24 @@ GetSimilarityReward()
 			con_diff += pow(((contacts_cur[i].second)(1) - (contacts_ref[i].second)(1))*3, 2);
 		}
 	}
-	double hand_con_diff = 0;
-	if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 40){
-		std::vector<std::string> hand_label;
-		hand_label.push_back("LeftHand");
-		hand_label.push_back("RightHand");
-		std::vector<std::pair<bool, Eigen::Vector3d>> hand_contacts_ref = GetContactInfo(pos, hand_label, 0.9);
-		std::vector<std::pair<bool, Eigen::Vector3d>> hand_contacts_cur = GetContactInfo(skel->getPositions(), hand_label, mParamGoal[0]);
-		for(int i = 0; i < hand_contacts_cur.size(); i++) {
-			if(std::abs(hand_contacts_ref[i].second[1])<0.07 || std::abs(hand_contacts_cur[i].second[1])<0.07) {
-				hand_con_diff += pow(((hand_contacts_cur[i].second)(1) - (hand_contacts_ref[i].second)(1))*3, 2);
-			}
-		}
 
-		mFitness.sum_hand_ct += std::pow(hand_con_diff,2.0);
-		mFitness.hand_ct_cnt++;
-		// std::cout<<mCurrentFrame<<" "<<foot_con_diff<<" "<<con_diff<<std::endl;
-	}
+	// double hand_con_diff = 0;
+	// if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 40){
+	// 	std::vector<std::string> hand_label;
+	// 	hand_label.push_back("LeftHand");
+	// 	hand_label.push_back("RightHand");
+	// 	std::vector<std::pair<bool, Eigen::Vector3d>> hand_contacts_ref = GetContactInfo(pos, hand_label, 0.9);
+	// 	std::vector<std::pair<bool, Eigen::Vector3d>> hand_contacts_cur = GetContactInfo(skel->getPositions(), hand_label, mParamGoal[0]);
+	// 	for(int i = 0; i < hand_contacts_cur.size(); i++) {
+	// 		if(std::abs(hand_contacts_ref[i].second[1])<0.07 || std::abs(hand_contacts_cur[i].second[1])<0.07) {
+	// 			hand_con_diff += pow(((hand_contacts_cur[i].second)(1) - (hand_contacts_ref[i].second)(1))*3, 2);
+	// 		}
+	// 	}
+
+	// 	mFitness.sum_hand_ct += std::pow(hand_con_diff,2.0);
+	// 	mFitness.hand_ct_cnt++;
+	// 	// std::cout<<mCurrentFrame<<" "<<foot_con_diff<<" "<<con_diff<<std::endl;
+	// }
 	
 	Eigen::VectorXd p_aligned = skel->getPositions();
 	std::vector<Eigen::VectorXd> p_with_zero;
@@ -550,10 +551,10 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx) *= 5;
 			p_diff.segment<3>(idx + 3) *= 10;
 
-			if(mCurrentFrameOnPhase>=25 && mCurrentFrameOnPhase<=55){
-				p_diff(idx+4) *= 0;
-				v_diff(idx+4) *= 0;
-			}
+			// if(mCurrentFrameOnPhase>=25 && mCurrentFrameOnPhase<=55){
+			// 	p_diff(idx+4) *= 0;
+			// 	v_diff(idx+4) *= 0;
+			// }
 			// v_diff.segment<3>(idx) *= 5;
 			// v_diff.segment<3>(idx + 3) *= 10;
 			// v_diff(5) *= 2;
@@ -674,6 +675,8 @@ UpdateTerminalInfo()
 	double angle = RadianClamp(root_diff_aa.angle());
 	Eigen::Vector3d root_pos_diff = root_diff.translation();
 
+	double cur_height_limit = TERMINAL_ROOT_HEIGHT_UPPER_LIMIT ;
+	if(isAdaptive) cur_height_limit+= (mParamGoal[0]- mReferenceManager->getParamDMM()[0]);
 
 	// check nan
 	if(dart::math::isNan(p)){
@@ -681,36 +684,38 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 3;
 	}
-	if(dart::math::isNan(v)){
+	else if(dart::math::isNan(v)){
 		mIsNanAtTerminal = true;
 		mIsTerminal = true;
 		terminationReason = 4;
 	}
 
-	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+	else if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
 	}
 
-	double cur_height_limit = TERMINAL_ROOT_HEIGHT_UPPER_LIMIT ;
-	if(isAdaptive) cur_height_limit+= (mParamGoal[0]- mReferenceManager->getParamDMM()[0]);
-
-	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit){
+	else if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit){
 		mIsTerminal = true;
 		terminationReason = 1;
 	}
 	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
+		std::cout<<mCurrentFrameOnPhase<<" "<<std::abs(angle)<<std::endl;
 	}
 	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
 
-	if(mRecord) {
-		if(mIsTerminal) std::cout << "terminate Reason : "<<terminationReason << std::endl;
-	}
+	// if(mRecord) {
+		if(mIsTerminal) {
+			std::cout << "terminate Reason : "<<terminationReason;
+			std::cout<<"/ leftConstraint: "<<(leftHandConstraint!=nullptr)<<"/ rightConstraint: "<<(rightHandConstraint!=nullptr);
+			std::cout<<"/ left_detached: "<<left_detached<<"/ right_detached: "<<right_detached<<std::endl;
+		}
+	// }
 
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
@@ -826,8 +831,8 @@ Reset(bool RSI)
 	this->mTimeElapsed = 0;
 
 	// std::cout<<"-------------------------- "<<mCurrentFrameOnPhase<<std::endl;
-	if(leftHandConstraint && mCurrentFrame <24) removeHandFromBar(true);
-	if(rightHandConstraint && mCurrentFrame <24) removeHandFromBar(false);
+	if(leftHandConstraint) removeHandFromBar(true);
+	if(rightHandConstraint) removeHandFromBar(false);
 
 	Motion* p_v_target;
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
