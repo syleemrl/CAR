@@ -875,6 +875,7 @@ saveCurrentResult()
 	std::ofstream obj_outfile;
 	std::string obj_outfile_path =  std::string(CAR_DIR)+ "/motion/"+split(motionFile,".")[0]+paramGoal_str+"_obj.csv";
 	obj_outfile.open(obj_outfile_path, std::ios_base::out); 
+	obj_outfile<<",x,y,z\n";
 
 	std::ifstream rawfile;
 	rawfile.open(raw_file_path, std::ios_base::in); 	

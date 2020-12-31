@@ -927,9 +927,19 @@ SetGoalParameters(Eigen::VectorXd tp)
 	auto bn = this->mObject->GetSkeleton()->getBodyNode("Box");
 	auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
 	auto inertia = bn->getInertia();
+	
 	inertia.setMass(mParamGoal[0]);
 	inertia.setMoment(shape_old->computeInertia(inertia.getMass()));
 	bn->setInertia(inertia);
+
+	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+	obj_pos.setZero();
+
+	this->mObject->GetSkeleton()->setPositions(obj_pos);
+	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+	
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
