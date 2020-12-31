@@ -87,6 +87,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	std::vector<std::pair<bool, Eigen::Vector3d>> GetContactInfo(Eigen::VectorXd pos, double base_height=0);
 
 	void SetGoalParameters(Eigen::VectorXd tp);
+	Eigen::VectorXd GetGoalParameters(){return mParamGoal;}
 	void SetSkeletonWeight(double mass);
 	double GetCurrentFrameOnPhase(){return mCurrentFrameOnPhase;}
 protected:

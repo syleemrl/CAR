@@ -16,7 +16,8 @@ include_directories(${PYTHON_INCLUDE_DIR})
 include_directories(${Boost_INCLUDE_DIRS})
 
 file(GLOB srcs "*.h" "*.cpp")
-# filter(srcs EXLCLUDE REGEX "BVHToXML.cpp")
+list(FILTER srcs EXCLUDE REGEX "BVHToXML.cpp")
+list(FILTER srcs EXCLUDE REGEX "swing_cleanup.cpp")
 
 add_library(sim ${srcs} )
 target_link_libraries(sim ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})

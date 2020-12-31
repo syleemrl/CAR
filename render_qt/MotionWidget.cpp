@@ -11,16 +11,17 @@
 MotionWidget::
 MotionWidget()
   :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),
-  mTrackCamera(false), mDrawBvh(true), mDrawSim(true), mDrawReg(true)
+  mTrackCamera(false), mDrawBvh(true), mDrawSim(true), mDrawReg(true), mTimeTicks(true)
 {
 	this->startTimer(30);
 }
 MotionWidget::
 MotionWidget(std::string motion, std::string ppo, std::string reg)
-  :MotionWidget() ,motionFile(motion)
+  : MotionWidget()
 {
 	mCurFrame = 0;
 	mTotalFrame = 0;
+	motionFile = motion;
 
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
 
@@ -154,41 +155,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	std::cout<<max_z_idx<<", max: "<<max_z<<std::endl;
 	
 	setFocusPolicy( Qt::StrongFocus );
-
-
-// 0: -0.00285057     1.04087   0.0267908 / lf : 0.0966291 0.0442695 0.0625281 / rf : -0.0757626  0.0440878  0.0506681/ mid:0.0104332 0.0441786 0.0565981/ toe: -0.732919 0.0444135  0.155496
-// 33: 0.00405863    1.37757   0.348865 / lf : 0.0981162  0.600498  0.635506 / rf : -0.0836312   0.575024   0.744824/ mid:0.00724252   0.587761   0.690165/ toe: -0.745567   0.57403  0.790906
-// 38: 0.00249872    1.16603   0.461853 / lf : 0.100115 0.495786 0.695288 / rf : -0.0782693   0.495872   0.726477/ mid:0.010923 0.495829 0.710883/ toe: -0.741754  0.496445  0.812149
-// 50: 0.0105216   1.18438  0.533703 / lf : 0.0983645  0.505731  0.704402 / rf : -0.0788697   0.503803   0.732953/ mid:0.00974737   0.504767   0.718677/ toe: -0.743163   0.49989  0.819867
-// 70: -0.0237697    1.44475   0.573628 / lf : 0.0969046  0.501218  0.702958 / rf : -0.0753976   0.499243   0.721124/ mid:0.0107535  0.500231  0.712041/ toe: -0.737391  0.499223  0.812525
-// 80: 0.00012486    1.49752   0.653755 / lf : 0.0972838  0.501215  0.702958 / rf : -0.0755012   0.500786   0.691364/ mid:0.0108913  0.501001  0.697161/ toe: -0.732584  0.500892  0.796114
-
-
- //    std::string test_param_summary_path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/paramSummary_test");
- //    // std::cout<<"path : "<<test_param_summary_path<<std::endl;
- //    std::ofstream test_param_file;
- //    test_param_file.open(test_param_summary_path);
-
-	// //grids_denorm, grids, fitness, density
-	// std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>, std::vector<double>> paramSummary = mRegressionMemory->GetParamSpaceSummary();
-	// auto& [gd, g, f, d] = paramSummary;
-	// for(int i=0; i<gd.size(); i++){
-	// 	test_param_file<<g[i].transpose()<<" "<<f[i]<<" "<<d[i]<<std::endl;
-	// }
-	// test_param_file.close();
-	
-	// try{
- //    	std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>, std::vector<double>> summary = mRegressionMemory->GetParamSpaceSummary();
-	// 	np::ndarray x_norm = DPhy::toNumPyArray(std::get<0>(summary));
-	// 	p::object a= this->mPPO.attr("saveAndShowParamSummary")(x_norm);
- //        np::ndarray na = np::from_object(a);
- //        Eigen::VectorXd v= DPhy::toEigenVector(na, std::get<1>(summary).size());
-
- //        std::cout<<"v: "<<v.size()<<std::endl;
- //        std::cout<<v.transpose()<<std::endl;
-	// }catch (const p::error_already_set&) {
- //        PyErr_Print();
- //    }
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
@@ -646,11 +612,13 @@ void
 MotionWidget::
 timerEvent(QTimerEvent* event)
 {
-	if(mPlay && mCurFrame < mTotalFrame) {
-		mCurFrame += 1;
-	} 
-	SetFrame(this->mCurFrame);
-	update();
+	if(mTimeTicks){
+		if(mPlay && mCurFrame < mTotalFrame) {
+			mCurFrame += 1;
+		} 
+		SetFrame(this->mCurFrame);
+		update();		
+	}
 
 }
 void
@@ -693,6 +661,13 @@ keyPressEvent(QKeyEvent *event)
 		else 
 			std::cout << "Pause." << std::endl;
 	}
+	if(event->key() == Qt::Key_S){
+		saveCurrentResult();
+	}
+	if(event->key() == Qt::Key_A){
+		saveAll();
+	}
+
 }
 void
 MotionWidget::
@@ -854,9 +829,9 @@ static inline void trim(std::string &s) {
 }
 
 template<typename K, typename V>
-std::unordered_map<V,K> inverse_map(std::unordered_map<K,V> &map)
+std::map<V,K> inverse_map(std::map<K,V> &map)
 {
-    std::unordered_map<V,K> inv;
+    std::map<V,K> inv;
     std::for_each(map.begin(), map.end(),
                 [&inv] (const std::pair<K,V> &p)
                 {
@@ -864,25 +839,53 @@ std::unordered_map<V,K> inverse_map(std::unordered_map<K,V> &map)
                 });
     return inv;
 }
+#include <memory>
+#include <string>
+template<typename ... Args>
+std::string format_string(const std::string& format, Args ... args)
+{
+	size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;
+	std::unique_ptr<char[]> buffer(new char[size]);
+	snprintf(buffer.get(), size, format.c_str(), args ...);
+	return std::string(buffer.get(), buffer.get() + size - 1);
+}
+// int main()
+// {
+// 	std::string test_message = format_string("%d %lf %s %#x\n", 10, 10.5, "test message", 12345678);
+// 	printf(test_message.c_str());
+// 	system("pause");
+// }
+// https://wendys.tistory.com/116 
 
 void 
 MotionWidget::
 saveCurrentResult()
 {
+	mTimeTicks= false;
+
 	std::string raw_file_path = std::string(CAR_DIR) + "/motion/"+motionFile;
-	Eigen::VectorXd paramGoal = mReferenceManager->GetParamGoal();
+	Eigen::VectorXd paramGoal = mController->GetGoalParameters();
 	std::string paramGoal_str= "";
-	for(int d=0; d<paramGoal.rows(); d++) paramGoal+= "_"+std::to_string(paramGoal[d]);
+	for(int d=0; d<paramGoal.rows(); d++) paramGoal_str+= "_"+format_string("%4.2f", paramGoal[d]);
 
 	std::ofstream outfile;
-	std::string outfile_path = "/motion/"+raw_file_path+paramGoal_str+".bvh";
-	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+	std::string outfile_path =  std::string(CAR_DIR)+ "/motion/"+split(motionFile,".")[0]+paramGoal_str+".bvh";
+	outfile.open(outfile_path, std::ios_base::out); 
+
+	std::ofstream obj_outfile;
+	std::string obj_outfile_path =  std::string(CAR_DIR)+ "/motion/"+split(motionFile,".")[0]+paramGoal_str+"_obj.csv";
+	obj_outfile.open(obj_outfile_path, std::ios_base::out); 
+
+	std::ifstream rawfile;
+	rawfile.open(raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+
+	std::cout<<"raw_file_path: "<<raw_file_path<<std::endl;
+	std::cout<<"outfile_path: "<<outfile_path<<std::endl;
+	std::cout<<"open, mTotalFrame: "<<mTotalFrame<<std::endl;
 
 	std::vector<std::string> joint_order;
 
-	std::ifstream rawfile;
-	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
-	std::string raw_line;
 	while(true){
 		getline(rawfile, raw_line);
 		
@@ -891,11 +894,11 @@ saveCurrentResult()
 		}
 		else outfile<<raw_line<<std::endl;
 
-		if(raw_line.find("Joint")!=std::string::npos){
+		if(raw_line.find("JOINT")!=std::string::npos || raw_line.find("ROOT")!=std::string::npos){
 			std::string line_copy = raw_line;
 			trim(line_copy);
-			joint_order.push_back(split(line_copy)[1]);
-			std::cout<<joint_order.back()<<std::endl;
+			joint_order.push_back(split(line_copy, " ")[1]);
+			// std::cout<<joint_order.back()<<std::endl;
 		}
 
 		if(raw_line.find("Time:")!=std::string::npos){
@@ -904,50 +907,82 @@ saveCurrentResult()
 	}
 
 	std::map<std::string,std::string> bvhMap = mReferenceManager->GetBVHMap();
-	std::map<std::string,std::string> bvhMap_inverse = inverse_map(bvhMap);
+	std::map<std::string,std::string> bvhMap_inverse = inverse_map<std::string, std::string>(bvhMap);
 
-	for(int i=0; i<mTotalFrame; i++){
-		mSkel_sim->setPositions(mMotion_sim[i]);
+	for(int frame =0; frame <mTotalFrame; frame ++){
+		mSkel_sim->setPositions(mMotion_sim[frame]);
 		mSkel_sim->computeForwardKinematics(true, false, false);
 
 		std::string newline="";
 		for(std::string& joint: joint_order){
 			if(bvhMap_inverse.find(joint)!=bvhMap_inverse.end()){
-				std::string skelJoint = bvhMap_inverse.find(joint);
-				
-				// if(i==0) std::cout<<skelJoint<<std::endl;
+				std::string skelJoint = bvhMap_inverse.find(joint)->second;
 
 				Eigen::VectorXd pos = mSkel_sim->getBodyNode(skelJoint)->getParentJoint()->getPositions();
 
-				if(pos.rows()==3){
+				if(skelJoint== "Hips"){
+					Eigen::Matrix3d rot = dart::dynamics::BallJoint::convertToRotation(pos.head<3>());
+					Eigen::Vector3d pos_eulerZXY = dart::math::matrixToEulerZXY(rot);
+					pos_eulerZXY*= 180./M_PI;
+
+					Eigen::Vector3d trans = pos.tail<3>();
+					trans*=100;
+					newline+= std::to_string(trans[0])+" "+std::to_string(trans[1])+" "+std::to_string(trans[2])+" ";
+					newline+= std::to_string(pos_eulerZXY[0])+" "+std::to_string(pos_eulerZXY[1])+" "+std::to_string(pos_eulerZXY[2])+" ";
+				}
+				else{
 					Eigen::Matrix3d rot = dart::dynamics::BallJoint::convertToRotation(pos);
 
 					Eigen::Vector3d pos_eulerZXY = dart::math::matrixToEulerZXY(rot);
 					pos_eulerZXY*= 180./M_PI;
-					newline+=pos_eulerZXY[0]+" "+pos_eulerZXY[1]+" "+pos_eulerZXY[2]+" ";
+					newline+=std::to_string(pos_eulerZXY[0])+" "+std::to_string(pos_eulerZXY[1])+" "+std::to_string(pos_eulerZXY[2])+" ";
 
-				}else if(pos.rows()==6){
-					Eigen::Vector3d trans = pos.segment<3>(0);
-					trans*=100;
-					Eigen::Matrix3d rot = dart::dynamics::BallJoint::convertToRotation(pos.segment<3>(3));
-					Eigen::Vector3d pos_eulerZXY = dart::math::matrixToEulerZXY(rot);
-					pos_eulerZXY*= 180./M_PI;
-
-					newline+= trans[0]+" "+trans[1]+" "+trans[2]+" ";
-					newline+= pos_eulerZXY[0]+" "+pos_eulerZXY[1]+" "+pos_eulerZXY[2]+" ";
-				}			
+				}
 			}
 		}
 
 		newline+="\n";
 		outfile<<newline;
+
+		#ifdef OBJECT_TYPE
+			mSkel_obj->setPositions(mMotion_obj[frame]);
+			mSkel_obj->computeForwardKinematics(true, false, false);
+			Eigen::Vector3d obj_trans= mSkel_obj->getBodyNode("Box")->getWorldTransform().translation();
+			obj_trans*=100;
+			obj_outfile<<frame<<","<<obj_trans[0]<<","<<obj_trans[1]<<","<<obj_trans[2]<<std::endl;
+		#endif
 	}
 
 	outfile.close();
 	rawfile.close();
+	obj_outfile.close();
 
 	mSkel_sim->setPositions(mMotion_sim[mCurFrame]);
 	mSkel_sim->computeForwardKinematics(true, false, false);
 
+	mTimeTicks= true;
 }
 
+
+void 
+MotionWidget::
+saveAll(){
+
+	double mass= 8;
+	while(mass < 208){
+
+		Eigen::VectorXd tp_denorm_raw(1);
+		tp_denorm_raw<<mass;
+
+     	mTotalFrame = 0;
+     	mController->SetGoalParameters(tp_denorm_raw);
+     	
+	    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm_raw);
+	    mReferenceManager->LoadAdaptiveMotion(cps);
+		RunPPO();
+
+		saveCurrentResult();
+
+		mass+= 10;
+	}
+}

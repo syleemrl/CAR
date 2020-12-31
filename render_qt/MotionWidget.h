@@ -112,7 +112,9 @@ protected:
 	int regMemShow_idx = 0;
 
 	void saveCurrentResult();
+	void saveAll();
 
 	std::string motionFile;
+	bool mTimeTicks;
 };
 #endif
