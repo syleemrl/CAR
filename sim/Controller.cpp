@@ -152,11 +152,11 @@ Step()
 	}
 
 	// [23, 51)
-	if(mCurrentFrame >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0, -0.025, 0));
-	else if(mCurrentFrame >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrame >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(0, -0.025, 0));
-	else if(mCurrentFrame >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(0, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	Eigen::VectorXd s = this->GetState();
 
@@ -239,10 +239,10 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		// mParamCur = mParamGoal;
 
-		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
-		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
-		mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
-		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+		// mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
+		// mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
+		// mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
+		// this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 
 
 		if(isAdaptive) {
@@ -283,10 +283,8 @@ Step()
 	}
 	if(isAdaptive) {
 		this->UpdateAdaptiveReward();
-
 	}
-	else
-		this->UpdateReward();
+	else this->UpdateReward();
 
 
 	this->UpdateTerminalInfo();
@@ -516,12 +514,13 @@ GetSimilarityReward()
 	// }
 	
 	Eigen::VectorXd p_aligned = skel->getPositions();
-	std::vector<Eigen::VectorXd> p_with_zero;
-	p_with_zero.push_back(mRootZero);
-	p_with_zero.push_back(p_aligned.segment<6>(0));
-	p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
-	p_aligned.segment<6>(0) = p_with_zero[1];
-
+	// Eigen::VectorXd p_aligned_save = p_aligned;
+	// std::vector<Eigen::VectorXd> p_with_zero;
+	// p_with_zero.push_back(mRootZero);
+	// p_with_zero.push_back(p_aligned.segment<6>(0));
+	// p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
+	// p_aligned.segment<6>(0) = p_with_zero[1];
+	// std::cout<<"p_aligned, p_aligned_save /  diff norm : "<<(p_aligned-p_aligned_save).norm()<<std::endl;
 	Eigen::VectorXd v = skel->getPositionDifferences(skel->getPositions(), mPosQueue.front()) / (mCurrentFrame - mTimeQueue.front() + 1e-10) / 0.033;
 	for(auto& jn : skel->getJoints()){
 		if(dynamic_cast<dart::dynamics::RevoluteJoint*>(jn)!=nullptr){
@@ -695,27 +694,27 @@ UpdateTerminalInfo()
 		terminationReason = 2;
 	}
 
-	else if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit){
+	else if(!mRecord && (root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit)){
 		mIsTerminal = true;
 		terminationReason = 1;
 	}
 	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-		std::cout<<mCurrentFrameOnPhase<<" "<<std::abs(angle)<<std::endl;
+		// std::cout<<mCurrentFrameOnPhase<<" "<<std::abs(angle)<<std::endl;
 	}
 	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
 
-	// if(mRecord) {
+	// if(mIsTerminal)	std::cout << mCurrentFrameOnPhase<<"/ terminate Reason : "<<terminationReason<<std::endl;
+	if(mRecord) {
 		if(mIsTerminal) {
-			std::cout << "terminate Reason : "<<terminationReason;
 			std::cout<<"/ leftConstraint: "<<(leftHandConstraint!=nullptr)<<"/ rightConstraint: "<<(rightHandConstraint!=nullptr);
 			std::cout<<"/ left_detached: "<<left_detached<<"/ right_detached: "<<right_detached<<std::endl;
 		}
-	// }
+	}
 
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
@@ -774,8 +773,8 @@ SetGoalParameters(Eigen::VectorXd tp)
 	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 
-   this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-   this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
+   // this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+   // this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 	#endif
 
 }
@@ -830,7 +829,7 @@ Reset(bool RSI)
 	this->nTotalSteps = 0;
 	this->mTimeElapsed = 0;
 
-	// std::cout<<"-------------------------- "<<mCurrentFrameOnPhase<<std::endl;
+	// std::cout<<"-------------------------- "<<mCurrentFrameOnPhase<<"/ ";
 	if(leftHandConstraint) removeHandFromBar(true);
 	if(rightHandConstraint) removeHandFromBar(false);
 
@@ -840,9 +839,6 @@ Reset(bool RSI)
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
 
-	// Eigen::VectorXd nextTargetPositions = mReferenceManager->GetPosition(mCurrentFrame+1, isAdaptive);
-	// this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(nextTargetPositions, mTargetPositions) / 0.033;
-	// std::cout <<  mCharacter->GetSkeleton()->getPositionDifferences(nextTargetPositions, mTargetPositions).segment<3>(3).transpose() << std::endl;
 	this->mPDTargetPositions = mTargetPositions;
 	this->mPDTargetVelocities = mTargetVelocities;
 
@@ -860,10 +856,10 @@ Reset(bool RSI)
 	for(int i = 0; i < mEndEffectors.size(); i++) {
 		tl_cur.segment<3>(i*3 + 3) = skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
 	}
-	mRootZero = mTargetPositions.segment<6>(0);
-	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
+	// mRootZero = mTargetPositions.segment<6>(0);
+	// this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
-	mDefaultRootZero = mRootZero; 
+	// mDefaultRootZero = mRootZero; 
 
 	mTlPrev2 = mTlPrev;
 	mTlPrev = tl_cur;	
@@ -897,9 +893,9 @@ Reset(bool RSI)
 	this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 
-   this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-   this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 	#endif
+   // this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+   // this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
 	dbg_LeftPoints= std::vector<Eigen::Vector3d>();
 	dbg_RightPoints= std::vector<Eigen::Vector3d>();
@@ -908,8 +904,8 @@ Reset(bool RSI)
 	
 
 	//45, 59
-	left_detached= (mCurrentFrame >=51) ? true: false; 
-	right_detached= (mCurrentFrame >=51) ? true: false;
+	left_detached= (mCurrentFrameOnPhase >=51) ? true: false; 
+	right_detached= (mCurrentFrameOnPhase >=51) ? true: false;
 
 
 }
@@ -1212,7 +1208,6 @@ GetState()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
-	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
 	delete p_v_target;
 

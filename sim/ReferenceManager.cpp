@@ -288,6 +288,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 	T01.translation()[1] = 0;
 
 	int smooth_time = 10;
+	blend = false;
 	for(int i = 0; i < frames; i++) {
 		
 		int phase = i % mPhaseLength;
