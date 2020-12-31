@@ -158,8 +158,8 @@ Step()
 	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(0, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
-	Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
-	std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<" / obj: "<<obj_pos.transpose()<<std::endl;
+	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
+	// std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<" / obj: "<<obj_pos.transpose()<<std::endl;
 	
 	Eigen::VectorXd s = this->GetState();
 
@@ -1019,41 +1019,41 @@ CheckCollisionWithGround(std::string bodyName){
 	}
 }
 
-bool
-Controller::
-CheckCollisionWithObject(std::string bodyName){
-	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
-	dart::collision::CollisionOption option;
-	dart::collision::CollisionResult result;
-	if(bodyName == "RightFoot"){
-		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "LeftFoot"){
-		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "RightToe"){
-		bool isCollide = collisionEngine->collide(this->mCGER.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "LeftToe"){
-		bool isCollide = collisionEngine->collide(this->mCGEL.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "RightHand"){
-		bool isCollide = collisionEngine->collide(this->mCGHR.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else if(bodyName == "LeftHand"){
-		bool isCollide = collisionEngine->collide(this->mCGHL.get(), this->mCGOBJ.get(), option, &result);
-		return isCollide;
-	}
-	else{ // error case
-		std::cout << "check collision : bad body name" << std::endl;
-		return false;
-	}
-}
+// bool
+// Controller::
+// CheckCollisionWithObject(std::string bodyName){
+// 	auto collisionEngine = mWorld->getConstraintSolver()->getCollisionDetector();
+// 	dart::collision::CollisionOption option;
+// 	dart::collision::CollisionResult result;
+// 	if(bodyName == "RightFoot"){
+// 		bool isCollide = collisionEngine->collide(this->mCGR.get(), this->mCGOBJ.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "LeftFoot"){
+// 		bool isCollide = collisionEngine->collide(this->mCGL.get(), this->mCGOBJ.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "RightToe"){
+// 		bool isCollide = collisionEngine->collide(this->mCGER.get(), this->mCGOBJ.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "LeftToe"){
+// 		bool isCollide = collisionEngine->collide(this->mCGEL.get(), this->mCGOBJ.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "RightHand"){
+// 		bool isCollide = collisionEngine->collide(this->mCGHR.get(), this->mCGOBJ.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else if(bodyName == "LeftHand"){
+// 		bool isCollide = collisionEngine->collide(this->mCGHL.get(), this->mCGOBJ.get(), option, &result);
+// 		return isCollide;
+// 	}
+// 	else{ // error case
+// 		std::cout << "check collision : bad body name" << std::endl;
+// 		return false;
+// 	}
+// }
 
 void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 

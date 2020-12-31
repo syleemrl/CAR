@@ -874,18 +874,18 @@ BodyNode* SkeletonBuilder::MakeWeldJointBody_Shape(
 	double h = shape_height;
 	Eigen::Vector3d direction = shape_direction;
 	ShapePtr shapeVisual;
-	if(shape_type == 1)
-		shapeVisual = std::shared_ptr<CapsuleShape>(new CapsuleShape(r, h));
-	if(shape_type == 2)
-		shapeVisual = std::shared_ptr<SphereShape>(new SphereShape(r));
-	if(shape_type == 3)
-		shapeVisual = std::shared_ptr<CylinderShape>(new CylinderShape(r, h));
-	if(shape_type == 4)
+	// if(shape_type == 1)
+	// 	shapeVisual = std::shared_ptr<CapsuleShape>(new CapsuleShape(r, h));
+	// if(shape_type == 2)
+	// 	shapeVisual = std::shared_ptr<SphereShape>(new SphereShape(r));
+	// if(shape_type == 3)
+	// 	shapeVisual = std::shared_ptr<CylinderShape>(new CylinderShape(r, h));
+	// if(shape_type == 4)
 		shapeVisual = std::shared_ptr<BoxShape>(new BoxShape(shape_size));
 
 	dart::dynamics::Inertia inertia;
 	inertia.setMass(mass);
-	inertia.setMoment(shape->computeInertia(mass));
+	inertia.setMoment(shapeVisual->computeInertia(mass));
 
 	BodyNode* bn;
 	FreeJoint::Properties props;
@@ -899,9 +899,9 @@ BodyNode* SkeletonBuilder::MakeWeldJointBody_Shape(
 	//assert(contact);
 	if(contact){
 		// bn->createShapeNodeWith<VisualAspect,CollisionAspect,DynamicsAspect>(shape);
-		bn->createShapeNodeWith<CollisionAspect,DynamicsAspect>(shape);
+		bn->createShapeNodeWith<CollisionAspect,DynamicsAspect>(shapeVisual);
 		if(shape_type == 0){
-			bn->createShapeNodeWith<VisualAspect>(shape);
+			bn->createShapeNodeWith<VisualAspect>(shapeVisual);
 		}
 		else if(shape_type == 1 || shape_type == 3){
 			bn->createShapeNodeWith<VisualAspect>(shapeVisual);
