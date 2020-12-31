@@ -152,11 +152,11 @@ Step()
 	}
 
 	// [23, 51)
-	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=52 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(0, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=52 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
 	// std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<" / obj: "<<obj_pos.transpose()<<std::endl;
