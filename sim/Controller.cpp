@@ -48,7 +48,13 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(OBJECT_TYPE) + std::string(".xml");
 		this->mObject = new DPhy::Character(object_path);	
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-		this->mObject->GetSkeleton()->getBodyNode(0)->setFrictionCoeff(1.0);
+		this->mObject->GetSkeleton()->getBodyNode("Bar")->setFrictionCoeff(1.0);
+		// this->mObject->GetSkeleton()->getBodyNode("Bar")->setRestitutionCoeff(1.0);
+		dart::dynamics::JointPtr jn = mObject->GetSkeleton()->getBodyNode("Bar")->getParentJoint();
+		for(int i = 0; i < jn->getNumDofs(); i++){
+			jn->getDof(i)->setDampingCoefficient(0.2);
+		}
+
 
 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 		obj_pos.setZero();
@@ -153,10 +159,10 @@ Step()
 
 	// [23, 51)
 	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=52 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
 	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=52 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
 	// std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<" / obj: "<<obj_pos.transpose()<<std::endl;
