@@ -152,10 +152,10 @@ Step()
 	}
 
 	// [23, 51)
-	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=52 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=52 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
