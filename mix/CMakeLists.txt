@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.6)
-project(render_qt)
+project(mix)
 
 add_compile_options(-fPIC)
 add_compile_options(-std=gnu++11)
@@ -14,6 +14,7 @@ link_directories(../sim/)
 include_directories(../sim/)
 link_directories(../network/)
 include_directories(../network/)
+include_directories(../render_qt/)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(GLEW REQUIRED)
@@ -37,16 +38,16 @@ if(OPENMP_FOUND)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-file(GLOB srcs "*.h" "*.cpp")
-
-add_executable(render_qt ${srcs})
-target_link_libraries(render_qt Qt5::Widgets Qt5::OpenGL ${DART_LIBRARIES} ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} GL GLU glut GLEW sim ${TinyXML_LIBRARIES})
-
-
-file (GLOB lib_srcs
-	Camera.cpp
-	DART_interface.cpp
-	GLfunctions.cpp
+file (GLOB metaCtrlSrcs
+	"*.cpp"
+	# DART_interface.cpp
+	# GLFunctions.cpp
+	# Camera.cpp 
+	# MetaController.cpp
+	# sceneMain.cpp
+	# SceneMainWindow.cpp
+	# SceneMotionWidget.cpp
 	)
-add_library(render_lib ${lib_srcs} )
-target_link_libraries(render_lib ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})
+
+add_executable(metaCtrl ${metaCtrlSrcs})
+target_link_libraries(metaCtrl Qt5::Widgets Qt5::OpenGL ${DART_LIBRARIES} ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} GL GLU glut GLEW sim render_lib ${TinyXML_LIBRARIES})

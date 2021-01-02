@@ -765,4 +765,34 @@ BodyNode* SkeletonBuilder::MakeWeldJointBody(
 
 	return bn;
 }
+
+
+void 
+SkeletonBuilder::
+loadScene(std::string scene_path, std::vector<SkeletonPtr>& sceneObjects)
+{
+	TiXmlDocument doc;
+	if(!doc.LoadFile(scene_path)){
+		std::cout << "Can't open scene file : " << scene_path << std::endl;
+	}
+
+	TiXmlElement *skeldoc = doc.FirstChildElement("Scene");
+	
+	for(TiXmlElement *body = skeldoc->FirstChildElement("Skeleton"); body != nullptr; body = body->NextSiblingElement("Skeleton")){
+		std::string object_type = body->Attribute("xml");
+		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
+		Eigen::VectorXd pos = string_to_vectorXd(body->Attribute("pos"));
+
+		// DPhy::Character* obj = new DPhy::Character(object_path);	
+		std::pair<SkeletonPtr, std::map<std::string, double>*> p = SkeletonBuilder::BuildFromFile(object_path);
+		SkeletonPtr obj = p.first;
+
+		std::cout<<object_type<<" , pos : "<<pos.transpose()<<std::endl;
+		obj->setPositions(pos);
+		obj->computeForwardKinematics(true, false, false);
+		
+		sceneObjects.push_back(obj);
+	}
 }
+
+}// end DPhy

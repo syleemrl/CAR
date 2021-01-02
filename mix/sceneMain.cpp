@@ -8,7 +8,8 @@
 #include <regex>
 #include <QApplication>
 #include <QGLWidget>
-#include "MainWindow.h"
+#include "MetaController.h"
+#include "SceneMainWindow.h"
 
 class GLWidget : public QGLWidget{
     void initializeGL(){
@@ -46,54 +47,49 @@ class GLWidget : public QGLWidget{
         glEnd();
     }
 };
-bool compare_string_with_number(const std::string& s1, const std::string& s2) {
-	int length = std::min(s1.length(), s2.length());
-	for(int i = 0; i < length; i++) {
-		if(s1.at(i) >= 48 && s1.at(i) <= 57 && s2.at(i) >= 48 && s2.at(i) <= 57) {
-			int n1 = 0, n2 = 0;
-			n1 = (int)s1.at(i) - 48;
-			n2 = (int)s2.at(i) - 48;
 
-			int l1 = 1, l2 = 1;
-			while(s1.length() > i + l1 && s1.at(i + l1) >= 48 && s1.at(i + l1) <= 57 ) {
-				n1 *= 10;
-				n1 += (int)s1.at(i + l1) - 48;
-				l1 += 1;
-			}
+// bool compare_string_with_number(const std::string& s1, const std::string& s2) {
+// 	int length = std::min(s1.length(), s2.length());
+// 	for(int i = 0; i < length; i++) {
+// 		if(s1.at(i) >= 48 && s1.at(i) <= 57 && s2.at(i) >= 48 && s2.at(i) <= 57) {
+// 			int n1 = 0, n2 = 0;
+// 			n1 = (int)s1.at(i) - 48;
+// 			n2 = (int)s2.at(i) - 48;
 
-			while(s2.length() > i + l2 &&  s2.at(i + l2) >= 48 && s2.at(i + l2) <= 57 ) {
-				n2 *= 10;
-				n2 += (int)s2.at(i + l2) - 48;
-				l2 += 1;
-			}
+// 			int l1 = 1, l2 = 1;
+// 			while(s1.length() > i + l1 && s1.at(i + l1) >= 48 && s1.at(i + l1) <= 57 ) {
+// 				n1 *= 10;
+// 				n1 += (int)s1.at(i + l1) - 48;
+// 				l1 += 1;
+// 			}
 
-			if(n1 < n2) {
-				return true;
-			} else if(n1 > n2) {
-				return false;
-			}
+// 			while(s2.length() > i + l2 &&  s2.at(i + l2) >= 48 && s2.at(i + l2) <= 57 ) {
+// 				n2 *= 10;
+// 				n2 += (int)s2.at(i + l2) - 48;
+// 				l2 += 1;
+// 			}
 
-			i += (l1 - 1);
-		}
-		else {
-			if(s1.at(i) < s2.at(i)) {
-				return true;
-			} else if (s1.at(i) > s2.at(i)) {
-				return true;
-			}
-		} 
-	}
-	return false;
-}
+// 			if(n1 < n2) {
+// 				return true;
+// 			} else if(n1 > n2) {
+// 				return false;
+// 			}
+
+// 			i += (l1 - 1);
+// 		}
+// 		else {
+// 			if(s1.at(i) < s2.at(i)) {
+// 				return true;
+// 			} else if (s1.at(i) > s2.at(i)) {
+// 				return true;
+// 			}
+// 		} 
+// 	}
+// 	return false;
+// }
 int main(int argc,char** argv)
 {
-	std::cout<<"[ : Frame --"<<std::endl;
-	std::cout<<"] : Frame ++"<<std::endl;
-	std::cout<<"r : Frame = 0"<<std::endl;
-	std::cout<<"C : Capture"<<std::endl;
-	std::cout<<"SPACE : Play"<<std::endl;
-	std::cout<<"ESC : exit"<<std::endl;
-
+    std::cout<<"Main!!"<<std::endl;
 	boost::program_options::options_description desc("allowed options");
 	desc.add_options()
 	("reg,r",boost::program_options::value<std::string>())
@@ -118,8 +114,9 @@ int main(int argc,char** argv)
 	glutInit(&argc,argv);
 	QApplication a(argc, argv);
     
-    MainWindow* main_window = new MainWindow(bvh, ppo, reg);
+    SceneMainWindow* main_window = new SceneMainWindow(bvh, ppo, reg);
     main_window->resize(2560,1440);
     main_window->show();
     return a.exec();
+
 }

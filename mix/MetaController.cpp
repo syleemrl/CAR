@@ -1,13 +1,7 @@
 #include "MetaController.h"
+
 namespace DPhy
 {	
-
-////////////////////////////////////// SubController //////////////////////////////////////
-SubController::SubController()
-{}
-
-
-////////////////////////////////////// MetaController //////////////////////////////////////
 
 MetaController::MetaController()
 : mControlHz(30),mSimulationHz(150),mCurrentFrame(0),terminationReason(-1), mIsTerminal(false)
@@ -15,8 +9,7 @@ MetaController::MetaController()
 	this->mSimPerCon = mSimulationHz / mControlHz;
 	this->mWorld = std::make_shared<dart::simulation::World>();
 
-	this->mBaseGravity = Eigen::Vector3d(0,-9.81, 0);
-	this->mWorld->setGravity(this->mBaseGravity);
+	this->mWorld->setGravity(Eigen::Vector3d(0,-9.81, 0));
 
 	this->mWorld->setTimeStep(1.0/(double)mSimulationHz);
 	this->mWorld->getConstraintSolver()->setCollisionDetector(dart::collision::DARTCollisionDetector::create());
@@ -62,11 +55,10 @@ MetaController::MetaController()
 }
 
 // 공통
-void MetaController::SetAction(action)
+void MetaController::SetAction(const Eigen::VectorXd& action)
 {
 
 }
-int MetaController::GetNumAction(){return mNumAction;}
 
 Eigen::VectorXd MetaController::GetState()
 {

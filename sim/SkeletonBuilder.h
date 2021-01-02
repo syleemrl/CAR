@@ -104,6 +104,10 @@ public:
 		const Eigen::Isometry3d& body_position,
 		double mass,
 		bool contact);
+
+
+	static void loadScene(std::string scene_path, std::vector<dart::dynamics::SkeletonPtr>& sceneObjects);
+
 };
 }
 
