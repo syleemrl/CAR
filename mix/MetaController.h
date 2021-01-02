@@ -1,3 +1,5 @@
+#ifndef __META_CONTROLLER_H
+#define __META_CONTROLLER_H
 #include "SubController.h"
 
 namespace DPhy
@@ -28,7 +30,15 @@ public:
 	std::vector<Character*> mObjects;
 	dart::dynamics::SkeletonPtr mGround;
 
-	int mCurrentFrame;
+	double mCurrentFrame;
+	double mPrevFrame;
+	double mPrevFrame2;
+
+	double mCurrentFrameOnPhase;
+	double mPrevFrameOnPhase;
+
+	double mTimeElapsed;
+
 	bool mIsTerminal;
 
 
@@ -36,13 +46,20 @@ public:
 	int GetNumAction(){return mNumAction;}
 	Eigen::VectorXd GetState();
 	void Step();
+	int GetCurrentFrame(){return mCurrentFrame;}
 
-
+	bool IsTerminalState(){return mIsTerminal;}
+	void UpdateTerminalInfo();
+	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
+	void SaveStepInfo();
 	Eigen::VectorXd mTargetPositions;
 	Eigen::VectorXd mTargetVelocities;
 
 	Eigen::VectorXd mPDTargetPositions;
 	Eigen::VectorXd mPDTargetVelocities;
+
+	Eigen::VectorXd mPrevTargetPositions;
+
 
 	Eigen::VectorXd mActions;
 	double mAdaptiveStep;
@@ -66,6 +83,12 @@ public:
 
 	int mNumState, mNumAction;
 	int terminationReason;
+
+	std::queue<Eigen::VectorXd> mPosQueue;
+	std::queue<double> mTimeQueue;
+
+
+	DPhy::ReferenceManager* GetCurrentRefManager(){return mCurrentController->mReferenceManager;}
 
 };
 } // end namespace DPhy
@@ -95,3 +118,5 @@ public:
 		// this->mController->SetAction(action);
 		// this->mController->Step();
 		// this->mTiming.push_back(this->mController->GetCurrentFrame());
+
+#endif

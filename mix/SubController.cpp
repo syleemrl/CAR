@@ -2,8 +2,8 @@
 
 namespace DPhy{
 
-SubController::SubController(CTR_TYPE type, std::string motion, std::string ppo, std::string reg)
-: mType(type), mMotion(motion)
+SubController::SubController(CTR_TYPE type, MetaController* mc, std::string motion, std::string ppo, std::string reg)
+: mType(type), mMotion(motion), mMC(mc)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     DPhy::Character* mCharacter = new DPhy::Character(path);
@@ -39,9 +39,9 @@ SubController::SubController(CTR_TYPE type, std::string motion, std::string ppo,
     		p::object ppo_main = p::import("ppo");
 			this->mPPO = ppo_main.attr("PPO")();
 			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + ppo;
-			// this->mPPO.attr("initRun")(path,
-			// 						   this->mController->GetNumState(), 
-			// 						   this->mController->GetNumAction());
+			// this->mPPO.attr("initRun")(path, 
+									   // this->mController->GetNumState(), 
+									   // this->mController->GetNumAction());
 			// RunPPO();
     	}
     

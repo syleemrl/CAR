@@ -1,3 +1,7 @@
+#ifndef __SUB_CONTROLLER_H
+#define __SUB_CONTROLLER_H
+
+
 #include "Character.h"
 #include "MultilevelSpline.h"
 #include <boost/filesystem.hpp>
@@ -36,10 +40,10 @@ class SubController
 {
 public:
 	SubController(){}
-	SubController(CTR_TYPE type, std::string motion, std::string ppo, std::string reg);
+	SubController(CTR_TYPE type, MetaController* mc, std::string motion, std::string ppo, std::string reg);
 
 	CTR_TYPE mType;
-	
+
 	p::object 						mPPO;
 	DPhy::ReferenceManager*			mReferenceManager;
 	p::object 						mRegression;
@@ -47,10 +51,13 @@ public:
 
 	Eigen::VectorXd mParamGoal;
 
-	bool virtual IsTerminalState(MetaController& mc)=0;
-	bool virtual Step(MetaController& mc)=0;
+	bool virtual IsTerminalState()=0;
+	bool virtual Step()=0;
+
+	Eigen::VectorXd GetParamGoal(){return mParamGoal;}
 
 	std::string mMotion;
+	MetaController* mMC;
 	bool mUseReg= false;
 };
 
@@ -66,3 +73,4 @@ public:
 // 	this->mloadScene = true;
 // }
 
+#endif

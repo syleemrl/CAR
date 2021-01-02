@@ -74,10 +74,10 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(NextFrame())); 
     buttonlayout->addWidget(button);    
 
-    button = new QPushButton("save", this);
-    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Save())); 
-    buttonlayout->addWidget(button);    
-    buttonlayout->addStretch(1);
+    // button = new QPushButton("save", this);
+    // connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Save())); 
+    // buttonlayout->addWidget(button);    
+    // buttonlayout->addStretch(1);
 
     motionlayout->addLayout(buttonlayout);
 
@@ -96,7 +96,7 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
         mParams.push_back(param);
         
         mParamFormlayout->addRow(QString::fromStdString(labels[i]), param);
-        connect (param, SIGNAL(valueChanged(int)), mMotionWidget, SLOT(setValue(const int&)));
+        // connect (param, SIGNAL(valueChanged(int)), mMotionWidget, SLOT(setValue(const int&)));
     }
 
     mParamlayout->addStretch(1);

@@ -22,16 +22,16 @@ SceneMotionWidget(std::string motion, std::string ppo, std::string reg)
 {
 	mCurFrame = 0;
 	mTotalFrame = 0;
-
+	mMC= new DPhy::MetaController();
 
 }
 
 void 
 SceneMotionWidget::
 setValue(const int &x){
-	auto slider = qobject_cast<QSlider*>(sender());
-    auto i = slider->property("i").toInt();
-    v_param(i) =  x;
+	// auto slider = qobject_cast<QSlider*>(sender());
+ //    auto i = slider->property("i").toInt();
+    // v_param(i) =  x;
 }
 
 
@@ -281,5 +281,5 @@ Save() {
 
 	std::string time_str = std::ctime(&t);
 
-	mController->SaveDisplayedData(mPath + "record_" + time_str, true);
+	// mController->SaveDisplayedData(mPath + "record_" + time_str, true);
 }

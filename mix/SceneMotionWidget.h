@@ -14,6 +14,7 @@
 #include "GLfunctions.h"
 #include "DART_interface.h"
 #include "Controller.h"
+#include "MetaController.h"
 #pragma pop_macro("slots")
 namespace p = boost::python;
 namespace np = boost::python::numpy;
@@ -88,22 +89,24 @@ protected:
 	bool 							mDrawSim;
 	bool 							mDrawReg;
 
-	p::object 						mRegression;
-	p::object 						mPPO;
-	DPhy::ReferenceManager*			mReferenceManager;
-	DPhy::Controller* 				mController;
-	DPhy::RegressionMemory* 		mRegressionMemory;
+	// p::object 						mRegression;
+	// p::object 						mPPO;
+	// DPhy::ReferenceManager*			mReferenceManager;
+	// DPhy::Controller* 				mController;
+	// DPhy::RegressionMemory* 		mRegressionMemory;
 
-	Eigen::VectorXd v_param;
-	std::pair<Eigen::VectorXd, Eigen::VectorXd> mParamRange;
+	// Eigen::VectorXd v_param;
+	// std::pair<Eigen::VectorXd, Eigen::VectorXd> mParamRange;
 
-	Eigen::Vector3d 				mPoints;
-	Eigen::Vector3d 				mPoints_exp;
-	int regMemShow_idx= 0;
+	// Eigen::Vector3d 				mPoints;
+	// Eigen::Vector3d 				mPoints_exp;
+	// int regMemShow_idx= 0;
 
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+
+	DPhy::MetaController* mMC;
 
 };
 #endif
