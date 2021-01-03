@@ -654,7 +654,7 @@ UpdateReward()
 
 	mRewardParts.clear();
 	//r_p, r_com, r_ee, r_v
-	double r_tot = 0.9 * (0.45 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.25 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
+	double r_tot = 0.9 * (0.6 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.05 * tracking_rewards_bvh[2] + 0.05* tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
