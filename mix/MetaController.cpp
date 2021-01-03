@@ -1,9 +1,10 @@
 #include "MetaController.h"
+#include <tinyxml.h>
 
 namespace DPhy
 {	
 
-MetaController::MetaController()
+MetaController::MetaController(std::string ctrl, std::string scene_obj, std::string scenario)
 : mControlHz(30),mSimulationHz(150),mCurrentFrame(0), mCurrentFrameOnPhase(0),terminationReason(-1), mIsTerminal(false)
 {
 	this->mSimPerCon = mSimulationHz / mControlHz;
@@ -18,6 +19,8 @@ MetaController::MetaController()
 	this->mGround = DPhy::SkeletonBuilder::BuildFromFile(std::string(CAR_DIR)+std::string("/character/ground.xml")).first;
 	this->mGround->getBodyNode(0)->setFrictionCoeff(1.0);
 	this->mWorld->addSkeleton(this->mGround);
+
+	if(scene_obj!="") loadSceneObjects(std::string(CAR_DIR)+std::string("/scene/") + scene_obj + std::string(".xml"));
 
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
@@ -54,6 +57,132 @@ MetaController::MetaController()
 	this->mNumAction = mActions.size();
 
 	mTimeElapsed = 0;
+
+
+	// load SubControllers
+	assert(ctrl!= "");
+	loadControllers(std::string(CAR_DIR)+ std::string("/scene/")+ctrl+std::string(".xml"));
+
+	if(scenario != ""){
+		//TODO
+	}else{
+		mCurrentController= mSubControllers["FW_JUMP"];
+	}
+
+	runScenario();
+}
+
+void MetaController::reset()
+{
+	this->mWorld->reset();
+	auto& skel = mCharacter->GetSkeleton();
+	skel->clearConstraintImpulses();
+	skel->clearInternalForces();
+	skel->clearExternalForces();
+
+	bool isAdaptive = true;
+	this->mCurrentFrame = 0; 
+	this->mCurrentFrameOnPhase = this->mCurrentFrame;
+
+	// this->mStartFrame = this->mCurrentFrame;
+	// this->nTotalSteps = 0;
+	this->mTimeElapsed = 0;
+
+	Motion* p_v_target;
+	p_v_target = mCurrentController->mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	this->mTargetPositions = p_v_target->GetPosition();
+	this->mTargetVelocities = p_v_target->GetVelocity();
+	delete p_v_target;
+
+	this->mPDTargetPositions = mTargetPositions;
+	this->mPDTargetVelocities = mTargetVelocities;
+
+	skel->setPositions(mTargetPositions);
+	skel->setVelocities(mTargetVelocities);
+	skel->computeForwardKinematics(true,true,false);
+
+	this->mIsNanAtTerminal = false;
+	this->mIsTerminal = false;
+	
+	// ClearRecord();
+	SaveStepInfo();
+
+	// mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+	// mPrevPositions = mCharacter->GetSkeleton()->getPositions();
+	mPrevTargetPositions = mTargetPositions;
+	
+	mPrevFrame = mCurrentFrame;
+	mPrevFrame2 = mPrevFrame;
+	
+	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
+	mTimeQueue.push(0);
+	mAdaptiveStep = 1;
+	
+	mTiming= std::vector<double>();
+	mTiming.push_back(mCurrentFrame);
+}
+void MetaController::runScenario(){
+	//TODO
+	std::cout<<"mCurrent Controller Type : "<<mCurrentController->mType<<std::endl;
+
+	this->reset();
+	this->mCurrentController->mParamGoal= this->mCurrentController->mReferenceManager->GetParamGoal();
+	while(! IsTerminalState()){
+
+		std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
+		Eigen::VectorXd state = GetState();
+
+		p::object a = this->mCurrentController->mPPO.attr("run")(DPhy::toNumPyArray(state));
+		np::ndarray na = np::from_object(a);
+		Eigen::VectorXd action = DPhy::toEigenVector(na,this->GetNumAction());
+		this->SetAction(action);
+		this->Step();	
+	}
+
+
+	// this->mTiming.push_back(this->mController->GetCurrentFrame());
+}
+
+void MetaController::loadSceneObjects(std::string obj_path)
+{
+	std::cout<<"loadSceneObjects: "<<obj_path<<std::endl;
+	mSceneObjects = std::vector<dart::dynamics::SkeletonPtr>();
+	SkeletonBuilder::loadScene(obj_path, mSceneObjects);
+	for(auto obj: mSceneObjects) this->mWorld->addSkeleton(obj);
+	this->mLoadScene = true;
+}
+
+void MetaController::loadControllers(std::string ctrl_path)
+{
+	std::cout<<"loadControllers: "<<ctrl_path<<std::endl;
+	TiXmlDocument doc;
+	if(!doc.LoadFile(ctrl_path)){
+		std::cout << "Can't open scene file : " << ctrl_path << std::endl;
+	}
+
+	TiXmlElement *skeldoc = doc.FirstChildElement("ControllerList");
+	
+	for(TiXmlElement *body = skeldoc->FirstChildElement("SubController"); body != nullptr; body = body->NextSiblingElement("SubController")){
+		
+		std::string ctrl_type = body->Attribute("type");
+		std::string ctrl_bvh = body->Attribute("bvh");
+		std::string ctrl_reg = body->Attribute("reg");
+		std::string ctrl_ppo = body->Attribute("ppo");
+
+		std::cout<< "================ ADD SUB Controller: "<<ctrl_type<<" :: "<<ctrl_bvh<<" , "<<ctrl_reg<<" , "<<ctrl_ppo<<std::endl;
+		SubController* newSC;
+		if(ctrl_type== "FW_JUMP"){
+			newSC = new FW_JUMP_Controller(this, ctrl_bvh, ctrl_reg, ctrl_ppo);
+		}else if(ctrl_type == "WALL_JUMP"){
+			newSC = new WALL_JUMP_Controller(this, ctrl_bvh, ctrl_reg, ctrl_ppo);
+		}else{
+			std::cout<<" NOT A PROPER COTNROLLER TYPE : "<<ctrl_type<<std::endl;
+			continue;
+		}
+		addSubController(newSC);	
+	}
+		// std::string ctrl_bvh = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
+		// Eigen::VectorXd pos = string_to_vectorXd(body->Attribute("pos"));
 }
 
 // 공통
@@ -135,6 +264,22 @@ Eigen::VectorXd MetaController::GetState()
 }
 
 
+int MetaController::GetNumState()
+{
+	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
+	int num_p = (n_bnodes - 1) * 6;
+	int num_v = mCharacter->GetSkeleton()->getVelocities().rows();
+
+	int num_p_next= mEndEffectors.size()*12+15;
+	int num_ee = mEndEffectors.size() *3;
+
+	// state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+param.rows());
+
+	return ( num_p + num_v + 1+1+ num_p_next + num_ee + 2);
+}
+
+
+
 void MetaController::Step()
 {
 	// 1) 공통 ... 
@@ -208,6 +353,8 @@ void MetaController::Step()
 	// else
 	// 	this->UpdateReward();
 
+	mTiming.push_back(mCurrentFrame);
+
 	this->UpdateTerminalInfo();
 
 	if(mRecord) {
@@ -238,6 +385,61 @@ void MetaController::UpdateTerminalInfo()
 {
 	// TODO
 	if(mCurrentController->IsTerminalState()) mIsTerminal = true;
+
+	Eigen::VectorXd p_ideal = mTargetPositions;
+	auto& skel = this->mCharacter->GetSkeleton();
+
+	Eigen::VectorXd p = skel->getPositions();
+	Eigen::VectorXd v = skel->getVelocities();
+	Eigen::Vector3d root_pos = skel->getPositions().segment<3>(3);
+	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
+	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
+
+	Eigen::VectorXd p_save = skel->getPositions();
+	Eigen::VectorXd v_save = skel->getVelocities();
+
+	skel->setPositions(mTargetPositions);
+	skel->computeForwardKinematics(true,false,false);
+
+	Eigen::Isometry3d root_diff = cur_root_inv * skel->getRootBodyNode()->getWorldTransform();
+	
+	Eigen::AngleAxisd root_diff_aa(root_diff.linear());
+	double angle = RadianClamp(root_diff_aa.angle());
+	Eigen::Vector3d root_pos_diff = root_diff.translation();
+
+
+	// check nan
+	if(dart::math::isNan(p)){
+		mIsNanAtTerminal = true;
+		mIsTerminal = true;
+		terminationReason = 3;
+	} else if(dart::math::isNan(v)){
+		mIsNanAtTerminal = true;
+		mIsTerminal = true;
+		terminationReason = 4;
+	}
+	//characterConfigration
+	else if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+		mIsTerminal = true;
+		terminationReason = 2;
+	} else if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+		mIsTerminal = true;
+		terminationReason = 1;
+	} else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
+		mIsTerminal = true;
+		terminationReason = 5;
+	} else if(mCurrentFrame > mCurrentController->mReferenceManager->GetPhaseLength()) { 
+		mIsTerminal = true;
+		terminationReason =  8;
+	}
+	// if(mRecord) {
+		if(mIsTerminal) std::cout << "terminationReason : "<<terminationReason << std::endl;
+	// }
+
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
 }
 
 
@@ -321,14 +523,3 @@ void MetaController::SaveStepInfo()
 }
 
 } //end of namespace DPhy
-
-
-		// Eigen::VectorXd state = this->mController->GetState();
-
-		// p::object a = this->mPPO.attr("run")(DPhy::toNumPyArray(state));
-		// np::ndarray na = np::from_object(a);
-		// Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController->GetNumAction());
-
-		// this->mController->SetAction(action);
-		// this->mController->Step();
-		// this->mTiming.push_back(this->mController->GetCurrentFrame());

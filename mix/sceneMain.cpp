@@ -87,34 +87,32 @@ class GLWidget : public QGLWidget{
 // 	}
 // 	return false;
 // }
+
 int main(int argc,char** argv)
 {
-    std::cout<<"Main!!"<<std::endl;
 	boost::program_options::options_description desc("allowed options");
-	desc.add_options()
-	("reg,r",boost::program_options::value<std::string>())
-	("bvh,b",boost::program_options::value<std::string>())
-	("ppo,p",boost::program_options::value<std::string>())
-	;
+    desc.add_options()
+    ("ctrl,c",boost::program_options::value<std::string>())
+    ("obj,o",boost::program_options::value<std::string>())
+    ("scenario,s",boost::program_options::value<std::string>())
+    ;
 
 	boost::program_options::variables_map vm;
 	boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
-	std::string ppo="", bvh="", reg="";
-
-	if(vm.count("ppo")) {
-		ppo = vm["ppo"].as<std::string>();
+    std::string ctrl="", obj="", scenario="";
+	if(vm.count("ctrl")) {
+		ctrl = vm["ctrl"].as<std::string>();
 	}
-	if(vm.count("reg")) {
-		reg = vm["reg"].as<std::string>();
+	if(vm.count("obj")) {
+		obj = vm["obj"].as<std::string>();
 	}
-	if(vm.count("bvh")) {
-		bvh = vm["bvh"].as<std::string>();
-	}
-
+    if(vm.count("scenario")) {
+        scenario = vm["scenario"].as<std::string>();
+    }
 	glutInit(&argc,argv);
 	QApplication a(argc, argv);
     
-    SceneMainWindow* main_window = new SceneMainWindow(bvh, ppo, reg);
+    SceneMainWindow* main_window = new SceneMainWindow(ctrl, obj, scenario);
     main_window->resize(2560,1440);
     main_window->show();
     return a.exec();

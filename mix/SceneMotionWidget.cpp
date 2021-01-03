@@ -17,15 +17,22 @@ SceneMotionWidget()
 	this->startTimer(30);
 }
 SceneMotionWidget::
-SceneMotionWidget(std::string motion, std::string ppo, std::string reg)
+SceneMotionWidget(std::string ctrl, std::string obj, std::string scenario)
   :SceneMotionWidget()
 {
 	mCurFrame = 0;
 	mTotalFrame = 0;
-	mMC= new DPhy::MetaController();
+	mMC= new DPhy::MetaController(ctrl, obj, scenario);
 
+	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+    mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+
+    mMotion_sim= std::vector<Eigen::VectorXd>();
+    for(Eigen::VectorXd & p: mMC->mRecordPosition) mMotion_sim.push_back(p);
+
+    mTotalFrame= mMotion_sim.size();
 }
-
 void 
 SceneMotionWidget::
 setValue(const int &x){
@@ -63,14 +70,13 @@ void
 SceneMotionWidget::
 SetFrame(int n)
 {
-
+	if(mDrawSim && n < mMotion_sim.size()) mSkel_sim->setPositions(mMotion_sim[n]);
 }
 void
 SceneMotionWidget::
 DrawSkeletons()
 {
-
-
+	GUI::DrawSkeleton(this->mSkel_sim, 0);
 }	
 void
 SceneMotionWidget::
@@ -101,9 +107,9 @@ paintGL()
 	mCamera->Apply();
 
 	DrawGround();
-	// DrawSkeletons();
+	DrawSkeletons();
 
-	// if(mRunSim) GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
+	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mMC->mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 	// else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
 void

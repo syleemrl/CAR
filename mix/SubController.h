@@ -28,21 +28,15 @@ namespace np = boost::python::numpy;
 
 namespace DPhy
 {
-enum CTR_TYPE{
-	FW_JUMP,
-	WALL_JUMP,
-	RUN_SWING,
-	BOX_CLIMB
-};
 
 class MetaController;
 class SubController
 {
 public:
 	SubController(){}
-	SubController(CTR_TYPE type, MetaController* mc, std::string motion, std::string ppo, std::string reg);
+	SubController(std::string type, MetaController* mc, std::string motion, std::string ppo, std::string reg);
 
-	CTR_TYPE mType;
+	std::string mType;
 
 	p::object 						mPPO;
 	DPhy::ReferenceManager*			mReferenceManager;
@@ -61,16 +55,30 @@ public:
 	bool mUseReg= false;
 };
 
+
+////// REALIZATION (CHILD SUBCONTROLLER) //////
+
+class FW_JUMP_Controller : public SubController
+{
+public:
+	FW_JUMP_Controller(){}
+	FW_JUMP_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg);
+
+	bool virtual IsTerminalState();
+	bool virtual Step();
+};
+
+
+class WALL_JUMP_Controller : public SubController
+{
+public:
+	WALL_JUMP_Controller(){}
+	WALL_JUMP_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg);
+
+	bool virtual IsTerminalState();
+	bool virtual Step();
+};
+
 }// end namespace DPhy
-
-//void Controller::loadScene(){
-
-// 	std::string scene_path = std::string(CAR_DIR)+std::string("/scene/") + std::string(SCENE) + std::string(".xml");
-// 	mSceneObjects = std::vector<dart::dynamics::SkeletonPtr>();
-// 	SkeletonBuilder::loadScene(scene_path, mSceneObjects);
-// 	for(auto obj: mSceneObjects) this->mWorld->addSkeleton(obj);
-
-// 	this->mloadScene = true;
-// }
 
 #endif

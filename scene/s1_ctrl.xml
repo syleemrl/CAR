@@ -1,0 +1,4 @@
+<ControllerList>
+	<SubController type="WALL_JUMP"	bvh="j3_8_81.bvh" reg="j3_tl_p1/network-0" ppo="j3_tl_p1/network-0" /> 
+	<SubController type="FW_JUMP"	bvh="forward_jump_mxm.bvh" reg="forward_jump_mxm_t2/network-0" ppo="forward_jump_mxm_t2/network-0"/> 
+</ControllerList>

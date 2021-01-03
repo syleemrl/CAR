@@ -30,7 +30,7 @@ public slots:
 	void togglePlay(const bool& toggled);
 public:
     SceneMainWindow();
-    SceneMainWindow(std::string motion, std::string ppo, std::string reg);
+    SceneMainWindow(std::string ctrl, std::string obj, std::string scenario);
 
 protected:
 	QHBoxLayout* mMainLayout;
@@ -38,7 +38,7 @@ protected:
 	QPushButton* mButton;
 	std::vector<QSlider*> mParams;
 
-	void initLayoutSetting(std::string motion, std::string ppo, std::string reg) ;
+	void initLayoutSetting(std::string ctrl, std::string obj, std::string scenario) ;
 
 };
 #endif

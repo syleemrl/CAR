@@ -8,18 +8,20 @@ namespace DPhy
 class MetaController
 {
 public:
-	MetaController();
+	MetaController(std::string ctrl, std::string obj, std::string scenario);
 	
+	std::map<std::string, SubController*> mSubControllers;
+	void loadControllers(std::string ctrl_path);
 	void addSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
-	std::map<CTR_TYPE, SubController*> mSubControllers;
-	std::vector<std::tuple<CTR_TYPE, int, CTR_TYPE, int>> transition_rules;
-
+	
 	SubController* mCurrentController;
+	void switchController(std::string type, int frame=-1);
 
-	void switchController(CTR_TYPE type, int frame=-1);
+	std::vector<std::tuple<std::string, int, std::string, int>> transition_rules;
 
+	void runScenario();
 
-	//Controller stuff
+	//World-related stuff
 	dart::simulation::WorldPtr mWorld;
 
 	int mControlHz;
@@ -27,8 +29,12 @@ public:
 	int mSimPerCon;
 
 	Character* mCharacter;
-	std::vector<Character*> mObjects;
 	dart::dynamics::SkeletonPtr mGround;
+
+	void loadSceneObjects(std::string obj_path);
+	std::vector<dart::dynamics::SkeletonPtr> mSceneObjects;
+	bool mLoadScene= false;
+
 
 	double mCurrentFrame;
 	double mPrevFrame;
@@ -40,14 +46,16 @@ public:
 	double mTimeElapsed;
 
 	bool mIsTerminal;
+	bool mIsNanAtTerminal;
 
-
+	void reset();
 	void SetAction(const Eigen::VectorXd& action);
 	int GetNumAction(){return mNumAction;}
 	Eigen::VectorXd GetState();
 	void Step();
 	int GetCurrentFrame(){return mCurrentFrame;}
 
+	int GetNumState();
 	bool IsTerminalState(){return mIsTerminal;}
 	void UpdateTerminalInfo();
 	Eigen::VectorXd GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel);
@@ -86,6 +94,8 @@ public:
 
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
+
+	std::vector<double> mTiming;
 
 
 	DPhy::ReferenceManager* GetCurrentRefManager(){return mCurrentController->mReferenceManager;}

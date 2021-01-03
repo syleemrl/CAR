@@ -12,21 +12,21 @@ SceneMainWindow() :QMainWindow()
     this->setWindowTitle("Motion Editing Renderer");
 }
 SceneMainWindow::
-SceneMainWindow(std::string motion, std::string ppo, std::string reg)
+SceneMainWindow(std::string ctrl, std::string obj, std::string scenario)
 {   
     SceneMainWindow();
-    initLayoutSetting(motion, ppo, reg);
+    initLayoutSetting(ctrl, obj, scenario);
 }
 void
 SceneMainWindow::
-initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
+initLayoutSetting(std::string ctrl, std::string obj, std::string scenario) {
     mMainLayout = new QHBoxLayout();
     this->setMaximumSize(1300,750);
     this->setMinimumSize(1300,750);
 
     QVBoxLayout *motionlayout = new QVBoxLayout();
 
-    mMotionWidget = new SceneMotionWidget(motion, ppo, reg);
+    mMotionWidget = new SceneMotionWidget(ctrl, obj, scenario);
 
     mMotionWidget->setMinimumSize(1000,650);
     mMotionWidget->setMaximumSize(1000,650);
