@@ -594,10 +594,10 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	if(! gotParamReward && mCurrentFrameOnPhase >= 65){
-		r_param = 1;
-		gotParamReward = true;
-	}
+	// if(! gotParamReward && mCurrentFrameOnPhase >= 65){
+	// 	r_param = 1;
+	// 	gotParamReward = true;
+	// }
 
 	return r_param;
 }
@@ -653,7 +653,8 @@ UpdateReward()
 	double r_time = exp(-pow((mActions[mInterestedDof] - 1),2)*40);
 
 	mRewardParts.clear();
-	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
+	//r_p, r_com, r_ee, r_v
+	double r_tot = 0.9 * (0.45 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.25 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -709,6 +710,7 @@ UpdateTerminalInfo()
 	else if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
+		// std::cout<<mCurrentFrameOnPhase<<" , root_pos_diff: "<<root_pos_diff.norm()<<std::endl;
 	}
 
 	else if(!mRecord && (root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit)){
@@ -718,7 +720,7 @@ UpdateTerminalInfo()
 	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-		// std::cout<<mCurrentFrameOnPhase<<" "<<std::abs(angle)<<std::endl;
+		// std::cout<<mCurrentFrameOnPhase<<", angle: "<<std::abs(angle)<<std::endl;
 	}
 	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
@@ -1085,6 +1087,8 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	if(left) dbg_LeftConstraintPoint = jointPos;
 	else dbg_RightConstraintPoint = jointPos;
 
+	hand_bn->setCollidable(false);
+
 	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( hand_bn, bar_bn, jointPos);
 	this->mWorld->getConstraintSolver()->addConstraint(cl);
 
@@ -1158,6 +1162,10 @@ void Controller::removeHandFromBar(bool left){
 		dbg_RightConstraintPoint = Eigen::Vector3d::Zero();	    	
 	}
 
+	std::string hand = (left) ? "LeftHand" : "RightHand";
+	dart::dynamics::BodyNodePtr hand_bn = this->mCharacter->GetSkeleton()->getBodyNode(hand);
+	hand_bn->setCollidable(true);
+	
 	if(mRecord){
 		std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
 		if(left) std::cout<<"left : "<<std::endl;
