@@ -1159,8 +1159,8 @@ void Controller::removeHandFromBar(bool left){
 	dart::dynamics::BodyNodePtr hand_bn = this->mCharacter->GetSkeleton()->getBodyNode(hand);
 	hand_bn->setCollidable(true);
 
-	this->mObject->GetSkeleton()->getBodyNode("Bar")->setCollidable(false);
-	this->mObject->GetSkeleton()->getBodyNode("Weld_Bar")->setCollidable(false);
+	// this->mObject->GetSkeleton()->getBodyNode("Bar")->setCollidable(false);
+	// this->mObject->GetSkeleton()->getBodyNode("Weld_Bar")->setCollidable(false);
 
 	if(mRecord) std::cout<<mCharacter->GetSkeleton()->getBodyNode("LeftHand")->isCollidable()<<" / "<<mCharacter->GetSkeleton()->getBodyNode("RightHand")->isCollidable()<<std::endl;
 	
