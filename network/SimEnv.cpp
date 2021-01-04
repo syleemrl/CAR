@@ -302,7 +302,7 @@ GetParamGoal() {
 }
 np::ndarray 
 SimEnv::
-UniformSample(bool visited) {
+UniformSample(int visited) {
 	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited);
 	if(!pair.second) {
 		std::cout << "exploration done" << std::endl;
@@ -329,11 +329,6 @@ SimEnv::
 SaveParamSpaceLog(int n) {
 	mRegressionMemory->SaveLog(mPath + "log");
 
-}
-void
-SimEnv::
-UpdateParamState() {
-	mRegressionMemory->UpdateParamState();
 }
 double
 SimEnv::
@@ -397,7 +392,11 @@ GetExplorationRate() {
 	l.append(n.second);
 	return l;
 }
-
+double
+SimEnv::
+GetFitnessMean() {
+	return mRegressionMemory->GetFitnessMean();
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -426,7 +425,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UniformSample",&SimEnv::UniformSample)
 		.def("UniformSampleWithConstraints",&SimEnv::UniformSampleWithConstraints)
 		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
-		.def("UpdateParamState",&SimEnv::UpdateParamState)
 		.def("GetNearestParams",&SimEnv::GetNearestParams)
 		.def("GetExplorationRate",&SimEnv::GetExplorationRate)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)
@@ -437,6 +435,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("UpdateReference",&SimEnv::UpdateReference)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
+		.def("GetFitnessMean",&SimEnv::GetFitnessMean)
 		.def("GetDensity",&SimEnv::GetDensity);
-
 }

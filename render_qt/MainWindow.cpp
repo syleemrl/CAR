@@ -90,9 +90,10 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
 
     QVBoxLayout *mParamlayout = new QVBoxLayout();
     std::vector<std::string> labels;
-    labels.push_back("mass");
     labels.push_back("arm length");
     labels.push_back("leg length");
+    labels.push_back("arm mass");
+    labels.push_back("leg mass");
 
     QFormLayout *mParamFormlayout = new QFormLayout();
     for(int i = 0; i < labels.size(); i++) {

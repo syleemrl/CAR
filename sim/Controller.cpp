@@ -175,7 +175,8 @@ Step()
 	Eigen::VectorXd torque;
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
-	
+	mSumTorque.resize(dof);
+	mSumTorque.setZero();
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
@@ -193,6 +194,7 @@ Step()
 			}
 
 			mCharacter->GetSkeleton()->setForces(torque);
+			mSumTorque += torque.cwiseAbs();
 			mWorld->step(false);
 		}
 
@@ -494,11 +496,11 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 3;
-			v_diff.segment<3>(idx) *= 3;
-			v_diff.segment<3>(idx + 3) *= 3;
+			v_diff.segment<3>(idx) *= 1;
+			v_diff.segment<3>(idx + 3) *= 1;
 		} else if(name.find("Spine") != std::string::npos) {
 			p_diff.segment<3>(idx) *= 3;
-			v_diff.segment<3>(idx) *= 3;
+			v_diff.segment<3>(idx) *= 1;
 
 		}
 	}
@@ -555,17 +557,19 @@ GetParamReward()
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 64 && mControlFlag[0] == 1) {
-		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(123, 54, 33);
+		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(125, 52, 25);
 		Eigen::Vector3d l_diff = totalLengthBVH - mTotalLength;
-		double r_l = exp_of_squared(l_diff , 5);
+		l_diff *= 0.5;
+		l_diff(0) *= 4;
+		double r_l = exp_of_squared(l_diff , 8);
 
-		double t = (mCurrentFrame - mCartwheelStart) / mCount;
-		double r_t = exp(-pow(t - 1, 2) * 200);
+		// double t = (mCurrentFrame - mCartwheelStart) / mCount;
+		// double r_t = exp(-pow(t - 1, 2) * 200);
 
-		Eigen::Vector3d mVelocityBVH = Eigen::Vector3d(2.6, 1.1, -0.35);
-		mVelocity /= mCount;
-		Eigen::Vector3d v_diff = (mVelocity - mVelocityBVH);
-		v_diff(0) *= 4;
+		// Eigen::Vector3d mVelocityBVH = Eigen::Vector3d(2.6, 1.1, -0.35);
+		// mVelocity /= mCount;
+		// Eigen::Vector3d v_diff = (mVelocity - mVelocityBVH);
+		// v_diff(0) *= 4;
 		//r_param = exp_of_squared(v_diff, 0.4);
 		r_param =  r_l;
 		mFitness.sum_reward = r_param;
@@ -575,28 +579,13 @@ GetParamReward()
 			mParamCur(0) = -100;
 		}	
 		mControlFlag[0] = 2;		
-
 		if(mRecord) {
 		 	std::cout << mTotalLength.transpose()  << " / " << l_diff.transpose() << " / " << r_l << std::endl;
-		 	std::cout << t  << " / " << t - 1 << " / " << r_t << std::endl;
-		 	std::cout << mVelocity.transpose() << " / " << v_diff.transpose() << " / " << r_param << std::endl;
+		 	// std::cout << t  << " / " << t - 1 << " / " << r_t << std::endl;
+		 	// std::cout << mVelocity.transpose() << " / " << v_diff.transpose() << " / " << r_param << std::endl;
 		}
 	} 
 	return r_param;
-
-	// double r_param = 0;
-	// auto& skel = this->mCharacter->GetSkeleton();
-	// if(mCurrentFrameOnPhase > 62 && mControlFlag[0] == 0) {
-	// 	mPosDiff /= mCount;
-	// 	mControlFlag[0] = 1;
-	// 	if(mPosDiff >= 0.5) {
-	// 		mParamCur = mParamGoal;
-	// 	} else {
-	// 		mParamCur(0) = -100;
-	// 	}
-	// 	mFitness.sum_reward = mPosDiff;
-	// }
-	// return r_param;
 	
 }
 void
@@ -611,13 +600,16 @@ UpdateAdaptiveReward()
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
 	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
-
-	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
+	
+	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
 
-	double r_tot = r_tracking;
-	
+	mSumTorque /= mSimPerCon;
+
+	double r_torque = exp_of_squared(mSumTorque, 50);
+
+	double r_tot = r_tracking; //0.98 * r_tracking + 0.02 * r_torque;
 	// if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 64) {
 	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
 	// 	Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
@@ -771,21 +763,30 @@ SetGoalParameters(Eigen::VectorXd tp)
 	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
 	// 	this->SetSkeletonWeight(1, 1);
 	// }
-	this->SetSkeletonLength(mParamGoal(0), 1);
-	this->SetSkeletonLength(mParamGoal(1), 2);
+	this->SetSkeletonLength(mParamGoal(0), 1, 1); // sqrt(mParamGoal(2)), 1);
+	this->SetSkeletonLength(mParamGoal(1), 1, 2); //sqrt(mParamGoal(3)), 2);
+	// this->SetSkeletonWeight(mParamGoal(0)*mParamGoal(2), 1);
+	// this->SetSkeletonWeight(mParamGoal(1)*mParamGoal(3), 2);
+	
 	// std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
 }
 void
 Controller::
-SetSkeletonLength(double length, int type)
+SetSkeletonLength(double length, double width, int type)
 {
-	double l;
+	double l, w;
 	if(type == 1) {
 		l = length / mLengthArm;
 		mLengthArm = length;
+		
+		w = width / mWidthArm;
+		mWidthArm = width;
 	} else if(type == 2) {
 		l = length / mLengthLeg;
 		mLengthLeg = length;
+
+		w = width / mWidthLeg;
+		mWidthLeg = width;
 	}
 
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
@@ -794,10 +795,9 @@ SetSkeletonLength(double length, int type)
 	if(type == 1) {
 		for(int i = 0; i < n_bnodes; i++){
 			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-			if(name.find("Shoulder") != std::string::npos ||
-			   name.find("Arm") != std::string::npos ||
+			if(name.find("Arm") != std::string::npos ||
 			   name.find("Hand") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(l, 1, 1), 1));
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(l, w, w), 1));
 			}
 		}
 	}
@@ -806,10 +806,10 @@ SetSkeletonLength(double length, int type)
 		for(int i = 0; i < n_bnodes; i++){
 			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 			if(name.find("Leg") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l, 1), 1));
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(w, l, w), 1));
 			} else if(name.find("Foot") != std::string::npos ||
 					  name.find("Toe") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l), 1));
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(w, 1, l), 1));
 			}
 		}
 	}
@@ -834,8 +834,7 @@ SetSkeletonWeight(double mass, int type)
 	if(type == 1) {
 		for(int i = 0; i < n_bnodes; i++){
 			std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
-			if(name.find("Shoulder") != std::string::npos ||
-			   name.find("Arm") != std::string::npos ||
+			if(name.find("Arm") != std::string::npos ||
 			   name.find("Hand") != std::string::npos) {
 				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, 1), m));
 			}

@@ -86,7 +86,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass, int type);
-	void SetSkeletonLength(double length, int type);
+	void SetSkeletonLength(double length, double width, int type);
 
 protected:
 	dart::simulation::WorldPtr mWorld;
@@ -184,6 +184,7 @@ protected:
 	Eigen::Vector3d stickRightFoot;
 	bool stickFoot;
 
+	Eigen::VectorXd mSumTorque;
 /////////////////////////////////////////////////
 // for action parameter design
 	int mCount;
@@ -197,6 +198,9 @@ protected:
 
 	double mLengthArm=1;
 	double mLengthLeg=1;
+
+	double mWidthArm=1;
+	double mWidthLeg=1;
 
 	int mSlideCount;
 //////////////////////////////////////////////////

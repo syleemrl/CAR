@@ -274,11 +274,10 @@ UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
 		tp = v_param*0.05;
-		for(int i = 0; i < tp.rows(); i++) {
-			tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
-		}
+		// for(int i = 0; i < tp.rows(); i++) {
+		// 	tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
+		// }
 		
-	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);
@@ -288,21 +287,31 @@ UpdateParam(const bool& pressed) {
 		double l2 = tp_denorm(1) / mLengthLeg;
 		mLengthLeg = tp_denorm(1);
 
+		double w1 = sqrt(tp_denorm(2)) / mWidthArm;
+		mWidthArm = sqrt(tp_denorm(2));
+		double w2 = sqrt(tp_denorm(3)) / mWidthLeg;
+		mWidthLeg = sqrt(tp_denorm(3));
+
+		double m1 = (tp_denorm(0)*tp_denorm(2)) / mMassArm;
+		mMassArm = tp_denorm(0)*tp_denorm(2);
+
+		double m2 = (tp_denorm(1)*tp_denorm(3)) / mMassLeg;
+		mMassLeg = (tp_denorm(1)*tp_denorm(3));
+
 		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 		int n_bnodes = mSkel_exp->getNumBodyNodes();
 		for(int i = 0; i < n_bnodes; i++){
 			std::string name = mSkel_exp->getBodyNode(i)->getName();
-			if(name.find("Shoulder") != std::string::npos ||
-			   name.find("Arm") != std::string::npos ||
+			if(name.find("Arm") != std::string::npos ||
 			   name.find("Hand") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, w1, w1), m1));
 			}
 			else if (name.find("Leg") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(w2, l2, w2), m2));
 
 			} else if(name.find("Toe") != std::string::npos ||
 					  name.find("Foot") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
+				deform.push_back(std::make_tuple(name, Eigen::Vector3d(w2, 1, l2), m2));
 
 			}
 		}

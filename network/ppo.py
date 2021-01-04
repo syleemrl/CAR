@@ -75,8 +75,8 @@ class PPO(object):
 		self.name = name
 		self.evaluation = evaluation
 		self.directory = directory
-		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.5]
-		self.optim_frequency = [optim_frequency, optim_frequency * 2]
+		self.steps_per_iteration = [steps_per_iteration, steps_per_iteration * 0.25]
+		self.optim_frequency = [optim_frequency, optim_frequency * 4]
 
 		self.batch_size = batch_size
 		self.batch_size_target = 128
@@ -289,7 +289,7 @@ class PPO(object):
 		lossval_ac = 0
 		lossval_c = 0
 		lossval_ct = 0
-
+	
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
 			val = self.sess.run([self.actor_train_op, self.critic_train_op,
@@ -322,19 +322,20 @@ class PPO(object):
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]
 					self.target_y_batch = self.target_y_batch[-2000:]
-			for n in range(50):
-				ind = np.arange(len(self.target_x_batch))
-				np.random.shuffle(ind)
-				for s in range(int(len(ind)//self.batch_size_target)):
-					selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
-					val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
-						feed_dict={
-							self.state_target: self.target_x_batch[selectedIndex], 
-							self.TD_target: self.target_y_batch[selectedIndex]
-						}
-					)
-					lossval_ct += val[1]
-			self.lossvals.append(['loss critic target', lossval_ct / 50])
+			if self.env.mode == 0 and self.env.mode_counter % 3 == 1:
+				for n in range(50):
+					ind = np.arange(len(self.target_x_batch))
+					np.random.shuffle(ind)
+					for s in range(int(len(ind)//self.batch_size_target)):
+						selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
+						val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
+							feed_dict={
+								self.state_target: self.target_x_batch[selectedIndex], 
+								self.TD_target: self.target_y_batch[selectedIndex]
+							}
+						)
+						lossval_ct += val[1]
+				self.lossvals.append(['loss critic target', lossval_ct / 50])
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
@@ -386,7 +387,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 2 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 
@@ -442,7 +443,7 @@ class PPO(object):
 					timestep = times[i+1]  - times[i]
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
-				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 2 * rewards[i][1] + V * pow(self.gamma, timestep)
 
 
 				sum_V += V
@@ -523,22 +524,21 @@ class PPO(object):
 		epi_info_iter = []
 		epi_info_iter_hind = []
 		self.env.sampler.resetExplore()
+
 		it_cur = 0
 
 		for it in range(num_iteration):
-			if self.parametric:
-				param_info = self.env.updateGoal(self.critic_target)
-			else:
-				param_info = -1
 			for i in range(self.num_slaves):
 				self.env.reset(i)
-
 			states = self.env.getStates()
 			local_step = 0
 			last_print = 0
 	
 			epi_info = [[] for _ in range(self.num_slaves)]	
-
+			if self.parametric:
+				param_info = self.env.updateGoal(self.critic_target)
+			else:
+				param_info = -1
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -561,7 +561,6 @@ class PPO(object):
 							if local_step < self.steps_per_iteration[self.parametric]:
 								epi_info[j] = []
 								self.env.reset(j)
-
 							else:
 								self.env.setTerminated(j)
 				if local_step >= self.steps_per_iteration[self.parametric]:
@@ -618,14 +617,13 @@ class PPO(object):
 	def eval(self, num_samples):
 		tuples = []
 		for it in range(num_samples):
-			self.env.updateGoal(self.critic_target, False)
-
 			for i in range(self.num_slaves):
 				self.env.reset(i)
 			states = self.env.getStates()
 			local_step = 0
 			tuples_iter = [[] for _ in range(self.num_slaves)]	
 	
+			self.env.updateGoal(self.critic_target, False)
 			while True:
 				# set action
 				actions, neglogprobs = self.actor.getAction(states)
@@ -686,7 +684,6 @@ if __name__=="__main__":
 		directory = "./output/" + args.test_name + "/"
 		if not os.path.exists(directory):
 			os.mkdir(directory)
-
 	if args.pretrain != "":
 		env = Monitor(ref=args.ref, num_slaves=args.nslaves, directory=directory, plot=args.plot, adaptive=args.adaptive, parametric=args.parametric)
 	else:

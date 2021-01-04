@@ -119,5 +119,11 @@ protected:
 	
 	double mLengthArm=1;
 	double mLengthLeg=1;
+	
+	double mWidthArm=1;
+	double mWidthLeg=1;
+
+	double mMassArm=1;
+	double mMassLeg=1;
 };
 #endif
