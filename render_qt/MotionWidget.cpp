@@ -394,6 +394,12 @@ UpdateParam(const bool& pressed) {
 		mSkel_exp->setPositions(restore);
 		mSkel_exp->computeForwardKinematics(true, false, false);
 	}
+	else{
+		// translation test
+		// Eigen::VectorXd tp(1);
+		// tp<< 2+v_param(0)*0.1;
+		// mController->SetGoalParameters(tp);
+	}
 
 }
 void

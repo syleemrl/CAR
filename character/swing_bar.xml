@@ -1,5 +1,5 @@
 <Skeleton name="Swing_Bar">
-	<Joint type="WeldJoint" name="Weld_Bar" parent_name="None" size="0.12 0.12 0.12" mass="500.0">
+	<Joint type="WeldJoint" name="Weld_Bar" parent_name="None" size="0.06 0.06 0.06" mass="500.0">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 2.14 3.13"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 		<!-- <Cylinder radius="0.06" height="2" direction="1 0 0"/> -->

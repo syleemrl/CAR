@@ -223,24 +223,24 @@ Step()
 		for(int j = 0; j < 2; j++) {
 			// mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			// mWorld->step(false);
-			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			mCharacter->GetSkeleton()->setForces(torque);
-			mWorld->step(false);
+
+			// Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			// mCharacter->GetSkeleton()->setForces(torque);
+			// mWorld->step(false);
 
 			// torque limit
-			// Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			// for(int j = 0; j < num_body_nodes; j++) {
-			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			// 	double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
-			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			for(int j = 0; j < num_body_nodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+				double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+				double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
-			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			// }
-
-			// mCharacter->GetSkeleton()->setForces(torque);
-			// mWorld->step(false);	
+				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			}
+			mCharacter->GetSkeleton()->setForces(torque);
+			mWorld->step(false);	
 		}
 
 		mTimeElapsed += 2 * (mAdaptiveStep);
@@ -771,30 +771,22 @@ SetGoalParameters(Eigen::VectorXd tp)
 	mParamGoal = tp;
 
 	#ifdef OBJECT_TYPE
-	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-	obj_pos.setZero();
 	if(isAdaptive) {
-		// double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
-	
-		// TODO	
-		// auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+		dart::dynamics::BodyNode* bn= mObject->GetSkeleton()->getBodyNode("Bar");
+		dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
 
-		// auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
-		// auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
-		// Eigen::Vector3d origin = box->getSize();
+		Eigen::Isometry3d newTransform = Eigen::Isometry3d::Identity();
+		newTransform.translation() = Eigen::Vector3d(0, mParamGoal[0], 3.13);
 
-		// // std::cout<<mParamGoal[0]<<std::endl; //<<" "<<h_grow<<" "<<origin[1]<<" "<<(h_grow+0.9)/origin[1]<<std::endl;
+		auto parent_props = parent->getParentJoint()->getJointProperties();
+		parent_props.mT_ChildBodyToJoint = newTransform.inverse();
+		parent->getParentJoint()->setProperties(parent_props);
 
-		// DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
+		auto props = bn->getParentJoint()->getJointProperties();
+		props.mT_ParentBodyToJoint = parent->getTransform().inverse()*newTransform;
+		bn->getParentJoint()->setProperties(props);
 	}
 
-	// this->mObject->GetSkeleton()->setPositions(obj_pos);
-	// this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	// this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-	// this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-
-   // this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-   // this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 	#endif
 
 }
