@@ -1,0 +1,4 @@
+<Scenario>
+	<Take type="FW_JUMP" goal_param="0.6" start="" end ="", blend=""/> 
+	<Take type="WALL_JUMP" goal_param="0.9" start="" end ="", blend=""/> 
+</Scenario>

@@ -778,6 +778,7 @@ loadScene(std::string scene_path, std::vector<SkeletonPtr>& sceneObjects)
 
 	TiXmlElement *skeldoc = doc.FirstChildElement("Scene");
 	
+	SkeletonPtr prev_obj = nullptr;
 	for(TiXmlElement *body = skeldoc->FirstChildElement("Skeleton"); body != nullptr; body = body->NextSiblingElement("Skeleton")){
 		std::string object_type = body->Attribute("xml");
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
@@ -785,6 +786,10 @@ loadScene(std::string scene_path, std::vector<SkeletonPtr>& sceneObjects)
 		// DPhy::Character* obj = new DPhy::Character(object_path);	
 		std::pair<SkeletonPtr, std::map<std::string, double>*> p = SkeletonBuilder::BuildFromFile(object_path);
 		SkeletonPtr obj = p.first;
+		
+		if(body->Attribute("trans_rel")!=nullptr && prev_obj!=nullptr){
+			// TODO
+		}
 
 		Eigen::VectorXd pos(obj->getNumDofs()); pos.setZero();
 		if(body->Attribute("pos")!=nullptr){
@@ -798,6 +803,8 @@ loadScene(std::string scene_path, std::vector<SkeletonPtr>& sceneObjects)
 		obj->setPositions(pos);
 		obj->computeForwardKinematics(true, false, false);			
 		sceneObjects.push_back(obj);
+
+		prev_obj = obj;
 	}
 }
 

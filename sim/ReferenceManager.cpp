@@ -7,6 +7,32 @@
 using namespace dart::dynamics;
 namespace DPhy
 {
+
+void Motion::MultiplyRootTransform(Eigen::Isometry3d rt){
+
+	Eigen::Isometry3d p = Eigen::Isometry3d::Identity();
+	// std::cout<<"original p: \n"<<p.linear()<<"\n"<<p.translation()<<std::endl;
+	p.linear() = dart::dynamics::BallJoint::convertToRotation(this->position.head<3>());
+	p.translation() = this->position.segment<3>(3);
+	
+	Eigen::Isometry3d v = Eigen::Isometry3d::Identity();
+	// std::cout<<"original v: \n"<<v.linear()<<"\n"<<v.translation()<<std::endl;
+	v.linear() = dart::dynamics::BallJoint::convertToRotation(this->velocity.head<3>());
+	v.translation() = this->position.segment<3>(3);
+	
+	p = rt * p;
+	v = rt * v;
+
+	// std::cout<<"transformed p: \n"<<p.linear()<<"\n"<<p.translation()<<std::endl;
+	// std::cout<<"transformed v: \n"<<v.linear()<<"\n"<<v.translation()<<std::endl;
+
+	this->position.head<3>() = dart::dynamics::BallJoint::convertToPositions(p.linear());
+	this->position.segment<3>(3) = p.translation();
+
+	this->velocity.head<3>() = dart::dynamics::BallJoint::convertToPositions(v.linear());
+	this->velocity.segment<3>(3) = v.translation();
+}
+
 ReferenceManager::ReferenceManager(Character* character) 
 :mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
@@ -727,4 +753,107 @@ SelectReference(){
 		LoadAdaptiveMotion(mCPS_exp);
 	}
 }
+
+Eigen::Isometry3d 
+ReferenceManager::
+GetRootTransform(double t, bool adaptive)
+{
+	Motion* m = this->GetMotion(t, adaptive);
+
+	Eigen::VectorXd p_save = mCharacter->GetSkeleton()->getPositions();
+
+	mCharacter->GetSkeleton()->setPositions(m->GetPosition());
+	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+
+	Eigen::Isometry3d T =  mCharacter->GetSkeleton()->getBodyNode(0)->getWorldTransform();
+
+	mCharacter->GetSkeleton()->setPositions(p_save);
+	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+
+	return T;
+}
+
+void 
+ReferenceManager::
+ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen, int trimLength)
+{
+	// TODO	
+	// mLock.lock();
+	if (trimLength < 0) trimLength = mPhaseLength;
+	int remove_num = p_gen.size() - cycle* trimLength;
+
+	int rm_cnt = 0;
+	while(!p_gen.empty()){
+		Motion* m = p_gen.back();
+		p_gen.pop_back();
+
+		delete m;
+		rm_cnt++;
+
+		if(rm_cnt >= remove_num) break;
+	}
+	
+	std::cout<<"p_gen size; "<<p_gen.size()<<", cycle : "<<cycle<<" , mPhaseLength : "<<mPhaseLength<<std::endl;
+
+	assert(cycle*mPhaseLength == p_gen.size());
+	Motion * m = p_gen.back();
+
+	std::vector<Motion*> p_gen_tmp;
+	GenerateMotionsFromSinglePhase(trimLength+10, false, p_phase, p_gen_tmp);
+
+	std::cout<<"generate done "<<std::endl;
+
+	std::vector<Eigen::VectorXd> p_gen_tmp_eigen;
+	for(auto m: p_gen_tmp) p_gen_tmp_eigen.push_back(m->GetPosition());
+
+	Eigen::VectorXd align_m = m->GetPosition().segment<6>(0);
+	align_m.head<3>() = Eigen::Vector3d::Zero();
+	p_gen_tmp_eigen = Align(p_gen_tmp_eigen, align_m, true);
+
+	// TMP , TODO
+	double cur_end_x = p_gen_tmp_eigen[p_gen_tmp_eigen.size()-1][3];
+
+	for(int i=0; i<p_gen_tmp_eigen.size(); i++) {
+		// p_gen_tmp_tmp[i] = DPhy::BlendPosition(p_gen_tmp_eigen[i], p_gen_tmp_tmp[i], (1-(double)i/p_gen_tmp_tmp.size()-1), true);	
+		p_gen_tmp_eigen[i][3]+= (double)i/p_gen_tmp_eigen.size() * (-cur_end_x);
+		p_gen_tmp[i]->SetPosition(p_gen_tmp_eigen[i]);
+		p_gen.push_back(p_gen_tmp[i]);
+	}
+
+	// mLock.unlock();
+
+	std::cout<<"connect done : "<<p_gen.size()<<std::endl;
+}
+
+void
+ReferenceManager::
+LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement, int trimLength)
+{
+	// TODO
+	std::vector<Eigen::VectorXd> d_space;
+	std::vector<Eigen::VectorXd> d_time;
+
+	for(int i = 0 ; i < displacement.size(); i++) {
+		d_space.push_back(displacement[i].head(displacement[i].rows()-1));
+		d_time.push_back(displacement[i].tail(1));
+	}
+
+	std::vector<Eigen::VectorXd> newpos;
+	this->AddDisplacementToBVH(d_space, newpos);
+	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+
+	for(int j = 0; j < mPhaseLength; j++) {
+		mMotions_phase_adaptive[j]->SetPosition(newpos[j]);
+		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
+	}
+
+	for(int i = 0; i < mPhaseLength; i++) {
+		mTimeStep_adaptive[i] = exp(d_time[i](0));
+	}
+
+	this->ConnectSinglePhaseMotion(cycle, mMotions_phase_adaptive, mMotions_gen_adaptive, trimLength);
+}
+
+
+
 };

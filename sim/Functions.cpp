@@ -929,10 +929,12 @@ Eigen::VectorXd solveMCIK(dart::dynamics::SkeletonPtr skel, const std::vector<st
 	}
 	return newPose;
 }
-std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target) {
+
+std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::VectorXd target, bool change_height, int basis_frame) {
+	if(basis_frame < 0) basis_frame = 0;
 	std::vector<Eigen::VectorXd> result = data;
 
-	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(data[0].head<6>());
+	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(data[basis_frame].head<6>());
 	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(target);
 
 	
@@ -940,7 +942,7 @@ std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::Vec
 
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
 	T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
-	T01.translation()[1] = 0;
+	if(!change_height) T01.translation()[1] = 0;
 	Eigen::Isometry3d T0_gen = T01*T0_phase;
 
 	for(int i = 0; i < data.size(); i++) {
@@ -953,6 +955,7 @@ std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::Vec
 
 	return result;
 }
+
 Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m) {
 	Eigen::AngleAxisd m_v;
 	m_v = m;

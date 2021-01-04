@@ -1,5 +1,5 @@
 <Scene>
 	<Skeleton xml = "j3_box" /> 
-	<!-- <Skeleton xml = "obstacle"/>  -->
+	<Skeleton xml = "obstacle"/> 
 	<!-- <Skeleton xml = "j3_box" pos="0 0 0 0 0 -6"/>  -->
 </Scene>

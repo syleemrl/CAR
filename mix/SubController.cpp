@@ -80,7 +80,7 @@ bool FW_JUMP_Controller::Step()
 	//TODO
 }
 
-void FW_JUMP_Controller::reset()
+void FW_JUMP_Controller::reset(double frameOnPhase)
 {
 	//TODO
 }
@@ -108,7 +108,25 @@ bool WALL_JUMP_Controller::Step()
 
 }
 
-void WALL_JUMP_Controller::reset(){
+void WALL_JUMP_Controller::reset(double frameOnPhase){
+
+	bool isAdaptive = true;
+
+	// Motion* p_v_target;
+	// p_v_target = mCurrentController->mReferenceManager->GetMotion(frameOnPhase, isAdaptive);
+	// this->mTargetPositions = p_v_target->GetPosition();
+	// this->mTargetVelocities = p_v_target->GetVelocity();
+	// delete p_v_target;
+
+	// this->mPDTargetPositions = mTargetPositions;
+	// this->mPDTargetVelocities = mTargetVelocities;
+
+	// skel->setPositions(mTargetPositions);
+	// skel->setVelocities(mTargetVelocities);
+	// skel->computeForwardKinematics(true,true,false);
+
+	// mPrevTargetPositions = mTargetPositions;
+
 	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
 
 	if(leftHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(true);

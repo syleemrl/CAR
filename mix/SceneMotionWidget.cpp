@@ -27,9 +27,13 @@ SceneMotionWidget(std::string ctrl, std::string obj, std::string scenario)
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
-
     mMotion_sim= std::vector<Eigen::VectorXd>();
     for(Eigen::VectorXd & p: mMC->mRecordPosition) mMotion_sim.push_back(p);
+
+	mSkel_bvh = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
+    mMotion_bvh= std::vector<Eigen::VectorXd>();
+    for(Eigen::VectorXd & p: mMC->mRecordTargetPosition) mMotion_bvh.push_back(p);
 
     mTotalFrame= mMotion_sim.size();
 }
@@ -71,6 +75,7 @@ SceneMotionWidget::
 SetFrame(int n)
 {
 	if(mDrawSim && n < mMotion_sim.size()) mSkel_sim->setPositions(mMotion_sim[n]);
+	if(mDrawBvh && n < mMotion_bvh.size()) mSkel_bvh->setPositions(mMotion_bvh[n]);
 }
 void
 SceneMotionWidget::
@@ -78,6 +83,11 @@ DrawSkeletons()
 {
 	GUI::DrawSkeleton(this->mSkel_sim, 0);
 	for(auto obj: this->mMC->mSceneObjects) GUI::DrawSkeleton(obj);
+
+	glPushMatrix();
+	glTranslated(1.5, 0, 0);
+	GUI::DrawSkeleton(this->mSkel_bvh, 0);
+	glPopMatrix();
 }	
 void
 SceneMotionWidget::

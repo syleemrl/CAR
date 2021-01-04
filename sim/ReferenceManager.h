@@ -39,6 +39,7 @@ public:
 	Eigen::VectorXd GetPosition() { return position; }
 	Eigen::VectorXd GetVelocity() { return velocity; }
 
+	void MultiplyRootTransform(Eigen::Isometry3d rt);
 protected:
 	Eigen::VectorXd position;
 	Eigen::VectorXd velocity;
@@ -54,6 +55,7 @@ public:
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
 	Motion* GetMotion(double t, bool adaptive=false);
+	Eigen::Isometry3d GetRootTransform(double t, bool adaptive=false);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
 	Eigen::VectorXd GetPosition(double t, bool adaptive=false);
 	int GetPhaseLength() {return mPhaseLength; }
@@ -79,6 +81,9 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
 	std::vector<std::string> GetHierarchyStr() {return mHierarchyStr; }
+
+	void ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen, int trimLength);
+	void LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement, int trimLength);
 
 protected:
 	Character* mCharacter;

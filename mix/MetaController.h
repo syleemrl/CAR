@@ -13,7 +13,8 @@ public:
 	std::map<std::string, SubController*> mSubControllers;
 	void loadControllers(std::string ctrl_path);
 	void addSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
-	
+
+	SubController* mPrevController;	
 	SubController* mCurrentController;
 	void switchController(std::string type, int frame=-1);
 
@@ -99,6 +100,14 @@ public:
 
 
 	DPhy::ReferenceManager* GetCurrentRefManager(){return mCurrentController->mReferenceManager;}
+	DPhy::ReferenceManager* GetPrevRefManager(){return mPrevController->mReferenceManager;}
+
+
+	bool scenario_done= false;
+	Eigen::Isometry3d mAlign = Eigen::Isometry3d::Identity();
+
+	int mBlendMargin = 5;
+	int mCycleStartFrame = 0;
 
 };
 } // end namespace DPhy

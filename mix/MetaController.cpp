@@ -68,6 +68,7 @@ MetaController::MetaController(std::string ctrl, std::string scene_obj, std::str
 	}else{
 		mCurrentController= mSubControllers["WALL_JUMP"];
 	}
+	mPrevController = nullptr;
 
 	runScenario();
 }
@@ -89,7 +90,7 @@ void MetaController::reset()
 	this->mTimeElapsed = 0;
 
 	Motion* p_v_target;
-	p_v_target = mCurrentController->mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -127,9 +128,11 @@ void MetaController::runScenario(){
 	//TODO
 	std::cout<<"mCurrent Controller Type : "<<mCurrentController->mType<<std::endl;
 	mCurrentController->setCurObject(mSceneObjects[0]);
+	this->mCurrentController->mParamGoal= this->GetCurrentRefManager()->GetParamGoal();
+
+	int cycle= 0;
 
 	this->reset();
-	this->mCurrentController->mParamGoal= this->mCurrentController->mReferenceManager->GetParamGoal();
 	while(! IsTerminalState()){
 
 		std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
@@ -140,8 +143,32 @@ void MetaController::runScenario(){
 		Eigen::VectorXd action = DPhy::toEigenVector(na,this->GetNumAction());
 		this->SetAction(action);
 		this->Step();	
-	}
+	
+		if((cycle == 0) && (mCurrentFrameOnPhase >= 71)){
+			
+			Eigen::Isometry3d prev_cycle_end = GetCurrentRefManager()->GetRootTransform(mCurrentFrameOnPhase, true);
+			mPrevController = mCurrentController;
 
+			mCurrentController= mSubControllers["FW_JUMP"];
+			cycle = 1;
+			mCurrentFrameOnPhase = 2;
+			mCycleStartFrame= mCurrentFrame;
+
+			mCurrentController->setCurObject(mSceneObjects[1]);
+			mCurrentController->reset(mCurrentFrameOnPhase);
+
+			Eigen::Isometry3d cycle_start= GetCurrentRefManager()->GetRootTransform(mCurrentFrameOnPhase, true);
+			mAlign = prev_cycle_end* cycle_start.inverse();
+
+			mAlign.linear() = projectToXZ((Eigen::Matrix3d) (mAlign.linear()));	
+			mAlign.translation()[1] = 0;
+			this->mCurrentController->mParamGoal= this->GetCurrentRefManager()->GetParamGoal();
+		}
+		if((cycle == 1) && (mCurrentFrameOnPhase >= 59)){
+			scenario_done =true;
+			break;
+		}
+	}
 
 	// this->mTiming.push_back(this->mController->GetCurrentFrame());
 }
@@ -237,14 +264,17 @@ Eigen::VectorXd MetaController::GetState()
 	}
 	double t = GetCurrentRefManager()->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
 
-	Motion* p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrame+t, isAdaptive);
+	Motion* p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase+t, isAdaptive);
+	p_v_target->MultiplyRootTransform(mAlign);
+	if(mPrevController!=nullptr && (mCurrentFrame - mCycleStartFrame) < mBlendMargin){
+		// TODO ; blend
+	}
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
 	delete p_v_target;
 
 	Eigen::Vector3d up_vec = root->getTransform().linear()*Eigen::Vector3d::UnitY();
 	double up_vec_angle = atan2(std::sqrt(up_vec[0]*up_vec[0]+up_vec[2]*up_vec[2]),up_vec[1]);
-	double phase = ((int) mCurrentFrame % GetCurrentRefManager()->GetPhaseLength()) / (double) GetCurrentRefManager()->GetPhaseLength();
 	Eigen::VectorXd state;
 
 
@@ -316,13 +346,24 @@ void MetaController::Step()
 	this->mCurrentFrameOnPhase += mAdaptiveStep;
 	// nTotalSteps += 1;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
-	
-	Motion* p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrame, isAdaptive);
+
+	// TODO : ALIGN / BLEND (if needed)
+	Motion* p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase, isAdaptive);
+	p_v_target->MultiplyRootTransform(mAlign);
+	if(mPrevController!=nullptr && (mCurrentFrame - mCycleStartFrame) < mBlendMargin){
+		// TODO ; blend
+	}
+
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033 * (mCurrentFrame - mPrevFrame);
 	delete p_v_target;
 
-	p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrame, false);
+	p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase, false);
+	p_v_target->MultiplyRootTransform(mAlign);
+	if(mPrevController!=nullptr && (mCurrentFrame - mCycleStartFrame) < mBlendMargin){
+		// TODO ; blend
+	}
+
 	this->mPDTargetPositions = p_v_target->GetPosition();
 	this->mPDTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -334,7 +375,6 @@ void MetaController::Step()
 		int dof = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getNumDofs();
 		mPDTargetPositions.block(idx, 0, dof, 1) += mActions.block(count_dof, 0, dof, 1);
 		count_dof += dof;
-
 	}
 	
 	for(int i = 0; i < this->mSimPerCon; i += 2){
@@ -432,10 +472,16 @@ void MetaController::UpdateTerminalInfo()
 	} else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(mCurrentFrame > mCurrentController->mReferenceManager->GetPhaseLength()) { 
+	} 
+	else if(scenario_done){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
+
+	// else if(mCurrentFrame > GetCurrentRefManager()->GetPhaseLength()) { 
+	// 	mIsTerminal = true;
+	// 	terminationReason =  8;
+	// }
 	// if(mRecord) {
 		if(mIsTerminal) std::cout << "terminationReason : "<<terminationReason << std::endl;
 	// }
@@ -510,7 +556,7 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 
 void MetaController::SaveStepInfo()
 {
-	mRecordBVHPosition.push_back(GetCurrentRefManager()->GetPosition(mCurrentFrame, false));
+	mRecordBVHPosition.push_back(GetCurrentRefManager()->GetPosition(mCurrentFrameOnPhase, false));
 	mRecordTargetPosition.push_back(mTargetPositions);
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
@@ -525,5 +571,12 @@ void MetaController::SaveStepInfo()
 
 	// mRecordFootContact.push_back(std::make_pair(rightContact, leftContact));
 }
+
+void switchController(std::string type, int frame=-1)
+{
+	// 
+}
+
+
 
 } //end of namespace DPhy
