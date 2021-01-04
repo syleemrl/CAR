@@ -95,6 +95,7 @@ int main(int argc,char** argv)
 
 	boost::program_options::options_description desc("allowed options");
 	desc.add_options()
+	("bvhs,s",boost::program_options::value<std::string>())
 	("reg,r",boost::program_options::value<std::string>())
 	("bvh,b",boost::program_options::value<std::string>())
 	("ppo,p",boost::program_options::value<std::string>())
@@ -102,7 +103,7 @@ int main(int argc,char** argv)
 
 	boost::program_options::variables_map vm;
 	boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
-	std::string ppo="", bvh="", reg="";
+	std::string ppo="", bvh="", reg="", bvhs="";
 
 	if(vm.count("ppo")) {
 		ppo = vm["ppo"].as<std::string>();
@@ -113,11 +114,18 @@ int main(int argc,char** argv)
 	if(vm.count("bvh")) {
 		bvh = vm["bvh"].as<std::string>();
 	}
-
+	if(vm.count("bvhs")) {
+		bvhs = vm["bvhs"].as<std::string>();
+	}
 	glutInit(&argc,argv);
 	QApplication a(argc, argv);
-    
-    MainWindow* main_window = new MainWindow(bvh, ppo, reg);
+    MainWindow* main_window;
+    if(bvhs.compare("") != 0){
+		std::vector<std::string> motions = DPhy::split(bvhs, ',');
+    	main_window = new MainWindow(motions);
+	} else
+    	main_window = new MainWindow(bvh, ppo, reg);
+ 
     main_window->resize(2560,1440);
     main_window->show();
     return a.exec();

@@ -234,11 +234,15 @@ ReadHierarchy(BVHNode* parent,const std::string& name,int& channel_offset,std::i
 	BVHNode* new_node = new BVHNode(name,parent);
 
 	is>>buffer; //{
-
+	mHierarchyStr.push_back(buffer);
 	while(is>>buffer)
 	{
-		if(!strcmp(buffer,"}"))
+		std::string str = buffer;
+
+		if(!strcmp(buffer,"}")) {
+			mHierarchyStr.push_back(str);
 			break;
+		}
 		if(!strcmp(buffer,"OFFSET"))
 		{
 			//Ignore
@@ -253,11 +257,15 @@ ReadHierarchy(BVHNode* parent,const std::string& name,int& channel_offset,std::i
 				mRootCOMOffset[1] = y;
 				mRootCOMOffset[2] = z;
 			}
+			str += " " + std::to_string(x) + " " + std::to_string(y) + " " + std::to_string(z);
+			mHierarchyStr.push_back(str);
 		}
 		else if(!strcmp(buffer,"CHANNELS"))
 		{
 
 			is>>buffer;
+			str += " " + std::string(buffer);
+
 			int n;
 			n= atoi(buffer);
 			
@@ -265,22 +273,33 @@ ReadHierarchy(BVHNode* parent,const std::string& name,int& channel_offset,std::i
 			{
 				is>>buffer;
 				c_name.push_back(std::string(buffer));
+				str +=  " " + std::string(buffer);
+
 			}
-			
 			new_node->SetChannel(channel_offset,c_name);
 			channel_offset+=n;
+			mHierarchyStr.push_back(str);
+
 		}
 		else if(!strcmp(buffer,"JOINT"))
 		{
 			is>>buffer;
+			str += " " + std::string(buffer);
+			mHierarchyStr.push_back(str);
+
 			BVHNode* child = ReadHierarchy(new_node,std::string(buffer),channel_offset,is);
 			new_node->AddChild(child);
 		}
 		else if(!strcmp(buffer,"End"))
 		{
 			is>>buffer;
+			str +=  " " + std::string(buffer);
+			mHierarchyStr.push_back(str);
+
 			BVHNode* child = ReadHierarchy(new_node,std::string("EndEffector"),channel_offset,is);
 			new_node->AddChild(child);
+		} else {
+			mHierarchyStr.push_back(str);
 		}
 	}
 	

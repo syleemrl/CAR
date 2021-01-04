@@ -302,7 +302,7 @@ GetParamGoal() {
 }
 np::ndarray 
 SimEnv::
-UniformSample(bool visited) {
+UniformSample(int visited) {
 	std::pair<Eigen::VectorXd , bool> pair = mRegressionMemory->UniformSample(visited);
 	if(!pair.second) {
 		std::cout << "exploration done" << std::endl;
@@ -397,7 +397,11 @@ GetExplorationRate() {
 	l.append(n.second);
 	return l;
 }
-
+double
+SimEnv::
+GetFitnessMean() {
+	return mRegressionMemory->GetFitnessMean();
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -437,6 +441,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("SaveParamSpaceLog",&SimEnv::SaveParamSpaceLog)
 		.def("UpdateReference",&SimEnv::UpdateReference)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
+		.def("GetFitnessMean",&SimEnv::GetFitnessMean)
 		.def("GetDensity",&SimEnv::GetDensity);
 
 }

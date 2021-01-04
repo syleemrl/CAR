@@ -16,7 +16,11 @@ struct Fitness
 {
 	double sum_contact;
 	double sum_pos;
+	double sum_pos_threshold;
 	double sum_vel;
+	double sum_vel_threshold;
+	double sum_reward;
+	double sum_slide;
 };
 class Motion
 {
@@ -77,6 +81,8 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSreg() { return mCPS_reg; }
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
+	std::vector<std::string> GetHierarchyStr() {return mHierarchyStr; }
+
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -118,6 +124,8 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+	std::vector<std::string> mHierarchyStr;
+
 };
 }
 

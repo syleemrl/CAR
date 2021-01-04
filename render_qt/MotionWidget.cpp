@@ -8,10 +8,11 @@
 #include <QSlider>
 #include <chrono>
 #include <algorithm>
+#include <ctime>
 MotionWidget::
 MotionWidget()
   :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),
-  mTrackCamera(false), mDrawBvh(true), mDrawSim(true), mDrawReg(true)
+  mTrackCamera(false), mDrawBvh(true), mDrawSim(true), mDrawReg(true), mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	this->startTimer(30);
 }
@@ -59,7 +60,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
 
     }
-
+    mPath = "";
     if(mRunSim) {
 	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
 	    if(mRunReg)
@@ -68,7 +69,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	    	mReferenceManager->InitOptimization(1, path);
 	    mReferenceManager->LoadAdaptiveMotion("ref_1");
 	    mDrawReg = true;
-
+	    mPath = path;
     } else if(mRunReg) {
     	mReferenceManager->InitOptimization(1, "", true);
     }
@@ -101,11 +102,11 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     UpdateMotion(pos, 0);
 	initNetworkSetting(ppo, reg);
 
+	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(255./255., 102./255., 46./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
 
-	DPhy::SetSkeletonColor(mSkel_bvh, Eigen::Vector4d(235./255., 73./255., 73./255., 1.0));
-	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
-	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
@@ -172,6 +173,10 @@ UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
 		tp = v_param*0.05;
+		for(int i = 0; i < tp.rows(); i++) {
+			tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
+		}
+		
 	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    int dof = mReferenceManager->GetDOF() + 1;
@@ -302,6 +307,9 @@ RunPPO() {
 
 	int count = 0;
 	mController->Reset(false);
+	this->mTiming= std::vector<double>();
+	this->mTiming.push_back(this->mController->GetCurrentFrame());
+
 	while(!this->mController->IsTerminalState()) {
 		Eigen::VectorXd state = this->mController->GetState();
 
@@ -311,6 +319,8 @@ RunPPO() {
 
 		this->mController->SetAction(action);
 		this->mController->Step();
+		this->mTiming.push_back(this->mController->GetCurrentFrame());
+
 		count += 1;
 	}
 
@@ -346,6 +356,11 @@ void
 MotionWidget::
 initializeGL()
 {
+	// shaderProgram.addShaderFromSourceFile(QGLShader::Vertex, QString::fromStdString(std::string(CAR_DIR)+std::string("/render_qt/vertexshader.txt")));
+	// shaderProgram.addShaderFromSourceFile(QGLShader::Fragment, QString::fromStdString(std::string(CAR_DIR)+std::string("/render_qt/fragshader.txt")));
+	// shaderProgram.link();
+	// shaderProgram.bind();
+
 	glClearColor(1,1,1,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -393,12 +408,12 @@ DrawSkeletons()
 	if(mDrawReg) {
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 		// if(!mRunSim) {
-		GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		// GUI::DrawPoint(mPoints, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 	//	}
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
-		GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+		// GUI::DrawPoint(mPoints_exp, Eigen::Vector3d(1.0, 0.0, 0.0), 10);
 
 	}
 
@@ -433,7 +448,8 @@ paintGL()
 	DrawGround();
 	DrawSkeletons();
 
-	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
+	if(mRunSim) GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
+	else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
 void
 MotionWidget::
@@ -475,11 +491,11 @@ initLights()
 	glEnable(GL_NORMALIZE);
 
 	glEnable(GL_FOG);
-	GLfloat fogColor[] = {200.0/256.0,200.0/256.0,200.0/256.0,1};
+	GLfloat fogColor[] = {0.9,0.9,0.9,1};
 	glFogfv(GL_FOG_COLOR,fogColor);
 	glFogi(GL_FOG_MODE,GL_LINEAR);
-	glFogf(GL_FOG_DENSITY,0.05);
-	glFogf(GL_FOG_START,20.0);
+	// glFogf(GL_FOG_DENSITY,0.05);
+	glFogf(GL_FOG_START,10.0);
 	glFogf(GL_FOG_END,40.0);
 }
 void
@@ -631,4 +647,14 @@ void
 MotionWidget::
 togglePlay() {
 	mPlay = !mPlay;
+}
+void 
+MotionWidget::
+Save() {
+	time_t t;
+	time(&t);
+
+	std::string time_str = std::ctime(&t);
+
+	mController->SaveDisplayedData(mPath + "record_" + time_str, true);
 }

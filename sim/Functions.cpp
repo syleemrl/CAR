@@ -482,11 +482,10 @@ Eigen::Vector3d Rotate3dVector(Eigen::Vector3d v, Eigen::Vector3d r) {
 
 Eigen::Vector3d JointPositionDifferences(Eigen::Vector3d q2, Eigen::Vector3d q1)
 {
-	Eigen::AngleAxisd aa1 = Eigen::AngleAxisd(q1.norm(), q1.normalized());
-	Eigen::AngleAxisd aa2 = Eigen::AngleAxisd(q2.norm(), q2.normalized());
-  	Eigen::AngleAxisd aa;
-  	aa = aa1.inverse() * aa2;
-  	return aa.axis() * aa.angle();
+	Eigen::Matrix3d R1 = dart::math::expMapRot(q1);
+    Eigen::Matrix3d R2 = dart::math::expMapRot(q2);
+
+  	return dart::math::logMap(R1.transpose() * R2);
 }
 Eigen::Vector3d LinearPositionDifferences(Eigen::VectorXd v2, Eigen::Vector3d v1, Eigen::Vector3d q1)
 {

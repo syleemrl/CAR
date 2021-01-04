@@ -3,7 +3,7 @@
 #include <iostream>
 Camera::
 Camera(int w, int h)
-	:fovy(60.0),lookAt(Eigen::Vector3d(0,0.8,0)),eye(Eigen::Vector3d(0,1.5, 3)),up(Eigen::Vector3d(0,1,0)),mw(w),mh(h)
+	:fovy(60.0),lookAt(Eigen::Vector3d(0,1.5,0)),eye(Eigen::Vector3d(0,1.0, 3)),up(Eigen::Vector3d(0,1,0)),mw(w),mh(h)
 {
 
 }

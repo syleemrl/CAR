@@ -289,7 +289,7 @@ class PPO(object):
 		lossval_ac = 0
 		lossval_c = 0
 		lossval_ct = 0
-
+	
 		for s in range(int(len(ind)//self.batch_size)):
 			selectedIndex = ind[s*self.batch_size:(s+1)*self.batch_size]
 			val = self.sess.run([self.actor_train_op, self.critic_train_op,
@@ -315,25 +315,27 @@ class PPO(object):
 				self.target_x_batch = state_target_batch
 				self.target_y_batch = TD_target_batch
 			else:
-				self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
-				self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
+				if len(state_target_batch) != 0:
+					self.target_x_batch = np.concatenate((self.target_x_batch, state_target_batch), axis=0)
+					self.target_y_batch = np.concatenate((self.target_y_batch, TD_target_batch), axis=0)
 
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]
 					self.target_y_batch = self.target_y_batch[-2000:]
-			for n in range(50):
-				ind = np.arange(len(self.target_x_batch))
-				np.random.shuffle(ind)
-				for s in range(int(len(ind)//self.batch_size_target)):
-					selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
-					val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
-						feed_dict={
-							self.state_target: self.target_x_batch[selectedIndex], 
-							self.TD_target: self.target_y_batch[selectedIndex]
-						}
-					)
-					lossval_ct += val[1]
-			self.lossvals.append(['loss critic target', lossval_ct / 50])
+			if self.env.mode == 0 and self.env.mode_counter % 3 == 1:
+				for n in range(50):
+					ind = np.arange(len(self.target_x_batch))
+					np.random.shuffle(ind)
+					for s in range(int(len(ind)//self.batch_size_target)):
+						selectedIndex = ind[s*self.batch_size_target:(s+1)*self.batch_size_target]
+						val = self.sess.run([self.critic_target_train_op, self.loss_critic_target], 
+							feed_dict={
+								self.state_target: self.target_x_batch[selectedIndex], 
+								self.TD_target: self.target_y_batch[selectedIndex]
+							}
+						)
+						lossval_ct += val[1]
+				self.lossvals.append(['loss critic target', lossval_ct / 50])
 
 	def computeTDandGAEAdaptive(self, tuples):
 		state_batch = []
@@ -374,7 +376,7 @@ class PPO(object):
 			count_V = 0
 			sum_V = 0
 			V = 0
-			flag = False
+			flag = True
 			for i in reversed(range(size)):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -385,10 +387,10 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
-					flag = True
+
 				ad_t = delta + pow(self.lambd, timestep) * pow(self.gamma, timestep) * ad_t
 				advantages[i] = ad_t
 
@@ -404,7 +406,6 @@ class PPO(object):
 					count_V = 0
 					sum_V = 0
 					V = 0
-					flag = False
 					
 			TD = values[:size] + advantages
 
@@ -432,7 +433,7 @@ class PPO(object):
 			count_V = 0
 			sum_V = 0
 			V = 0
-			flag = False
+			flag = True
 			for i in reversed(range(len(rewards))):
 				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
@@ -442,9 +443,8 @@ class PPO(object):
 					timestep = times[i+1]  - times[i]
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
-				V = t * rewards[i][0] + 8 * rewards[i][1] + V * pow(self.gamma, timestep)
-				if rewards[i][1] != 0:
-					flag = True
+				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+
 
 				sum_V += V
 				count_V += 1
@@ -455,7 +455,6 @@ class PPO(object):
 					count_V = 0
 					sum_V = 0
 					V = 0
-					flag = False
 
 		return marginal_vs
 					
@@ -524,7 +523,10 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		self.env.sampler.resetExplore()
+		self.env.mode = 1
+		self.env.sampler.resetExploit()
+		self.env.sampler.updateGoalDistribution(1, self.critic_target)
+
 		it_cur = 0
 
 		for it in range(num_iteration):
@@ -590,8 +592,8 @@ class PPO(object):
 					elif t == 1:
 						it_cur = 0
 					
-					# if self.env.needEvaluation():
-					# 	self.eval(30)
+					if self.env.needEvaluation():
+						self.eval(30)
 				elif self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					self.env.updateReference()
