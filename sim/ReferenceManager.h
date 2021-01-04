@@ -60,7 +60,7 @@ public:
 	double GetTimeStep(double t, bool adaptive);
 
 	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, std::tuple<double, double, Fitness> rewards, Eigen::VectorXd parameters);
-	void InitOptimization(int nslaves, std::string save_path, bool adaptive=false);
+	void InitOptimization(int nslaves, std::string save_path, bool adaptive=false, std::string ctrl_type="FW_JUMP");
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
 	std::vector<double> GetContacts(double t);
@@ -110,6 +110,8 @@ protected:
 	Eigen::VectorXd mParamCur;
 	Eigen::VectorXd mParamBase;
 	Eigen::VectorXd mParamEnd;
+	
+	Eigen::VectorXd mParamDMM;
 
 	RegressionMemory* mRegressionMemory;
 	

@@ -47,12 +47,16 @@ public:
 
 	bool virtual IsTerminalState()=0;
 	bool virtual Step()=0;
+	void virtual reset()=0;
+	void virtual setCurObject(dart::dynamics::SkeletonPtr object){mCurObject = object;}
 
 	Eigen::VectorXd GetParamGoal(){return mParamGoal;}
 
 	std::string mMotion;
 	MetaController* mMC;
 	bool mUseReg= false;
+
+	dart::dynamics::SkeletonPtr mCurObject;
 };
 
 
@@ -66,6 +70,7 @@ public:
 
 	bool virtual IsTerminalState();
 	bool virtual Step();
+	void virtual reset();
 };
 
 
@@ -77,6 +82,18 @@ public:
 
 	bool virtual IsTerminalState();
 	bool virtual Step();
+	void virtual reset();
+
+
+	dart::constraint::BallJointConstraintPtr leftHandConstraint= nullptr;
+	dart::constraint::BallJointConstraintPtr rightHandConstraint= nullptr;
+
+	bool left_detached = false;
+	bool right_detached = false;
+
+	void attachHandToBar(bool left, Eigen::Vector3d offset);
+	void removeHandFromBar(bool left);
+
 };
 
 }// end namespace DPhy

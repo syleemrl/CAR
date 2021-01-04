@@ -781,16 +781,22 @@ loadScene(std::string scene_path, std::vector<SkeletonPtr>& sceneObjects)
 	for(TiXmlElement *body = skeldoc->FirstChildElement("Skeleton"); body != nullptr; body = body->NextSiblingElement("Skeleton")){
 		std::string object_type = body->Attribute("xml");
 		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
-		Eigen::VectorXd pos = string_to_vectorXd(body->Attribute("pos"));
 
 		// DPhy::Character* obj = new DPhy::Character(object_path);	
 		std::pair<SkeletonPtr, std::map<std::string, double>*> p = SkeletonBuilder::BuildFromFile(object_path);
 		SkeletonPtr obj = p.first;
 
-		std::cout<<object_type<<" , pos : "<<pos.transpose()<<std::endl;
+		Eigen::VectorXd pos(obj->getNumDofs()); pos.setZero();
+		if(body->Attribute("pos")!=nullptr){
+			Eigen::VectorXd pos_xml = string_to_vectorXd(body->Attribute("pos"));
+			for(int i=0; i<pos_xml.size(); i++) {
+				if(i>= obj->getNumDofs()) break;
+				pos(i)= pos_xml(i);
+			}
+			// std::cout<<object_type<<" , pos : "<<pos.transpose()<<std::endl;
+		}
 		obj->setPositions(pos);
-		obj->computeForwardKinematics(true, false, false);
-		
+		obj->computeForwardKinematics(true, false, false);			
 		sceneObjects.push_back(obj);
 	}
 }

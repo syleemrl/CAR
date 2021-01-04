@@ -66,7 +66,7 @@ MetaController::MetaController(std::string ctrl, std::string scene_obj, std::str
 	if(scenario != ""){
 		//TODO
 	}else{
-		mCurrentController= mSubControllers["FW_JUMP"];
+		mCurrentController= mSubControllers["WALL_JUMP"];
 	}
 
 	runScenario();
@@ -117,13 +117,16 @@ void MetaController::reset()
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
 	mAdaptiveStep = 1;
-	
+
 	mTiming= std::vector<double>();
 	mTiming.push_back(mCurrentFrame);
+
+	mCurrentController->reset();
 }
 void MetaController::runScenario(){
 	//TODO
 	std::cout<<"mCurrent Controller Type : "<<mCurrentController->mType<<std::endl;
+	mCurrentController->setCurObject(mSceneObjects[0]);
 
 	this->reset();
 	this->mCurrentController->mParamGoal= this->mCurrentController->mReferenceManager->GetParamGoal();
@@ -346,6 +349,7 @@ void MetaController::Step()
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
 
+	mCurrentController->Step();
 
 	// if(isAdaptive) {
 	// 	this->UpdateAdaptiveReward();

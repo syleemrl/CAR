@@ -441,39 +441,72 @@ ResetOptimizationParameters(bool reset_displacement) {
 }
 void
 ReferenceManager::
-InitOptimization(int nslaves, std::string save_path, bool adaptive) {
+InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string ctrl_type) {
 	isParametric = adaptive;
 	mPath = save_path;
 	
 	mThresholdTracking = 0.8;
 
-	mParamCur.resize(1);
-	mParamCur << 0.6;
+	if(ctrl_type == "FW_JUMP"){
+		mParamCur.resize(1);
+		mParamCur << 0.6;
 
-	mParamGoal.resize(1);
-	mParamGoal << 0.6;
+		mParamGoal.resize(1);
+		mParamGoal << 0.6;
 
-	if(isParametric) {
-		Eigen::VectorXd paramUnit(1);
-		paramUnit<< 0.1;
+		if(isParametric) {
+			Eigen::VectorXd paramUnit(1);
+			paramUnit<< 0.1;
 
-		mParamBase.resize(1);
-		mParamBase << 0.5;
-
-
-		mParamEnd.resize(1);
-		mParamEnd << 2.0;
-		
-		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
-										  paramUnit, mDOF + 1, mPhaseLength);
+			mParamBase.resize(1);
+			mParamBase << 0.5;
 
 
-		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+			mParamEnd.resize(1);
+			mParamEnd << 2.0;
+			
+			mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+											  paramUnit, mDOF + 1, mPhaseLength);
+
+
+			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+		}		
 	}
 
-	ResetOptimizationParameters();
+	else if(ctrl_type == "WALL_JUMP"){
+		mParamCur.resize(1); // wall height
+		mParamCur << 0.9;
 
+		mParamGoal.resize(1);
+		mParamGoal = mParamCur;
+
+		mParamDMM.resize(1);
+		mParamDMM = mParamGoal;
+
+		if(adaptive) {
+
+			Eigen::VectorXd paramUnit(1);
+			paramUnit << 0.1;
+
+			mParamBase.resize(1);
+			mParamBase << 0.8;
+
+			mParamEnd.resize(1);
+			mParamEnd << 1.8;
+			mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+											  paramUnit, mDOF + 1, mPhaseLength);
+
+
+			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+		}
+	}else{
+		
+	}
+
+
+	ResetOptimizationParameters();
 }
+
 std::vector<double> 
 ReferenceManager::
 GetContacts(double t)

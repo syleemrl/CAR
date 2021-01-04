@@ -77,6 +77,7 @@ SceneMotionWidget::
 DrawSkeletons()
 {
 	GUI::DrawSkeleton(this->mSkel_sim, 0);
+	for(auto obj: this->mMC->mSceneObjects) GUI::DrawSkeleton(obj);
 }	
 void
 SceneMotionWidget::

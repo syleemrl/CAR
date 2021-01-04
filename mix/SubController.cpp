@@ -19,7 +19,7 @@ SubController::SubController(std::string type, MetaController* mc, std::string m
     }
 
     path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
-	mReferenceManager->InitOptimization(1, path, true);
+	mReferenceManager->InitOptimization(1, path, true,mType);
     mReferenceManager->LoadAdaptiveMotion("ref_1");
 
 
@@ -80,6 +80,10 @@ bool FW_JUMP_Controller::Step()
 	//TODO
 }
 
+void FW_JUMP_Controller::reset()
+{
+	//TODO
+}
 //////////////////////////////////// WALL_JUMP ////////////////////////////////////
 
 WALL_JUMP_Controller::WALL_JUMP_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg)
@@ -94,9 +98,88 @@ bool WALL_JUMP_Controller::IsTerminalState()
 
 bool WALL_JUMP_Controller::Step()
 {
-	//TODO
+	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
+	
+	if(mCurrentFrameOnPhase >=27 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+
+	if(mCurrentFrameOnPhase >=27 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+
 }
 
+void WALL_JUMP_Controller::reset(){
+	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
+
+	if(leftHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(true);
+	if(rightHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(false);
+
+	//45, 59
+	left_detached= (mCurrentFrameOnPhase >=37) ? true: false; 
+	right_detached= (mCurrentFrameOnPhase >=51) ? true: false;
+
+}
+
+void WALL_JUMP_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
+	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
+
+	std::string hand = (left) ? "LeftHand" : "RightHand";
+	dart::dynamics::BodyNodePtr hand_bn = mMC->mCharacter->GetSkeleton()->getBodyNode(hand);
+	dart::dynamics::BodyNodePtr bar_bn = this->mCurObject->getBodyNode("Jump_Box");
+	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
+
+	Eigen::VectorXd mParamGoal = mReferenceManager->GetParamGoal();
+	std::cout<<"mParamGoal; "<<mParamGoal.transpose()<<std::endl;
+	double obj_height = mParamGoal[0];
+	Eigen::Vector2d diff_middle (jointPos[1]-obj_height, jointPos[2]-3.6);
+	double distance = diff_middle.norm();
+
+	std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<std::endl;
+
+	if(distance > 0.07 || jointPos[2] < 3.5 || jointPos[2] > 3.7 || jointPos[1] > (obj_height+0.05) ) return;
+
+	// mParamCur[0]= mParamGoal[0];
+
+	if(left && leftHandConstraint) removeHandFromBar(true);
+	else if(!left && rightHandConstraint) removeHandFromBar(false);
+
+	// if(left) dbg_LeftConstraintPoint = jointPos;
+	// else dbg_RightConstraintPoint = jointPos;
+
+	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( hand_bn, bar_bn, jointPos);
+	mMC->mWorld->getConstraintSolver()->addConstraint(cl);
+
+	if(left) leftHandConstraint = cl;
+	else rightHandConstraint = cl;
+
+	// if(mRecord){
+		std::cout<<"attach "<<mCurrentFrameOnPhase<<" ";
+		if(left) std::cout<<"left : ";
+		else std::cout<<"right : ";
+		std::cout<<jointPos.transpose()<<" distance :"<<distance<<std::endl;
+	// }
+
+}
+
+
+void WALL_JUMP_Controller::removeHandFromBar(bool left){
+	// std::cout<<"REMOVE "<<left<<std::endl;
+	if(left && leftHandConstraint) {
+	    mMC->mWorld->getConstraintSolver()->removeConstraint(leftHandConstraint);
+	    leftHandConstraint = nullptr;
+    	// dbg_LeftConstraintPoint = Eigen::Vector3d::Zero();
+
+	}else if(!left && rightHandConstraint){
+	    mMC->mWorld->getConstraintSolver()->removeConstraint(rightHandConstraint);
+    	rightHandConstraint = nullptr;
+		// dbg_RightConstraintPoint = Eigen::Vector3d::Zero();	    	
+	}
+
+	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
+	std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
+	if(left) std::cout<<"left : "<<std::endl;
+	else std::cout<<"right : "<<std::endl;
+}
 
 
 
