@@ -60,7 +60,6 @@ public:
 
 	double GetVisitedRatio();
 	double GetDensity(np::ndarray np_array);
-	void UpdateParamState();
 
 	p::list GetParamSpaceSummary();
 	p::list GetNearestParams(np::ndarray np_array);

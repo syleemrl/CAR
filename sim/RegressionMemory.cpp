@@ -149,10 +149,6 @@ GetVisitedRatio() {
 
 	return result;
 }
-void
-RegressionMemory::
-UpdateParamState() {
-}
 std::tuple<std::vector<Eigen::VectorXd>, std::vector<Eigen::VectorXd>, std::vector<double>>
 RegressionMemory::
 GetTrainingData() {

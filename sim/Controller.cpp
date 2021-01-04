@@ -524,37 +524,13 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
-			p_diff(4) *= 0.2;
 
 			p_diff_th.segment<3>(idx) *= 3;
 			p_diff_th.segment<3>(idx + 3) *= 5;
-			p_diff_th(4) *= 0;
 
 			v_diff.segment<3>(idx + 3) *= 5;
-			v_diff(4) *= 0.6;
-
 			v_diff_th.segment<3>(idx + 3) *= 5;
-			v_diff_th(4) *= 0;
-		} 
-		else if(name.find("Spine") != std::string::npos ) {
-			p_diff.segment<2>(idx + 1) *= 2;
-			v_diff.segment<2>(idx + 1) *= 2;
-
-			p_diff_th.segment<2>(idx + 1) *= 2;
-			v_diff_th.segment<2>(idx + 1) *= 2;
-		} else if(name.find("UpLeg") != std::string::npos ) {
-			p_diff.segment<2>(idx + 1) *= 2;
-			v_diff.segment<2>(idx + 1) *= 2;
-			
-			p_diff_th.segment<2>(idx + 1) *= 2;
-			v_diff_th.segment<2>(idx + 1) *= 2;
-		} else if(name.find("tArm") != std::string::npos ) {
-			p_diff.segment<3>(idx) *= 2;
-			v_diff.segment<3>(idx) *= 2;
-			
-			p_diff_th.segment<3>(idx) *= 2;
-			v_diff_th.segment<3>(idx) *= 2;
-		} 
+		}
 	}
 
 	double footSlide = 0;

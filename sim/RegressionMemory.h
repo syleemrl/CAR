@@ -64,7 +64,6 @@ public:
 	void AddMapping(Param* p);
 	void AddMapping(Eigen::VectorXd nearest, Param* p);
 	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps);
-	void UpdateParamState();
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
 	double GetDensity(Eigen::VectorXd p, bool old=false);
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
@@ -132,7 +131,6 @@ private:
 	int mDim;
 	int mDimDOF;
 	int mNumKnots;
-	int mNumActivatedPrev;
 	int mThresholdUpdate;
 	int mThresholdActivate;
 	int mNumElite;
@@ -141,12 +139,6 @@ private:
 	int mExplorationStep;
 	int mNumGoalCandidate;
 	int mIdxCandidate;
-	std::vector<Eigen::VectorXd> mGoalCandidate;
-	std::vector<bool> mGoalExplored;
-	std::vector<double> mGoalProgress;
-	std::vector<double> mGoalReward;
-	std::vector<int> mGoalUpdate;
-	std::vector<std::vector<Eigen::VectorXd>> mCPSCandidate;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

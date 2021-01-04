@@ -330,11 +330,6 @@ SaveParamSpaceLog(int n) {
 	mRegressionMemory->SaveLog(mPath + "log");
 
 }
-void
-SimEnv::
-UpdateParamState() {
-	mRegressionMemory->UpdateParamState();
-}
 double
 SimEnv::
 GetVisitedRatio() {
@@ -430,7 +425,6 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UniformSample",&SimEnv::UniformSample)
 		.def("UniformSampleWithConstraints",&SimEnv::UniformSampleWithConstraints)
 		.def("GetParamSpaceSummary",&SimEnv::GetParamSpaceSummary)
-		.def("UpdateParamState",&SimEnv::UpdateParamState)
 		.def("GetNearestParams",&SimEnv::GetNearestParams)
 		.def("GetExplorationRate",&SimEnv::GetExplorationRate)
 		.def("TrainRegressionNetwork",&SimEnv::TrainRegressionNetwork)

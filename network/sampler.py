@@ -323,7 +323,6 @@ class Sampler(object):
 		if self.use_table:
 			max_mean = 0
 			v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
-			print(v_key, self.vp_dict)
 			it = 0
 			while v_key in self.vp_dict:
 				count = 0
@@ -338,8 +337,6 @@ class Sampler(object):
 
 				if max_mean < mean:
 					max_mean = mean
-				print(v_key, max_mean, mean)
-				print(self.vp_dict[v_key])
 				v_key -= 1
 				it += 1
 				if it >= 3:
