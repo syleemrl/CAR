@@ -130,7 +130,7 @@ class Sampler(object):
 
 	def updateCurrentStatus(self, mode, results, info):
 		if mode == 0 or mode == 2:
-			if len(self.progress_queue_explore) >= 5:
+			if len(self.progress_queue_explore) >= 10:
 				self.progress_queue_explore = self.progress_queue_explore[1:]
 			self.progress_queue_explore.append(self.progress_cur)
 
@@ -321,18 +321,32 @@ class Sampler(object):
 			return False
 
 		if self.use_table:
+			max_mean = 0
 			v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
-			count = 0
-			mean = 0
-			if v_key in self.vp_dict:
+			print(v_key, self.vp_dict)
+			it = 0
+			while v_key in self.vp_dict:
+				count = 0
+				mean = 0
 				for i in range(len(self.vp_dict[v_key])):
-					mean += self.vp_dict[v_key][i][1]
-					count += 1
-				
+					if self.total_iter - self.vp_dict[v_key][i][2] < 50:
+						mean += self.vp_dict[v_key][i][1]
+						count += 1
+					
 				if count != 0:
-					mean /= count			
-			print((self.v_mean - self.delta), p_mean, mean)
-			if p_mean <= mean:
+					mean /= count	
+
+				if max_mean < mean:
+					max_mean = mean
+				print(v_key, max_mean, mean)
+				print(self.vp_dict[v_key])
+				v_key -= 1
+				it += 1
+				if it >= 3:
+					break
+
+			print((self.v_mean - self.delta), p_mean, max_mean)
+			if p_mean <= max_mean or p_mean <= 0.2:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)

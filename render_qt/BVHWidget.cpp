@@ -34,17 +34,17 @@ BVHWidget(std::vector<std::string> motion)
 	    std::vector<Eigen::VectorXd> p;
 	    for(int j = 0; j < 1000; j++) {
 	        Eigen::VectorXd p_frame = mReferenceManager->GetPosition(j, false);
-	        p_frame(3) = 1.5 * i - 0.75; 
+	        p_frame(3) = 0;
+	        //p_frame(3) = 1.5 * i - 0.75; 
 	        p.push_back(p_frame);
 	    }
 	    mMotions_bvh.push_back(p);
 	}
 	mTotalFrame = 1000;
-	std::cout << 1 << std::endl;
 	
 	DPhy::SetSkeletonColor(mSkels_bvh[0], Eigen::Vector4d(255./255., 102./255., 46./255., 1.0));
-	DPhy::SetSkeletonColor(mSkels_bvh[1], Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
-	DPhy::SetSkeletonColor(mSkels_bvh[2], Eigen::Vector4d(36./255., 162./255., 255./255., 1.0));
+	//DPhy::SetSkeletonColor(mSkels_bvh[0], Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
+	//DPhy::SetSkeletonColor(mSkels_bvh[0], Eigen::Vector4d(36./255., 162./255., 255./255., 1.0));
 
 }
 void
@@ -235,6 +235,8 @@ NextFrame()
 	if(!mPlay) {
 		this->mCurFrame += 1;
 		this->SetFrame(this->mCurFrame);
+		std::cout << mCurFrame << std::endl;
+
 	}
 }
 void
@@ -244,6 +246,8 @@ PrevFrame()
 	if(!mPlay && mCurFrame > 0) {
 		this->mCurFrame -= 1;
 		this->SetFrame(this->mCurFrame);
+		std::cout << mCurFrame << std::endl;
+
 	}
 }
 void

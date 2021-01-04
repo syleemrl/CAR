@@ -28,6 +28,8 @@ signals:
 	
 public slots:
 	void togglePlay(const bool& toggled);
+	void SaveScreenshot();
+
 public:
     MainWindow();
     MainWindow(std::vector<std::string> motion);

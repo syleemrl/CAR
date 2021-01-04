@@ -263,10 +263,14 @@ class Monitor(object):
 		# 	self.mode = 1
 		# 	# self.saveVPtable()
 
-		# if self.v_ratio == 1:
-		# 	mode_change = -1	
+		# if self.v_ratio > 0.65 and self.mode == 0:
+		# 	self.sim_env.SaveParamSpace(-1)
+		# 	self.mode = 1
+		# 	self.mode_counter = 0
+		# 	self.sampler.resetExploit()
+		# 	mode_change = 1
 
-		# self.sampler.updateGoalDistribution(self.mode, v_func)
+		self.sampler.updateGoalDistribution(self.mode, v_func)
 
 		return mode_change
 
@@ -276,9 +280,9 @@ class Monitor(object):
 
 	def updateGoal(self, v_func, record=True):
 		if record:
-			t = self.sampler.randomSample(-1)
-			idx = -1
-			# t, idx = self.sampler.adaptiveSample(self.mode, v_func)
+			# t = self.sampler.randomSample(-1)
+			# idx = -1
+			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		else:
 			t = self.sampler.randomSample(1)
 			idx = -1
