@@ -560,14 +560,14 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	// 	return;
 	// }
 
-	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
-	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
-	Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
-	Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
-	Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
-	right_vector[1]= 0;
-	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
-	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
+	// Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
+	// Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
+	// Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
+	// Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
+	// Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
+	// right_vector[1]= 0;
+	// Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
+	// double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
 	// if(std::abs(forward_angle) > M_PI/4.) {
 	// 	// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
 	// 	return;
@@ -646,15 +646,18 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	
 	}
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
-	double r_hand =  exp(-std::get<2>(rewards).sum_hand_ct); 
-	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.1, 2.0));
+	// double r_hand =  exp(-std::get<2>(rewards).sum_hand_ct); 
+	// double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.1, 2.0));
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 4);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.5);
-	double reward_trajectory = r_foot * r_pos * r_vel *r_slide * r_hand;
+	double reward_trajectory = r_foot * r_pos * r_vel;// *r_slide * r_hand;
 
 if(mRecord){
 	std::cout<<"r_pos: "<<r_pos<<", r_vel: "<<r_vel<<std::endl;
-	std::cout<<"r_slide : "<<r_slide<<"(sum_slide : "<<std::get<2>(rewards).sum_slide<<"), r_foot: "<<r_foot<<"("<<std::get<2>(rewards).sum_contact<<")/ r_hand: "<<r_hand<<"("<<std::get<2>(rewards).sum_hand_ct<<")"<<std::endl;
+	// std::cout<<"r_slide : "<<r_slide<<"(sum_slide : "<<std::get<2>(rewards).sum_slide<<"),";
+	std::cout<<" r_foot: "<<r_foot<<"("<<std::get<2>(rewards).sum_contact<<"),";
+	// std::cout<<" r_hand: "<<r_hand<<"("<<std::get<2>(rewards).sum_hand_ct<<")";
+	std::cout<<std::endl;
 	return ;
 }	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
 

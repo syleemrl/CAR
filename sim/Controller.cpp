@@ -249,13 +249,12 @@ Step()
 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-		// mParamCur = mParamGoal;
+		mParamCur = mParamGoal;
 
 		// mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 		// mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
 		// mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 		// this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
@@ -263,18 +262,16 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
-			mFitness.sum_slide/= mCountTracking;
-			mFitness.sum_hand_ct/= mFitness.hand_ct_cnt;
-			if(mCurrentFrame < 2*mReferenceManager->GetPhaseLength() ){
-				// std::cout<<"f: "<<mCurrentFrame<<"/fop: "<<mCurrentFrameOnPhase<<" / "<<(mReferenceManager->GetPhaseLength())<<std::endl;
-				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
-			}
+			// mFitness.sum_slide/= mCountTracking;
+			// mFitness.sum_hand_ct/= mFitness.hand_ct_cnt;
+
+			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
 
 			mFitness.sum_contact = 0;
-			mFitness.sum_slide = 0;
-			mFitness.sum_hand_ct = 0;
-			mFitness.hand_ct_cnt = 0;
+			// mFitness.sum_slide = 0;
+			// mFitness.sum_hand_ct = 0;
+			// mFitness.hand_ct_cnt = 0;
 
 			auto& skel = mCharacter->GetSkeleton();
 			mFitness.sum_pos.resize(skel->getNumDofs());
@@ -534,11 +531,11 @@ GetSimilarityReward()
 	// }
 	
 	Eigen::VectorXd p_aligned = skel->getPositions();
-	std::vector<Eigen::VectorXd> p_with_zero;
-	p_with_zero.push_back(mRootZero);
-	p_with_zero.push_back(p_aligned.segment<6>(0));
-	p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
-	p_aligned.segment<6>(0) = p_with_zero[1];
+	// std::vector<Eigen::VectorXd> p_with_zero;
+	// p_with_zero.push_back(mRootZero);
+	// p_with_zero.push_back(p_aligned.segment<6>(0));
+	// p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
+	// p_aligned.segment<6>(0) = p_with_zero[1];
 
 	Eigen::VectorXd v = skel->getPositionDifferences(skel->getPositions(), mPosQueue.front()) / (mCurrentFrame - mTimeQueue.front() + 1e-10) / 0.033;
 	for(auto& jn : skel->getJoints()){
@@ -594,10 +591,10 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	// if(! gotParamReward && mCurrentFrameOnPhase >= 65){
-	// 	r_param = 1;
-	// 	gotParamReward = true;
-	// }
+	if(! gotParamReward && mCurrentFrameOnPhase >= 70){
+		r_param = 1;
+		gotParamReward = true;
+	}
 
 	return r_param;
 }
