@@ -765,9 +765,9 @@ DrawSkeletons()
 		glPushMatrix();
 		glTranslated(-0.75, 0, 0);
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
-		if(this->mSkel_obj) {
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
-		}
+		// if(this->mSkel_obj) {
+		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// }
 
 	    auto hand_dbg = [&](bool left) 
 		{ 

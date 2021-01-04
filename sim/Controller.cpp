@@ -165,7 +165,7 @@ Step()
 	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
-	// std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<" / obj: "<<obj_pos.transpose()<<std::endl;
+	if(mRecord) std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<std::endl;//" / obj: "<<obj_pos.transpose()<<std::endl;
 	
 	Eigen::VectorXd s = this->GetState();
 
@@ -654,7 +654,7 @@ UpdateReward()
 
 	mRewardParts.clear();
 	//r_p, r_com, r_ee, r_v
-	double r_tot = 0.9 * (0.6 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.05 * tracking_rewards_bvh[2] + 0.05* tracking_rewards_bvh[3] ) + 0.1 * r_time;
+	double r_tot = 0.9 * (0.45 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.25 * tracking_rewards_bvh[2] + 0.1* tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
 	}
@@ -729,6 +729,7 @@ UpdateTerminalInfo()
 
 	// if(mIsTerminal)	std::cout << mCurrentFrameOnPhase<<"/ terminate Reason : "<<terminationReason<<std::endl;
 	if(mRecord) {
+		std::cout<<mCurrentFrameOnPhase<<" "<<root_pos_diff.norm()<<" "<<angle<<" "<<root_y<<std::endl;
 		if(mIsTerminal) {
 			std::cout<<"/ leftConstraint: "<<(leftHandConstraint!=nullptr)<<"/ rightConstraint: "<<(rightHandConstraint!=nullptr);
 			std::cout<<"/ left_detached: "<<left_detached<<"/ right_detached: "<<right_detached<<std::endl;
@@ -1165,11 +1166,16 @@ void Controller::removeHandFromBar(bool left){
 	std::string hand = (left) ? "LeftHand" : "RightHand";
 	dart::dynamics::BodyNodePtr hand_bn = this->mCharacter->GetSkeleton()->getBodyNode(hand);
 	hand_bn->setCollidable(true);
+
+	this->mObject->GetSkeleton()->getBodyNode("Bar")->setCollidable(false);
+	this->mObject->GetSkeleton()->getBodyNode("Weld_Bar")->setCollidable(false);
+
+	if(mRecord) std::cout<<mCharacter->GetSkeleton()->getBodyNode("LeftHand")->isCollidable()<<" / "<<mCharacter->GetSkeleton()->getBodyNode("RightHand")->isCollidable()<<std::endl;
 	
 	if(mRecord){
 		std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
-		if(left) std::cout<<"left : "<<std::endl;
-		else std::cout<<"right : "<<std::endl;		
+		if(left) std::cout<<"left "<<std::endl;
+		else std::cout<<"right "<<std::endl;		
 	}
 }
 
