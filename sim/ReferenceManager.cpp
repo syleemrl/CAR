@@ -460,21 +460,21 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.8;
 
 	//arm length, leg length, arm mass, leg mass 
-	mParamCur.resize(2);
-	mParamCur << 1, 1; //, 1, 1;
+	mParamCur.resize(4);
+	mParamCur << 1, 1, 1, 1;
 
-	mParamGoal.resize(2);
-	mParamGoal << 1, 1; //, 1, 1;
+	mParamGoal.resize(4);
+	mParamGoal << 1, 1, 1, 1;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(2);
-		paramUnit<< 0.1, 0.1; //, 0.2, 0.1;
+		Eigen::VectorXd paramUnit(4);
+		paramUnit<< 0.1, 0.1, 0.2, 0.1;
 
-		mParamBase.resize(2);
-		mParamBase << 0.5, 0.5; //, 1, 1;
+		mParamBase.resize(4);
+		mParamBase << 0.5, 0.5, 1, 1;
 
-		mParamEnd.resize(2);
-		mParamEnd << 2, 2; //, 4, 2.5;
+		mParamEnd.resize(4);
+		mParamEnd << 2, 2, 4, 2.5;
 
 
 	// mParamCur.resize(1);

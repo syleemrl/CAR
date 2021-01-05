@@ -96,8 +96,8 @@ class Monitor(object):
 		self.states, rewards, dones, times, frames, terminal_reason, nan_count =  self.env.step(actions)
 
 		if self.adaptive and self.parametric:
-			params = np.array(self.states)[:,-(self.dim_param+4):-4]
-			curframes = np.array(self.states)[:,-(self.dim_param+1+4)]
+			params = np.array(self.states)[:,-(self.dim_param):]
+			curframes = np.array(self.states)[:,-(self.dim_param+1)]
 		else:
 			params = np.zeros(self.num_slaves)
 			curframes = np.array(self.states)[:,-1]

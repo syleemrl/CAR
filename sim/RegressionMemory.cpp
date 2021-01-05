@@ -55,9 +55,9 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.05;
-	mThresholdInside = 1.1;
-	mRangeExplore = 0.3;
+	mRadiusNeighbor = 0.3;
+	mThresholdInside = 0.8;
+	mRangeExplore = 0.5;
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 2; i++) {
@@ -778,7 +778,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	double prev_max = 0;
 	bool flag = true;
 
-	double update_max = 20;
+	double update_max = 10;
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Param*>>> to_be_deleted;
 	for(int i = 0 ; i < checklist.size(); i++) {
 		auto iter = mGridMap.find(checklist[i]);
@@ -797,7 +797,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 						prev_max = ps[j]->reward;
 					if(ps[j]->reward < std::get<2>(candidate)) {
 						p_delete.push_back(ps[j]);
-						if(update_max < ps[j]->update || update_max == 20)
+						if(update_max < ps[j]->update || update_max == 10)
 							update_max = ps[j]->update;
 					} else {
 						flag = false;
@@ -910,7 +910,7 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::VectorXd diff = p - p_goal;
-	double r_param = exp_of_squared(diff, 0.2); //08);
+	double r_param = exp_of_squared(diff, 0.08);
 	return r_param;
 }
 void 

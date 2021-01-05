@@ -36,7 +36,7 @@ class Sampler(object):
 
 		self.eval_target_v = 0
 
-		self.progress_queue_exploit = [5.0]
+		self.progress_queue_exploit = [10.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0

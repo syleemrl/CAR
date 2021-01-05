@@ -609,7 +609,7 @@ UpdateAdaptiveReward()
 
 	double r_torque = exp_of_squared(mSumTorque, 50);
 
-	double r_tot = r_tracking; //0.98 * r_tracking + 0.02 * r_torque;
+	double r_tot = 0.98 * r_tracking + 0.02 * r_torque;
 	// if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 64) {
 	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
 	// 	Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
@@ -763,10 +763,10 @@ SetGoalParameters(Eigen::VectorXd tp)
 	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
 	// 	this->SetSkeletonWeight(1, 1);
 	// }
-	this->SetSkeletonLength(mParamGoal(0), 1, 1); // sqrt(mParamGoal(2)), 1);
-	this->SetSkeletonLength(mParamGoal(1), 1, 2); //sqrt(mParamGoal(3)), 2);
-	// this->SetSkeletonWeight(mParamGoal(0)*mParamGoal(2), 1);
-	// this->SetSkeletonWeight(mParamGoal(1)*mParamGoal(3), 2);
+	this->SetSkeletonLength(mParamGoal(0), sqrt(mParamGoal(2)), 1);
+	this->SetSkeletonLength(mParamGoal(1), sqrt(mParamGoal(3)), 2);
+	this->SetSkeletonWeight(mParamGoal(0)*mParamGoal(2), 1);
+	this->SetSkeletonWeight(mParamGoal(1)*mParamGoal(3), 2);
 	
 	// std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
 }
