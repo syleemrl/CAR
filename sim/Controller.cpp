@@ -723,7 +723,10 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
-
+	if(mCurrentFrameOnPhase >=35 && mCurrentFrameOnPhase<=50 && (leftHandConstraint==nullptr || rightHandConstraint == nullptr)){
+		mIsTerminal = true;
+		terminationReason = 9;
+	}
 	// if(mIsTerminal)	std::cout << mCurrentFrameOnPhase<<"/ terminate Reason : "<<terminationReason<<std::endl;
 	if(mRecord) {
 		std::cout<<mCurrentFrameOnPhase<<" "<<root_pos_diff.norm()<<" "<<angle<<" "<<root_y<<std::endl;
