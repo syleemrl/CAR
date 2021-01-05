@@ -158,10 +158,10 @@ Step()
 	}
 
 	// [23, 51)
-	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
+	if(mCurrentFrameOnPhase >=20 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
+	if(mCurrentFrameOnPhase >=20 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
@@ -1067,7 +1067,7 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 
 	// std::cout<<"attach; "<<left<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
 
-	if(distance > 0.09) return;
+	if(distance > 0.05) return;
 
 	if(isAdaptive) mParamCur[0]= mParamGoal[0];
 
@@ -1079,7 +1079,7 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 
 	hand_bn->setCollidable(false);
 
-	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( hand_bn, bar_bn, jointPos);
+	dart::constraint::WeldJointConstraintPtr cl = std::make_shared<dart::constraint::WeldJointConstraint>( hand_bn, bar_bn); //, jointPos);
 	this->mWorld->getConstraintSolver()->addConstraint(cl);
 
 	if(left) leftHandConstraint = cl;
@@ -1128,12 +1128,12 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 // 	dbg_LeftConstraintPoint = left_attach_pt;
 // 	dbg_RightConstraintPoint = right_attach_pt;
 
-// 	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( left_hand_bn, bar_bn, left_attach_pt);
+// 	dart::constraint::WeldJointConstraintPtr cl = std::make_shared<dart::constraint::WeldJointConstraint>( left_hand_bn, bar_bn, left_attach_pt);
 // 	this->mWorld->getConstraintSolver()->addConstraint(cl);
 
 // 	leftHandConstraint = cl;
 	
-// 	dart::constraint::BallJointConstraintPtr cr = std::make_shared<dart::constraint::BallJointConstraint>( right_hand_bn, bar_bn, right_attach_pt);
+// 	dart::constraint::WeldJointConstraintPtr cr = std::make_shared<dart::constraint::WeldJointConstraint>( right_hand_bn, bar_bn, right_attach_pt);
 // 	this->mWorld->getConstraintSolver()->addConstraint(cr);
 
 // 	rightHandConstraint = cr;

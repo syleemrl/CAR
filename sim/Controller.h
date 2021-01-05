@@ -185,8 +185,8 @@ protected:
 	Eigen::Vector3d mBaseGravity;
 	double mBaseMass;
 
-	dart::constraint::BallJointConstraintPtr leftHandConstraint= nullptr;
-	dart::constraint::BallJointConstraintPtr rightHandConstraint= nullptr;
+	dart::constraint::WeldJointConstraintPtr leftHandConstraint= nullptr;
+	dart::constraint::WeldJointConstraintPtr rightHandConstraint= nullptr;
 
 	bool left_detached = false;
 	bool right_detached = false;
