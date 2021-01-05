@@ -656,7 +656,7 @@ GetSimilarityReward()
 
 		if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
 			// std::cout<<mCurrentFrameOnPhase<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
-			p_diff(idx+2)*=5;
+			p_diff(idx+2)*=15;
 		}
 	}
 
