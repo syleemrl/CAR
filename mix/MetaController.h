@@ -88,6 +88,8 @@ public:
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
+	std::vector<Eigen::VectorXd> mRecordDebug;
+
 	std::vector<double> mRecordPhase;
 
 	int mNumState, mNumAction;
@@ -102,11 +104,11 @@ public:
 	DPhy::ReferenceManager* GetCurrentRefManager(){return mCurrentController->mReferenceManager;}
 	DPhy::ReferenceManager* GetPrevRefManager(){return mPrevController->mReferenceManager;}
 
-
+	int cycle= 0;
 	bool scenario_done= false;
 	Eigen::Isometry3d mAlign = Eigen::Isometry3d::Identity();
 
-	int mBlendMargin = 5;
+	int mBlendMargin = 8;
 	int mCycleStartFrame = 0;
 
 };

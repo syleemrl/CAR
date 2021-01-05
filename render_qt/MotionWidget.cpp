@@ -58,6 +58,12 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 
+	#ifdef OBJECT_TYPE
+		path = std::string(CAR_DIR)+std::string("/character/")+OBJECT_TYPE+std::string(".xml");
+		mSkel_obj  = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+		// this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	#endif
+
     if(mRunReg) {
     	mRegressionMemory = new DPhy::RegressionMemory();
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
@@ -409,8 +415,10 @@ MotionWidget::
 DrawSkeletons()
 {
 
-	if(mDrawBvh)
+	if(mDrawBvh){		
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
+		GUI::DrawSkeleton(this->mSkel_obj, 0);
+	}
 	if(mDrawSim) {
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
 		GUI::DrawSkeleton(this->mSkel_obj, 0);

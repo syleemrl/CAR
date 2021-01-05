@@ -15,4 +15,5 @@
 
 #define CHARACTER_TYPE "mxm_gen"
 #define REF_CHARACTER_TYPE "mxm_gen"
+// #define OBJECT_TYPE "climb_box"
 #endif

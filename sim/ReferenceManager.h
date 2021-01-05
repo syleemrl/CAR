@@ -39,7 +39,8 @@ public:
 	Eigen::VectorXd GetPosition() { return position; }
 	Eigen::VectorXd GetVelocity() { return velocity; }
 
-	void MultiplyRootTransform(Eigen::Isometry3d rt);
+	void MultiplyRootTransform(Eigen::Isometry3d rt, bool change_height =true);
+	void RotateAndTranslate(Eigen::Matrix3d R, Eigen::Vector3d T);
 protected:
 	Eigen::VectorXd position;
 	Eigen::VectorXd velocity;

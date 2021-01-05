@@ -75,14 +75,21 @@ bool FW_JUMP_Controller::IsTerminalState()
 	return false;
 }
 
+void FW_JUMP_Controller::reset(double frame, double frameOnPhase)
+{
+	//TODO
+	this->mCurrentFrame = frame;
+	this->mCurrentFrameOnPhase = frameOnPhase;
+
+}
+
 bool FW_JUMP_Controller::Step()
 {
 	//TODO
-}
+	
+	this->mCurrentFrame += mMC->mAdaptiveStep;
+	this->mCurrentFrameOnPhase += mMC->mAdaptiveStep;
 
-void FW_JUMP_Controller::reset(double frameOnPhase)
-{
-	//TODO
 }
 //////////////////////////////////// WALL_JUMP ////////////////////////////////////
 
@@ -96,9 +103,24 @@ bool WALL_JUMP_Controller::IsTerminalState()
 	return false;
 }
 
+void WALL_JUMP_Controller::reset(double frame, double frameOnPhase){
+	this->mCurrentFrame = frame;
+	this->mCurrentFrameOnPhase = frameOnPhase;
+
+	bool isAdaptive = true;
+
+	if(leftHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(true);
+	if(rightHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(false);
+
+	//45, 59
+	left_detached= (mCurrentFrameOnPhase >=37) ? true: false; 
+	right_detached= (mCurrentFrameOnPhase >=51) ? true: false;
+}
+
 bool WALL_JUMP_Controller::Step()
 {
-	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
+	this->mCurrentFrame += mMC->mAdaptiveStep;
+	this->mCurrentFrameOnPhase += mMC->mAdaptiveStep;
 	
 	if(mCurrentFrameOnPhase >=27 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
@@ -108,38 +130,7 @@ bool WALL_JUMP_Controller::Step()
 
 }
 
-void WALL_JUMP_Controller::reset(double frameOnPhase){
-
-	bool isAdaptive = true;
-
-	// Motion* p_v_target;
-	// p_v_target = mCurrentController->mReferenceManager->GetMotion(frameOnPhase, isAdaptive);
-	// this->mTargetPositions = p_v_target->GetPosition();
-	// this->mTargetVelocities = p_v_target->GetVelocity();
-	// delete p_v_target;
-
-	// this->mPDTargetPositions = mTargetPositions;
-	// this->mPDTargetVelocities = mTargetVelocities;
-
-	// skel->setPositions(mTargetPositions);
-	// skel->setVelocities(mTargetVelocities);
-	// skel->computeForwardKinematics(true,true,false);
-
-	// mPrevTargetPositions = mTargetPositions;
-
-	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
-
-	if(leftHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(true);
-	if(rightHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(false);
-
-	//45, 59
-	left_detached= (mCurrentFrameOnPhase >=37) ? true: false; 
-	right_detached= (mCurrentFrameOnPhase >=51) ? true: false;
-
-}
-
 void WALL_JUMP_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
-	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
 
 	std::string hand = (left) ? "LeftHand" : "RightHand";
 	dart::dynamics::BodyNodePtr hand_bn = mMC->mCharacter->GetSkeleton()->getBodyNode(hand);
@@ -193,7 +184,6 @@ void WALL_JUMP_Controller::removeHandFromBar(bool left){
 		// dbg_RightConstraintPoint = Eigen::Vector3d::Zero();	    	
 	}
 
-	int mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
 	std::cout<<"remove "<<mCurrentFrameOnPhase<<" ";
 	if(left) std::cout<<"left : "<<std::endl;
 	else std::cout<<"right : "<<std::endl;

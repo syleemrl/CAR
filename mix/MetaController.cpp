@@ -130,7 +130,7 @@ void MetaController::runScenario(){
 	mCurrentController->setCurObject(mSceneObjects[0]);
 	this->mCurrentController->mParamGoal= this->GetCurrentRefManager()->GetParamGoal();
 
-	int cycle= 0;
+	// int cycle= 0;
 
 	this->reset();
 	while(! IsTerminalState()){
@@ -146,22 +146,40 @@ void MetaController::runScenario(){
 	
 		if((cycle == 0) && (mCurrentFrameOnPhase >= 71)){
 			
-			Eigen::Isometry3d prev_cycle_end = GetCurrentRefManager()->GetRootTransform(mCurrentFrameOnPhase, true);
+			Eigen::Isometry3d prev_cycle_end= GetCurrentRefManager()->GetRootTransform(mCurrentFrameOnPhase, true);
+
+			std::cout<<"prev_cycle_end\n"<<prev_cycle_end.linear()<<"\n"<<prev_cycle_end.translation().transpose()<<std::endl;
 			mPrevController = mCurrentController;
 
 			mCurrentController= mSubControllers["FW_JUMP"];
 			cycle = 1;
-			mCurrentFrameOnPhase = 2;
+			mCurrentFrameOnPhase = 3;
 			mCycleStartFrame= mCurrentFrame;
 
 			mCurrentController->setCurObject(mSceneObjects[1]);
-			mCurrentController->reset(mCurrentFrameOnPhase);
-
+			mCurrentController->reset(mCurrentFrameOnPhase, mCurrentFrameOnPhase);
+			
 			Eigen::Isometry3d cycle_start= GetCurrentRefManager()->GetRootTransform(mCurrentFrameOnPhase, true);
-			mAlign = prev_cycle_end* cycle_start.inverse();
+			Eigen::Isometry3d T01 = prev_cycle_end*cycle_start.inverse();
+			Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
+			T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+			// if(!change_height) 
+			T01.translation()[1] = 0;
 
-			mAlign.linear() = projectToXZ((Eigen::Matrix3d) (mAlign.linear()));	
-			mAlign.translation()[1] = 0;
+			mAlign = T01;
+
+			// Eigen::Isometry3d cycle_start= GetCurrentRefManager()->GetRootTransform(mCurrentFrameOnPhase, true);
+			// cycle_start.translation()[1] = prev_cycle_end.translation()[1];
+			// std::cout<<"cycle_start\n"<<cycle_start.linear()<<"\n"<<cycle_start.translation().transpose()<<std::endl;
+			
+			// mAlign = prev_cycle_end* cycle_start.inverse();
+			// Eigen::Matrix3d rotate_diff = prev_cycle_end.linear()* cycle_start.linear().inverse();
+			// mAlign.linear() = projectToXZ();
+			// mAlign.translation() = prev_cycle_end.translation()- cycle_start.translation();
+			// mAlign.translation()[1] = 0;
+
+			std::cout<<"mAlign\n"<<mAlign.linear()<<"\n"<<mAlign.translation().transpose()<<std::endl;
+			
 			this->mCurrentController->mParamGoal= this->GetCurrentRefManager()->GetParamGoal();
 		}
 		if((cycle == 1) && (mCurrentFrameOnPhase >= 59)){
@@ -265,9 +283,17 @@ Eigen::VectorXd MetaController::GetState()
 	double t = GetCurrentRefManager()->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
 
 	Motion* p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase+t, isAdaptive);
-	p_v_target->MultiplyRootTransform(mAlign);
+	p_v_target->MultiplyRootTransform(mAlign, false);
 	if(mPrevController!=nullptr && (mCurrentFrame - mCycleStartFrame) < mBlendMargin){
-		// TODO ; blend
+		// TODO ; blend	
+		double ratio = (mCurrentFrame- mCycleStartFrame)/ mBlendMargin;
+		ratio = 1-0.5*(1-cos(M_PI*ratio));
+		Eigen::VectorXd cur_p = p_v_target->GetPosition();
+
+		mPrevController->mCurrentFrame+= mAdaptiveStep;
+		Eigen::VectorXd prev_p = mPrevController->mReferenceManager->GetMotion(mPrevController->mCurrentFrame, true)->GetPosition();
+		Eigen::VectorXd p_new= DPhy::BlendPosition(prev_p, cur_p, ratio, true);
+		p_v_target->SetPosition(p_new);
 	}
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
@@ -283,6 +309,14 @@ Eigen::VectorXd MetaController::GetState()
 	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+param.rows());
 	state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, param;
 
+
+	if(cycle==1){
+		std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
+		std::cout<<"root_height : "<<root_height<<std::endl;
+		std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
+		std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
+		std::cout<<"param : "<<param.transpose()<<std::endl;
+	}
 	return state;
 	// if(isParametric) {
 	// 	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
@@ -349,9 +383,17 @@ void MetaController::Step()
 
 	// TODO : ALIGN / BLEND (if needed)
 	Motion* p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase, isAdaptive);
-	p_v_target->MultiplyRootTransform(mAlign);
+	p_v_target->MultiplyRootTransform(mAlign, false);
 	if(mPrevController!=nullptr && (mCurrentFrame - mCycleStartFrame) < mBlendMargin){
 		// TODO ; blend
+		double ratio = (mCurrentFrame- mCycleStartFrame)/ mBlendMargin;
+		ratio = 1-0.5*(1-cos(M_PI*ratio));
+		Eigen::VectorXd cur_p = p_v_target->GetPosition();
+		
+		// mPrevController->mCurrentFrame+= mAdaptiveStep;
+		Eigen::VectorXd prev_p = mPrevController->mReferenceManager->GetMotion(mPrevController->mCurrentFrame, true)->GetPosition();
+		Eigen::VectorXd p_new= DPhy::BlendPosition(prev_p, cur_p, ratio, true);
+		p_v_target->SetPosition(p_new);
 	}
 
 	this->mTargetPositions = p_v_target->GetPosition();
@@ -359,10 +401,10 @@ void MetaController::Step()
 	delete p_v_target;
 
 	p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase, false);
-	p_v_target->MultiplyRootTransform(mAlign);
-	if(mPrevController!=nullptr && (mCurrentFrame - mCycleStartFrame) < mBlendMargin){
-		// TODO ; blend
-	}
+	p_v_target->MultiplyRootTransform(mAlign, false);
+	// if(mPrevController!=nullptr && (mCurrentFrame - mCycleStartFrame) < mBlendMargin){
+	// 	// TODO ; blend
+	// }
 
 	this->mPDTargetPositions = p_v_target->GetPosition();
 	this->mPDTargetVelocities = p_v_target->GetVelocity();

@@ -8,29 +8,75 @@ using namespace dart::dynamics;
 namespace DPhy
 {
 
-void Motion::MultiplyRootTransform(Eigen::Isometry3d rt){
-
+void Motion::RotateAndTranslate(Eigen::Matrix3d R, Eigen::Vector3d T)
+{
 	Eigen::Isometry3d p = Eigen::Isometry3d::Identity();
-	// std::cout<<"original p: \n"<<p.linear()<<"\n"<<p.translation()<<std::endl;
 	p.linear() = dart::dynamics::BallJoint::convertToRotation(this->position.head<3>());
 	p.translation() = this->position.segment<3>(3);
 	
 	Eigen::Isometry3d v = Eigen::Isometry3d::Identity();
-	// std::cout<<"original v: \n"<<v.linear()<<"\n"<<v.translation()<<std::endl;
 	v.linear() = dart::dynamics::BallJoint::convertToRotation(this->velocity.head<3>());
 	v.translation() = this->position.segment<3>(3);
 	
-	p = rt * p;
-	v = rt * v;
+	p.linear() = R* p.linear();	
+	v.linear() = R* v.linear();	
 
-	// std::cout<<"transformed p: \n"<<p.linear()<<"\n"<<p.translation()<<std::endl;
-	// std::cout<<"transformed v: \n"<<v.linear()<<"\n"<<v.translation()<<std::endl;
+	p.translation() += T;
+	v.translation() = R*v.translation();
 
 	this->position.head<3>() = dart::dynamics::BallJoint::convertToPositions(p.linear());
 	this->position.segment<3>(3) = p.translation();
 
 	this->velocity.head<3>() = dart::dynamics::BallJoint::convertToPositions(v.linear());
 	this->velocity.segment<3>(3) = v.translation();
+
+}
+
+void Motion::MultiplyRootTransform(Eigen::Isometry3d rt, bool change_height){
+
+	if(!change_height) rt.translation()[1]= 0;
+	Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(this->position.head<6>());
+	T_current = rt*T_current;
+
+	this->position.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+
+	Eigen::Isometry3d V_current = dart::dynamics::FreeJoint::convertToTransform(this->velocity.head<6>());
+	V_current = rt*V_current;
+
+	this->velocity.head<3>() = dart::dynamics::FreeJoint::convertToPositions(V_current).head<3>();
+
+	// Eigen::Isometry3d p = Eigen::Isometry3d::Identity();
+	// p.linear() = dart::dynamics::BallJoint::convertToRotation(this->position.head<3>());
+	// p.translation() = this->position.segment<3>(3);
+	// std::cout<<std::endl;
+	// std::cout<<"original p: \n"<<p.linear()<<"\n"<<p.translation().transpose()<<std::endl;
+	
+
+	// Eigen::Isometry3d v = Eigen::Isometry3d::Identity();
+	// v.linear() = dart::dynamics::BallJoint::convertToRotation(this->velocity.head<3>());
+	// v.translation() = this->position.segment<3>(3);
+	// std::cout<<"original v: \n"<<v.linear()<<"\n"<<v.translation().transpose()<<std::endl;
+	
+	// double prev_p_h = p.translation()[1];
+	// double prev_v_h = v.translation()[1];
+
+	// p = rt * p;
+	// v = rt * v;
+
+	// std::cout<<"transformed p: \n"<<p.linear()<<"\n"<<p.translation().transpose()<<std::endl;
+	// std::cout<<"transformed v: \n"<<v.linear()<<"\n"<<v.translation().transpose()<<std::endl;
+
+	// if(!change_height){
+	// 	p.translation()[1] = prev_p_h; 
+	// 	v.translation()[1] = prev_v_h; 
+	// }
+
+	// this->position.head<3>() = dart::dynamics::BallJoint::convertToPositions(p.linear());
+	// this->position.segment<3>(3) = p.translation();
+
+	// this->velocity.head<3>() = dart::dynamics::BallJoint::convertToPositions(v.linear());
+	// this->velocity.segment<3>(3) = v.translation();
+
 }
 
 ReferenceManager::ReferenceManager(Character* character) 
@@ -760,15 +806,17 @@ GetRootTransform(double t, bool adaptive)
 {
 	Motion* m = this->GetMotion(t, adaptive);
 
-	Eigen::VectorXd p_save = mCharacter->GetSkeleton()->getPositions();
+	// Eigen::VectorXd p_save = mCharacter->GetSkeleton()->getPositions();
 
-	mCharacter->GetSkeleton()->setPositions(m->GetPosition());
-	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+	Eigen::Isometry3d T = dart::dynamics::FreeJoint::convertToTransform(m->GetPosition().head<6>());
 
-	Eigen::Isometry3d T =  mCharacter->GetSkeleton()->getBodyNode(0)->getWorldTransform();
+	// mCharacter->GetSkeleton()->setPositions(m->GetPosition());
+	// mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
 
-	mCharacter->GetSkeleton()->setPositions(p_save);
-	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+	// Eigen::Isometry3d T =  mCharacter->GetSkeleton()->getBodyNode(0)->getWorldTransform();
+
+	// mCharacter->GetSkeleton()->setPositions(p_save);
+	// mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
 
 	return T;
 }

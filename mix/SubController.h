@@ -47,7 +47,7 @@ public:
 
 	bool virtual IsTerminalState()=0;
 	bool virtual Step()=0;
-	void virtual reset(double frameOnPhase=0)=0;
+	void virtual reset(double frame=0, double frameOnPhase=0)=0;
 	void virtual setCurObject(dart::dynamics::SkeletonPtr object){mCurObject = object;}
 
 	Eigen::VectorXd GetParamGoal(){return mParamGoal;}
@@ -57,6 +57,9 @@ public:
 	bool mUseReg= false;
 
 	dart::dynamics::SkeletonPtr mCurObject;
+
+	double mCurrentFrame;
+	double mCurrentFrameOnPhase;
 };
 
 
@@ -70,7 +73,7 @@ public:
 
 	bool virtual IsTerminalState();
 	bool virtual Step();
-	void virtual reset(double frameOnPhase=0);
+	void virtual reset(double frame=0,double frameOnPhase=0);
 };
 
 
@@ -82,7 +85,7 @@ public:
 
 	bool virtual IsTerminalState();
 	bool virtual Step();
-	void virtual reset(double frameOnPhase=0);
+	void virtual reset(double frame=0,double frameOnPhase=0);
 
 
 	dart::constraint::BallJointConstraintPtr leftHandConstraint= nullptr;

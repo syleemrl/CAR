@@ -114,8 +114,12 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
 		mObject  = new DPhy::Character(path);
 		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-
 	}
+	#ifdef OBJECT_TYPE
+		path = std::string(CAR_DIR)+std::string("/character/")+OBJECT_TYPE+std::string(".xml");
+		mObject  = new DPhy::Character(path);
+		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	#endif
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -1008,6 +1012,13 @@ GetState()
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
 	}
+
+		std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
+		std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
+		std::cout<<"root_height : "<<root_height<<std::endl;
+		std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
+		// std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
+		std::cout<<"param : "<<mParamGoal.transpose()<<std::endl;
 
 	return state;
 }
