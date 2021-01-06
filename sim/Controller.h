@@ -169,6 +169,7 @@ protected:
 
 	int mCountParam;
 	int mCountTracking;
+	int mCountSlide;
 
 	Eigen::Vector3d mGravity;
 	double mMass;
@@ -183,7 +184,7 @@ protected:
 	Eigen::VectorXd mSumTorque;
 	Eigen::Vector3d stickLeftFoot;
 	Eigen::Vector3d stickRightFoot;
-	int mCountSlide;
+
 	double mParamRewardMax;
 
 /////////////////////////////////////////////////

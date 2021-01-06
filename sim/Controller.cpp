@@ -194,7 +194,7 @@ Step()
 				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
 				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
 				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-				double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+				double torquelim = mCharacter->GetTorqueLimit(name);
 				double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
 				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
@@ -211,7 +211,7 @@ Step()
 		}
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
-	if(isAdaptive && mCurrentFrameOnPhase >= 16.5 && mControlFlag[0] == 0) {
+	if(isAdaptive && mCurrentFrameOnPhase >= 17 && mControlFlag[0] == 0) {
 		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
 		rot = projectToXZ(rot);		
 		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
@@ -277,7 +277,6 @@ Step()
 			mTrackingRewardTrajectory /= mCountTracking;
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
-
 			mFitness.sum_slide /= mCountSlide;
 
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
@@ -295,9 +294,13 @@ Step()
 			mControlFlag.setZero();
 			mCountParam = 0;
 			mCountTracking = 0;
+			mCountSlide = 0;
 			
 			maxSpeedObj = 0;
 			mHandPosition.setZero();
+
+			stickRightFoot = 0.5 * mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+			stickRightFoot += 0.5 * mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();	
 		}
 	}
 	if(isAdaptive) {
@@ -338,6 +341,7 @@ SaveStepInfo()
 {
 	mRecordBVHPosition.push_back(mReferenceManager->GetPosition(mCurrentFrame, false));
 	mRecordTargetPosition.push_back(mTargetPositions);
+	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mRecordVelocity.push_back(mCharacter->GetSkeleton()->getVelocities());
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
@@ -366,6 +370,7 @@ ClearRecord()
 
 	mCountParam = 0;
 	mCountTracking = 0;
+	mCountSlide = 0;
 
 	while(!mPosQueue.empty())
 		mPosQueue.pop();
@@ -567,6 +572,33 @@ GetSimilarityReward()
 		}
 	}
 
+	double footSlide = 0;
+
+	if(mCurrentFrameOnPhase <= 10) {
+		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		rf /= 2.0;
+		Eigen::VectorXd foot_diff(3);
+		foot_diff << rf - stickRightFoot;
+		foot_diff(1) = 0;
+		footSlide += foot_diff.dot(foot_diff);
+		mCountSlide += 1;
+	} else if(mCurrentFrameOnPhase < 14) {
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		lf /= 2.0;
+		
+		stickLeftFoot = lf;
+	} else if(mCurrentFrameOnPhase >= 14 && mCurrentFrameOnPhase <= 32) {
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		lf /= 2.0;
+		Eigen::VectorXd foot_diff(3);
+		foot_diff << lf - stickLeftFoot;
+		foot_diff(1) = 0;
+		footSlide += foot_diff.dot(foot_diff);
+		mCountSlide += 1;
+	} 
 
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
@@ -577,6 +609,7 @@ GetSimilarityReward()
 	mFitness.sum_contact += con_diff;
 	mFitness.sum_pos += p_diff.dot(p_diff) / p_diff.rows();
 	mFitness.sum_vel += v_diff.dot(v_diff) / v_diff.rows();
+	mFitness.sum_slide += footSlide;
 
 	return exp(-r_con)  * r_p * r_ee;
 }
@@ -821,8 +854,7 @@ Reset(bool RSI)
 		mFitness.sum_contact = 0;
 		mFitness.sum_pos = 0;
 		mFitness.sum_vel = 0;
-		mFitness.sum_pos_threshold = 0;
-		mFitness.sum_pos_threshold = 0;
+		mFitness.sum_slide = 0;
 		mFitness.sum_reward = 0;
 
 	}
@@ -871,6 +903,9 @@ Reset(bool RSI)
 	
 	mPrevFrame = mCurrentFrame;
 	mPrevFrame2 = mPrevFrame;
+
+	stickRightFoot = 0.5 * mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+	stickRightFoot += 0.5 * mCharacter->GetSkeleton()->getBodyNode("RightToe")->getWorldTransform().translation();
 	
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(0);
