@@ -194,7 +194,7 @@ Step()
 				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
 				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
 				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-				double torquelim = mCharacter->GetTorqueLimit(name);
+				double torquelim = mCharacter->GetTorqueLimit(name)*1.5;
 				double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
 				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
@@ -211,12 +211,14 @@ Step()
 		}
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
-	if(isAdaptive && mCurrentFrameOnPhase >= 17 && mControlFlag[0] == 0) {
+	if(isAdaptive && mCurrentFrameOnPhase >= 17.5 && mControlFlag[0] == 0) {
+		mHandPosition = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
+
 		Eigen::Vector3d rot = QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
 		rot = projectToXZ(rot);		
 		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
 		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::Vector3d delta(0.065 + 0.15 + 0.02, 0 , 0.02);
+		Eigen::Vector3d delta(0.065 + 0.15 + 0.01, 0 , 0.01);
 		delta = obj_dir * delta;
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 			
@@ -245,9 +247,6 @@ Step()
 		mControlFlag[0] = 1;
 
 	} else if(isAdaptive && mControlFlag[0] == 1) {
-		mHandPosition = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-
-
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		p_obj.setZero();
 		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
@@ -570,6 +569,14 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx + 3) *= 3;
 			v_diff.segment<3>(idx + 3) *= 3;
 		}
+		if(name.compare("RightArm") == 0 ||
+		   name.compare("RightForeArm") == 0 || 
+		   name.compare("RightHand") == 0) {
+		   	if(mCurrentFrameOnPhase >= 18) {
+				p_diff.segment<3>(idx) *= 3;
+				v_diff.segment<3>(idx) *= 3;
+		   	}
+		}
 	}
 
 	double footSlide = 0;
@@ -636,7 +643,7 @@ GetParamReward()
 		r_param = r_h * r_v;
 		mFitness.sum_reward = r_h;	
 	
-		if(r_h > 0.5)
+		if(r_h > 0.6)
 			mParamCur(0) = maxSpeedObj;
 		else
 			mParamCur(0) = -1;

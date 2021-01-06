@@ -930,6 +930,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	double f_baseline = GetParamReward(Denormalize(mParamBVH->param_normalized), p_goal);
 	std::vector<std::pair<double, Param*>> ps_elite;
 	double r = 0;
+	
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*ps[i].second->reward;
