@@ -268,6 +268,32 @@ Eigen::VectorXd MetaController::GetState()
 	// p.resize(p_save.rows()-6);
 	// p = p_save.tail(p_save.rows()-6);
 
+	// TODO: align "v" and "p_next" by rotation 
+	v = v_save;
+	if(mCurrentController== mSubControllers["FW_JUMP"]){
+		Eigen::Isometry3d rt= (mRef2 == nullptr)? mAlign1.inverse() : mAlign2.inverse();
+
+		Eigen::VectorXd p_rotate(p_save.rows()); p_rotate = p_save;
+		Eigen::VectorXd p_next_rotate(p_save.rows()); p_next_rotate = DPhy::addDiff(p_save, v_save);
+
+		rt.translation()[1]= 0;
+
+		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(p_rotate.head<6>());
+		T_current = rt*T_current;
+		p_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+
+		T_current = dart::dynamics::FreeJoint::convertToTransform(p_next_rotate.head<6>());
+		T_current = rt*T_current;
+		p_next_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+
+		v = skel->getPositionDifferences(p_next_rotate, p_rotate)/0.0333;
+		
+		skel->setPositions(p_rotate);
+		skel->setVelocities(v);
+		skel->computeForwardKinematics(true, true, false);
+	}
+
+
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	int num_p = (n_bnodes - 1) * 6;
 	p.resize(num_p);
@@ -279,7 +305,7 @@ Eigen::VectorXd MetaController::GetState()
 								 transform.linear()(1,0), transform.linear()(1,1), transform.linear()(1,2);
 	}
 
-	v = v_save;
+	//v= v_save;
 
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	Eigen::Isometry3d cur_root_inv = root->getWorldTransform().inverse();
@@ -312,11 +338,17 @@ Eigen::VectorXd MetaController::GetState()
 	// if(cycle==1){
 		std::cout<<"t: "<<t<<std::endl;
 		std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
+		std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
 		std::cout<<"root_height : "<<root_height<<std::endl;
 		std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
 		std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
 		std::cout<<"param : "<<param.transpose()<<std::endl;
 	// }
+
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true, true, false);
+
 	return state;
 	// if(isParametric) {
 	// 	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
@@ -523,7 +555,6 @@ void MetaController::UpdateTerminalInfo()
 }
 
 
-
 Eigen::VectorXd 
 MetaController::
 GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd vel) {
@@ -536,8 +567,34 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-	skel->setPositions(pos);
-	skel->setVelocities(vel);
+
+	Eigen::VectorXd new_pos = pos;
+	Eigen::VectorXd new_vel = vel;
+
+	if(mCurrentController == mSubControllers["FW_JUMP"]){
+		Eigen::Isometry3d rt= (mRef2 == nullptr)? mAlign1.inverse() : mAlign2.inverse();
+
+		Eigen::VectorXd p_rotate(pos.rows()); p_rotate = new_pos;
+		Eigen::VectorXd p_next_rotate(pos.rows()); p_next_rotate = DPhy::addDiff(pos, new_vel);
+
+		rt.translation()[1]= 0;
+
+		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(p_rotate.head<6>());
+		T_current = rt*T_current;
+		p_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+
+		T_current = dart::dynamics::FreeJoint::convertToTransform(p_next_rotate.head<6>());
+		T_current = rt*T_current;
+		p_next_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+
+		new_pos = p_rotate;
+		new_vel = skel->getPositionDifferences(p_next_rotate, p_rotate)/0.0333;
+
+		cur_root_inv = rt*cur_root_inv;
+	}
+
+	skel->setPositions(new_pos);
+	skel->setVelocities(new_vel);
 	skel->computeForwardKinematics(true, true, false);
 
 	ret.resize((num_ee)*12+15);
@@ -558,7 +615,7 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	for(int i=0;i<num_ee;i++)
 	{
 	    int idx = skel->getBodyNode(mEndEffectors[i])->getParentJoint()->getIndexInSkeleton(0);
-		ret.segment<3>(9*num_ee + 3*i) << vel.segment<3>(idx);
+		ret.segment<3>(9*num_ee + 3*i) << new_vel.segment<3>(idx);
 //	    ret.segment<3>(6*num_ee + 3*i) << vel.segment<3>(idx);
 
 	}

@@ -1015,6 +1015,7 @@ GetState()
 
 		std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
 		std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
+		std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
 		std::cout<<"root_height : "<<root_height<<std::endl;
 		std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
 		// std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;

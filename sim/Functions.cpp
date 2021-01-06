@@ -461,20 +461,16 @@ Eigen::VectorXd addDiff(Eigen::VectorXd pos, Eigen::VectorXd diff){
 	Eigen::VectorXd result(pos.rows());
 	result = pos;
 
-	for(int i = 0; i < result.size(); i += 3) {
-		if (i == 3) {
-			result.segment<3>(i) += diff.segment<3>(i);
-		} else {
-			Eigen::AngleAxisd v1_aa(pos.segment<3>(i).norm(), pos.segment<3>(i).normalized());
-			Eigen::AngleAxisd v2_aa(diff.segment<3>(i).norm(), diff.segment<3>(i).normalized());
-					
-			Eigen::Quaterniond v1_q(v1_aa);
-			Eigen::Quaterniond v2_q(v2_aa);
+	Eigen::Isometry3d T= dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+	Eigen::Isometry3d Tnext = T * dart::dynamics::FreeJoint::convertToTransform(diff.head<6>()*0.0333);
+	result.head<6>() = dart::dynamics::FreeJoint::convertToPositions(Tnext);
 
-			Eigen::Quaterniond res_q = v1_q*v2_q;
-			result.segment<3>(i) = QuaternionToDARTPosition(res_q); 
-			// result.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(weight, v2_q)); 
-		}
+	for(int i = 6; i < result.size(); i += 3) {
+
+		Eigen::Matrix3d R= dart::dynamics::BallJoint::convertToRotation(pos.segment<3>(i));
+		Eigen::Matrix3d Rnext = R * dart::dynamics::BallJoint::convertToRotation(diff.segment<3>(i) * 0.0333);
+
+		result.segment<3>(i) = dart::dynamics::BallJoint::convertToPositions(Rnext);
 	}
 	return result;
 }
