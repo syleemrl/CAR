@@ -78,8 +78,8 @@ bool FW_JUMP_Controller::IsTerminalState()
 void FW_JUMP_Controller::reset(double frame, double frameOnPhase)
 {
 	//TODO
-	this->mCurrentFrame = frame;
-	this->mCurrentFrameOnPhase = frameOnPhase;
+	// this->mCurrentFrame = frame;
+	// this->mCurrentFrameOnPhase = frameOnPhase;
 
 }
 
@@ -87,8 +87,8 @@ bool FW_JUMP_Controller::Step()
 {
 	//TODO
 	
-	this->mCurrentFrame += mMC->mAdaptiveStep;
-	this->mCurrentFrameOnPhase += mMC->mAdaptiveStep;
+	// this->mCurrentFrame += mMC->mAdaptiveStep;
+	// this->mCurrentFrameOnPhase += mMC->mAdaptiveStep;
 
 }
 //////////////////////////////////// WALL_JUMP ////////////////////////////////////

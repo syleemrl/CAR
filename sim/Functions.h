@@ -74,6 +74,11 @@ Eigen::Vector3d projectToXZ(Eigen::Vector3d v);
 
 std::vector<std::string> split(const std::string &s, char delim);
 Eigen::MatrixXd getPseudoInverse(Eigen::MatrixXd m);
+
+void MultiplyRootTransform(Eigen::VectorXd& position, Eigen::Isometry3d rt, bool change_height);
+Eigen::VectorXd scaleDiff(Eigen::VectorXd diff, double weight, bool blend_rootpos);
+Eigen::VectorXd addDiff(Eigen::VectorXd pos, Eigen::VectorXd diff);
+
 }
 
 #endif

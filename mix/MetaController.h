@@ -100,7 +100,6 @@ public:
 
 	std::vector<double> mTiming;
 
-
 	DPhy::ReferenceManager* GetCurrentRefManager(){return mCurrentController->mReferenceManager;}
 	DPhy::ReferenceManager* GetPrevRefManager(){return mPrevController->mReferenceManager;}
 
@@ -108,8 +107,19 @@ public:
 	bool scenario_done= false;
 	Eigen::Isometry3d mAlign = Eigen::Isometry3d::Identity();
 
-	int mBlendMargin = 8;
+	int mBlendMargin = 3;
 	int mCycleStartFrame = 0;
+
+
+	DPhy::ReferenceManager* mRef1;
+	DPhy::ReferenceManager* mRef2;
+	double mTime1;
+	double mTime2;
+	Eigen::Isometry3d mAlign1;
+	Eigen::Isometry3d mAlign2;
+	int mBlendStep;
+
+	Motion* GetMotion(double t, bool isAdaptive);
 
 };
 } // end namespace DPhy

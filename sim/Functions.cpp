@@ -448,6 +448,37 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b
 
 	return result;
 }
+
+Eigen::VectorXd scaleDiff(Eigen::VectorXd diff, double weight, bool blend_rootpos){
+	
+	Eigen::VectorXd zero_diff(diff.rows());
+	zero_diff.setZero();	
+
+	return BlendPosition(zero_diff, diff, weight, blend_rootpos);
+}
+
+Eigen::VectorXd addDiff(Eigen::VectorXd pos, Eigen::VectorXd diff){
+	Eigen::VectorXd result(pos.rows());
+	result = pos;
+
+	for(int i = 0; i < result.size(); i += 3) {
+		if (i == 3) {
+			result.segment<3>(i) += diff.segment<3>(i);
+		} else {
+			Eigen::AngleAxisd v1_aa(pos.segment<3>(i).norm(), pos.segment<3>(i).normalized());
+			Eigen::AngleAxisd v2_aa(diff.segment<3>(i).norm(), diff.segment<3>(i).normalized());
+					
+			Eigen::Quaterniond v1_q(v1_aa);
+			Eigen::Quaterniond v2_q(v2_aa);
+
+			Eigen::Quaterniond res_q = v1_q*v2_q;
+			result.segment<3>(i) = QuaternionToDARTPosition(res_q); 
+			// result.segment<3>(i) = QuaternionToDARTPosition(v1_q.slerp(weight, v2_q)); 
+		}
+	}
+	return result;
+}
+
 Eigen::VectorXd BlendVelocity(Eigen::VectorXd target_a, Eigen::VectorXd target_b, double weight) {
 
 	Eigen::VectorXd result(target_a.rows());
@@ -964,8 +995,8 @@ Eigen::Matrix3d projectToXZ(Eigen::Matrix3d m) {
 	Eigen::Matrix3d result;
 	result = nearest_aa;
 	return result;
-
 }
+
 Eigen::Vector3d projectToXZ(Eigen::Vector3d v) {
 
 	Eigen::Vector3d nearest = DPhy::NearestOnGeodesicCurve3d(Eigen::Vector3d(0, 1, 0), Eigen::Vector3d(0, 0, 0), v);
@@ -989,4 +1020,19 @@ Eigen::MatrixXd getPseudoInverse(Eigen::MatrixXd m){
 	Eigen::MatrixXd inv = svd.matrixV()*inv_singular_value*svd.matrixU().transpose();
 	return inv;
 }
+
+void MultiplyRootTransform(Eigen::VectorXd& position, Eigen::Isometry3d rt, bool change_height){
+
+	if(!change_height) rt.translation()[1]= 0;
+	Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(position.head<6>());
+
+	// std::cout<<T_current.translation().transpose()<<" , ";
+	T_current = rt*T_current;
+	// std::cout<<T_current.translation().transpose()<<std::endl;
+	
+	position.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+
+}
+
+
 }

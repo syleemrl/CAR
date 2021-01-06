@@ -12,6 +12,7 @@
 
 namespace DPhy
 {
+
 struct Fitness
 {
 	double sum_contact;
@@ -46,6 +47,9 @@ protected:
 	Eigen::VectorXd velocity;
 
 };
+
+// Motion* BlendMotion(Motion* m1, Motion* m2, double ratio);
+
 class ReferenceManager
 {
 public:

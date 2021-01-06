@@ -8,6 +8,12 @@ using namespace dart::dynamics;
 namespace DPhy
 {
 
+// Motion* BlendMotion(Motion* m1, Motion* m2, double ratio)
+// {
+// 	Motion* m = new Motion();
+// 	m->SetPosition(BlendPosition(m1->GetPosition(), m2->GetPosition(), ratio));
+// }
+
 void Motion::RotateAndTranslate(Eigen::Matrix3d R, Eigen::Vector3d T)
 {
 	Eigen::Isometry3d p = Eigen::Isometry3d::Identity();
@@ -36,10 +42,15 @@ void Motion::MultiplyRootTransform(Eigen::Isometry3d rt, bool change_height){
 
 	if(!change_height) rt.translation()[1]= 0;
 	Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(this->position.head<6>());
-	T_current = rt*T_current;
 
+	// std::cout<<T_current.translation().transpose()<<" , ";
+	T_current = rt*T_current;
+	// std::cout<<T_current.translation().transpose()<<std::endl;
+	
 	this->position.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
 
+
+	//TODO
 	Eigen::Isometry3d V_current = dart::dynamics::FreeJoint::convertToTransform(this->velocity.head<6>());
 	V_current = rt*V_current;
 
