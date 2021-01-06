@@ -188,18 +188,10 @@ protected:
 
 /////////////////////////////////////////////////
 // for action parameter design
-	double mVelocity;
-	Eigen::Vector3d mMomentum;
-	double mCondiff;
-	double mCountContact;
-	Eigen::Vector3d mMaxCOM;
-
-	Eigen::Vector3d mPrevLF;
-	Eigen::Vector3d mPrevRF;
-
-	Eigen::Vector3d mPrevLF_bvh;
-	Eigen::Vector3d mPrevRF_bvh;
-	double mPrevHeight;
+	Eigen::Vector3d mHandPosition;
+	Eigen::Vector6d mHeadRoot;
+	double mCountHead;
+	double maxSpeedObj;
 //////////////////////////////////////////////////
 };
 }
