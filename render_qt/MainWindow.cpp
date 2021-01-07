@@ -103,6 +103,9 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     checkboxlayout->addWidget(checkbox);
 
     checkboxlayout->addStretch(1);
+    checkbox = new QCheckBox("follow character", this);
+    connect(checkbox, SIGNAL(clicked(bool)), mMotionWidget, SLOT(toggleCamera())); 
+    checkboxlayout->addWidget(checkbox);
 
     motionlayout->addLayout(checkboxlayout);
     motionlayout->addWidget(mMotionWidget);
@@ -135,6 +138,10 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     button = new QPushButton("save", this);
     connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Save())); 
     buttonlayout->addWidget(button);    
+
+    button = new QPushButton("screenshot", this);
+    connect(button, SIGNAL(clicked(bool)), this, SLOT(SaveScreenshot())); 
+    buttonlayout->addWidget(button);  
     buttonlayout->addStretch(1);
 
     motionlayout->addLayout(buttonlayout);

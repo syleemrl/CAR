@@ -44,6 +44,7 @@ public slots:
 	void toggleDrawSim();
 	void toggleDrawReg();
 	void toggleDrawExp();
+	void toggleCamera();
 
 protected:
 	void initializeGL() override;	

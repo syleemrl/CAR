@@ -30,7 +30,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
-	path = std::string(CAR_DIR)+std::string("/character/box.xml");
+	path = std::string(CAR_DIR)+std::string("/character/sandbag.xml");
 	mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	
 	if(ppo == "") {
@@ -106,7 +106,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
 
-	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(230./255., 240./255., 247./255., 1.0));
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
@@ -442,7 +442,29 @@ paintGL()
 
 	initLights();
 	glEnable(GL_LIGHTING);
+	if(this->mTrackCamera){
 
+		Eigen::Vector3d com;
+		Eigen::Isometry3d transform; 
+		if(mRunSim) {
+			com = mSkel_sim->getRootBodyNode()->getCOM();
+			transform = mSkel_sim->getRootBodyNode()->getTransform();
+		} else if(mRunReg) {
+			com = mSkel_exp->getRootBodyNode()->getCOM();
+			transform = mSkel_exp->getRootBodyNode()->getTransform();
+		} else {
+			com = mSkel_bvh->getRootBodyNode()->getCOM();
+			transform = mSkel_bvh->getRootBodyNode()->getTransform();
+		}
+		com[1] = 0.65;
+
+		Eigen::Vector3d camera_pos;
+		camera_pos << -3, 1, 1.5;
+		camera_pos = camera_pos + com;
+		camera_pos[1] = 2;
+
+		mCamera->SetCenter(com);
+	}
 	mCamera->Apply();
 
 	DrawGround();
@@ -467,17 +489,20 @@ initLights()
 	GLfloat position[] = {0.0, 1.0, 1.0, 0.0};
 	GLfloat position1[] = {0.0, 1.0, -1.0, 0.0};
 
+	GLfloat position2[] = {1.0, 1.0, 0.0, 0.0};
+	GLfloat position3[] = {-1.0, 1.0, 0.0, 0.0};
+
 	glEnable(GL_LIGHT0);
 	glLightfv(GL_LIGHT0, GL_AMBIENT,  ambient);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE,  diffuse);
-	glLightfv(GL_LIGHT0, GL_POSITION, position);
+	glLightfv(GL_LIGHT0, GL_POSITION, position2);
 
 	glLightModelfv(GL_LIGHT_MODEL_AMBIENT,  lmodel_ambient);
 	glLightModelfv(GL_LIGHT_MODEL_TWO_SIDE, lmodel_twoside);
 
 	glEnable(GL_LIGHT1);
 	glLightfv(GL_LIGHT1, GL_DIFFUSE, diffuse);
-	glLightfv(GL_LIGHT1, GL_POSITION, position1);
+	glLightfv(GL_LIGHT1, GL_POSITION, position3);
 	glEnable(GL_LIGHTING);
 	glEnable(GL_COLOR_MATERIAL);
 
@@ -642,6 +667,11 @@ Reset()
 {
 	this->mCurFrame = 0;
 	this->SetFrame(this->mCurFrame);
+}
+void 
+MotionWidget::
+toggleCamera() {
+	mTrackCamera =!mTrackCamera;
 }
 void 
 MotionWidget::

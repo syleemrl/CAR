@@ -645,7 +645,7 @@ UniformSample(int visited) {
 	while(1) {
 		Eigen::VectorXd p(mDim);
 		for(int i = 0; i < mDim; i++) {
-			p(i) = mUniform(mMT);
+			p(i) = 0.1 * mUniform(mMT);
 		}
 		
 		// r = std::floor(r * mGridMap.size());
@@ -764,7 +764,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	double prev_max = 0;
 	bool flag = true;
 
-	double update_max = 5;
+	double update_max = 10;
 	std::vector<std::pair<Eigen::VectorXd, std::vector<Param*>>> to_be_deleted;
 	for(int i = 0 ; i < checklist.size(); i++) {
 		auto iter = mGridMap.find(checklist[i]);
@@ -783,7 +783,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 						prev_max = ps[j]->reward;
 					if(ps[j]->reward < std::get<2>(candidate)) {
 						p_delete.push_back(ps[j]);
-						if(update_max < ps[j]->update || update_max == 5)
+						if(update_max < ps[j]->update || update_max == 10)
 							update_max = ps[j]->update;
 					} else {
 						flag = false;
