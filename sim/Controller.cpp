@@ -194,6 +194,21 @@ Step()
 			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
+			
+			// Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			// for(int j = 0; j < num_body_nodes; j++) {
+			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			// 	double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			
+			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			// }
+
+			// mCharacter->GetSkeleton()->setForces(torque);
+			// mWorld->step(false);	
+
 			mSumTorque += torque.cwiseAbs();
 		}
 
@@ -808,6 +823,10 @@ Reset(bool RSI)
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
+
+				std::cout<<p_v_target->GetPosition().transpose()<<std::endl<<std::endl;
+			std::cout<<p_v_target->GetVelocity().transpose()<<std::endl<<std::endl;
+
 	delete p_v_target;
 
 	this->mPDTargetPositions = mTargetPositions;
@@ -1013,13 +1032,21 @@ GetState()
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
 	}
 
+	if(mCurrentFrame< 1){
 		std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
-		std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
-		std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
+		std::cout<<"p: "<<p.transpose()<<std::endl;
+		std::cout<<"v: "<<v.transpose()<<std::endl;
+		std::cout<<"up-vec: "<<up_vec_angle<<std::endl;
+		std::cout<<p_next.transpose()<<std::endl;
+		// std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
+		// std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
 		std::cout<<"root_height : "<<root_height<<std::endl;
 		std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
 		// std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
+		std::cout<<"ee: "<<ee.transpose()<<std::endl;
 		std::cout<<"param : "<<mParamGoal.transpose()<<std::endl;
+
+	}
 
 	return state;
 }

@@ -121,6 +121,11 @@ public:
 
 	Motion* GetMotion(double t, bool isAdaptive);
 
+	int control_mode = 0; 
+	// 0: single controller
+	// 1: 1->2 (1)
+	// 2: 1->2(2)
+
 };
 } // end namespace DPhy
 

@@ -119,8 +119,9 @@ void WALL_JUMP_Controller::reset(double frame, double frameOnPhase){
 
 bool WALL_JUMP_Controller::Step()
 {
-	this->mCurrentFrame += mMC->mAdaptiveStep;
-	this->mCurrentFrameOnPhase += mMC->mAdaptiveStep;
+	// this->mCurrentFrame += mMC->mAdaptiveStep;
+	// this->mCurrentFrameOnPhase += mMC->mAdaptiveStep;
+	this->mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
 	
 	if(mCurrentFrameOnPhase >=27 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
@@ -135,17 +136,18 @@ void WALL_JUMP_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	std::string hand = (left) ? "LeftHand" : "RightHand";
 	dart::dynamics::BodyNodePtr hand_bn = mMC->mCharacter->GetSkeleton()->getBodyNode(hand);
 	dart::dynamics::BodyNodePtr bar_bn = this->mCurObject->getBodyNode("Jump_Box");
-	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
+	Eigen::Vector3d jointPos = hand_bn->getWorldTransform() * offset;
 
 	Eigen::VectorXd mParamGoal = mReferenceManager->GetParamGoal();
 	std::cout<<"mParamGoal; "<<mParamGoal.transpose()<<std::endl;
 	double obj_height = mParamGoal[0];
-	Eigen::Vector2d diff_middle (jointPos[1]-obj_height, jointPos[2]-3.6);
+	Eigen::Vector3d middle = bar_bn->getWorldTransform()*Eigen::Vector3d(0, 0.45, 0);
+	Eigen::Vector2d diff_middle (jointPos[1]-middle[1], jointPos[2]-middle[2]);
 	double distance = diff_middle.norm();
 
-	std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<std::endl;
+	std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<"/ middle:"<<middle.transpose()<<std::endl;
 
-	if(distance > 0.07 || jointPos[2] < 3.5 || jointPos[2] > 3.7 || jointPos[1] > (obj_height+0.05) ) return;
+	if(distance > 0.1 || jointPos[2] < (middle[2]-0.1) || jointPos[2] > (middle[2]+0.1) || jointPos[1] > (obj_height+0.05) ) return;
 
 	// mParamCur[0]= mParamGoal[0];
 

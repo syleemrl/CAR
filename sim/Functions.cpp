@@ -449,6 +449,7 @@ Eigen::VectorXd BlendPosition(Eigen::VectorXd target_a, Eigen::VectorXd target_b
 	return result;
 }
 
+
 Eigen::VectorXd scaleDiff(Eigen::VectorXd diff, double weight, bool blend_rootpos){
 	
 	Eigen::VectorXd zero_diff(diff.rows());
@@ -462,13 +463,13 @@ Eigen::VectorXd addDiff(Eigen::VectorXd pos, Eigen::VectorXd diff){
 	result = pos;
 
 	Eigen::Isometry3d T= dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
-	Eigen::Isometry3d Tnext = T * dart::dynamics::FreeJoint::convertToTransform(diff.head<6>()*0.0333);
+	Eigen::Isometry3d Tnext = T * dart::dynamics::FreeJoint::convertToTransform(diff.head<6>()*0.033);
 	result.head<6>() = dart::dynamics::FreeJoint::convertToPositions(Tnext);
 
 	for(int i = 6; i < result.size(); i += 3) {
 
 		Eigen::Matrix3d R= dart::dynamics::BallJoint::convertToRotation(pos.segment<3>(i));
-		Eigen::Matrix3d Rnext = R * dart::dynamics::BallJoint::convertToRotation(diff.segment<3>(i) * 0.0333);
+		Eigen::Matrix3d Rnext = R * dart::dynamics::BallJoint::convertToRotation(diff.segment<3>(i) * 0.033);
 
 		result.segment<3>(i) = dart::dynamics::BallJoint::convertToPositions(Rnext);
 	}

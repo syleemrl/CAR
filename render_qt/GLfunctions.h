@@ -40,6 +40,7 @@ namespace GUI
 	void DrawGround(int com_x, int com_z, double ground_height);
 	void DrawTrajectory(const std::vector<Eigen::Vector3d> points, const int idx, const Eigen::Vector3d& color = Eigen::Vector3d(1.0,0.0,0.0), bool line=true);
 	void DrawForces(const std::vector<Eigen::VectorXd> forces, const Eigen::Vector3d& color = Eigen::Vector3d(1.0,0.0,0.0));
+	void DrawCoordinate(Eigen::Vector3d center);
 
 };
 

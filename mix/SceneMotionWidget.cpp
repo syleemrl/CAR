@@ -94,6 +94,7 @@ SceneMotionWidget::
 DrawGround()
 {
 	GUI::DrawGround(0, 0, 0);
+	GUI::DrawCoordinate(Eigen::Vector3d(0, 0.05, 0));
 	// Eigen::Vector3d com_root;
 	// com_root = this->mSkel_bvh->getRootBodyNode()->getCOM();
 	// if(mRunReg) {

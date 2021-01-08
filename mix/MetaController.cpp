@@ -66,12 +66,13 @@ MetaController::MetaController(std::string ctrl, std::string scene_obj, std::str
 	if(scenario != ""){
 		//TODO
 	}else{
-		mCurrentController= mSubControllers["WALL_JUMP"];
+		mCurrentController= mSubControllers["FW_JUMP"];
 	}
 	mPrevController = nullptr;
 
 	mSubControllers["WALL_JUMP"]->mParamGoal= mSubControllers["WALL_JUMP"]->mReferenceManager->GetParamGoal();
 	mSubControllers["FW_JUMP"]->mParamGoal= mSubControllers["FW_JUMP"]->mReferenceManager->GetParamGoal();
+
 
 	mRef1 = mCurrentController->mReferenceManager;
 	mTime1 = 0;
@@ -94,15 +95,29 @@ void MetaController::reset()
 
 	bool isAdaptive = true;
 	this->mCurrentFrame = 0; 
-	this->mCurrentFrameOnPhase = this->mCurrentFrame;
+	this->mCurrentFrameOnPhase = 0;
+	this->mTime1 = mCurrentFrame;
 
 	// this->mStartFrame = this->mCurrentFrame;
 	// this->nTotalSteps = 0;
 	this->mTimeElapsed = 0;
 
 	Motion* p_v_target;
-	// p_v_target = GetCurrentRefManager()->GetMotion(mCurrentFrameOnPhase, isAdaptive);
 	p_v_target = GetMotion(0, true);
+
+	// std::cout<<p_v_target->GetPosition().transpose()<<std::endl<<std::endl;
+	// std::cout<<p_v_target->GetVelocity().transpose()<<std::endl;
+
+
+	// Eigen::VectorXd new_p = p_v_target->GetPosition();
+	// new_p.tail<40>().setZero();
+
+	// Eigen::VectorXd new_v = p_v_target->GetPosition();
+	// new_v.tail<40>().setZero();
+
+	// p_v_target->SetPosition(new_p);
+	// p_v_target->SetVelocity(new_v);
+
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;
@@ -128,7 +143,7 @@ void MetaController::reset()
 	mPrevFrame2 = mPrevFrame;
 	
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
-	mTimeQueue.push(0);
+	mTimeQueue.push(mCurrentFrame);
 	mAdaptiveStep = 1;
 
 	mTiming= std::vector<double>();
@@ -140,11 +155,18 @@ void MetaController::reset()
 void MetaController::runScenario(){
 	//TODO
 	std::cout<<"mCurrent Controller Type : "<<mCurrentController->mType<<std::endl;
-	mCurrentController->setCurObject(mSceneObjects[0]);
-	
-	// int cycle= 0;
+
+	// mCurrentController= mSubControllers["FW_JUMP"];
+	// mRef1 = mCurrentController->mReferenceManager;
+	// mAlign1 = Eigen::Isometry3d::Identity();
+
+	// mAlign1.linear()<<  -0.978497,  6.93889e-18 , 0.206261,
+	// 		-1.38778e-17,           1  ,     0,
+	// 	   -0.206261,   2.1684e-17,    -0.978497;
+ //    mAlign1.translation() = Eigen::Vector3d(1.11078, -0.00937659 , 2.19823);
 
 	this->reset();
+
 	while(! IsTerminalState()){
 
 		std::cout<<"\n@ "<<mTime1;
@@ -157,41 +179,131 @@ void MetaController::runScenario(){
 		Eigen::VectorXd action = DPhy::toEigenVector(na,this->GetNumAction());
 		this->SetAction(action);
 		this->Step();	
-	
+		
+		// if(mCurrentFrame >=120){
+		// 	scenario_done = true;
+		// 	break;
+		// }	
 
-		if(mRef2== nullptr && (cycle == 0) && mCurrentFrameOnPhase+mBlendMargin >=71){
-			mRef2 = mSubControllers["FW_JUMP"]->mReferenceManager;
-			mTime2 = 60;
-			mBlendStep = 1;
+		int blendFrame1 = 40; //66; //71;
+		int blendFrame2 = 4; //0; //63;
 
-			Eigen::Isometry3d prev_cycle_end= mRef1->GetRootTransform(mTime1+mBlendMargin, true);
-			Eigen::Isometry3d cycle_start= mRef2->GetRootTransform(mTime2+mBlendMargin, true);
+		if(control_mode == 0 && mTime1 >= blendFrame1){
 
-			// Eigen::Isometry3d prev_cycle_end= mRef1->GetRootTransform(71, true);
-			// Eigen::Isometry3d cycle_start= mRef2->GetRootTransform(63, true);
+			Eigen::Isometry3d prev_cycle_end= mSubControllers["FW_JUMP"]->mReferenceManager->GetRootTransform(blendFrame1, true);
+			Eigen::Isometry3d cycle_start= mSubControllers["WALL_JUMP"]->mReferenceManager->GetRootTransform(blendFrame2, true);
 
-			mAlign2 = prev_cycle_end*cycle_start.inverse();
-			Eigen::Vector3d p01 = dart::math::logMap(mAlign2.linear());			
-			mAlign2.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+			mAlign1 = prev_cycle_end*cycle_start.inverse();
+			Eigen::Vector3d p01 = dart::math::logMap(mAlign1.linear());			
+			mAlign1.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
 
 			Eigen::Isometry3d cycle_start_edit = cycle_start;
-			cycle_start_edit.linear() = mAlign2.linear().inverse()*prev_cycle_end.linear();
-			mAlign2 = prev_cycle_end*cycle_start_edit.inverse();
+			cycle_start_edit.linear() = mAlign1.linear().inverse()*prev_cycle_end.linear();
+			mAlign1 = prev_cycle_end*cycle_start_edit.inverse();
 
-			std::cout<<"blend @ "<<(mTime1+mBlendMargin)<<" , "<<(mTime2+mBlendMargin)<<std::endl;
-		}	
-		if((cycle == 0) && (mCurrentFrameOnPhase>= 71)){
+			control_mode = 1;
+			mCurrentController= mSubControllers["WALL_JUMP"];
+			mRef1 = mSubControllers["WALL_JUMP"]->mReferenceManager;
+			mTime1 = blendFrame2;
+			mCurrentFrameOnPhase = mTime1;
+			mCurrentController->setCurObject(mSceneObjects[0]);
+			mCurrentController->reset(mCurrentFrame, mCurrentFrameOnPhase);
 
-			mCurrentController= mSubControllers["FW_JUMP"];
-			cycle = 1;		
-			mCurrentFrameOnPhase = mTime2- GetCurrentRefManager()->GetPhaseLength();
-		}else if(mRef2!=nullptr && (cycle == 1) && (mCurrentFrame-mBlendMargin>=71)){
-			mRef1 = mRef2;
-			mAlign1 = mAlign2;
-			mTime1 = mTime2;
-				
-			mRef2 = nullptr;
+			auto& obj = mCurrentController->mCurObject;
+			Eigen::VectorXd p = obj->getPositions();
+			MultiplyRootTransform(p, mAlign1, false);
+			p[5]+=0.1;
+			obj->setPositions(p);
 		}
+
+	// 	if(control_mode == 0 && mTime1 >= blendFrame1){
+
+	// 		Eigen::Isometry3d prev_cycle_end= mSubControllers["WALL_JUMP"]->mReferenceManager->GetRootTransform(blendFrame1, true);
+	// 		Eigen::Isometry3d cycle_start= mSubControllers["FW_JUMP"]->mReferenceManager->GetRootTransform(blendFrame2, true);
+
+	// 		mAlign1 = prev_cycle_end*cycle_start.inverse();
+	// 		Eigen::Vector3d p01 = dart::math::logMap(mAlign1.linear());			
+	// 		mAlign1.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+
+	// 		Eigen::Isometry3d cycle_start_edit = cycle_start;
+	// 		cycle_start_edit.linear() = mAlign1.linear().inverse()*prev_cycle_end.linear();
+	// 		mAlign1 = prev_cycle_end*cycle_start_edit.inverse();
+
+	// 		control_mode = 1;
+	// 		mCurrentController= mSubControllers["FW_JUMP"];
+	// 		mRef1 = mSubControllers["FW_JUMP"]->mReferenceManager;
+	// 		mTime1 = blendFrame2;
+	// 		mCurrentFrameOnPhase = mTime1;
+
+	// // auto& skel = mCharacter->GetSkeleton();
+
+	// // 		Motion* p_v_target;
+	// // 		p_v_target = GetMotion(0, true);
+	// // 		this->mTargetPositions = p_v_target->GetPosition();
+	// // 		this->mTargetVelocities = p_v_target->GetVelocity();
+
+	// // 		std::cout<<p_v_target->GetPosition().transpose()<<std::endl<<std::endl;
+	// // 		std::cout<<p_v_target->GetVelocity().transpose()<<std::endl<<std::endl;
+	// // 		delete p_v_target;
+
+	// // 		this->mPDTargetPositions = mTargetPositions;
+	// // 		this->mPDTargetVelocities = mTargetVelocities;
+
+	// // 		skel->setPositions(mTargetPositions);
+	// // 		skel->setVelocities(mTargetVelocities);
+	// // 		skel->computeForwardKinematics(true,true,false);
+
+	// // 		this->mIsNanAtTerminal = false;
+	// // 		this->mIsTerminal = false;
+			
+	// // 		// ClearRecord();
+	// // 		// SaveStepInfo();
+
+	// // 		// mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+	// // 		// mPrevPositions = mCharacter->GetSkeleton()->getPositions();
+	// // 		mPrevTargetPositions = mTargetPositions;
+			
+	// // 		mPrevFrame = mCurrentFrame;
+	// // 		mPrevFrame2 = mPrevFrame;
+			
+	// // 		mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
+	// // 		mTimeQueue.push(mCurrentFrame);
+	// // 		mAdaptiveStep = 1;
+
+	// 	}
+
+// 		if(control_mode ==0 && mTime1+mBlendMargin >=blendFrame1){
+// 			control_mode = 1;
+// 			mRef2 = mSubControllers["FW_JUMP"]->mReferenceManager;
+// 			mTime2 = blendFrame2- mBlendMargin;
+// 			mBlendStep = 1;
+
+// 			Eigen::Isometry3d prev_cycle_end= mRef1->GetRootTransform(mTime1+mBlendMargin, true);
+// 			Eigen::Isometry3d cycle_start= mRef2->GetRootTransform(mTime2+mBlendMargin, true);
+
+// 			mAlign2 = prev_cycle_end*cycle_start.inverse();
+// 			Eigen::Vector3d p01 = dart::math::logMap(mAlign2.linear());			
+// 			mAlign2.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+
+// 			Eigen::Isometry3d cycle_start_edit = cycle_start;
+// 			cycle_start_edit.linear() = mAlign2.linear().inverse()*prev_cycle_end.linear();
+// 			mAlign2 = prev_cycle_end*cycle_start_edit.inverse();
+
+// 			std::cout<<"blend @ "<<(mTime1+mBlendMargin)<<" , "<<(mTime2+mBlendMargin)<<std::endl;
+// 		}
+// 		else if(control_mode == 1 && (mTime1>= blendFrame1)){
+
+// 			mCurrentController= mSubControllers["FW_JUMP"];
+// 			control_mode = 2;
+// 			mCurrentFrameOnPhase = mTime2- GetCurrentRefManager()->GetPhaseLength();
+// 		}else if(control_mode == 2 && (mCurrentFrame-mBlendMargin>=blendFrame1)){
+// 			mRef1 = mRef2;
+// 			mAlign1 = mAlign2;
+// 			mTime1 = mTime2;
+// 			control_mode = 3;
+				
+// 			mRef2 = nullptr;
+// 		}
 		if(mCurrentFrame>=120){
 			scenario_done =true;
 			break;
@@ -268,32 +380,6 @@ Eigen::VectorXd MetaController::GetState()
 	// p.resize(p_save.rows()-6);
 	// p = p_save.tail(p_save.rows()-6);
 
-	// TODO: align "v" and "p_next" by rotation 
-	v = v_save;
-	if(mCurrentController== mSubControllers["FW_JUMP"]){
-		Eigen::Isometry3d rt= (mRef2 == nullptr)? mAlign1.inverse() : mAlign2.inverse();
-
-		Eigen::VectorXd p_rotate(p_save.rows()); p_rotate = p_save;
-		Eigen::VectorXd p_next_rotate(p_save.rows()); p_next_rotate = DPhy::addDiff(p_save, v_save);
-
-		rt.translation()[1]= 0;
-
-		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(p_rotate.head<6>());
-		T_current = rt*T_current;
-		p_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
-
-		T_current = dart::dynamics::FreeJoint::convertToTransform(p_next_rotate.head<6>());
-		T_current = rt*T_current;
-		p_next_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
-
-		v = skel->getPositionDifferences(p_next_rotate, p_rotate)/0.0333;
-		
-		skel->setPositions(p_rotate);
-		skel->setVelocities(v);
-		skel->computeForwardKinematics(true, true, false);
-	}
-
-
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	int num_p = (n_bnodes - 1) * 6;
 	p.resize(num_p);
@@ -305,7 +391,7 @@ Eigen::VectorXd MetaController::GetState()
 								 transform.linear()(1,0), transform.linear()(1,1), transform.linear()(1,2);
 	}
 
-	//v= v_save;
+	v= v_save;
 
 	dart::dynamics::BodyNode* root = skel->getRootBodyNode();
 	Eigen::Isometry3d cur_root_inv = root->getWorldTransform().inverse();
@@ -334,15 +420,20 @@ Eigen::VectorXd MetaController::GetState()
 	state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+param.rows());
 	state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, param;
 
-
-	// if(cycle==1){
-		std::cout<<"t: "<<t<<std::endl;
-		std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
-		std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
-		std::cout<<"root_height : "<<root_height<<std::endl;
-		std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
-		std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
-		std::cout<<"param : "<<param.transpose()<<std::endl;
+	// if(control_mode == 1 && mCurrentFrameOnPhase< 1){
+	// 	std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
+	// 	std::cout<<"p: "<<p.transpose()<<std::endl;
+	// 	std::cout<<"v: "<<v.transpose()<<std::endl;
+	// 	std::cout<<"up-vec: "<<up_vec_angle<<std::endl;
+	// 	std::cout<<p_next.transpose()<<std::endl;
+	// 	// std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
+	// 	// std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
+	// 	std::cout<<"root_height : "<<root_height<<std::endl;
+	// 	std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
+	// 	// std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
+	// 	std::cout<<"ee: "<<ee.transpose()<<std::endl;
+	// 	std::cout<<"param : "<<param.transpose()<<" / "<<mCurrentController->mType<<std::endl;
+	// 	std::cout<<std::endl;
 	// }
 
 	skel->setPositions(p_save);
@@ -443,21 +534,38 @@ void MetaController::Step()
 
 		for(int j = 0; j < 2; j++) {
 			//mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			mCharacter->GetSkeleton()->setForces(torque);
-			mWorld->step(false);
+
+			if(mCurrentController== mSubControllers["WALL_JUMP"]){
+				Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+				for(int j = 0; j < num_body_nodes; j++) {
+					int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+					int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+					std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+					double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+					double torque_norm = torque.block(idx, 0, dof, 1).norm();
+				
+					torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+				}
+
+				mCharacter->GetSkeleton()->setForces(torque);
+				mWorld->step(false);	
+
+			}else{
+				Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+				mCharacter->GetSkeleton()->setForces(torque);
+				mWorld->step(false);
+			}
+
+				// Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+				// mCharacter->GetSkeleton()->setForces(torque);
+				// mWorld->step(false);
+
 		}
 
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
 
 	mCurrentController->Step();
-
-	// if(isAdaptive) {
-	// 	this->UpdateAdaptiveReward();
-	// }
-	// else
-	// 	this->UpdateReward();
 
 	mTiming.push_back(mCurrentFrame);
 
@@ -466,11 +574,6 @@ void MetaController::Step()
 	if(mRecord) {
 		SaveStepInfo();
 	}
-
-	// if(isAdaptive)
-	// {
-	// 	data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrameOnPhase));
-	// }
 
 	mPrevTargetPositions = mTargetPositions;
 	mPrevFrame = mCurrentFrame;
@@ -481,9 +584,6 @@ void MetaController::Step()
 		mTimeQueue.pop();
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(mCurrentFrame);
-
-	// if(isAdaptive && mIsTerminal)
-	// 	data_raw.clear();
 
 }
 
@@ -567,34 +667,8 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
 
-
-	Eigen::VectorXd new_pos = pos;
-	Eigen::VectorXd new_vel = vel;
-
-	if(mCurrentController == mSubControllers["FW_JUMP"]){
-		Eigen::Isometry3d rt= (mRef2 == nullptr)? mAlign1.inverse() : mAlign2.inverse();
-
-		Eigen::VectorXd p_rotate(pos.rows()); p_rotate = new_pos;
-		Eigen::VectorXd p_next_rotate(pos.rows()); p_next_rotate = DPhy::addDiff(pos, new_vel);
-
-		rt.translation()[1]= 0;
-
-		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(p_rotate.head<6>());
-		T_current = rt*T_current;
-		p_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
-
-		T_current = dart::dynamics::FreeJoint::convertToTransform(p_next_rotate.head<6>());
-		T_current = rt*T_current;
-		p_next_rotate.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
-
-		new_pos = p_rotate;
-		new_vel = skel->getPositionDifferences(p_next_rotate, p_rotate)/0.0333;
-
-		cur_root_inv = rt*cur_root_inv;
-	}
-
-	skel->setPositions(new_pos);
-	skel->setVelocities(new_vel);
+	skel->setPositions(pos);
+	skel->setVelocities(vel);
 	skel->computeForwardKinematics(true, true, false);
 
 	ret.resize((num_ee)*12+15);
@@ -615,7 +689,7 @@ GetEndEffectorStatePosAndVel(const Eigen::VectorXd pos, const Eigen::VectorXd ve
 	for(int i=0;i<num_ee;i++)
 	{
 	    int idx = skel->getBodyNode(mEndEffectors[i])->getParentJoint()->getIndexInSkeleton(0);
-		ret.segment<3>(9*num_ee + 3*i) << new_vel.segment<3>(idx);
+		ret.segment<3>(9*num_ee + 3*i) << vel.segment<3>(idx);
 //	    ret.segment<3>(6*num_ee + 3*i) << vel.segment<3>(idx);
 
 	}
@@ -672,14 +746,6 @@ Motion* MetaController::GetMotion(double t, bool isAdaptive){
 	if(mRef2== nullptr){
 		m = mRef1->GetMotion(mTime1+t, isAdaptive);
 		m->MultiplyRootTransform(mAlign1);
-
-		Motion* m_next = mRef1->GetMotion(mTime1+t+1, isAdaptive);
-		m_next->MultiplyRootTransform(mAlign1);
-
-		Eigen::VectorXd new_v = mCharacter->GetSkeleton()->getPositionDifferences(m_next->GetPosition(), m->GetPosition()) / 0.033;
-		m->SetVelocity(new_v);
-
-		delete m_next;
 	}else{
 		Motion* m1 = mRef1->GetMotion(mTime1+t, isAdaptive);
 		m1->MultiplyRootTransform(mAlign1);
@@ -691,24 +757,30 @@ Motion* MetaController::GetMotion(double t, bool isAdaptive){
 		Eigen::VectorXd new_p = BlendPosition(m1->GetPosition(), m2->GetPosition(), blendRatio);
 		// m->SetPosition(BlendPosition(m1->GetPosition(), m2->GetPosition(), blendRatio));
 
-		// next
-		Motion* m1_next = mRef1->GetMotion(mTime1+t+1, isAdaptive);
-		m1_next->MultiplyRootTransform(mAlign1);
+		// // next
+		// Motion* m1_next = mRef1->GetMotion(mTime1+t+1, isAdaptive);
+		// m1_next->MultiplyRootTransform(mAlign1);
 
-		Motion* m2_next = mRef2->GetMotion(mTime2+t+1, isAdaptive);
-		m2_next->MultiplyRootTransform(mAlign2);
+		// Motion* m2_next = mRef2->GetMotion(mTime2+t+1, isAdaptive);
+		// m2_next->MultiplyRootTransform(mAlign2);
 
-		double blendRatio_next= (double)(mBlendStep+1)/ (2*(mBlendMargin+1));
-		if(blendRatio_next > 1) blendRatio_next = 1;
-		Eigen::VectorXd new_p_next = BlendPosition(m1_next->GetPosition(), m2_next->GetPosition(), blendRatio_next);
+		// double blendRatio_next= (double)(mBlendStep+1)/ (2*(mBlendMargin+1));
+		// if(blendRatio_next > 1) blendRatio_next = 1;
+		// Eigen::VectorXd new_p_next = BlendPosition(m1_next->GetPosition(), m2_next->GetPosition(), blendRatio_next);
 
-		Eigen::VectorXd new_v = mCharacter->GetSkeleton()->getPositionDifferences(new_p_next, new_p) / 0.033;
+		// Eigen::VectorXd new_v = mCharacter->GetSkeleton()->getPositionDifferences(new_p_next, new_p) / 0.033;
+		// if(mBlendStep < mBlendMargin) new_v= m1->GetVelocity();
+		// else new_v= m2->GetVelocity();
+
+		Eigen::VectorXd new_v(m1->GetVelocity().rows());
+		new_v= BlendPosition(m1->GetVelocity(), m2->GetVelocity(), blendRatio);
 		m = new Motion(new_p, new_v);
 
-		delete m1; delete m2; delete m1_next; delete m2_next;
-	}
-	return m;
+		delete m1; delete m2; 
+		// delete m1_next; delete m2_next;
+   }
 
+   return m;
 }
 
 

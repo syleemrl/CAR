@@ -20,21 +20,12 @@ void Motion::RotateAndTranslate(Eigen::Matrix3d R, Eigen::Vector3d T)
 	p.linear() = dart::dynamics::BallJoint::convertToRotation(this->position.head<3>());
 	p.translation() = this->position.segment<3>(3);
 	
-	Eigen::Isometry3d v = Eigen::Isometry3d::Identity();
-	v.linear() = dart::dynamics::BallJoint::convertToRotation(this->velocity.head<3>());
-	v.translation() = this->position.segment<3>(3);
-	
 	p.linear() = R* p.linear();	
-	v.linear() = R* v.linear();	
-
 	p.translation() += T;
-	v.translation() = R*v.translation();
 
 	this->position.head<3>() = dart::dynamics::BallJoint::convertToPositions(p.linear());
 	this->position.segment<3>(3) = p.translation();
 
-	this->velocity.head<3>() = dart::dynamics::BallJoint::convertToPositions(v.linear());
-	this->velocity.segment<3>(3) = v.translation();
 
 }
 
@@ -43,50 +34,8 @@ void Motion::MultiplyRootTransform(Eigen::Isometry3d rt, bool change_height){
 	if(!change_height) rt.translation()[1]= 0;
 	Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(this->position.head<6>());
 
-	// std::cout<<T_current.translation().transpose()<<" , ";
-	T_current = rt*T_current;
-	// std::cout<<T_current.translation().transpose()<<std::endl;
-	
+	T_current = rt*T_current;	
 	this->position.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
-
-
-	//TODO
-	Eigen::Isometry3d V_current = dart::dynamics::FreeJoint::convertToTransform(this->velocity.head<6>());
-	V_current = rt*V_current;
-
-	this->velocity.head<3>() = dart::dynamics::FreeJoint::convertToPositions(V_current).head<3>();
-
-	// Eigen::Isometry3d p = Eigen::Isometry3d::Identity();
-	// p.linear() = dart::dynamics::BallJoint::convertToRotation(this->position.head<3>());
-	// p.translation() = this->position.segment<3>(3);
-	// std::cout<<std::endl;
-	// std::cout<<"original p: \n"<<p.linear()<<"\n"<<p.translation().transpose()<<std::endl;
-	
-
-	// Eigen::Isometry3d v = Eigen::Isometry3d::Identity();
-	// v.linear() = dart::dynamics::BallJoint::convertToRotation(this->velocity.head<3>());
-	// v.translation() = this->position.segment<3>(3);
-	// std::cout<<"original v: \n"<<v.linear()<<"\n"<<v.translation().transpose()<<std::endl;
-	
-	// double prev_p_h = p.translation()[1];
-	// double prev_v_h = v.translation()[1];
-
-	// p = rt * p;
-	// v = rt * v;
-
-	// std::cout<<"transformed p: \n"<<p.linear()<<"\n"<<p.translation().transpose()<<std::endl;
-	// std::cout<<"transformed v: \n"<<v.linear()<<"\n"<<v.translation().transpose()<<std::endl;
-
-	// if(!change_height){
-	// 	p.translation()[1] = prev_p_h; 
-	// 	v.translation()[1] = prev_v_h; 
-	// }
-
-	// this->position.head<3>() = dart::dynamics::BallJoint::convertToPositions(p.linear());
-	// this->position.segment<3>(3) = p.translation();
-
-	// this->velocity.head<3>() = dart::dynamics::BallJoint::convertToPositions(v.linear());
-	// this->velocity.segment<3>(3) = v.translation();
 
 }
 
@@ -555,7 +504,6 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
 			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 		}		
 	}
-
 	else if(ctrl_type == "WALL_JUMP"){
 		mParamCur.resize(1); // wall height
 		mParamCur << 0.9;
@@ -586,7 +534,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
 		
 	}
 
-
+	std::cout<<ctrl_type<<" / "<<mParamGoal.transpose()<<std::endl;
 	ResetOptimizationParameters();
 }
 
