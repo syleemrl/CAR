@@ -29,7 +29,7 @@ struct Param
 	Eigen::VectorXd param_normalized;
 	std::vector<Eigen::VectorXd> cps;
 	double reward;
-	bool update;
+	int update;
 };
 class ParamCube
 {
@@ -57,14 +57,13 @@ public:
 	void SaveParamSpace(std::string path);
 	void LoadParamSpace(std::string path);
 
-	std::pair<Eigen::VectorXd , bool> UniformSample(bool visited);
+	std::pair<Eigen::VectorXd , bool> UniformSample(int visited);
 	std::pair<Eigen::VectorXd , bool> UniformSample(double d0, double d1);
 	bool UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, double> candidate);
 
 	void AddMapping(Param* p);
 	void AddMapping(Eigen::VectorXd nearest, Param* p);
 	void DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps);
-	void UpdateParamState();
 	double GetDistanceNorm(Eigen::VectorXd p0, Eigen::VectorXd p1);	
 	double GetDensity(Eigen::VectorXd p, bool old=false);
 	Eigen::VectorXd GetNearestPointOnGrid(Eigen::VectorXd p);
@@ -103,11 +102,13 @@ public:
 		   std::vector<double>, 
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
-
+	double GetFitnessMean();
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;
 	std::map<Eigen::VectorXd, Param*> mParamNew;
+
+	std::map<Eigen::VectorXd, std::vector<std::pair<Eigen::VectorXd, double>>> mTrashMap;
 
 	Eigen::VectorXd mParamScale;
 	Eigen::VectorXd mParamScaleInv;
@@ -130,7 +131,6 @@ private:
 	int mDim;
 	int mDimDOF;
 	int mNumKnots;
-	int mNumActivatedPrev;
 	int mThresholdUpdate;
 	int mThresholdActivate;
 	int mNumElite;
@@ -139,12 +139,6 @@ private:
 	int mExplorationStep;
 	int mNumGoalCandidate;
 	int mIdxCandidate;
-	std::vector<Eigen::VectorXd> mGoalCandidate;
-	std::vector<bool> mGoalExplored;
-	std::vector<double> mGoalProgress;
-	std::vector<double> mGoalReward;
-	std::vector<int> mGoalUpdate;
-	std::vector<std::vector<Eigen::VectorXd>> mCPSCandidate;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

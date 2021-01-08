@@ -184,57 +184,12 @@ Step()
 
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			
-			//Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			// for(int j = 0; j < num_body_nodes; j++) {
-			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			// 	double torquelim = mCharacter->GetTorqueLimit(name);
-			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
-			
-			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			// }
-
-			//mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 		}
 
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
-	if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
-		mJumpStartFrame = mCurrentFrame;
-		mJumpHeight = mCharacter->GetSkeleton()->getCOM()[1];
-	
-		Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
-		Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
-		mPosDiff += exp_of_squared(pos_diff, 0.2);
 
-		mControlFlag[0] = 1;
-	}
-	if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 38) {
-		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
-		Eigen::Vector6d V = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
-		Eigen::Vector3d momentum;
-		momentum.setZero();
-		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
-			auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
-			Eigen::Matrix3d R = bn->getWorldTransform().linear();
-			double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
-			bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
-			Eigen::Matrix3d I;
-			I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
-			I = R * I * R.transpose();
-			Eigen::AngleAxisd aa(I); 
-			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
-			momentum += bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
-		}
-		mMomentum += momentum;
-		mTotalLength += V.segment<3>(0).cwiseAbs();
-		Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), mPrevPositions.segment<3>(0));
-
-		mCount += 1;
-	} 
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
@@ -283,6 +238,7 @@ Step()
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrameOnPhase));
 	}
 
+	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	mPrevTargetPositions = mTargetPositions;
 
 	if(mPosQueue.size() >= 3)
@@ -542,8 +498,43 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 38 && mControlFlag[0] == 1) 		
-	{	
+	if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {
+		mJumpStartFrame = mCurrentFrame;
+		mJumpHeight = mCharacter->GetSkeleton()->getCOM()[1];
+		mControlFlag[0] = 1;
+	}
+	if(mControlFlag[0] == 1) {
+		Eigen::Vector3d delta = skel->getPositions().segment<3>(0) - mPrevPositions.segment<3>(0);
+		for(int i = 0; i < 3; i++) {
+			if(skel->getPositions()(i) * mPrevPositions(i) < 0 && 
+				skel->getPositions()(i) < - 0.5 * M_PI ) {
+				delta(i) = 2 * M_PI - mPrevPositions(i) + skel->getPositions()(i);
+			} else if(skel->getPositions()(i) * mPrevPositions(i) < 0 && 
+				skel->getPositions()(i) > 0.5 * M_PI) {
+				delta(i) = -(2 * M_PI + mPrevPositions(i) - skel->getPositions()(i));
+			}
+		}
+		mTotalLength += delta;
+
+		Eigen::Vector3d COM =  mCharacter->GetSkeleton()->getCOM();
+		Eigen::Vector3d momentum;
+		momentum.setZero();
+		for(int i = 0; i < mCharacter->GetSkeleton()->getNumBodyNodes(); i++) {
+			auto bn = mCharacter->GetSkeleton()->getBodyNode(i);
+			Eigen::Matrix3d R = bn->getWorldTransform().linear();
+			double Ixx, Iyy, Izz, Ixy, Ixz, Iyz;
+			bn->getMomentOfInertia(Ixx, Iyy, Izz, Ixy, Ixz, Iyz);
+			Eigen::Matrix3d I;
+			I << Ixx, Ixy, Ixz, Ixy, Iyy, Iyz, Ixz, Iyz, Izz;
+			I = R * I * R.transpose();
+			Eigen::AngleAxisd aa(I); 
+			Eigen::Vector3d aa_v = aa.axis() * aa.angle();
+			momentum += bn->getMass() * (bn->getCOM() - COM).cross(bn->getCOMLinearVelocity());
+		}
+		mMomentum += momentum;
+		mCount += 1;
+	}
+	if(mCurrentFrameOnPhase >= 38 && mControlFlag[0] == 1) {	
 		mMomentum(1) = 0;
 		mMomentum /= mCount;
 	
@@ -551,31 +542,29 @@ GetParamReward()
 		Eigen::Vector3d m_diff = mMomentum - momentumBVH;
 		m_diff(2) *= 0.5;
 
-		double h_diff = mJumpHeight - mParamGoal(1);
+		double h_diff = mJumpHeight / 1.45 - mParamGoal(1);
 
 		double velocity = (mCurrentFrame - mJumpStartFrame) / mCount;
 		double v_diff = velocity - mParamGoal(0);
 		
 		mTotalLength(1) = 0;
-		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(84, 0, 37);
+		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(-3.94, 0, 0.26);
 		Eigen::Vector3d l_diff = mTotalLength - totalLengthBVH;
-		l_diff(2) *= 0.5;
 
 		double r_m = exp_of_squared(m_diff, 3);
-		double r_l = exp_of_squared(l_diff, 4);
+		double r_l = exp_of_squared(l_diff, 0.075);
 
-		double r_v = exp(-pow(v_diff, 2)*175);
-		double r_h = exp(-pow(h_diff, 2)*175);
+		double r_v = exp(-pow(v_diff, 2)*150);
+		double r_h = exp(-pow(h_diff, 2)*150);
 
 		r_param = r_v * r_m * r_h * r_l;
 
-		if(r_m > 0.3 && r_l > 0.3) {
+		if(r_m > 0.4 && r_l > 0.4) {
 			mParamCur(0) = velocity;
-			mParamCur(1) = mJumpHeight;
+			mParamCur(1) = mJumpHeight / 1.45;
 		}
 		else {
 			mParamCur(0) = -1;
-			mParamCur(1) = -1;
 		}
 
 		mControlFlag[0] = 2;		
@@ -605,18 +594,18 @@ UpdateAdaptiveReward()
 	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
 
-	double r_tracking = 0.8 * accum_bvh + 0.2 * r_time;
+	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
 
 	double r_tot = r_tracking;
 	
-	if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 42) {
-		Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
-		Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
-		double r_pos = exp_of_squared(pos_diff, 0.2);
-		r_tot = 0.9 * r_tot + 0.1 * r_pos;
-	}
+	// if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 42) {
+	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
+	// 	Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
+	// 	double r_pos = exp_of_squared(pos_diff, 0.2);
+	// 	r_tot = 0.9 * r_tot + 0.1 * r_pos;
+	// }
 	
 	mRewardParts.clear();
 

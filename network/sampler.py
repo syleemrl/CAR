@@ -9,11 +9,11 @@ class Sampler(object):
 		self.sim_env = sim_env
 		self.dim = dim
 		
-		self.v_mean = 1.0
+		self.v_mean = 0.0
 		self.v_mean_boundary = 0.0
 		self.random = True
 
-		self.k = 10
+		self.k = 5
 		self.k_ex = 20
 
 		self.total_iter = 0
@@ -30,7 +30,7 @@ class Sampler(object):
 		self.p_list_explore = []
 		self.progress_cur_list = []
 		self.distance = 2
-		self.unit = 1
+		self.unit = 1.5
 		# keep if added recently or data is rare ( <= 5)
 		self.vp_dict = dict()
 
@@ -48,6 +48,7 @@ class Sampler(object):
 		self.progress_cur_update = 0
 
 		self.use_table = True
+		self.delta = 0
 		print('=======================================')
 		print('curriculum option')
 		print('type exploit', self.type_exploit)
@@ -57,7 +58,7 @@ class Sampler(object):
 		print('=======================================')
 
 
-	def randomSample(self, visited=True):
+	def randomSample(self, visited=1):
 		return self.sim_env.UniformSample(visited)
 		
 	def probAdaptive(self, v_func, target, hard=True):
@@ -159,8 +160,16 @@ class Sampler(object):
 			if mode == 2 and self.n_evaluation == 3:
 				self.evaluation_done = True
 				self.printExplorationRateData()
+			if len(self.progress_queue_explore) < 5 and self.v_mean != 0:
+				if len(self.progress_queue_explore) == 1:
+					self.delta = self.v_mean - np.array(results).mean()
+					print('new delta :', self.delta)
+				else:
+					self.delta = 0.9 * self.delta + 0.1 * (self.v_mean - np.array(results).mean())
+					print('delta updated:', self.delta)
+
 		elif mode == 1:		
-			if len(self.progress_queue_exploit) >= 10:
+			if len(self.progress_queue_exploit) >= 5:
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
 			self.progress_queue_exploit.append(self.progress_cur)		
 
@@ -245,9 +254,10 @@ class Sampler(object):
 
 	def resetExploit(self):
 		self.n_exploit = 0
-		self.prev_progress = np.array(self.progress_queue_exploit).mean()
+		self.prev_progress_ex = np.array(self.progress_queue_exploit).mean()
+		self.prev_queue_exploit = copy(self.progress_queue_exploit)
 		self.progress_queue_exploit = []
-
+		self.v_mean = 0
 		self.printExplorationRateData()
 
 	def resetExplore(self):
@@ -257,6 +267,7 @@ class Sampler(object):
 		self.v_list_explore = []
 		self.p_list_explore = []
 		self.sample_counter = 0 
+		self.delta = 0
 
 	def sampleBatch(self, type_explore):
 		self.sample = []
@@ -310,21 +321,29 @@ class Sampler(object):
 			return False
 
 		if self.use_table:
-			v_key = math.floor(self.v_mean * 1 / self.unit) - 1
-			count = 0
-			mean = 0
-			for n in range(5):
-				if v_key + n in self.vp_dict:
-					for i in range(len(self.vp_dict[v_key + n])):
-						if abs(self.v_mean - self.vp_dict[v_key + n][i][0]) < self.distance:
-							mean += self.vp_dict[v_key + n][i][1]
-							count += 1
-			
-			if count != 0:
-				mean /= count
+			max_mean = 0
+			v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
+			it = 0
+			while v_key in self.vp_dict:
+				count = 0
+				mean = 0
+				for i in range(len(self.vp_dict[v_key])):
+					if self.total_iter - self.vp_dict[v_key][i][2] < 50:
+						mean += self.vp_dict[v_key][i][1]
+						count += 1
+					
+				if count != 0:
+					mean /= count	
 
-			print(p_mean, mean)
-			if p_mean < mean - 1.0:
+				if max_mean < mean:
+					max_mean = mean
+				v_key -= 1
+				it += 1
+				if it >= 3:
+					break
+
+			print((self.v_mean - self.delta), p_mean, max_mean)
+			if p_mean <= max_mean or p_mean <= 0.2:
 				return True
 		else:
 			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)

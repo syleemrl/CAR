@@ -560,43 +560,43 @@ void
 GUI::
 DrawTetrahedron(const Eigen::Vector3d& p0,const Eigen::Vector3d& p1,const Eigen::Vector3d& p2,const Eigen::Vector3d& p3,const Eigen::Vector3d& color)
 {
-	DrawTriangle(p0,p1,p2,color);
-	DrawTriangle(p0,p1,p3,color);
-	DrawTriangle(p0,p2,p3,color);
-	DrawTriangle(p1,p2,p3,color);
+    DrawTriangle(p0,p1,p2,color);
+    DrawTriangle(p0,p1,p3,color);
+    DrawTriangle(p0,p2,p3,color);
+    DrawTriangle(p1,p2,p3,color);
 }
 void
 GUI::
 DrawTriangle(const Eigen::Vector3d& p0,const Eigen::Vector3d& p1,const Eigen::Vector3d& p2,const Eigen::Vector3d& color)
 {
-	glColor3f(color[0],color[1],color[2]);
-	glBegin(GL_TRIANGLES);
-	glVertex3f(p0[0],p0[1],p0[2]);
-	glVertex3f(p1[0],p1[1],p1[2]);
-	glVertex3f(p2[0],p2[1],p2[2]);
-	glEnd();
+    glColor3f(color[0],color[1],color[2]);
+    glBegin(GL_TRIANGLES);
+    glVertex3f(p0[0],p0[1],p0[2]);
+    glVertex3f(p1[0],p1[1],p1[2]);
+    glVertex3f(p2[0],p2[1],p2[2]);
+    glEnd();
 }
 void
 GUI::
 DrawLine(const Eigen::Vector3d& p0,const Eigen::Vector3d& p1,const Eigen::Vector3d& color)
 {
-	glColor3f(color[0],color[1],color[2]);
-	glBegin(GL_LINES);
+    glColor3f(color[0],color[1],color[2]);
+    glBegin(GL_LINES);
     glNormal3f(0.0, 1.0, 0.0);
-	glVertex3f(p0[0],p0[1],p0[2]);
-	glVertex3f(p1[0],p1[1],p1[2]);
-	glEnd();
+    glVertex3f(p0[0],p0[1],p0[2]);
+    glVertex3f(p1[0],p1[1],p1[2]);
+    glEnd();
 }
 void
 GUI::
 DrawPoint(const Eigen::Vector3d& p0,const Eigen::Vector3d& color, const double scale)
 {
     glPointSize(scale);
-	glColor3f(color[0],color[1],color[2]);
-	glBegin(GL_POINTS);
+    glColor3f(color[0],color[1],color[2]);
+    glBegin(GL_POINTS);
     glNormal3f(0.0, 1.0, 0.0);
-	glVertex3f(p0[0],p0[1],p0[2]);
-	glEnd();
+    glVertex3f(p0[0],p0[1],p0[2]);
+    glEnd();
 }
 void
 GUI::
@@ -788,7 +788,7 @@ GUI::
 DrawStringOnScreen(float _x, float _y, const std::string& _s,bool _bigFont,const Eigen::Vector3d& color)
 {
     glColor3f(color[0],color[1],color[2]);
-	
+    
     // draws text on the screen
     GLint oldMode;
     glGetIntegerv(GL_MATRIX_MODE, &oldMode);
@@ -842,18 +842,21 @@ DrawGround(int com_x, int com_z, double ground_height){
 
     // Eigen::Vector3d com_root = this->mWorld->getSkeleton("Humanoid")->getRootBodyNode()->getCOM();
     glEnable(GL_LIGHTING);
+    // glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_LINE_SMOOTH);
+
     double radius = 50;
     double radius_b = radius+2;
     double num_pieces = 1;
     double len = 1.0/num_pieces;
     for(int x=-radius_b; x<=radius_b; x+=1){
         for(int z=-radius_b; z<=radius_b; z+=1){
-            if((x+com_x+z+com_z)%2 == 0){
-                glColor3f(0.6, 0.6, 0.6);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular1);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse1);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient1);
+                glColor3f(0.9, 0.9, 0.9);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular2);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse2);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient2);
                 glBegin(GL_QUADS);
                     glNormal3f(0.0, 1.0, 0.0);
                     glVertex3f(x+com_x,ground_height,z+com_z);
@@ -861,107 +864,26 @@ DrawGround(int com_x, int com_z, double ground_height){
                     glVertex3f(x+com_x+1,ground_height,z+com_z+1);
                     glVertex3f(x+com_x+1,ground_height,z+com_z);
                 glEnd();
-                // for(int xx = 0; xx < num_pieces; xx++){
-                //  for(int zz = 0; zz < num_pieces; zz++){
-                //      double _x = x+xx/num_pieces;
-                //      double _z = z+zz/num_pieces;
-                //      double dist = std::sqrt(
-                //                      (_x+com_x-com_root[0])*(_x+com_x-com_root[0]) 
-                //                      + (_z+com_z-com_root[2])*(_z+com_z-com_root[2])
-                //                  );
-                //      double transp = dist/radius;
-                //      if( dist < radius){
-                //          glBegin(GL_QUADS);
-                //          glNormal3f(0.0, 1.0, 0.0);
-                //          glVertex3f(_x+com_x,ground_height,_z+com_z);
-                //          glVertex3f(_x+com_x,ground_height,_z+com_z+0.1);
-                //          glVertex3f(_x+com_x+0.1,ground_height,_z+com_z+0.1);
-                //          glVertex3f(_x+com_x+0.1,ground_height,_z+com_z);
-                //          glEnd();
-                //      }
-                //  }
-                // }
-            }
-            else{
-                glColor3f(0.8, 0.8, 0.8);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, ground_mat_shininess);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular2);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse2);
-                // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient2);
-                glBegin(GL_QUADS);
-                    glNormal3f(0.0, 1.0, 0.0);
-                    glVertex3f(x+com_x,ground_height,z+com_z);
-                    glVertex3f(x+com_x,ground_height,z+com_z+1);
-                    glVertex3f(x+com_x+1,ground_height,z+com_z+1);
-                    glVertex3f(x+com_x+1,ground_height,z+com_z);
+                glColor3f(0.7, 0.7, 0.7);
+                glBegin(GL_LINE_STRIP);
+                    glVertex3f(x+com_x,ground_height+0.01,z+com_z);
+                    glVertex3f(x+com_x,ground_height+0.01,z+com_z+1);
+                    glVertex3f(x+com_x+1,ground_height+0.01,z+com_z+1);
+                    glVertex3f(x+com_x+1,ground_height+0.01,z+com_z);
                 glEnd();
-                // for(int xx = 0; xx < num_pieces; xx++){
-                //  for(int zz = 0; zz < num_pieces; zz++){
-                //      double _x = x+xx/num_pieces;
-                //      double _z = z+zz/num_pieces;
-                //      double dist = std::sqrt(
-                //                      (_x+com_x-com_root[0])*(_x+com_x-com_root[0]) 
-                //                      + (_z+com_z-com_root[2])*(_z+com_z-com_root[2])
-                //                  );
-                //      double transp = dist/radius;
-                //      if( dist < radius){
-                //          glBegin(GL_QUADS);
-                //          glNormal3f(0.0, 1.0, 0.0);
-                //          glVertex3f(_x+com_x,ground_height,_z+com_z);
-                //          glVertex3f(_x+com_x,ground_height,_z+com_z+0.1);
-                //          glVertex3f(_x+com_x+0.1,ground_height,_z+com_z+0.1);
-                //          glVertex3f(_x+com_x+0.1,ground_height,_z+com_z);
-                //          glEnd();
-                //      }
-                //  }
-                // }
-            }
+                glColor3f(0.9, 0.9, 0.9);
+           
         }   
     }
     double wall_height = 150;
     static float ground_mat_specular3[]  = {0.0, 0.0, 0.0, 0.0};
     static float ground_mat_diffuse3[]   = {0.0, 0.0, 0.0, 1.0};
     static float ground_mat_ambient3[]  = {0.0, 0.0, 0.0, 1.0};
-    // glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular3);
-    // glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse3);
-    // glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient3);
+
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR,  ground_mat_specular3);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE,   ground_mat_diffuse3);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT,   ground_mat_ambient3);
     glColor3f(1.0, 1.0, 1.0);
 
-    glBegin(GL_QUADS);
-        glNormal3f(0.0, 0.0, 1.0);
-        glVertex3f(com_x-radius_b,ground_height-wall_height,com_z-radius_b);
-        glNormal3f(0.0, 0.0, 1.0);
-        glVertex3f(com_x-radius_b,ground_height+wall_height,com_z-radius_b);
-        glNormal3f(0.0, 0.0, 1.0);
-        glVertex3f(com_x+radius_b+1,ground_height+wall_height,com_z-radius_b);
-        glNormal3f(0.0, 0.0, 1.0);
-        glVertex3f(com_x+radius_b+1,ground_height-wall_height,com_z-radius_b);
 
-        glNormal3f(0.0, 0.0, -1.0);
-        glVertex3f(com_x-radius_b,ground_height-wall_height,com_z+radius_b+1);
-        glNormal3f(0.0, 0.0, -1.0);
-        glVertex3f(com_x-radius_b,ground_height+wall_height,com_z+radius_b+1);
-        glNormal3f(0.0, 0.0, -1.0);
-        glVertex3f(com_x+radius_b+1,ground_height+wall_height,com_z+radius_b+1);
-        glNormal3f(0.0, 0.0, -1.0);
-        glVertex3f(com_x+radius_b+1,ground_height-wall_height,com_z+radius_b+1);
-
-        glNormal3f(1.0, 0.0, 0.0);
-        glVertex3f(com_x-radius_b,ground_height-wall_height,com_z+radius_b+1);
-        glNormal3f(1.0, 0.0, 0.0);
-        glVertex3f(com_x-radius_b,ground_height+wall_height,com_z+radius_b+1);
-        glNormal3f(1.0, 0.0, 0.0);
-        glVertex3f(com_x-radius_b,ground_height+wall_height,com_z-radius_b);
-        glNormal3f(1.0, 0.0, 0.0);
-        glVertex3f(com_x-radius_b,ground_height-wall_height,com_z-radius_b);
-
-        glNormal3f(-1.0, 0.0, 0.0);
-        glVertex3f(com_x+radius_b+1,ground_height-wall_height,com_z+radius_b+1);
-        glNormal3f(-1.0, 0.0, 0.0);
-        glVertex3f(com_x+radius_b+1,ground_height+wall_height,com_z+radius_b+1);
-        glNormal3f(-1.0, 0.0, 0.0);
-        glVertex3f(com_x+radius_b+1,ground_height+wall_height,com_z-radius_b);
-        glNormal3f(-1.0, 0.0, 0.0);
-        glVertex3f(com_x+radius_b+1,ground_height-wall_height,com_z-radius_b);
-    glEnd();
 }
