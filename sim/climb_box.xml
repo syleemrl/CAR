@@ -1,0 +1,12 @@
+<Skeleton name="Jump_Box">
+	<Joint type="WeldJoint" name="Box1" parent_name="None" size="0.7 0.05 0.7" mass="500000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.13686 2.10272 4.24509"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+	<Joint type="WeldJoint" name="Box2" parent_name="None" size="1.0 0.05 0.6" mass="500000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.13686 1.5677 3.73764"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+</Skeleton>
+
+

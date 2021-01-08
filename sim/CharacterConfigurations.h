@@ -7,7 +7,7 @@
 #define TERMINAL_ROOT_DIFF_THRESHOLD (0.6)
 #define TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD (0.4*M_PI)
 #define TERMINAL_ROOT_HEIGHT_LOWER_LIMIT (0.3)
-#define TERMINAL_ROOT_HEIGHT_UPPER_LIMIT (3.0)
+#define TERMINAL_ROOT_HEIGHT_UPPER_LIMIT (4.0)
 
 #define KV_RATIO (0.1)
 #define JOINT_DAMPING (0.05)
@@ -19,6 +19,6 @@
 #define CHARACTER_TYPE "mxm_t3"
 #define REF_CHARACTER_TYPE "mxm_t3"
 
-#define OBJECT_TYPE "j3_box"
+#define OBJECT_TYPE "climb_box"
 
 #endif
