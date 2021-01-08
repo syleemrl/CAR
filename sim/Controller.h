@@ -188,11 +188,19 @@ protected:
 	dart::constraint::BallJointConstraintPtr leftHandConstraint= nullptr;
 	dart::constraint::BallJointConstraintPtr rightHandConstraint= nullptr;
 
-	bool left_detached = false;
-	bool right_detached = false;
+	dart::constraint::BallJointConstraintPtr leftFootConstraint= nullptr;
+	dart::constraint::BallJointConstraintPtr rightFootConstraint= nullptr;
 
-	void attachHandToBar(bool left, Eigen::Vector3d offset);
-	void removeHandFromBar(bool left);
+	int left_hand_mode = 0;
+	int right_hand_mode = 0;
+	int left_foot_mode = 0;
+	int right_foot_mode = 0;
+
+	// bool left_detached = false;
+	// bool right_detached = false;
+
+	bool attachHandToBar(bool left, bool hand, int box_idx, Eigen::Vector3d offset);
+	void removeHandFromBar(bool left, bool hand);
 
 	Eigen::Vector3d dbg_LeftConstraintPoint;
 	Eigen::Vector3d dbg_RightConstraintPoint;
