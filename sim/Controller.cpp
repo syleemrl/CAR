@@ -719,13 +719,14 @@ UpdateTerminalInfo()
 		terminationReason = 5;
 		// std::cout<<mCurrentFrameOnPhase<<", angle: "<<std::abs(angle)<<std::endl;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength() + 15) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
 	if(mCurrentFrameOnPhase >=35 && mCurrentFrameOnPhase<=50 && (leftHandConstraint==nullptr || rightHandConstraint == nullptr)){
 		mIsTerminal = true;
 		terminationReason = 9;
+		std::cout<<mCurrentFrameOnPhase<<"/ "<<(leftHandConstraint==nullptr)<<" / "<<(rightHandConstraint==nullptr)<<std::endl;
 	}
 	// if(mIsTerminal)	std::cout << mCurrentFrameOnPhase<<"/ terminate Reason : "<<terminationReason<<std::endl;
 	if(mRecord) {
@@ -1070,7 +1071,7 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 
 	// std::cout<<"attach; "<<left<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
 
-	if(distance > 0.05) return;
+	if(distance > 0.07) return;
 
 	if(isAdaptive) mParamCur[0]= mParamGoal[0];
 
