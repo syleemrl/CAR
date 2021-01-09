@@ -747,6 +747,7 @@ UpdateTerminalInfo()
 	if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
+		// std::cout<<mCurrentFrameOnPhase<<" / root_pos_diff : "<<root_pos_diff.norm()<<"( "<<TERMINAL_ROOT_DIFF_THRESHOLD<<" )\n";
 	}
 
 	double cur_height_limit = TERMINAL_ROOT_HEIGHT_UPPER_LIMIT;
@@ -755,10 +756,12 @@ UpdateTerminalInfo()
 	if(!mRecord && root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit){
 		mIsTerminal = true;
 		terminationReason = 1;
+		// std::cout<<mCurrentFrameOnPhase<<" / root_y : "<<root_y<<"( "<<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT<<" , "<<cur_height_limit<<" )\n";
 	}
 	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
+		// std::cout<<mCurrentFrameOnPhase<<" / angle : "<<angle<<"( "<<TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD<<" )\n";
 	}
 	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
@@ -976,6 +979,7 @@ Reset(bool RSI)
 	// left_detached= (mCurrentFrame >=37) ? true: false; 
 	// right_detached= (mCurrentFrame >=51) ? true: false;
 
+	// std::cout<<"\n"<<mCurrentFrameOnPhase<<"\n";
 	if(leftHandConstraint) removeHandFromBar(true, true);
 	if(rightHandConstraint) removeHandFromBar(false, true);
 
@@ -1165,20 +1169,23 @@ bool Controller::attachHandToBar(bool left, bool hand, int box_idx, Eigen::Vecto
 	dart::dynamics::BodyNodePtr bar_bn = this->mObject->GetSkeleton()->getBodyNode("Box"+std::to_string(box_idx));
 	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
 
-	double obj_height = (bar_bn->getWorldTransform()*Eigen::Vector3d(0, 0.01, 0))[1];
-	double distance = jointPos[1]- obj_height;
-
 		auto shape_old = bar_bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
 		auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
 		Eigen::Vector3d boxSize = box->getSize();
 		Eigen::Vector3d box_end = bar_bn->getWorldTransform()*Eigen::Vector3d(0, 0.01, -boxSize[2]/2);
-	// std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<std::endl;
 
-	if(distance > 0.05 || distance < 0 || jointPos[2] < (box_end[2]-0.05) ) return false;
+	Eigen::VectorXd diff(2);
+	diff[0] = jointPos[1]- box_end[1];
+	diff[1] = std::max(box_end[2]- jointPos[2], 0.0);
+	double distance = diff.norm();
+
+	// if(mRecord) std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<"/ box: "<<box_end.transpose()<<std::endl;
+
+	if(distance > 0.08 || diff[0] < 0 || diff[1] > 0.05 ) return false;
 
 	if(isAdaptive) mParamCur[0]= mParamGoal[0];
 
-	auto checkConstraint = (hand)? ((left)? leftHandConstraint : rightHandConstraint) : ((left)? leftFootConstraint : rightFootConstraint);
+	auto& checkConstraint = (hand)? ((left)? leftHandConstraint : rightHandConstraint) : ((left)? leftFootConstraint : rightFootConstraint);
 	if(checkConstraint) removeHandFromBar(left, hand);
 
 	// if(left && leftHandConstraint) removeHandFromBar(true);
@@ -1202,7 +1209,7 @@ bool Controller::attachHandToBar(bool left, bool hand, int box_idx, Eigen::Vecto
 		if(left) std::cout<<"left : ";
 		else std::cout<<"right : ";
 	
-		std::cout<<jointPos.transpose()<<" distance :"<<distance<<std::endl;
+		std::cout<<jointPos.transpose()<<" distance :"<<distance<<std::endl<<std::endl;
 	}
 	return true;
 }
@@ -1255,7 +1262,7 @@ bool Controller::attachHandToBar(bool left, bool hand, int box_idx, Eigen::Vecto
 void Controller::removeHandFromBar(bool left, bool hand){
 	// std::cout<<"REMOVE "<<left<<std::endl;
 
-	auto checkConstraint = (hand)? ((left)? leftHandConstraint : rightHandConstraint) : ((left)? leftFootConstraint : rightFootConstraint);
+	auto& checkConstraint = (hand)? ((left)? leftHandConstraint : rightHandConstraint) : ((left)? leftFootConstraint : rightFootConstraint);
 	if(checkConstraint){
 	    mWorld->getConstraintSolver()->removeConstraint(checkConstraint);
 	    checkConstraint = nullptr;
