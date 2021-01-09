@@ -850,10 +850,10 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	
 		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && to_be_deleted.size() == 0) {
 			// if(mUpdatedSamplesNearGoal == 0)
-				mNewSamplesNearGoal = 1;
+			mNewSamplesNearGoal += 1;
 		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.0 && p->reward >= prev_max + 0.01) {
 			// if(mNewSamplesNearGoal == 0)
-				mUpdatedSamplesNearGoal = 1;
+			mUpdatedSamplesNearGoal += 1;
 		}
 		// std::cout << "insert done" << std::endl;
 

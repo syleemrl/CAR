@@ -557,20 +557,19 @@ GetParamReward()
 		double r_v = exp(-pow(v_diff, 2)*150);
 		double r_h = exp(-pow(h_diff, 2)*150);
 
-		r_param = r_v * r_m * r_h * r_l;
+		r_param = 0.35 * (r_v + r_h) + 0.15 * (r_m + r_l);
 
 		if(r_m > 0.4 && r_l > 0.4) {
 			mParamCur(0) = velocity;
 			mParamCur(1) = mJumpHeight / 1.45;
-		}
-		else {
+		} else {
 			mParamCur(0) = -1;
 		}
 
 		mControlFlag[0] = 2;		
 		mFitness.sum_reward = r_m * r_l;
 		if(mRecord) {
-			std::cout << mParamCur << " / " << r_param << std::endl;
+			std::cout << mParamCur.transpose() << " / " << r_param << std::endl;
 			std::cout << "momentum : " << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_m << std::endl;
 			std::cout << "totallength : " << mTotalLength.transpose() << " / " << l_diff.transpose() << " / " << r_l << std::endl;
 			std::cout << "velocity : " << mCurrentFrame << " " << mJumpStartFrame << " " << mCount << " " << velocity<< " / " << v_diff << " / " << r_v << std::endl;
