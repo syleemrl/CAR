@@ -19,16 +19,25 @@ DrawSkeleton(
 		std::string name = bn->getName();
 		Eigen::Vector4d color = shapeNodes[type]->getVisualAspect()->getRGBA();
 		color.head<3>() *= 0.5;
-		if(name == "FemurL" || name == "FemurR" || name == "TibiaL" || name == "TibiaR"){
+		if(name == "LeftUpLeg" || name == "RightUpLeg" || name == "LeftLeg" || name == "RightLeg"){
 			glPushMatrix();
 			glColor4f(color[0], color[1], color[2], color[3]);
 			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 			glTranslatef(jn_com[0], jn_com[1], jn_com[2]);
-			GUI::DrawSphere(0.04);
+			GUI::DrawSphere(0.045);
 			glPopMatrix();
 		}
 
-		if(name == "ForeArmL" || name == "ForeArmR"){
+		if(name == "LeftForeArm" || name == "RightForeArm"){
+			glPushMatrix();
+			glColor4f(color[0], color[1], color[2], color[3]);
+			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
+			glTranslatef(jn_com[0], jn_com[1], jn_com[2]);
+			GUI::DrawSphere(0.035);
+			glPopMatrix();
+		}
+
+		if(name == "LeftHand" || name == "RightHand"){
 			glPushMatrix();
 			glColor4f(color[0], color[1], color[2], color[3]);
 			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
@@ -37,26 +46,18 @@ DrawSkeleton(
 			glPopMatrix();
 		}
 
-		if(name == "HandL" || name == "HandR"){
+		if(name == "LeftFoot" || name == "RightFoot"){
 			glPushMatrix();
 			glColor4f(color[0], color[1], color[2], color[3]);
 			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 			glTranslatef(jn_com[0], jn_com[1], jn_com[2]);
-			GUI::DrawSphere(0.025);
-			glPopMatrix();
-		}
-
-		if(name == "FootL" || name == "FootR"){
-			glPushMatrix();
-			glColor4f(color[0], color[1], color[2], color[3]);
-			glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
-			glTranslatef(jn_com[0], jn_com[1], jn_com[2]);
-			GUI::DrawSphere(0.035);
+			GUI::DrawSphere(0.03);
 			glPopMatrix();
 
 		}
 		
-
+		if(name == "Ground_dummy")
+			continue;
 
 		auto T = shapeNodes[type]->getTransform();
 		DrawShape(T,shapeNodes[type]->getShape().get(),shapeNodes[type]->getVisualAspect()->getRGBA(), name);

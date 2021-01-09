@@ -333,7 +333,7 @@ SaveParamSpaceLog(int n) {
 void
 SimEnv::
 UpdateParamState() {
-	mRegressionMemory->UpdateParamState();
+	// mRegressionMemory->UpdateParamState();
 }
 double
 SimEnv::

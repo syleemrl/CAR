@@ -525,12 +525,11 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
+	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards)) || data_raw[0].second != 0) {
 		return;
 	}
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
-
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		return;
 	}
@@ -597,7 +596,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 
 	std::vector<std::pair<Eigen::VectorXd,double>> displacement;
 	this->GetDisplacementWithBVH(data_uniform, displacement);
-
+	
 	std::vector<Eigen::VectorXd> d;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 
@@ -607,17 +606,21 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		d.push_back(d_t);
 	}
 
-	double r_foot =  exp(-std::get<2>(rewards).sum_contact*0.15); 
+	double r_foot =  exp(-std::get<2>(rewards).sum_contact*100); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
+	double r_slide = exp(-std::get<2>(rewards).sum_slide*150);
 
-	double reward_trajectory = r_foot * r_pos * r_vel;
+	double r_vel_threshold = exp(-std::get<2>(rewards).sum_vel_threshold*0.01);
+	double r_pos_threshold = exp(-std::get<2>(rewards).sum_pos_threshold*8);
 
-	if(reward_trajectory < 0.4)
-		return;
-	if(std::get<2>(rewards).sum_reward != 0) {
-		reward_trajectory = reward_trajectory * (0.7 + 0.3 * std::get<2>(rewards).sum_reward);
-	}
+	double reward_trajectory = r_foot * r_pos * r_vel * r_slide;
+	double reward_trajectory_th = r_foot * r_pos_threshold * r_vel_threshold * r_slide;
+	// std::cout << r_foot << " " << r_pos << " " << r_vel <<"/ " << reward_trajectory << std::endl;
+	// std::cout << r_foot << " " << r_pos_threshold << " " << r_vel_threshold <<"/ " << reward_trajectory_th << std::endl;
+
+	// if(reward_trajectory_th < 0.3)
+	// 	return;
 	mLock.lock();
 
 	if(isParametric) {
