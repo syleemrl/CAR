@@ -158,10 +158,10 @@ Step()
 	}
 
 	// [23, 51)
-	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
+	if(mCurrentFrameOnPhase >=20 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
+	if(mCurrentFrameOnPhase >=20 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
@@ -690,7 +690,7 @@ UpdateTerminalInfo()
 	Eigen::Vector3d root_pos_diff = root_diff.translation();
 
 	double cur_height_limit = TERMINAL_ROOT_HEIGHT_UPPER_LIMIT ;
-	if(isAdaptive) cur_height_limit+= (mParamGoal[0]- mReferenceManager->getParamDMM()[0]);
+	if(isAdaptive) cur_height_limit += (mParamGoal[0]- mReferenceManager->getParamDMM()[0]);
 
 	// check nan
 	if(dart::math::isNan(p)){
@@ -719,7 +719,7 @@ UpdateTerminalInfo()
 		terminationReason = 5;
 		// std::cout<<mCurrentFrameOnPhase<<", angle: "<<std::abs(angle)<<std::endl;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength() +18) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -1067,7 +1067,7 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 
 	// std::cout<<"attach; "<<left<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
 
-	if(distance > 0.09) return;
+	if(distance > 0.07) return;
 
 	if(isAdaptive) mParamCur[0]= mParamGoal[0];
 

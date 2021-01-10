@@ -11,7 +11,7 @@ ReferenceManager::ReferenceManager(Character* character)
 :mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	mCharacter = character;
-	mBlendingInterval = 10;
+	mBlendingInterval = 6;
 	
 	mMotions_gen.clear();
 	mMotions_raw.clear();
@@ -64,7 +64,7 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
 	}
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -97,7 +97,7 @@ LoadAdaptiveMotion(std::string postfix) {
 	}
 	is.close();
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -216,12 +216,12 @@ LoadMotionFromBVH(std::string filename)
 
 	delete bvh;
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -288,7 +288,6 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 	T01.translation()[1] = 0;
 
 	int smooth_time = 10;
-	blend = false;
 	for(int i = 0; i < frames; i++) {
 		
 		int phase = i % mPhaseLength;
@@ -437,7 +436,7 @@ ResetOptimizationParameters(bool reset_displacement) {
 		for(int i = 0; i < this->GetPhaseLength(); i++) {
 			mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 		}
-		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+		this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 	}
 	
