@@ -30,11 +30,11 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 	mSkel_exp = DPhy::SkeletonBuilder::BuildFromFile(path).first;
 
-	path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
-	mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
-	Eigen::VectorXd pos_obj = mSkel_obj->getPositions();
+	// path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
+	// mSkel_obj = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+	// Eigen::VectorXd pos_obj = mSkel_obj->getPositions();
 
-	mSkel_obj->setPositions(pos_obj);
+	// mSkel_obj->setPositions(pos_obj);
 
 	if(ppo == "") {
 		mRunSim = false;
@@ -147,7 +147,10 @@ initNetworkSetting(std::string ppo, std::string reg) {
 		//	mRegressionMemory->SaveContinuousParamSpace(path + "param_cspace");
     	}
     	if(ppo != "") {
-    		this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
+    		if (reg!="") this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
+    		else this->mController = new DPhy::Controller(mReferenceManager, false, false, true); //adaptive=true, bool parametric=true, bool record=true
+
+    		// this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
 
     		p::object ppo_main = p::import("ppo");
@@ -210,6 +213,7 @@ UpdateParam(const bool& pressed) {
 	    double phase = 0;
 
 	    if(!mRunSim) {
+	    	#ifdef OBJECT_TYPE
 		    Eigen::VectorXd pos_obj = mSkel_obj->getPositions();
 			int n_obs = (int) floor((tp_denorm(0) - 0.6) * 10 / 2);
 			double base = 0.15;
@@ -223,6 +227,7 @@ UpdateParam(const bool& pressed) {
 				pos_obj(6+i) = 0;
 			}
 			mSkel_obj->setPositions(pos_obj);
+			#endif
 
 		    std::vector<Eigen::VectorXd> pos;
 		    double phase = 0;
@@ -352,17 +357,20 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
-		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
 		position_bvh(3) -= 0.75;
-		position_obj(3) += 0.75;
 
 		pos_reg.push_back(position_reg);
 		pos_sim.push_back(position);
 		pos_bvh.push_back(position_bvh);
+
+		#ifdef OBJECT_TYPE
+		Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
+		position_obj(3) += 0.75;
 		pos_obj.push_back(position_obj);
+		#endif
 	}
 	Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
 	root_bvh(3) += 0.75;
@@ -371,8 +379,10 @@ RunPPO() {
 	UpdateMotion(pos_bvh, 0);
 	UpdateMotion(pos_sim, 1);
 	UpdateMotion(pos_reg, 2);
-	UpdateMotion(pos_obj, 4);
 
+	#ifdef OBJECT_TYPE
+	UpdateMotion(pos_obj, 4);
+	#endif
 }
 void
 MotionWidget::
@@ -400,7 +410,7 @@ SetFrame(int n)
 	}
 	if(mDrawSim && n < mMotion_sim.size()) {
     	mSkel_sim->setPositions(mMotion_sim[n]);
-    	mSkel_obj->setPositions(mMotion_obj[n]);
+    	// mSkel_obj->setPositions(mMotion_obj[n]);
 	}
 	if(mDrawReg && n < mMotion_reg.size()) {
     	mSkel_reg->setPositions(mMotion_reg[n]);
@@ -417,19 +427,19 @@ DrawSkeletons()
 
 	if(mDrawBvh){		
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
-		GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// GUI::DrawSkeleton(this->mSkel_obj, 0);
 	}
 	if(mDrawSim) {
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
-		GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// GUI::DrawSkeleton(this->mSkel_obj, 0);
 	}
 	if(mDrawReg) {
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 	}
 	if(mDrawExp) {
 		GUI::DrawSkeleton(this->mSkel_exp, 0);
-		if(!mRunSim)
-			GUI::DrawSkeleton(this->mSkel_obj, 0);
+		// if(!mRunSim)
+		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
 
 	}
 

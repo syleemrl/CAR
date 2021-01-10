@@ -110,16 +110,16 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("v");
 		mRewardLabels.push_back("time");
 	}
-	if(mRecord) {
-		path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
-		mObject  = new DPhy::Character(path);
-		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-	}
-	#ifdef OBJECT_TYPE
-		path = std::string(CAR_DIR)+std::string("/character/")+OBJECT_TYPE+std::string(".xml");
-		mObject  = new DPhy::Character(path);
-		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-	#endif
+	// if(mRecord) {
+	// 	path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
+	// 	mObject  = new DPhy::Character(path);
+	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	// }
+	// #ifdef OBJECT_TYPE
+	// 	path = std::string(CAR_DIR)+std::string("/character/")+OBJECT_TYPE+std::string(".xml");
+	// 	mObject  = new DPhy::Character(path);
+	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+	// #endif
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -191,23 +191,23 @@ Step()
 
 		for(int j = 0; j < 2; j++) {
 			//mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			mCharacter->GetSkeleton()->setForces(torque);
-			mWorld->step(false);
-			
 			// Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			// for(int j = 0; j < num_body_nodes; j++) {
-			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			// 	double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
-			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
-			
-			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			// }
-
 			// mCharacter->GetSkeleton()->setForces(torque);
-			// mWorld->step(false);	
+			// mWorld->step(false);
+			
+			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			for(int j = 0; j < num_body_nodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+				double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+				double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			
+				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			}
+
+			mCharacter->GetSkeleton()->setForces(torque);
+			mWorld->step(false);	
 
 			mSumTorque += torque.cwiseAbs();
 		}
@@ -287,9 +287,9 @@ SaveStepInfo()
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	mRecordPhase.push_back(mCurrentFrame);
 
-	if(mRecord) {
-		mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
-	}
+	// if(mRecord) {
+	// 	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
+	// }
 	bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
 	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
 
@@ -709,10 +709,10 @@ UpdateTerminalInfo()
 	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 1 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
-		mIsTerminal = true;
-		terminationReason =  8;
-	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	// } else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 1 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	// 	mIsTerminal = true;
+	// 	terminationReason =  8;
+	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -754,18 +754,18 @@ SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
 	if(mRecord) {
-		Eigen::VectorXd pos_obj = mObject->GetSkeleton()->getPositions();
-		int n_obs = (int) floor((tp(0) - 0.6) * 10 / 2);
-		std::cout << (tp(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
+		// Eigen::VectorXd pos_obj = mObject->GetSkeleton()->getPositions();
+		// int n_obs = (int) floor((tp(0) - 0.6) * 10 / 2);
+		// std::cout << (tp(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
 
-		double base = 0.15;
-		for(int i = 0; i < n_obs; i++) {
-			pos_obj(6+i) = base;
-			base = pos_obj(6+i);
-		} for (int i = n_obs; i < pos_obj.rows() - 6; i++) {
-			pos_obj(6+i) = 0;
-		}
-		mObject->GetSkeleton()->setPositions(pos_obj);
+		// double base = 0.15;
+		// for(int i = 0; i < n_obs; i++) {
+		// 	pos_obj(6+i) = base;
+		// 	base = pos_obj(6+i);
+		// } for (int i = n_obs; i < pos_obj.rows() - 6; i++) {
+		// 	pos_obj(6+i) = 0;
+		// }
+		// mObject->GetSkeleton()->setPositions(pos_obj);
 	}
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
@@ -824,8 +824,8 @@ Reset(bool RSI)
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 
-				std::cout<<p_v_target->GetPosition().transpose()<<std::endl<<std::endl;
-			std::cout<<p_v_target->GetVelocity().transpose()<<std::endl<<std::endl;
+			// 	std::cout<<p_v_target->GetPosition().transpose()<<std::endl<<std::endl;
+			// std::cout<<p_v_target->GetVelocity().transpose()<<std::endl<<std::endl;
 
 	delete p_v_target;
 
@@ -1032,21 +1032,21 @@ GetState()
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
 	}
 
-	if(mCurrentFrame< 1){
-		std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
-		std::cout<<"p: "<<p.transpose()<<std::endl;
-		std::cout<<"v: "<<v.transpose()<<std::endl;
-		std::cout<<"up-vec: "<<up_vec_angle<<std::endl;
-		std::cout<<p_next.transpose()<<std::endl;
-		// std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
-		// std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
-		std::cout<<"root_height : "<<root_height<<std::endl;
-		std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
-		// std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
-		std::cout<<"ee: "<<ee.transpose()<<std::endl;
-		std::cout<<"param : "<<mParamGoal.transpose()<<std::endl;
+	// if(mCurrentFrame< 1){
+	// 	std::cout<<"@ "<<mCurrentFrameOnPhase<<std::endl;
+	// 	std::cout<<"p: "<<p.transpose()<<std::endl;
+	// 	std::cout<<"v: "<<v.transpose()<<std::endl;
+	// 	std::cout<<"up-vec: "<<up_vec_angle<<std::endl;
+	// 	std::cout<<p_next.transpose()<<std::endl;
+	// 	// std::cout<<"v.front : "<<v.head<6>().transpose()<<std::endl;
+	// 	// std::cout<<"v.front : "<<v.segment<6>(6).transpose()<<std::endl;
+	// 	std::cout<<"root_height : "<<root_height<<std::endl;
+	// 	std::cout<<"mAdaptiveStep : "<<mAdaptiveStep<<std::endl;
+	// 	// std::cout<<"mCurrentFrameOnPhase : "<<mCurrentFrameOnPhase<<std::endl;
+	// 	std::cout<<"ee: "<<ee.transpose()<<std::endl;
+	// 	std::cout<<"param : "<<mParamGoal.transpose()<<std::endl;
 
-	}
+	// }
 
 	return state;
 }
