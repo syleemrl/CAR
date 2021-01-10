@@ -62,41 +62,40 @@ def plot():
 	Vs = []
 	Ds = []
 	Fs = []
-	filelist = []
-	for i in range(6):
-		filelist.append('param_summary'+str(10 * (i+1)))
+	filelist = ['param_summary10','param_summary50', 'param_summary100', 'param_summary240', 'param_summary480']
+
 	for i in range(len(filelist)):
-		X, Y, V, D, F = read_data('../network/output/punch_ue_2d_test/'+filelist[i])
+		X, Y, V, D, F = read_data('../network/output/jump2_mxm_l/'+filelist[i])
 		Xs.append(X)
 		Ys.append(Y)
 		Vs.append(V)
 		Ds.append(D)
 		Fs.append(F)
 
-	fig = plt.figure('value', figsize=(30,10))
-	col_size = int((len(filelist) + 1) / 2)
+	fig = plt.figure('fitness', figsize=(30,5))
+	col_size = len(filelist)
 	for i in range(len(filelist)):
-		ax = fig.add_subplot(2, col_size, i+1, projection='3d')
-		surf = ax.plot_surface(Xs[i], Ys[i], Vs[i], cmap=cm.coolwarm,
+		ax = fig.add_subplot(1, col_size, i+1, projection='3d')
+		surf = ax.plot_surface(Xs[i], Ys[i], Fs[i], cmap=cm.coolwarm,
 	                linewidth=0, antialiased=True)
 		ax.set_xlabel('x')
 		ax.set_ylabel('y')
 		ax.set_title(i)
-		ax.azim = 0
-		ax.elev = 90
+		ax.azim = 58
+		ax.elev = 19
 	fig.tight_layout()
 
-	fig = plt.figure('density', figsize=(30,10))
+	fig = plt.figure('density', figsize=(30,5))
 
 	for i in range(len(filelist)):
-		ax = fig.add_subplot(2, col_size, i+1, projection='3d')
+		ax = fig.add_subplot(1, col_size, i+1, projection='3d')
 		surf = ax.plot_surface(Xs[i], Ys[i], Ds[i], cmap=cm.coolwarm, vmin=0, vmax=1.2,
 	                linewidth=0, antialiased=True)
 		ax.set_xlabel('x')
 		ax.set_ylabel('y')
 		ax.set_title(i)
-		ax.azim = 0
-		ax.elev = 90
+		ax.azim = 58
+		ax.elev = 19
 	fig.tight_layout()
 
 	# fig = plt.figure('fitness')

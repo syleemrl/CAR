@@ -67,6 +67,7 @@ public:
 	p::list GetExplorationRate();
 
 	double GetFitnessMean();
+	void SetEvalMode(bool on);
 private:
 	std::vector<DPhy::Controller*> mSlaves;
 	DPhy::ReferenceManager* mReferenceManager;

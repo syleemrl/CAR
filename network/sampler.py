@@ -36,7 +36,7 @@ class Sampler(object):
 
 		self.eval_target_v = 0
 
-		self.progress_queue_exploit = [10.0]
+		self.progress_queue_exploit = [0.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -130,7 +130,7 @@ class Sampler(object):
 
 	def updateCurrentStatus(self, mode, results, info):
 		if mode == 0 or mode == 2:
-			if len(self.progress_queue_explore) >= 5:
+			if len(self.progress_queue_explore) >= 10:
 				self.progress_queue_explore = self.progress_queue_explore[1:]
 			self.progress_queue_explore.append(self.progress_cur)
 
@@ -169,7 +169,7 @@ class Sampler(object):
 					print('delta updated:', self.delta)
 
 		elif mode == 1:		
-			if len(self.progress_queue_exploit) >= 5:
+			if len(self.progress_queue_exploit) >= 10:
 				self.progress_queue_exploit = self.progress_queue_exploit[1:]
 			self.progress_queue_exploit.append(self.progress_cur)		
 
@@ -317,7 +317,7 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
-		if self.n_exploit < 10:
+		if self.n_exploit < 5:
 			return False
 
 		if self.use_table:
@@ -326,9 +326,10 @@ class Sampler(object):
 			mean = 0
 			if v_key in self.vp_dict:
 				for i in range(len(self.vp_dict[v_key])):
-					mean += self.vp_dict[v_key][i][1]
-					count += 1
-				
+					if (self.total_iter - self.vp_dict[v_key][i][2]) < 50:
+						mean += self.vp_dict[v_key][i][1]
+						count += 1
+					
 				if count != 0:
 					mean /= count			
 			print((self.v_mean - self.delta), p_mean, mean)

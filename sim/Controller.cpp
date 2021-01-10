@@ -540,6 +540,7 @@ GetSimilarityReward()
 			p_diff.segment<2>(idx + 1) *= 2;
 			v_diff.segment<2>(idx + 1) *= 2;
 
+
 			p_diff_th.segment<2>(idx + 1) *= 2;
 			v_diff_th.segment<2>(idx + 1) *= 2;
 		} else if(name.find("UpLeg") != std::string::npos ) {
@@ -549,6 +550,7 @@ GetSimilarityReward()
 			p_diff_th.segment<2>(idx + 1) *= 2;
 			v_diff_th.segment<2>(idx + 1) *= 2;
 		} else if(name.find("tArm") != std::string::npos ) {
+
 			p_diff.segment<3>(idx) *= 2;
 			v_diff.segment<3>(idx) *= 2;
 			
@@ -613,18 +615,18 @@ GetParamReward()
 	auto& skel = this->mCharacter->GetSkeleton();
 	if(mCurrentFrameOnPhase >= 26 && mControlFlag[0] == 0) {
 		Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
+		momentumGoal(1) *= mParamGoal(1);
 		Eigen::Vector3d m_diff = momentumGoal - mMomentum;
 		m_diff *= 0.1;
 		m_diff(1) *= 4;
 
-		double r_m = exp_of_squared(m_diff, 1.5); 
-		if(r_m < 0.4) {
-			mParamCur(0) = -5;
-		} else {
-			mParamCur(0) = mParamGoal(0);
-		}
-		mFitness.sum_reward = (0.5 + 0.5 * r_m);
-		r_param = 0.6 * r_m;
+
+		double r_m = exp_of_squared(m_diff, 2); 
+
+		mParamCur(0) = mParamGoal(0);
+		mParamCur(1) = mMomentum(1) / 165;
+	
+		r_param = 0.8 * r_m;
 
 		mControlFlag[0] = 1;
 		if(mRecord) {
@@ -660,15 +662,17 @@ GetParamReward()
 			// // r_param = r_m;
 			// // mParamRewardMax = r_param;
 
-			double r_c = exp(-mCondiff * 7.5);
-			if(r_c < 0.5) {
+			double r_c = exp(-mCondiff * 5);
+			if(r_c < 0.6) {
 				mParamCur(0) = -5;
 			} 
 			// else {
 			// 	mParamCur(0) = mParamGoal(0);
 			// }
-			r_param = 0.6 * r_c;
-			mFitness.sum_reward *= r_c;
+
+			r_param = 0.4 * r_c;
+			mFitness.sum_reward = r_c;
+
 
 			mControlFlag[0] = 2;
 
@@ -843,7 +847,7 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	this->mWorld->setGravity(exp(mParamGoal(0))*mBaseGravity);
+	this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 

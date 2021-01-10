@@ -24,7 +24,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		mReferenceManager->InitOptimization(num_slaves, training_path, adaptive);
 		mReferenceManager->LoadAdaptiveMotion("");
 
-		mRegressionMemory->LoadParamSpace(mPath + "param_space");
+		mRegressionMemory->LoadParamSpace(mPath + "param_space0");
 		
 	} else {
 		mReferenceManager->InitOptimization(num_slaves, "");
@@ -402,6 +402,11 @@ SimEnv::
 GetFitnessMean() {
 	return mRegressionMemory->GetFitnessMean();
 }
+void
+SimEnv::
+SetEvalMode(bool on) {
+	mReferenceManager->SetEvalMode(on);
+}
 using namespace boost::python;
 
 BOOST_PYTHON_MODULE(simEnv)
@@ -442,6 +447,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UpdateReference",&SimEnv::UpdateReference)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
 		.def("GetFitnessMean",&SimEnv::GetFitnessMean)
+		.def("SetEvalMode",&SimEnv::SetEvalMode)
 		.def("GetDensity",&SimEnv::GetDensity);
 
 }

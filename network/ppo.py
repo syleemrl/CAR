@@ -523,6 +523,7 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
+
 		self.env.sampler.resetExplore()
 		it_cur = 0
 
@@ -582,15 +583,16 @@ class PPO(object):
 			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.parametric] == self.optim_frequency[self.parametric] - 1) or \
 			    (self.env.mode == 2 and it_cur % self.env.sampler.eval_frequency == self.env.sampler.eval_frequency - 1):	
 				if self.parametric:
-					self.updateAdaptive(epi_info_iter)
+					if not self.env.mode_eval:
+						self.updateAdaptive(epi_info_iter)
 					t = self.env.updateCurriculum(self.critic_target, self.v_target, self.info_target)
 					if t == -1:
 						break
 					elif t == 1:
 						it_cur = 0
 					
-					if self.env.needEvaluation():
-						self.eval(30)
+					# if self.env.needEvaluation():
+					# 	self.eval(30)
 				elif self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					self.env.updateReference()
@@ -617,6 +619,7 @@ class PPO(object):
 
 	def eval(self, num_samples):
 		tuples = []
+		self.env.sim_env.SetEvalMode(True)
 		for it in range(num_samples):
 			for i in range(self.num_slaves):
 				self.env.reset(i)
@@ -649,6 +652,7 @@ class PPO(object):
 					break
 				states = self.env.getStates()
 		marginal_vs = self.computeValue(tuples)
+		self.env.sim_env.SetEvalMode(False)
 		self.env.saveEvaluation(marginal_vs)
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))

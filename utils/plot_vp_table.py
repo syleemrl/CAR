@@ -11,9 +11,7 @@ from sklearn.linear_model import LinearRegression
 import re
 def plot():
 
-	border = [10000, 30000, 60000, 100000, 140000, 180000, 200000] #, 200000, 350000]
-
-	data = open('vp_table8')
+	data = open('vtable')
 
 	epi = []
 	dict_list = []
@@ -35,7 +33,7 @@ def plot():
 			size = math.floor(len(l) / 5)
 			for i in range(size):
 				li.append([float(l[5*i]), float(l[5*i+1])])
-			d[key / 0.5] = li
+			d[key / 1.5] = li
 			l = data.readline()
 		epi.append(e)
 		dict_list.append(d)
@@ -43,37 +41,31 @@ def plot():
 
 	data.close()
 
-	rows = np.array([11.0, 11.5, 12.0, 12.5, 13.0, 13.5, 14.0, 14.5, 15.0, 15.5])
+	rows = np.array([12.0, 13.5, 15.0, 16.5, 18.0, 19.5, 21.0])
 	
 	epi_selected = []
 	columns = []
 
 	for i in range(len(epi)-1):	
-		if epi[i+1] - epi[i] > 10000:
-			epi_selected.append(epi[i])
-			vp_dict = dict_list[i]
-
+		epi_selected.append(epi[i])
+		vp_dict = dict_list[i]
 			# for k, v in zip(vp_dict.keys(), vp_dict.values()):
 			# 	print('(', k * 0.5, ',', (k+1)*0.5,') : ',v, ' ', np.array(v).mean(axis=0)[1])
 			# print()
-			y_predict = []
-			for i in range(len(rows)):
-				v_key = math.floor(rows[i] * 1 / 0.5) - 1
-				mean = np.array(vp_dict[v_key]).mean(axis=0)[1] * len(vp_dict[v_key])
-				count = 0
-				if v_key - 1 in vp_dict:
-					for i in range(len(vp_dict[v_key - 1])):
-						if abs(v_key - vp_dict[v_key - 1][i][0]) < 0.8:
-							mean += vp_dict[v_key - 1][i][1]
-							count += 1
-				if v_key + 1 in vp_dict:
-					for i in range(len(vp_dict[v_key + 1])):
-						if abs(v_key - vp_dict[v_key + 1][i][0]) < 0.8:
-							mean += vp_dict[v_key + 1][i][1]
-							count += 1
-				mean /= (count + len(vp_dict[v_key]))
-				y_predict.append(mean)
-			columns.append(y_predict)
+		y_predict = []
+		for i in range(len(rows)):
+			v_key = math.floor(rows[i] * 1 / 1.5) 
+			count = 0
+			mean = 0
+			if v_key in vp_dict:
+				for i in range(len(vp_dict[v_key])):
+					mean += vp_dict[v_key][i][1]
+					count += 1
+					
+				if count != 0:
+					mean /= count	
+			y_predict.append(mean)
+		columns.append(y_predict)
 
 	fig, ax = plt.subplots(figsize=(20, 5))
 

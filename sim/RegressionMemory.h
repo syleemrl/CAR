@@ -156,7 +156,6 @@ private:
 	double mEliteGoalDistance;
 	double mNewSamplesNearGoal;
 	double mUpdatedSamplesNearGoal;
-
 };
 }
 #endif
