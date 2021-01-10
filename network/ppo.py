@@ -350,7 +350,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, param_info = zip(*data)
 
-			if len(times) == self.env.phaselength +15:
+			if len(times) == self.env.phaselength +18:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:
@@ -658,6 +658,7 @@ class PPO(object):
 		
 		values = self.critic.getValue(state)
 		# action, _ = self.actor.getAction(state)
+		# print(action)
 		action = self.actor.getMeanAction(state)
 
 		return action

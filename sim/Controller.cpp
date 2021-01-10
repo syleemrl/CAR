@@ -165,7 +165,7 @@ Step()
 	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
-	if(mRecord) std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<std::endl;//" / obj: "<<obj_pos.transpose()<<std::endl;
+	// if(mRecord) std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<std::endl;//" / obj: "<<obj_pos.transpose()<<std::endl;
 	
 	Eigen::VectorXd s = this->GetState();
 
@@ -194,7 +194,10 @@ Step()
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
-	Eigen::VectorXd p_now = p_v_target->GetPosition();
+	// Eigen::VectorXd p_now = p_v_target->GetPosition();
+		Eigen::VectorXd p_now = p_v_target->GetPosition();
+	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+
 	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
     this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033 * (mCurrentFrame - mPrevFrame);
 	delete p_v_target;
@@ -251,10 +254,10 @@ Step()
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mParamCur = mParamGoal;
 
-		// mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
-		// mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
-		// mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
-		// this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
+		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
+		mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
+		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 
 		if(isAdaptive) {
 			mTrackingRewardTrajectory /= mCountTracking;
@@ -531,11 +534,11 @@ GetSimilarityReward()
 	// }
 	
 	Eigen::VectorXd p_aligned = skel->getPositions();
-	// std::vector<Eigen::VectorXd> p_with_zero;
-	// p_with_zero.push_back(mRootZero);
-	// p_with_zero.push_back(p_aligned.segment<6>(0));
-	// p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
-	// p_aligned.segment<6>(0) = p_with_zero[1];
+	std::vector<Eigen::VectorXd> p_with_zero;
+	p_with_zero.push_back(mRootZero);
+	p_with_zero.push_back(p_aligned.segment<6>(0));
+	p_with_zero = Align(p_with_zero, mReferenceManager->GetPosition(0, false));
+	p_aligned.segment<6>(0) = p_with_zero[1];
 
 	Eigen::VectorXd v = skel->getPositionDifferences(skel->getPositions(), mPosQueue.front()) / (mCurrentFrame - mTimeQueue.front() + 1e-10) / 0.033;
 	for(auto& jn : skel->getJoints()){
@@ -692,6 +695,7 @@ UpdateTerminalInfo()
 	double cur_height_limit = TERMINAL_ROOT_HEIGHT_UPPER_LIMIT ;
 	if(isAdaptive) cur_height_limit+= (mParamGoal[0]- mReferenceManager->getParamDMM()[0]);
 
+	// mRecord=false;
 	// check nan
 	if(dart::math::isNan(p)){
 		mIsNanAtTerminal = true;
@@ -707,31 +711,34 @@ UpdateTerminalInfo()
 	else if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
-		// std::cout<<mCurrentFrameOnPhase<<" , root_pos_diff: "<<root_pos_diff.norm()<<std::endl;
+		// std::cout<<mCurrentFrame<<" , root_pos_diff: "<<root_pos_diff.norm()<<std::endl;
 	}
 
 	else if(!mRecord && (root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit)){
 		mIsTerminal = true;
 		terminationReason = 1;
+		// std::cout<<mCurrentFrame<<"/root_y "<<root_y<<std::endl;
 	}
 	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-		// std::cout<<mCurrentFrameOnPhase<<", angle: "<<std::abs(angle)<<std::endl;
+		// std::cout<<mCurrentFrame<<", angle: "<<std::abs(angle)<<std::endl;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength() + 15) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength() + 18) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
+		// std::cout<<mCurrentFrame<<"done"<<std::endl;
 	}
-	if(mCurrentFrameOnPhase >=35 && mCurrentFrameOnPhase<=50 && (leftHandConstraint==nullptr || rightHandConstraint == nullptr)){
+	if(mCurrentFrameOnPhase >=40 && mCurrentFrameOnPhase<=50 && (leftHandConstraint==nullptr || rightHandConstraint == nullptr)){
 		mIsTerminal = true;
 		terminationReason = 9;
-		std::cout<<mCurrentFrameOnPhase<<"/ "<<(leftHandConstraint==nullptr)<<" / "<<(rightHandConstraint==nullptr)<<std::endl;
+		// std::cout<<mCurrentFrame<<"/ "<<(leftHandConstraint==nullptr)<<" / "<<(rightHandConstraint==nullptr)<<std::endl;
 	}
+	// mRecord=true;
 	// if(mIsTerminal)	std::cout << mCurrentFrameOnPhase<<"/ terminate Reason : "<<terminationReason<<std::endl;
 	if(mRecord) {
-		std::cout<<mCurrentFrameOnPhase<<" "<<root_pos_diff.norm()<<" "<<angle<<" "<<root_y<<std::endl;
 		if(mIsTerminal) {
+		std::cout<<mCurrentFrame<<" "<<root_pos_diff.norm()<<" "<<angle<<" "<<root_y<<std::endl;
 			std::cout<<"/ leftConstraint: "<<(leftHandConstraint!=nullptr)<<"/ rightConstraint: "<<(rightHandConstraint!=nullptr);
 			std::cout<<"/ left_detached: "<<left_detached<<"/ right_detached: "<<right_detached<<std::endl;
 		}
@@ -866,6 +873,7 @@ Reset(bool RSI)
 
 	mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 	mPrevTargetPositions = mTargetPositions;
+	mDefaultRootZero = mRootZero; 
 
 	mPrevFrame = mCurrentFrame;
 	mPrevFrame2 = mPrevFrame;
@@ -892,8 +900,8 @@ Reset(bool RSI)
 	this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
 
 	#endif
-   // this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-   // this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
+   this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+   this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
 	dbg_LeftPoints= std::vector<Eigen::Vector3d>();
 	dbg_RightPoints= std::vector<Eigen::Vector3d>();
@@ -1215,7 +1223,10 @@ GetState()
 	double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
-	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
+	Eigen::VectorXd p_now = p_v_target->GetPosition();
+	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+
+	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
 
 	delete p_v_target;
 
