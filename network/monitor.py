@@ -224,13 +224,14 @@ class Monitor(object):
 			# self.saveParamSpaceSummary(v_func)
 		if self.num_evaluation % 10 == 9:
 			self.sim_env.SaveParamSpace(-1)
-		
+		# t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
+	
 		# if self.mode == 0:
 		# 	# if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
 		# 	# 	self.saveVPtable()
 		# 	print(self.sampler.progress_queue_explore)
 		# 	print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-		# 	if (self.num_evaluation >= 20 and self.sampler.n_explore >= 10 and \
+		# 	if t_per_e < 70 or (self.num_evaluation >= 20 and self.sampler.n_explore >= 10 and \
 		# 	   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9):
 		# 		self.mode = 1
 		# 		self.mode_counter = 0
@@ -248,7 +249,7 @@ class Monitor(object):
 		# 		self.mode_eval = False
 		# 		if self.sampler.prev_progress_ex > np.array(self.sampler.progress_queue_exploit).mean():
 		# 			self.sampler.progress_queue_exploit = self.sampler.prev_queue_exploit
-		# 	elif not self.mode_eval and self.sampler.isEnough():
+		# 	elif not self.mode_eval and self.sampler.isEnough() and t_per_e >= 70:
 		# 		self.mode = 0
 		# 		self.mode_counter = 0
 		# 		self.sampler.resetExplore()

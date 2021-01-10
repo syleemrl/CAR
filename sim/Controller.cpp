@@ -822,7 +822,7 @@ SetGoalParameters(Eigen::VectorXd tp)
 		for(int i = 0; i < n_obs; i++) {
 			pos_obj(6+i) = base;
 			base = pos_obj(6+i);
-		} for (int i = n_obs; i < pos_obj.rows() - 6; i++) {
+		} for (int i = n_obs; i < pos_obj.rows() - 7; i++) {
 			pos_obj(6+i) = 0;
 		}
 		mObject->GetSkeleton()->setPositions(pos_obj);
@@ -1134,15 +1134,14 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	bvh_order.push_back("RightArm");
 	bvh_order.push_back("RightForeArm");
 	bvh_order.push_back("RightHand");
-	bvh_order.push_back("RightUpLeg");
-	bvh_order.push_back("RightLeg");
-	bvh_order.push_back("RightFoot");
-	bvh_order.push_back("RightToe");
 	bvh_order.push_back("LeftUpLeg");
 	bvh_order.push_back("LeftLeg");
 	bvh_order.push_back("LeftFoot");
 	bvh_order.push_back("LeftToe");
-
+	bvh_order.push_back("RightUpLeg");
+	bvh_order.push_back("RightLeg");
+	bvh_order.push_back("RightFoot");
+	bvh_order.push_back("RightToe");
 
 	if(bvh) {
 		ofs << "HIERARCHY" << std::endl;
