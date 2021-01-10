@@ -306,6 +306,7 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
+			
 			// mFitness.sum_slide/= mFitness.slide_cnt;
 			// mFitness.sum_slide+= 0.5*(stickFoot_max - stickFoot_min);
 			double slide = std::max((stickFoot_left_max - stickFoot_left_min), (stickFoot_right_max- stickFoot_right_min));
@@ -340,6 +341,7 @@ Step()
 			mFitness.slide_cnt = 0;
 			mFitness.fall_cnt = 0;
 			mFitness.com_rot_norm= 0;
+			
 			auto& skel = mCharacter->GetSkeleton();
 			mFitness.sum_pos.resize(skel->getNumDofs());
 			mFitness.sum_vel.resize(skel->getNumDofs());
@@ -476,18 +478,39 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 	
 	Eigen::Vector3d com_diff = skel->getCOM();
-	
+
+	double left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
+	double right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+
 	skel->setPositions(position2);
 	skel->computeForwardKinematics(true,false,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
-		// ee_diff(3*i) *= 2; //x
-		// ee_diff(3*i+1) *= 0.5; //y
-		// ee_diff(3*i+2) *= 0.5; //z
 	}
 	com_diff -= skel->getCOM();
+
+	Eigen::VectorXd foot_x(2); 
+	foot_x.setZero();
+
+
+	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	Eigen::VectorXd pos = p_v_target->GetPosition();
+	Eigen::VectorXd vel = p_v_target->GetVelocity();
+	skel->setPositions(pos);
+	skel->setVelocities(vel);
+	skel->computeForwardKinematics(true, true, false);
+
+	double ref_left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
+	double ref_right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+
+	skel->setPositions(p_save);
+	skel->setVelocities(v_save);
+	skel->computeForwardKinematics(true,true,false);
+
+	foot_x[0] = std::max(0.0, left_foot_x-ref_left_foot_x);
+	foot_x[1] = std::min(0.0, right_foot_x-ref_right_foot_x);
 
 	double scale = 1.0;
 
@@ -495,6 +518,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.5 * scale;		
+	double sig_foot_x = 0.8*scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -504,6 +528,12 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
+
+	if(jump_phase ==1){
+		double r_foot_x = exp_of_squared(foot_x, sig_foot_x);
+		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
+		r_ee = (r_ee + r_foot_x)/2.0;		
+	}
 
 	std::vector<double> rewards;
 	rewards.clear();
@@ -516,9 +546,6 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 		rewards.push_back(r_v);
 	}
 
-	skel->setPositions(p_save);
-	skel->setVelocities(v_save);
-	skel->computeForwardKinematics(true,true,false);
 
 	return rewards;
 
@@ -656,7 +683,7 @@ GetSimilarityReward()
 
 		if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
 			// std::cout<<mCurrentFrameOnPhase<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
-			p_diff(idx+2)*= 20;
+			p_diff(idx+2)*= 15;
 		}
 	}
 
@@ -684,7 +711,6 @@ GetSimilarityReward()
 		// mFitness.slide_cnt++;
 		// r_footSlide = exp_of_squared(foot_diff, 0.1);
 	}
-
 
 	if(mCurrentFrameOnPhase>=115) {
 		// Eigen::Vector3d com = mCharacter->GetSkeleton()->getCOM();
@@ -781,7 +807,7 @@ UpdateReward()
 
 
 	// std::cout<<mCurrentFrame<<" "<<accum_bvh<<" "<<tracking_rewards_bvh[0]<<" "<<tracking_rewards_bvh[1]<<" "<<tracking_rewards_bvh[2]<<" "<<tracking_rewards_bvh[3]<<std::endl;
-
+	// r_p, r_com, r_ee, r_v
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -1002,6 +1028,7 @@ Reset(bool RSI)
 		mFitness.slide_cnt = 0;
 		mFitness.fall_cnt = 0;
 		mFitness.com_rot_norm = 0;
+		
 		mFitness.sum_pos.resize(skel->getNumDofs());
 		mFitness.sum_vel.resize(skel->getNumDofs());
 		mFitness.sum_pos.setZero();

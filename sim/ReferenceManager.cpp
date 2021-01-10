@@ -467,10 +467,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		// mParamEnd << 1.3, 3.2;
 
 		mParamBase.resize(2);
-		mParamBase << -1.3, 0.7; 
+		mParamBase << -1.3, 1.3; 
 
 		mParamEnd.resize(2);
-		mParamEnd << 1.3, 3.2;
+		mParamEnd << 1.0, 3.0;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -661,6 +661,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	// std::cout << "2 : " << reward_trajectory << std::endl;
 
 	// if(reward_trajectory < 0.6) return ;
+	if(mRecord) return;
 
 	mLock.lock();
 	
