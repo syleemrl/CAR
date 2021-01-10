@@ -53,6 +53,7 @@ public:
 	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps);
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
+	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> pos, std::vector<double> time);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
 	Motion* GetMotion(double t, bool adaptive=false);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 

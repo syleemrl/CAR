@@ -827,7 +827,7 @@ UpdateTerminalInfo()
 	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 6 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
@@ -1185,15 +1185,14 @@ Controller::SaveDisplayedData(std::string directory, bool bvh) {
 	bvh_order.push_back("RightArm");
 	bvh_order.push_back("RightForeArm");
 	bvh_order.push_back("RightHand");
-	bvh_order.push_back("RightUpLeg");
-	bvh_order.push_back("RightLeg");
-	bvh_order.push_back("RightFoot");
-	bvh_order.push_back("RightToe");
 	bvh_order.push_back("LeftUpLeg");
 	bvh_order.push_back("LeftLeg");
 	bvh_order.push_back("LeftFoot");
 	bvh_order.push_back("LeftToe");
-
+	bvh_order.push_back("RightUpLeg");
+	bvh_order.push_back("RightLeg");
+	bvh_order.push_back("RightFoot");
+	bvh_order.push_back("RightToe");
 
 	if(bvh) {
 		ofs << "HIERARCHY" << std::endl;

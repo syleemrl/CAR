@@ -21,6 +21,7 @@ ReferenceManager::ReferenceManager(Character* character)
 	mDOF = skel->getPositions().rows();
 
 }
+
 void 
 ReferenceManager::
 SaveAdaptiveMotion(std::string postfix) {
@@ -35,6 +36,20 @@ SaveAdaptiveMotion(std::string postfix) {
 		ofs << mTimeStep_adaptive[i] << std::endl;
 	}
 	ofs.close();
+
+}
+void 
+ReferenceManager::
+LoadAdaptiveMotion(std::vector<Eigen::VectorXd> pos, std::vector<double> time) {
+	std::vector<Eigen::VectorXd> vel = this->GetVelocityFromPositions(pos);
+	mMotions_phase_adaptive.clear();
+	mTimeStep_adaptive.clear();
+	for(int j = 0; j < pos.size(); j++) {
+		mMotions_phase_adaptive.push_back(new Motion(pos[j], vel[j]));
+		mTimeStep_adaptive.push_back(time[j]);
+	}
+	std::cout << mMotions_phase_adaptive.size() << " " << mTimeStep_adaptive.size() << std::endl;
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 

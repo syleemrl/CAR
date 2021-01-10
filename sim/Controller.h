@@ -52,6 +52,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	double GetTimeElapsed(){return this->mTimeElapsed;}
 	double GetCurrentFrame(){return this->mCurrentFrame;}
+	double GetCurrentFrameOnPhase(){return this->mCurrentFrameOnPhase;}
 	double GetCurrentLength() {return this->mCurrentFrame - this->mStartFrame; }
 	double GetStartFrame(){ return this->mStartFrame; }
 
