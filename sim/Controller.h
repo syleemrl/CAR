@@ -168,6 +168,7 @@ protected:
 	std::vector<std::pair<Eigen::VectorXd,double>> data_raw;
 
 	int mCountParam;
+	int mCountSlide;
 	int mCountTracking;
 
 	Eigen::Vector3d mGravity;
@@ -180,6 +181,7 @@ protected:
 	std::queue<Eigen::VectorXd> mPosQueue;
 	std::queue<double> mTimeQueue;
 
+	std::vector<std::pair<bool, Eigen::Vector3d>> mPrevContactInfo;
 /////////////////////////////////////////////////
 // for action parameter design
 	int mCount;
@@ -188,6 +190,8 @@ protected:
 	double mJumpHeight;
 	Eigen::Vector3d mTotalLength;
 	Eigen::Vector3d mMomentum;
+	int mCountContact;
+	double mCondiff;
 //////////////////////////////////////////////////
 };
 }

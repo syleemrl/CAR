@@ -207,6 +207,7 @@ Step()
 			mFitness.sum_pos = 0;
 			mFitness.sum_vel = 0;
 			mFitness.sum_reward = 0;
+			mFitness.sum_slide = 0;
 
 			mTrackingRewardTrajectory = 0;
 			mParamRewardTrajectory = 0;
@@ -219,6 +220,8 @@ Step()
 			mTotalLength.setZero();
 			// mVelocity.setZero();
 			mMomentum.setZero();
+			mCountContact = 0;
+			mCondiff = 0;
 		}
 	}
 	if(isAdaptive) {
@@ -298,6 +301,9 @@ ClearRecord()
 	// mVelocity.setZero();
 	mTotalLength.setZero();
 	mMomentum.setZero();
+
+	mCountContact = 0;
+	mCondiff = 0;
 }
 
 std::vector<double> 
@@ -472,14 +478,42 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 3;
-			v_diff.segment<3>(idx) *= 3;
 			v_diff.segment<3>(idx + 3) *= 3;
-		} else if(name.find("Spine") != std::string::npos) {
-			p_diff.segment<3>(idx) *= 3;
-			v_diff.segment<3>(idx) *= 3;
-
+		} else if(name.find("UpLeg") != std::string::npos) {
+			p_diff.segment<2>(idx + 1) *= 3;
 		}
 	}
+
+	double footSlide = 0;
+	Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+	lf /= 2.0;
+
+	Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+	rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+	rf /= 2.0;
+		
+	for(int i = 0; i < 2; i++) {
+		Eigen::Vector3d f; 
+		if(i == 0) {
+			f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+			f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+			f /= 2.0;
+		} else if(i == 1) {
+			f = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+			f += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+			f /= 2.0;
+		}
+		bool contact_now = f(1) < 0.07;
+		if(mPrevContactInfo[i].first && contact_now) {
+			Eigen::Vector3d v_slide = mPrevContactInfo[i].second - f;
+			v_slide(1) = 0;
+			footSlide += v_slide.dot(v_slide);
+		}
+		mPrevContactInfo[i] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
+	}
+
+
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
 	double r_p = exp_of_squared(p_diff,0.3);
@@ -489,6 +523,7 @@ GetSimilarityReward()
 	mFitness.sum_contact += con_diff;
 	mFitness.sum_pos += p_diff.dot(p_diff) / p_diff.rows();
 	mFitness.sum_vel += v_diff.dot(v_diff) / v_diff.rows();
+	mFitness.sum_slide += footSlide;
 
 	return exp(-r_con)  * r_p * r_ee;
 }
@@ -557,9 +592,9 @@ GetParamReward()
 		double r_v = exp(-pow(v_diff, 2)*150);
 		double r_h = exp(-pow(h_diff, 2)*150);
 
-		r_param = 0.35 * (r_v + r_h) + 0.15 * (r_m + r_l);
+		r_param = r_v * r_h * r_m * r_l;
 
-		if(r_m > 0.4 && r_l > 0.4) {
+		if(r_m > 0.3 && r_l > 0.3) {
 			mParamCur(0) = velocity;
 			mParamCur(1) = mJumpHeight / 1.45;
 		} else {
@@ -576,6 +611,27 @@ GetParamReward()
 			std::cout << "height : " << mJumpHeight << " / " << h_diff << " / " << r_h << std::endl;
 
 		}
+	}
+	if(mControlFlag[0] == 2) {
+		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
+		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
+
+		for(int i = 0; i < contacts_cur.size(); i++) {
+			if(contacts_ref[i].first && !contacts_cur[i].first) {
+				mCondiff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
+			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
+				mCondiff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
+			}
+		}
+		mCountContact += 1;
+	} 
+	if(mCurrentFrameOnPhase >= 45 && mControlFlag[0] == 2) {
+		mCondiff /= mCountContact;
+		r_param = 0.2 * exp(-mCondiff * 4);
+		if(mRecord) {
+			std::cout << "contact : " << mCondiff << "/ " << r_param << std::endl;
+		}
+		mControlFlag[0] = 3;
 	}
 	return r_param;
 	
@@ -599,12 +655,29 @@ UpdateAdaptiveReward()
 
 	double r_tot = r_tracking;
 	
-	// if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 42) {
-	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
-	// 	Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
-	// 	double r_pos = exp_of_squared(pos_diff, 0.2);
-	// 	r_tot = 0.9 * r_tot + 0.1 * r_pos;
-	// }
+	if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 38) {
+		Eigen::VectorXd pos_diff;
+		pos_diff.resize(9);
+
+		Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
+		Eigen::Vector3d pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
+		pos_diff.segment<3>(0) = pos_diff_joint;
+
+		int idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
+		Eigen::Vector3d posRUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
+		pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
+		pos_diff_joint(0) = 0;
+		pos_diff.segment<3>(3) = pos_diff_joint;
+
+		idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
+		Eigen::Vector3d posLUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
+		pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
+		pos_diff_joint(0) = 0;
+		pos_diff.segment<3>(6) = pos_diff_joint;
+
+		double r_pos = exp_of_squared(pos_diff, 0.2);
+		r_tot = 0.9 * r_tot + 0.1 * r_pos;
+	}
 	
 	mRewardParts.clear();
 
@@ -787,6 +860,7 @@ Reset(bool RSI)
 		mFitness.sum_pos = 0;
 		mFitness.sum_vel = 0;
 		mFitness.sum_reward = 0;
+		mFitness.sum_slide = 0;
 
 	}
 
@@ -803,10 +877,26 @@ Reset(bool RSI)
 
 	this->mPDTargetPositions = mTargetPositions;
 	this->mPDTargetVelocities = mTargetVelocities;
-
+	
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
+
+	for(int i = 0; i < 2; i++) {
+		Eigen::Vector3d f; 
+		if(i == 0) {
+			f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+			f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+			f /= 2.0;
+		} else if(i == 1) {
+			f = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+			f += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+			f /= 2.0;
+		}
+		bool contact_now = f(1) <0.07;
+		mPrevContactInfo.push_back(std::pair<bool, Eigen::Vector3d>(contact_now, f));
+	}
+
 
 	this->mIsNanAtTerminal = false;
 	this->mIsTerminal = false;
