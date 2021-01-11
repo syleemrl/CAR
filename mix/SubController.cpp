@@ -226,28 +226,25 @@ void RUN_SWING_Controller::reset(double frame, double frameOnPhase){
 
 bool RUN_SWING_Controller::Step()
 {
+
 	if(left_detached && mMC->mCurrentFrameOnPhase<=1) left_detached = false;
 	if(right_detached && mMC->mCurrentFrameOnPhase<=1) right_detached = false;
 
 	this->mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
 	// [23, 51)
-	std::cout<<"ckpt 0"<<std::endl;
 	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 	
-	std::cout<<"ckpt 1"<<std::endl;
-
 	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
-	std::cout<<"ckpt 2"<<std::endl;
 
 
 }
 
 
 void RUN_SWING_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
-	std::cout<<"attach; "<<left;
+	// std::cout<<"attach; "<<left;
 	
 	std::string hand = (left) ? "LeftHand" : "RightHand";
 	dart::dynamics::BodyNodePtr hand_bn = mMC->mCharacter->GetSkeleton()->getBodyNode(hand);
@@ -259,7 +256,7 @@ void RUN_SWING_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	diff[0]=0;
 	double distance= diff.norm();
 
-	std::cout<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
+	// std::cout<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
 
 	if(distance > 0.09) return;
 

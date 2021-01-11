@@ -71,9 +71,6 @@ MetaController::MetaController(std::string ctrl, std::string scene_obj, std::str
 	}
 	mPrevController = nullptr;
 
-	mSubControllers["WALL_JUMP"]->mParamGoal= mSubControllers["WALL_JUMP"]->mReferenceManager->GetParamGoal();
-	mSubControllers["FW_JUMP"]->mParamGoal= mSubControllers["FW_JUMP"]->mReferenceManager->GetParamGoal();
-
 	mRef1 = mCurrentController->mReferenceManager;
 	mTime1 = 0;
 	mAlign1 = Eigen::Isometry3d::Identity();
@@ -93,7 +90,7 @@ void MetaController::reset()
 	skel->clearInternalForces();
 	skel->clearExternalForces();
 
-	bool isAdaptive = true;
+	bool isAdaptive = mCurrentController->mIsParametric;
 	this->mCurrentFrame = mTime1; 
 	this->mCurrentFrameOnPhase = std::fmod(mTime1, mCurrentController->mReferenceManager->GetPhaseLength());
 
@@ -170,28 +167,15 @@ void MetaController::runScenario(){
 		Eigen::VectorXd state = GetState();
 
 		p::object a = this->mCurrentController->mPPO.attr("run")(DPhy::toNumPyArray(state));
+
 		np::ndarray na = np::from_object(a);
 		Eigen::VectorXd action = DPhy::toEigenVector(na,this->GetNumAction());
+		
+		
 		this->SetAction(action);
+
 		this->Step();	
 		
-		// int blendFrame1 = 40; //66; //71;
-		// int blendFrame2 = 4; //0; //63;
-
-	// for(TiXmlElement *body = skeldoc->FirstChildElement("Take"); body != nullptr; body = body->NextSiblingElement("Take")){
-		
-	// 	std::string ctrl_type = body->Attribute("type");
-	// 	Eigen::VectorXd goal_param = (body->Attribute("goal_param")!=nullptr)? (DPhy::string_to_vectorXd(body->Attribute("goal_param"))) : Eigen::VectorXd(0);
-	// 	std::string target_object = (body->Attribute("target_object")!=nullptr)? (body->Attribute("target_object")) : "";
-
-	// 	Take new_take(ctrl_type);
-	// 	new_take.goalParam= goal_param;
-	// 	new_take.target_object = target_object;
-	// 	mTakeList.push_back(new_take);
-
-	// 	std::cout<<"===================== NEW TAKE : "<<ctrl_type<<" / "<<goal_param.transpose()<<" / target_object: "<<target_object<<" ====================="<<std::endl;
-	// }
-
 		std::map<std::pair<std::string, std::string>, std::pair<int, int>> transitionRules;
 		transitionRules.emplace(std::make_pair("FW_JUMP", "WALL_JUMP"), std::make_pair(40, 69+4));
 		transitionRules.emplace(std::make_pair("WALL_JUMP", "RUN_CONNECT"), std::make_pair(69+67, 6));
@@ -207,104 +191,113 @@ void MetaController::runScenario(){
 
 
 			// WITHOUT BLENDING
-			if(mTime1 >= blendFrame1){
+			// if(mTime1 >= blendFrame1){
 
-				std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<std::endl;
+			// 	std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<std::endl;
 
-				Eigen::Isometry3d prevAlign = mAlign1;
-				mAlign1 = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2);
-				std::cout<<mAlign1.linear()<<"\n"<<mAlign1.translation().transpose()<<"\n";
+			// 	Eigen::Isometry3d prevAlign = mAlign1;
+			// 	mAlign1 = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2);
+			// 	std::cout<<mAlign1.linear()<<"\n"<<mAlign1.translation().transpose()<<"\n";
 
-				mCurrentController = mSubControllers[to];
-				mRef1 = mSubControllers[to]->mReferenceManager;
-				mTime1 = blendFrame2;
-				mCurrentFrameOnPhase = std::fmod(mTime1, mRef1->GetPhaseLength());
-				mCurrentTake ++;
-				mCurrentController->reset(mCurrentFrame, mCurrentFrameOnPhase);
+			// 	mCurrentController = mSubControllers[to];
+			// 	mRef1 = mSubControllers[to]->mReferenceManager;
+			// 	mTime1 = blendFrame2;
+			// 	mCurrentFrameOnPhase = std::fmod(mTime1, mRef1->GetPhaseLength());
+			// 	mCurrentTake ++;
+			// 	mCurrentController->reset(mCurrentFrame, mCurrentFrameOnPhase);
 				
-				// TODO				
-				if(mTakeList[mCurrentTake].target_object!="") {
-					std::cout<<" set object : "<<mTakeList[mCurrentTake].target_object<<std::endl;
+			// 	// TODO				
+			// 	if(mTakeList[mCurrentTake].target_object!="") {
+			// 		std::cout<<" set object : "<<mTakeList[mCurrentTake].target_object<<std::endl;
 
-					dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake].target_object];
-					Eigen::VectorXd p = obj->getPositions();
+			// 		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake].target_object];
+			// 		Eigen::VectorXd p = obj->getPositions();
+			// 		double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+			// 		Eigen::Isometry3d align_obj = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2_phase);
 
-					std::cout<<p.transpose()<<std::endl;
+			// 		MultiplyRootTransform(p, align_obj, false);
+			// 		if(mCurrentTake==1) p[5]+=0.1;
+			// 		obj->setPositions(p);
 
-					double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-					Eigen::Isometry3d align_obj = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2_phase);
+			// 		mCurrentController->setCurObject(obj);
+			// 	}
+			// }
 
-					MultiplyRootTransform(p, align_obj, false);
-					if(mCurrentTake==1) p[5]+=0.1;
-					obj->setPositions(p);
-					obj->computeForwardKinematics(true, false, false);
-					std::cout<<obj->getBodyNode(0)->getWorldTransform().translation().transpose()<<std::endl;
+			if(control_mode ==0 && mTime1+mBlendMargin >=blendFrame1){
+				control_mode = 1;
+				std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<std::endl;
+
+				mRef2 = mSubControllers[to]->mReferenceManager;
+				mTime2 = blendFrame2- mBlendMargin;
+				mSubControllers[to]->reset(mTime2, std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength()));
+				mBlendStep = 1;
+				mAlign2 = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2);
+			}
+			else if(control_mode == 1 && (mTime1>= blendFrame1)){
+				mCurrentController= mSubControllers[to];
+				if(mTakeList[mCurrentTake+1].target_object!="") {
+					
+					std::cout<<" set object : "<<mTakeList[mCurrentTake+1].target_object<<std::endl;
+					dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake+1].target_object];
+
+					if(obj->getJoint(0)->getNumDofs() == 6){
+						Eigen::VectorXd p = obj->getPositions();
+						double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+						Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
+
+						MultiplyRootTransform(p, align_obj, false);
+						if(mCurrentTake==1) p[5]+=0.1;
+						obj->setPositions(p);					
+					}
+					else{
+						// TODO
+						// swing bar specific code
+						Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();
+						double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+						Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
+						newTransform = align_obj*newTransform;
+						
+						dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
+						dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
+
+						auto parent_props = parent->getParentJoint()->getJointProperties();
+						parent_props.mT_ChildBodyToJoint = newTransform.inverse();
+						parent->getParentJoint()->setProperties(parent_props);
+
+						auto props = bn->getParentJoint()->getJointProperties();
+						props.mT_ParentBodyToJoint = parent->getTransform().inverse()*newTransform;
+						bn->getParentJoint()->setProperties(props);
+					}
 
 					mCurrentController->setCurObject(obj);
-
-					std::cout<<p.transpose()<<std::endl;
 				}
+
+				control_mode = 2;
+				mCurrentFrameOnPhase = std::fmod(mTime2, GetCurrentRefManager()->GetPhaseLength());
+				std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<"/ phase: "<<mCurrentFrameOnPhase<<std::endl;
+			}else if(control_mode == 2 && (mTime2>=blendFrame2+mBlendMargin)){
+				mRef1 = mRef2;
+				mAlign1 = mAlign2;
+				mTime1 = mTime2;
+
+				mCurrentTake++;
+				control_mode = 0;
+				std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<std::endl;
+
+				mRef2 = nullptr;
 			}
 
-
-			// if(control_mode ==0 && mTime1+mBlendMargin >=blendFrame1){
-			// 	control_mode = 1;
-			// 	std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<std::endl;
-
-			// 	mRef2 = mSubControllers[to]->mReferenceManager;
-			// 	mTime2 = blendFrame2- mBlendMargin;
-			// 	mSubControllers[to]->reset(mTime2, std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength()));
-			// 	mBlendStep = 1;
-			// 	mAlign2 = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2);
-			// }
-			// else if(control_mode == 1 && (mTime1>= blendFrame1)){
-			// 	mCurrentController= mSubControllers[to];
-			// 	if(mTakeList[mCurrentTake+1].target_object!="") {
-					
-			// 		std::cout<<" set object : "<<mTakeList[mCurrentTake+1].target_object<<std::endl;
-
-			// 		mCurrentController->setCurObject(mSceneObjects[mTakeList[mCurrentTake+1].target_object]);
-			// 		auto& obj = mCurrentController->mCurObject;
-			// 		Eigen::VectorXd p = obj->getPositions();
-			// 		MultiplyRootTransform(p, mAlign2, false);
-			// 		if((mCurrentTake+1)==1) p[5]+=0.1;
-			// 		obj->setPositions(p);
-			// 	}
-
-			// 	control_mode = 2;
-			// 	mCurrentFrameOnPhase = std::fmod(mTime2, GetCurrentRefManager()->GetPhaseLength());
-			// 	std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<"/ phase: "<<mCurrentFrameOnPhase<<std::endl;
-			// }else if(control_mode == 2 && (mTime2>=blendFrame2+mBlendMargin)){
-			// 	mRef1 = mRef2;
-			// 	mAlign1 = mAlign2;
-			// 	mTime1 = mTime2;
-
-			// 	mCurrentTake++;
-			// 	control_mode = 0;
-			// 	std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<std::endl;
-
-			// 	mRef2 = nullptr;
-			// }
-
 		}
-		if(mCurrentFrame>=120){
-			scenario_done= true;
-			break;
-		}
+		// if(mCurrentFrame>=120){
+		// 	scenario_done= true;
+		// 	break;
+		// }
 		if(mCurrentTake+1 == mTakeList.size() && mCurrentFrameOnPhase >= mRef1->GetPhaseLength()-1){
 			scenario_done =true;
 			break;
 		}
 
-
-
-		// if(mCurrentFrame>=120){
-		// 	scenario_done =true;
-		// 	break;
-		// }
 	}
-
-	// this->mTiming.push_back(this->mController->GetCurrentFrame());
 }
 
 void MetaController::loadSceneObjects(std::string obj_path)
@@ -353,7 +346,10 @@ void MetaController::loadControllers(std::string ctrl_path)
 			std::cout<<" NOT A PROPER COTNROLLER TYPE : "<<ctrl_type<<std::endl;
 			continue;
 		}
-		addSubController(newSC);	
+
+		if(isParametric) newSC->mParamGoal = newSC->mReferenceManager->GetParamGoal();
+
+		addSubController(newSC);
 	}
 		// std::string ctrl_bvh = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
 		// Eigen::VectorXd pos = string_to_vectorXd(body->Attribute("pos"));
@@ -395,7 +391,7 @@ Eigen::VectorXd MetaController::GetState()
 	// 1) 공통 ... 
 	// 2) according to mCurrentController...
 
-	bool isAdaptive= true; bool mRecord = true;
+	bool isAdaptive= mCurrentController->mIsParametric; bool mRecord = true;
 	if(mIsTerminal && terminationReason != 8){
 		return Eigen::VectorXd::Zero(mNumState);
 	}
@@ -486,7 +482,7 @@ void MetaController::Step()
 	if(IsTerminalState())
 		return;
 
-	bool isAdaptive = true;
+	bool isAdaptive = mCurrentController->mIsParametric;
 	bool mRecord= true;
 
 	// Eigen::VectorXd s = this->GetState();

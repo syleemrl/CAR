@@ -1,6 +1,13 @@
 <Scenario>
 	<Take type="FW_JUMP" goal_param="0.6" target_object="" /> 
 	<Take type="WALL_JUMP" goal_param="0.9" target_object="j3_box_0" /> 
-	<!-- <Take type="RUN_CONNECT" target_object="" />  -->
-	<!-- <Take type="RUN_SWING" goal_param="2.14" target_object="swing_bar_0" />  -->
+	<Take type="RUN_CONNECT" target_object="" /> 
+	<Take type="RUN_SWING" goal_param="2.14" target_object="swing_bar_0" /> 
 </Scenario>
+
+<!--
+ 	<Take type="FW_JUMP" goal_param="0.6" target_object="" /> 
+	<Take type="WALL_JUMP" goal_param="0.9" target_object="j3_box_0" /> 
+	<Take type="RUN_CONNECT" target_object="" /> 
+	<Take type="RUN_SWING" goal_param="2.14" target_object="swing_bar_0" /> 
+ -->

@@ -653,15 +653,19 @@ class PPO(object):
 		marginal_vs = self.computeValue(tuples)
 		self.env.saveEvaluation(marginal_vs)
 	def run(self, state):
-		state = np.reshape(state, (1, self.num_state))
-		state = self.RMS.apply(state)
-		
-		values = self.critic.getValue(state)
-		#action, _ = self.actor.getAction(state)
-		action = self.actor.getMeanAction(state)
+		try:
+			state = np.reshape(state, (1, self.num_state))
+			state = self.RMS.apply(state)
+			
+			values = self.critic.getValue(state)
+			#action, _ = self.actor.getAction(state)
+			action = self.actor.getMeanAction(state)
 
-		return action
-
+			return action
+		except:
+			embed()
+			exit()
+			
 if __name__=="__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--ntimesteps", type=int, default=1000000)
