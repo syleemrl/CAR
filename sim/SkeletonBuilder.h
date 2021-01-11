@@ -106,7 +106,7 @@ public:
 		bool contact);
 
 
-	static void loadScene(std::string scene_path, std::vector<dart::dynamics::SkeletonPtr>& sceneObjects);
+	static void loadScene(std::string scene_path, std::map<std::string, dart::dynamics::SkeletonPtr>& sceneObjects);
 
 };
 }

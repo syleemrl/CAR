@@ -129,7 +129,7 @@ LoadAdaptiveMotion(std::string postfix) {
 	}
 	is.close();
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -248,12 +248,12 @@ LoadMotionFromBVH(std::string filename)
 
 	delete bvh;
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -463,7 +463,7 @@ ResetOptimizationParameters(bool reset_displacement) {
 		for(int i = 0; i < this->GetPhaseLength(); i++) {
 			mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 		}
-		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+		this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 	}
 
@@ -530,11 +530,39 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
 
 			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 		}
-	}else{
-		
+	}else if(ctrl_type == "RUN_SWING"){
+		mParamCur.resize(1); // wall height
+		mParamCur << 2.14;
+
+		mParamGoal.resize(1);
+		mParamGoal = mParamCur;
+
+		mParamDMM.resize(1);
+		mParamDMM = mParamGoal;
+
+		if(adaptive) {
+
+			Eigen::VectorXd paramUnit(1);
+			paramUnit << 0.1;
+
+			mParamBase.resize(1);
+			mParamBase << 2;
+
+			mParamEnd.resize(1);
+			mParamEnd << 3.2;
+
+			
+			mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+											  paramUnit, mDOF + 1, mPhaseLength);
+
+
+			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+		}
 	}
 
-	std::cout<<ctrl_type<<" / "<<mParamGoal.transpose()<<std::endl;
+	if(isParametric) std::cout<<ctrl_type<<" / "<<mParamGoal.transpose()<<std::endl;
+	else std::cout<<ctrl_type<<std::endl;
+	
 	ResetOptimizationParameters();
 }
 
@@ -764,19 +792,9 @@ ReferenceManager::
 GetRootTransform(double t, bool adaptive)
 {
 	Motion* m = this->GetMotion(t, adaptive);
-
-	// Eigen::VectorXd p_save = mCharacter->GetSkeleton()->getPositions();
-
 	Eigen::Isometry3d T = dart::dynamics::FreeJoint::convertToTransform(m->GetPosition().head<6>());
-
-	// mCharacter->GetSkeleton()->setPositions(m->GetPosition());
-	// mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
-
-	// Eigen::Isometry3d T =  mCharacter->GetSkeleton()->getBodyNode(0)->getWorldTransform();
-
-	// mCharacter->GetSkeleton()->setPositions(p_save);
-	// mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
-
+	delete m;
+	
 	return T;
 }
 

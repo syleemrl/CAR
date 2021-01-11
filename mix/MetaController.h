@@ -5,6 +5,16 @@
 namespace DPhy
 {
 
+struct Take
+{
+	Take(std::string ctrl_type):ctrl_type(ctrl_type){}
+
+	std::string ctrl_type;
+	Eigen::VectorXd goalParam;
+	std::string target_object="";
+
+};
+
 class MetaController
 {
 public:
@@ -12,6 +22,7 @@ public:
 	
 	std::map<std::string, SubController*> mSubControllers;
 	void loadControllers(std::string ctrl_path);
+	void loadScenario(std::string scenario_path);
 	void addSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
 
 	SubController* mPrevController;	
@@ -33,7 +44,7 @@ public:
 	dart::dynamics::SkeletonPtr mGround;
 
 	void loadSceneObjects(std::string obj_path);
-	std::vector<dart::dynamics::SkeletonPtr> mSceneObjects;
+	std::map<std::string, dart::dynamics::SkeletonPtr> mSceneObjects;
 	bool mLoadScene= false;
 
 
@@ -117,15 +128,18 @@ public:
 	double mTime2;
 	Eigen::Isometry3d mAlign1;
 	Eigen::Isometry3d mAlign2;
-	int mBlendStep;
+	double mBlendStep;
 
 	Motion* GetMotion(double t, bool isAdaptive);
 
+	Eigen::Isometry3d calculateAlign(Eigen::Isometry3d align, std::string from, double frame1, std::string to, double frame2);
 	int control_mode = 0; 
 	// 0: single controller
 	// 1: 1->2 (1)
 	// 2: 1->2(2)
 
+	std::vector<Take> mTakeList;
+	int mCurrentTake;
 };
 } // end namespace DPhy
 

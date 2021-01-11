@@ -34,7 +34,7 @@ class SubController
 {
 public:
 	SubController(){}
-	SubController(std::string type, MetaController* mc, std::string motion, std::string ppo, std::string reg);
+	SubController(std::string type, MetaController* mc, std::string motion, std::string ppo, std::string reg, bool isParametric=true);
 
 	std::string mType;
 
@@ -43,6 +43,7 @@ public:
 	p::object 						mRegression;
 	DPhy::RegressionMemory* 		mRegressionMemory;
 
+	bool mIsParametric;
 	Eigen::VectorXd mParamGoal;
 
 	bool virtual IsTerminalState()=0;
@@ -69,7 +70,7 @@ class FW_JUMP_Controller : public SubController
 {
 public:
 	FW_JUMP_Controller(){}
-	FW_JUMP_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg);
+	FW_JUMP_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg, bool isParametric=true);
 
 	bool virtual IsTerminalState();
 	bool virtual Step();
@@ -81,7 +82,7 @@ class WALL_JUMP_Controller : public SubController
 {
 public:
 	WALL_JUMP_Controller(){}
-	WALL_JUMP_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg);
+	WALL_JUMP_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg, bool isParametric=true);
 
 	bool virtual IsTerminalState();
 	bool virtual Step();
@@ -97,6 +98,41 @@ public:
 	void attachHandToBar(bool left, Eigen::Vector3d offset);
 	void removeHandFromBar(bool left);
 
+};
+
+
+class RUN_SWING_Controller : public SubController
+{
+public:
+	RUN_SWING_Controller(){}
+	RUN_SWING_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg, bool isParametric);
+
+	bool virtual IsTerminalState();
+	bool virtual Step();
+	void virtual reset(double frame=0,double frameOnPhase=0);
+
+
+	dart::constraint::BallJointConstraintPtr leftHandConstraint= nullptr;
+	dart::constraint::BallJointConstraintPtr rightHandConstraint= nullptr;
+
+	bool left_detached = false;
+	bool right_detached = false;
+
+	void attachHandToBar(bool left, Eigen::Vector3d offset);
+	void removeHandFromBar(bool left);
+
+};
+
+
+class RUN_CONNECT_Controller : public SubController
+{
+public:
+	RUN_CONNECT_Controller(){}
+	RUN_CONNECT_Controller(MetaController* mc, std::string motion, std::string ppo, std::string reg, bool isParametric);
+
+	bool virtual IsTerminalState();
+	bool virtual Step();
+	void virtual reset(double frame=0,double frameOnPhase=0);
 };
 
 }// end namespace DPhy

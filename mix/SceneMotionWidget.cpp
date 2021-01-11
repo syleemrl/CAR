@@ -82,7 +82,7 @@ SceneMotionWidget::
 DrawSkeletons()
 {
 	GUI::DrawSkeleton(this->mSkel_sim, 0);
-	for(auto obj: this->mMC->mSceneObjects) GUI::DrawSkeleton(obj);
+	for(auto obj: this->mMC->mSceneObjects) GUI::DrawSkeleton(obj.second);
 
 	glPushMatrix();
 	glTranslated(1.5, 0, 0);
