@@ -36,7 +36,7 @@ class Sampler(object):
 
 		self.eval_target_v = 0
 
-		self.progress_queue_exploit = [0.0]
+		self.progress_queue_exploit = [20.0]
 		self.progress_queue_explore = [0]
 
 		self.progress_cur = 0
@@ -317,7 +317,7 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
-		if self.n_exploit < 5:
+		if self.n_exploit < 10:
 			return False
 
 		if self.use_table:

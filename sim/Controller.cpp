@@ -185,7 +185,7 @@ Step()
 
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			//Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			// Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
 			// for(int j = 0; j < num_body_nodes; j++) {
 			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
 			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
@@ -196,7 +196,7 @@ Step()
 			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
 			// }
 
-			//mCharacter->GetSkeleton()->setForces(torque);
+			// mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 			//mSumTorque += torque.cwiseAbs();
 
@@ -540,7 +540,6 @@ GetSimilarityReward()
 			p_diff.segment<2>(idx + 1) *= 2;
 			v_diff.segment<2>(idx + 1) *= 2;
 
-
 			p_diff_th.segment<2>(idx + 1) *= 2;
 			v_diff_th.segment<2>(idx + 1) *= 2;
 		} else if(name.find("UpLeg") != std::string::npos ) {
@@ -550,7 +549,6 @@ GetSimilarityReward()
 			p_diff_th.segment<2>(idx + 1) *= 2;
 			v_diff_th.segment<2>(idx + 1) *= 2;
 		} else if(name.find("tArm") != std::string::npos ) {
-
 			p_diff.segment<3>(idx) *= 2;
 			v_diff.segment<3>(idx) *= 2;
 			
@@ -647,28 +645,10 @@ GetParamReward()
 
 		if(mCurrentFrameOnPhase >= 44) {
 
-			// // /////BASELINE
-			// // Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
-			// // Eigen::Vector3d m_diff = momentumGoal - mMomentum;
-			// // m_diff *= 0.1;
-			// // m_diff(1) *= 4;
-
-			// // double r_m = exp_of_squared(m_diff, 1.5); 
-			// // if(r_m < 0.4) {
-			// // 	mParamCur(0) = -5;
-			// // } else {
-			// // 	mParamCur(0) = mParamGoal(0);
-			// // }
-			// // r_param = r_m;
-			// // mParamRewardMax = r_param;
-
-			double r_c = exp(-mCondiff * 5);
-			if(r_c < 0.6) {
+			double r_c = exp(-mCondiff * 7.5);
+			if(r_c < 0.5) {
 				mParamCur(0) = -5;
 			} 
-			// else {
-			// 	mParamCur(0) = mParamGoal(0);
-			// }
 
 			r_param = 0.4 * r_c;
 			mFitness.sum_reward = r_c;
@@ -712,7 +692,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(20 * r_param);
+		mRewardParts.push_back(10 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -847,7 +827,7 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
+	this->mWorld->setGravity(exp(mParamGoal(0))*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 

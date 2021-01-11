@@ -189,7 +189,7 @@ class Monitor(object):
 			out.close()	
 
 	def saveParamSpaceSummary(self, v_func):
-		#self.sim_env.SaveParamSpace(self.num_evaluation)
+		self.sim_env.SaveParamSpace(self.num_evaluation)
 		li = self.sim_env.GetParamSpaceSummary()
 		grids = li[0]
 		grids_norm = li[1]
@@ -224,16 +224,18 @@ class Monitor(object):
 		if self.num_evaluation % 20 == 19:
 			self.sim_env.SaveParamSpace(-1)
 
-		# if (self.num_evaluation != 0 and self.num_evaluation < 200 and self.num_evaluation % 10 == 0) or \
-		# 	(self.num_evaluation >= 200 and self.num_evaluation % 40 == 0):
-		# 	self.saveParamSpaceSummary(v_func)
+		if (self.num_evaluation != 0 and self.num_evaluation < 200 and self.num_evaluation % 20 == 0) or \
+			(self.num_evaluation >= 200 and self.num_evaluation % 50 == 0):
+			self.saveParamSpaceSummary(v_func)
+		
+		t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
 
 		if self.mode == 0:
 			if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
 				self.saveVPtable()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.v_ratio == 1 or (self.num_evaluation >= 20 and self.sampler.n_explore >= 5 and \
+			if self.v_ratio == 1 or t_per_e < 100 or (self.num_evaluation >= 20 and self.sampler.n_explore >= 5 and \
 			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9):
 				self.mode = 1
 				self.mode_counter = 0
@@ -251,7 +253,7 @@ class Monitor(object):
 				self.mode_eval = False
 				if self.sampler.prev_progress_ex > np.array(self.sampler.progress_queue_exploit).mean():
 					self.sampler.progress_queue_exploit = self.sampler.prev_queue_exploit
-			elif not self.mode_eval and self.sampler.isEnough() and self.v_ratio != 1:
+			elif not self.mode_eval and t_per_e > 100 and self.sampler.isEnough() and self.v_ratio != 1:
 				self.mode = 0
 				self.mode_counter = 0
 				self.sampler.resetExplore()
@@ -276,9 +278,7 @@ class Monitor(object):
 
 	def updateGoal(self, v_func, record=True):
 		if record:
-			t = self.sampler.randomSample(-1)
-			idx = -1
-			# t, idx = self.sampler.adaptiveSample(self.mode, v_func)
+			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		else:
 			t = self.sampler.randomSample(1)
 			idx = -1

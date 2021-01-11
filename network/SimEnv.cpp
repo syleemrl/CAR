@@ -24,7 +24,7 @@ SimEnv(int num_slaves, std::string ref, std::string training_path, bool adaptive
 		mReferenceManager->InitOptimization(num_slaves, training_path, adaptive);
 		mReferenceManager->LoadAdaptiveMotion("");
 
-		mRegressionMemory->LoadParamSpace(mPath + "param_space0");
+		mRegressionMemory->LoadParamSpace(mPath + "param_space");
 		
 	} else {
 		mReferenceManager->InitOptimization(num_slaves, "");

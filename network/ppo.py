@@ -583,8 +583,7 @@ class PPO(object):
 			if (self.env.mode < 2 and it_cur % self.optim_frequency[self.parametric] == self.optim_frequency[self.parametric] - 1) or \
 			    (self.env.mode == 2 and it_cur % self.env.sampler.eval_frequency == self.env.sampler.eval_frequency - 1):	
 				if self.parametric:
-					if not self.env.mode_eval:
-						self.updateAdaptive(epi_info_iter)
+					self.updateAdaptive(epi_info_iter)
 					t = self.env.updateCurriculum(self.critic_target, self.v_target, self.info_target)
 					if t == -1:
 						break
