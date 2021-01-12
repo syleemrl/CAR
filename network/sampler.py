@@ -19,7 +19,7 @@ class Sampler(object):
 		self.total_iter = 0
 
 		# 0: uniform 1: adaptive
-		self.type_exploit = 1
+		self.type_exploit = 0
 		# 0: uniform 1 :adaptive
 		self.type_explore = 0
 	

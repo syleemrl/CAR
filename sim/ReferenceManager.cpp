@@ -39,6 +39,20 @@ SaveAdaptiveMotion(std::string postfix) {
 }
 void 
 ReferenceManager::
+LoadAdaptiveMotion(std::vector<Eigen::VectorXd> pos, std::vector<double> time) {
+	std::vector<Eigen::VectorXd> vel = this->GetVelocityFromPositions(pos);
+	mMotions_phase_adaptive.clear();
+	mTimeStep_adaptive.clear();
+	for(int j = 0; j < pos.size(); j++) {
+		mMotions_phase_adaptive.push_back(new Motion(pos[j], vel[j]));
+		mTimeStep_adaptive.push_back(time[j]);
+	}
+	std::cout << mMotions_phase_adaptive.size() << " " << mTimeStep_adaptive.size() << std::endl;
+	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
+
+}
+void 
+ReferenceManager::
 LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 
 	std::vector<Eigen::VectorXd> d_space;
@@ -288,9 +302,9 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 
 	for(int i = 0; i < frames; i++) {
 		
-		int phase = i % mPhaseLength;
+		int phase = i % p_phase.size();
 		
-		if(i < mPhaseLength) {
+		if(i < p_phase.size()) {
 			p_gen.push_back(new Motion(p_phase[i]));
 		} else {
 			Eigen::VectorXd pos;
@@ -492,7 +506,7 @@ double
 ReferenceManager::
 GetTimeStep(double t, bool adaptive) {
 	if(adaptive) {
-		t = std::fmod(t, mPhaseLength);
+		t = std::fmod(t, mTimeStep_adaptive.size());
 		int k0 = (int) std::floor(t);
 		int k1 = (int) std::ceil(t);	
 		if (k0 == k1) {
@@ -601,7 +615,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(std::get<2>(rewards).sum_reward != 0) {
 		reward_trajectory = reward_trajectory * (0.9 + 0.1 * std::get<2>(rewards).sum_reward);
 	}
-
+	if(reward_trajectory < 0.5) 
+		return;
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
 
 

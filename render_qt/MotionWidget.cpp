@@ -73,6 +73,19 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     } else if(mRunReg) {
     	mReferenceManager->InitOptimization(1, "", true);
     }
+	
+	// mRecordParams.push_back(Eigen::Vector2d(1.1, 1.0));
+	// mRecordParams.push_back(Eigen::Vector2d(0.6, 1.3));
+	// mRecordParams.push_back(Eigen::Vector2d(2.0, 0.8));
+	// mRecordParams.push_back(Eigen::Vector2d(0.8, 1.0));
+	// mRecordParams.push_back(Eigen::Vector2d(1.3, 1.2));
+	mRecordParams.push_back(Eigen::Vector2d(1.0, 1.0));
+	mRecordParams.push_back(Eigen::Vector2d(0.55, 1.3));
+	mRecordParams.push_back(Eigen::Vector2d(1.85, 0.8));
+	mRecordParams.push_back(Eigen::Vector2d(0.65, 1.05));
+	mRecordParams.push_back(Eigen::Vector2d(1.15, 1.2));
+
+	mParamCount = 0;
 
 	v_param.resize(mReferenceManager->GetParamGoal().rows());
     v_param.setZero();
@@ -140,6 +153,35 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	if(ppo != "") {
     		this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
+			
+			mController->SetGoalParameters(mRecordParams[mParamCount]);
+			std::vector<Eigen::VectorXd> pos;
+			std::vector<double> t;
+			for(int i = 0; i < mRecordParams.size() + 2; i++) {
+				if(i < mRecordParams.size()) {
+					std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(mRecordParams[i]);
+					mReferenceManager->LoadAdaptiveMotion(cps);
+				}
+
+				std::vector<Eigen::VectorXd> pos_param;
+				std::vector<double> t_param;
+
+				for(int j = 0; j < mReferenceManager->GetPhaseLength(); j++) {
+					Eigen::VectorXd p = mReferenceManager->GetPosition(j, true);
+					pos_param.push_back(p);
+					t_param.push_back(mReferenceManager->GetTimeStep(j, true));
+				}
+
+				if(i != 0)
+					pos_param = DPhy::Align(pos_param, pos.back().segment<6>(0));
+
+				for(int j = 0; j < pos_param.size(); j++) {
+					pos.push_back(pos_param[j]);
+					t.push_back(t_param[j]);
+				}
+			}
+			UpdateMotion(pos, 3);
+			mReferenceManager->LoadAdaptiveMotion(pos, t);
 
     		p::object ppo_main = p::import("ppo");
 			this->mPPO = ppo_main.attr("PPO")();
@@ -267,8 +309,8 @@ void MotionWidget::UpdateIthParam(int i)
     }
     mTotalFrame = 500;
     Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
-root_bvh(3) += 0.75;
-pos = DPhy::Align(pos, root_bvh);
+	root_bvh(3) += 0.75;
+	pos = DPhy::Align(pos, root_bvh);
 
     UpdateMotion(pos, 2);
 }
@@ -316,9 +358,16 @@ RunPPO() {
 		p::object a = this->mPPO.attr("run")(DPhy::toNumPyArray(state));
 		np::ndarray na = np::from_object(a);
 		Eigen::VectorXd action = DPhy::toEigenVector(na,this->mController->GetNumAction());
+		double prevF = this->mController->GetCurrentFrameOnPhase();
 
 		this->mController->SetAction(action);
 		this->mController->Step();
+		double curF = this->mController->GetCurrentFrameOnPhase();
+		if(prevF > curF) {
+			if(mParamCount + 1 < mRecordParams.size())
+				mParamCount += 1;
+			this->mController->SetGoalParameters(mRecordParams[mParamCount]);
+		}
 		this->mTiming.push_back(this->mController->GetCurrentFrame());
 
 		count += 1;
@@ -330,17 +379,17 @@ RunPPO() {
 		Eigen::VectorXd position_reg = this->mController->GetTargetPositions(i);
 		Eigen::VectorXd position_bvh = this->mController->GetBVHPositions(i);
 
-		//Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
+		// Eigen::VectorXd position_obj = this->mController->GetObjPositions(i);
 
 		position(3) += 0.75;
 		position_reg(3) += 0.75;
 		position_bvh(3) -= 0.75;
-		//position_obj(3) += 0.75;
+		// position_obj(3) += 0.75;
 
 		pos_reg.push_back(position_reg);
 		pos_sim.push_back(position);
 		pos_bvh.push_back(position_bvh);
-		//pos_obj.push_back(position_obj);
+		// pos_obj.push_back(position_obj);
 	}
 	Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
 	root_bvh(3) += 0.75;
@@ -349,7 +398,8 @@ RunPPO() {
 	UpdateMotion(pos_bvh, 0);
 	UpdateMotion(pos_sim, 1);
 	UpdateMotion(pos_reg, 2);
-	//UpdateMotion(pos_obj, 3);
+//	UpdateMotion(pos_obj, 4);
+
 
 }
 void

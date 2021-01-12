@@ -52,6 +52,7 @@ class ReferenceManager
 public:
 	ReferenceManager(Character* character=nullptr);
 	void SaveAdaptiveMotion(std::string postfix="");
+	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> pos, std::vector<double> time);
 	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps);
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);

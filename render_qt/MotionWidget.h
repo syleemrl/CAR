@@ -114,6 +114,7 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
-
+	std::vector<Eigen::Vector2d> mRecordParams;
+	double mParamCount = 0;
 };
 #endif

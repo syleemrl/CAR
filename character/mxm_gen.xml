@@ -100,7 +100,7 @@
     </Joint>
     <Joint type="BallJoint" name="LeftLeg" parent_name="LeftUpLeg" size="0.1 0.445279 0.1 " mass="3" bvh="LeftLeg">
         <BodyPosition translation="0.0820778 -0.733362 -0.0280601 " />
-        <JointPosition translation="0.0820778 -0.511222 -0.0131492 " />
+        <JointPosition translation="0.0820778 -0.511222 -0.0131492 " lower="0.0 -0.0  -0.0" upper="2.7 0.0 0.0"/>
         <Capsule direction="0 1 0" radius="0.06" height="0.32" offset="0.0 0.0 0.0"/>
         <TorqueLimit norm="150" />
         <!-- <Box offset="0 0 0 " direction="0 -0.997755 -0.0669736 " size="0.1 0.445279 0.1 " /> -->
@@ -108,13 +108,13 @@
     <Joint type="BallJoint" name="LeftFoot" parent_name="LeftLeg" size="0.08 0.081531 0.132018 " mass="0.6" bvh="LeftFoot">
         <BodyPosition translation="0.0820778 -0.999144 0.0105819 " />
         <JointPosition translation="0.0820778 -0.955501 -0.0429711 " />
-        <TorqueLimit norm="90" />
+        <TorqueLimit norm="120" />
         <Box offset="0 0 0 " direction="0 -0.631739 0.775181 " size="0.1 0.081531 0.132018 " />
     </Joint>
     <Joint type="BallJoint" name="LeftToe" parent_name="LeftFoot" size="0.08 0.081531 0.0927814 " mass="0.3" bvh="LeftToeBase">
         <BodyPosition translation="0.0820778 -0.999144 0.110526 " />
         <JointPosition translation="0.0820778 -1.04279 0.0641349 " lower="-2 -0.1 -0.1" upper="0.6 0.1 0.1" />
-        <TorqueLimit norm="60" />
+        <TorqueLimit norm="90" />
         <Box offset="0 0 0 " direction="0 -7.2933e-05 1 " size="0.1 0.081531 0.0927814 " />
     </Joint>
     <Joint type="BallJoint" name="RightUpLeg" parent_name="Hips" size="0.1 0.443714 0.1" mass="7" bvh="RightUpLeg">
@@ -126,7 +126,7 @@
     </Joint>
     <Joint type="BallJoint" name="RightLeg" parent_name="RightUpLeg" size="0.1 0.445278 0.1 " mass="3" bvh="RightLeg">
         <BodyPosition translation="-0.082078 -0.73336 -0.028053 " />
-        <JointPosition translation="-0.082078 -0.511222 -0.013134 " />
+        <JointPosition translation="-0.082078 -0.511222 -0.013134 " lower="0.0 -0.0  -0.0" upper="2.7 0.0 0.0"/>
         <TorqueLimit norm="150" />
          <Capsule direction="0 1 0" radius="0.06" height="0.32" offset="0.0 0.0 0.0"/>
         <!-- <Box offset="0 0 0 " direction="0 -0.997752 -0.0670096 " size="0.1 0.445278 0.1 " /> -->
@@ -134,13 +134,13 @@
     <Joint type="BallJoint" name="RightFoot" parent_name="RightLeg" size="0.08 0.081536 0.132018 " mass="0.6" bvh="RightFoot">
         <BodyPosition translation="-0.082078 -0.999142 0.0105811 " />
         <JointPosition translation="-0.082078 -0.955499 -0.0429719 " />
-        <TorqueLimit norm="90" />
+        <TorqueLimit norm="120" />
         <Box offset="0 0 0 " direction="0 -0.631739 0.775181 " size="0.1 0.081536 0.132018 " />
     </Joint>
     <Joint type="BallJoint" name="RightToe" parent_name="RightFoot" size="0.08 0.081536 0.0927812 " mass="0.3" bvh="RightToeBase">
         <BodyPosition translation="-0.082078 -0.999142 0.110525 " />
         <JointPosition translation="-0.082078 -1.04279 0.0641341 " lower="-2 -0.1  -0.1" upper="0.6 0.1 0.1" />
-        <TorqueLimit norm="60" />
+        <TorqueLimit norm="90" />
         <Box offset="0 0 0 " direction="0 -7.28994e-05 1 " size="0.1 0.081536 0.0927812 " />
     </Joint>
 </Skeleton>
