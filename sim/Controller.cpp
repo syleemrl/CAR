@@ -224,7 +224,7 @@ Step()
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
-	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 
 	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
@@ -318,6 +318,32 @@ Step()
 			mCountTracking = 0;
 			
 		}
+
+		#ifdef OBJECT_TYPE
+			Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+			obj_pos.setZero();
+			if(isAdaptive) {
+				double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+			
+				auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+
+				auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+				auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
+				Eigen::Vector3d origin = box->getSize();
+
+				DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
+			}
+			Eigen::VectorXd cycle_0_root = mReferenceManager->GetMotion(mCurrentFrameOnPhase, true)->GetPosition().segment<6>(0);
+			double z = (mDefaultRootZero[5]- cycle_0_root[5]) ;
+			obj_pos[5] = z;
+
+			this->mObject->GetSkeleton()->setPositions(obj_pos);
+			this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+			this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+		#endif
+
 
 
 	}
@@ -759,7 +785,7 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason = 5;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength() + 25) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength() *2 + 25) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -1264,7 +1290,7 @@ GetState()
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
-	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
 	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 

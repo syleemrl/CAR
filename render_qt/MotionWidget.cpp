@@ -304,7 +304,7 @@ UpdateParam(const bool& pressed) {
 	    tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	    
-	    // Eigen::VectorXd tp_denorm = tp_denorm_raw;
+	    tp_denorm = tp_denorm_raw;
 
 	    int dof = mReferenceManager->GetDOF() + 1;
 	    double d = mRegressionMemory->GetDensity(tp);

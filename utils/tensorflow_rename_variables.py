@@ -71,6 +71,9 @@ def main(argv):
     rename(checkpoint_dir+'/network-0', replace_from, replace_to, add_prefix, dry_run)
     rename(checkpoint_dir+'/reg_network-0', replace_from, replace_to, add_prefix, dry_run)
 
+    rename(checkpoint_dir+'/network-rmax', replace_from, replace_to, add_prefix, dry_run)
+    rename(checkpoint_dir+'/reg_network-rmax', replace_from, replace_to, add_prefix, dry_run)
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])
