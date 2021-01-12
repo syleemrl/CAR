@@ -1,0 +1,10 @@
+<Skeleton name="Climb_Box">
+	<Joint type="WeldJoint" name="Stone1" parent_name="None" size="1.0 0.01 0.5" mass="5">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.137 1.287 3.522"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+	<Joint type="WeldJoint" name="Stone2" parent_name="None" size="1.0 0.01 0.5" axis="0 1 0" mass="5">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.137 2.103 3.745"></BodyPosition>
+		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
+	</Joint>
+</Skeleton>

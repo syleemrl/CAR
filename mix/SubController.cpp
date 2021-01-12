@@ -51,9 +51,10 @@ SubController::SubController(std::string type, MetaController* mc, std::string m
 			this->mPPO = ppo_main.attr("PPO")();
 			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + ppo;
 
-			std::cout<<"mMC statenum: "<<  mMC->GetNumState() <<" / ref : "<<mReferenceManager->GetParamGoal().rows()<<" / total: "<<(  mMC->GetNumState() + mReferenceManager->GetParamGoal().rows())<<std::endl;
+			int total_statenum = (mIsParametric)? ( mMC->GetNumState() + mReferenceManager->GetParamGoal().rows()) : mMC->GetNumState();
+			// std::cout<<"mMC statenum: "<<  mMC->GetNumState() <<" / ref : "<<mReferenceManager->GetParamGoal().rows()<<" / total: "<<(  mMC->GetNumState() + mReferenceManager->GetParamGoal().rows())<<std::endl;
 			this->mPPO.attr("initRun")(path, 
-									   mMC->GetNumState() + mReferenceManager->GetParamGoal().rows(), 
+									   total_statenum, 
 									   mMC->GetNumAction());
 			
 			std::cout<<"DONE restore ppo (initRun)"<<std::endl;
@@ -120,8 +121,6 @@ void WALL_JUMP_Controller::reset(double frame, double frameOnPhase){
 
 bool WALL_JUMP_Controller::Step()
 {
-	// this->mCurrentFrame += mMC->mAdaptiveStep;
-	// this->mCurrentFrameOnPhase += mMC->mAdaptiveStep;
 	if(left_detached && mMC->mCurrentFrameOnPhase<=1) left_detached = false;
 	if(right_detached && mMC->mCurrentFrameOnPhase<=1) right_detached = false;
 
