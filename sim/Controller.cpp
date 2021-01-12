@@ -273,8 +273,8 @@ Step()
 		stickFoot = false;
 		jump_phase = 1;
 		double slide = std::max((stickFoot_left_max - stickFoot_left_min), (stickFoot_right_max- stickFoot_right_min));
-		mFitness.sum_slide+= slide;
-		// std::cout<<mCurrentFrameOnPhase<<" "<<slide<<std::endl;
+		mFitness.sum_slide+= 0.7*slide;
+		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" , slide: "<<slide<<std::endl;
 	}
 	if(mCurrentFrameOnPhase >= 80 || (mCurrentFrameOnPhase>70 &&  min_foot < 0.05)){
 		if(!stickFoot){
@@ -310,8 +310,8 @@ Step()
 			// mFitness.sum_slide/= mFitness.slide_cnt;
 			// mFitness.sum_slide+= 0.5*(stickFoot_max - stickFoot_min);
 			double slide = std::max((stickFoot_left_max - stickFoot_left_min), (stickFoot_right_max- stickFoot_right_min));
-			mFitness.sum_slide+= 0.5*slide;
-			// std::cout<<mCurrentFrameOnPhase<<" "<<slide<<std::endl;
+			mFitness.sum_slide+= 0.7*slide;
+			if(mRecord) std::cout<<mCurrentFrameOnPhase<<", slide: "<<slide<<std::endl;
 
 			mFitness.com_rot_norm/= mFitness.fall_cnt;
 
@@ -498,6 +498,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	Eigen::VectorXd pos = p_v_target->GetPosition();
 	Eigen::VectorXd vel = p_v_target->GetVelocity();
+	delete p_v_target;
+
 	skel->setPositions(pos);
 	skel->setVelocities(vel);
 	skel->computeForwardKinematics(true, true, false);
@@ -518,7 +520,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.5 * scale;		
-	double sig_foot_x = 0.8*scale;
+	double sig_foot_x = 0.5*scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
