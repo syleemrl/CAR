@@ -158,10 +158,10 @@ Step()
 	}
 
 	// [23, 51)
-	if(mCurrentFrameOnPhase >=20 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
+	if(mCurrentFrameOnPhase >=22 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrameOnPhase >=20 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
+	if(mCurrentFrameOnPhase >=22 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
@@ -723,6 +723,10 @@ UpdateTerminalInfo()
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
+	// else if(mCurrentFrameOnPhase>=40 && mCurrentFrameOnPhase<=50 && (!leftHandConstraint || !rightHandConstraint)){
+	// 	mIsTerminal = true;
+	// 	terminationReason = 10;
+	// }
 
 	// if(mIsTerminal)	std::cout << mCurrentFrameOnPhase<<"/ terminate Reason : "<<terminationReason<<std::endl;
 	if(mRecord) {
@@ -1067,7 +1071,7 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 
 	// std::cout<<"attach; "<<left<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
 
-	if(distance > 0.07) return;
+	if(distance > 0.08) return;
 
 	if(isAdaptive) mParamCur[0]= mParamGoal[0];
 

@@ -660,7 +660,7 @@ if(mRecord){
 	return ;
 }	// std::cout<<"sum_vel:"<<std::get<2>(rewards).sum_vel.transpose()<<", r_vel: "<<r_vel<<"/, sum_pos : "<<std::get<2>(rewards).sum_pos.transpose()<<", r_pos :"<<r_pos<<"/ reward_trajectory :"<<reward_trajectory<<std::endl;
 
-	if(reward_trajectory < 0.6) return;
+	// if(reward_trajectory < 0.6) return;
 	mLock.lock();
 
 	if(isParametric) {
