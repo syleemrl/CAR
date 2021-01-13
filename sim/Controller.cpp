@@ -160,35 +160,6 @@ Step()
 		return;
 	}
 
-	// left ; [38, 45) -> [30, 37)
-	// right; [38, 59) -> [30, 51)
-
-	// Eigen::Vector3d left_hand = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getWorldTransform().translation();
-	// Eigen::Vector3d right_hand = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-
-	// if((l1left_hand[2]>3.5 && left_hand[2]<3.7) {
-	// 	if(left_hand[1]< min_hand) min_hand = left_hand[1];
-	// }
-	// if(right_hand[2]>3.5 && right_hand[2]<3.7) {
-	// 	if(right_hand[1]< min_hand) min_hand = right_hand[1];
-	// }
-
-	// dart::dynamics::BodyNodePtr left_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("LeftHand");
-	// dart::dynamics::BodyNodePtr right_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("RightHand");
-
-	// Eigen::Vector3d l1= (left_hand_bn->getTransform() * Eigen::Vector3d(0.06, -0.025, 0));
-	// Eigen::Vector3d l2= (left_hand_bn->getTransform() * Eigen::Vector3d(-0.06, -0.025, 0));
-	// Eigen::Vector3d r1= (right_hand_bn->getTransform() * Eigen::Vector3d(0.06, -0.025, 0));
-	// Eigen::Vector3d r2= (right_hand_bn->getTransform() * Eigen::Vector3d(-0.06, -0.025, 0));
-
-	// if(l1[2]>3.5 && l1[2]<3.7 && l1[1]< min_hand) min_hand = l1[1];
-	// if(l2[2]>3.5 && l2[2]<3.7 && l2[1]< min_hand) min_hand = l2[1];
-	// if(r1[2]>3.5 && r1[2]<3.7 && r1[1]< min_hand) min_hand = r1[1];
-	// if(r2[2]>3.5 && r2[2]<3.7 && r2[1]< min_hand) min_hand = r2[1];
-
-	// if(mCurrentFrame >=30 &&!left_detached && !leftHandConstraint && !right_detached && !rightHandConstraint) attachTwoHandsAtOnce(Eigen::Vector3d(0.06, -0.025, 0), Eigen::Vector3d(-0.06, -0.025, 0));
-	// else if(mCurrentFrame >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
-	// else if(mCurrentFrame >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	if(mCurrentFrame >=27 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
 	else if(mCurrentFrame >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
@@ -278,6 +249,8 @@ Step()
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		// mParamCur = mParamGoal;
+		left_detached = false;
+		right_detached = false;
 
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
