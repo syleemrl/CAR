@@ -80,9 +80,9 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	// mRecordParams.push_back(Eigen::Vector2d(0.8, 1.0));
 	// mRecordParams.push_back(Eigen::Vector2d(1.3, 1.2));
 	mRecordParams.push_back(Eigen::Vector2d(1.0, 1.0));
-	mRecordParams.push_back(Eigen::Vector2d(0.55, 1.3));
+	mRecordParams.push_back(Eigen::Vector2d(0.5, 1.3));
 	mRecordParams.push_back(Eigen::Vector2d(1.85, 0.8));
-	mRecordParams.push_back(Eigen::Vector2d(0.65, 1.05));
+	mRecordParams.push_back(Eigen::Vector2d(0.8, 0.8));
 	mRecordParams.push_back(Eigen::Vector2d(1.15, 1.2));
 
 	mParamCount = 0;

@@ -144,8 +144,8 @@ Step()
 	mAdaptiveStep = mActions[mInterestedDof];
 	// std::cout << mAdaptiveStep << std::endl;
 
-	// if(!isAdaptive)
-	// 	mAdaptiveStep = 1;
+	if(!isAdaptive)
+		mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += mAdaptiveStep;
@@ -655,29 +655,29 @@ UpdateAdaptiveReward()
 
 	double r_tot = r_tracking;
 	
-	if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 38) {
-		Eigen::VectorXd pos_diff;
-		pos_diff.resize(3);
+	// if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 38) {
+	// 	Eigen::VectorXd pos_diff;
+	// 	pos_diff.resize(3);
 
-		Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
-		Eigen::Vector3d pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
-		pos_diff.segment<3>(0) = pos_diff_joint;
+	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
+	// 	Eigen::Vector3d pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
+	// 	pos_diff.segment<3>(0) = pos_diff_joint;
 
-		// int idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
-		// Eigen::Vector3d posRUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
-		// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
-		// pos_diff_joint(0) = 0;
-		// pos_diff.segment<3>(3) = pos_diff_joint;
+	// 	// int idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
+	// 	// Eigen::Vector3d posRUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
+	// 	// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
+	// 	// pos_diff_joint(0) = 0;
+	// 	// pos_diff.segment<3>(3) = pos_diff_joint;
 
-		// idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
-		// Eigen::Vector3d posLUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
-		// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
-		// pos_diff_joint(0) = 0;
-		// pos_diff.segment<3>(6) = pos_diff_joint;
+	// 	// idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
+	// 	// Eigen::Vector3d posLUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
+	// 	// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
+	// 	// pos_diff_joint(0) = 0;
+	// 	// pos_diff.segment<3>(6) = pos_diff_joint;
 
-		double r_pos = exp_of_squared(pos_diff, 0.3);
-		r_tot = 0.9 * r_tot + 0.1 * r_pos;
-	}
+	// 	double r_pos = exp_of_squared(pos_diff, 0.3);
+	// 	r_tot = 0.9 * r_tot + 0.1 * r_pos;
+	// }
 	
 	mRewardParts.clear();
 
@@ -686,7 +686,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_param);
+		mRewardParts.push_back(20 * r_param);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
@@ -772,10 +772,10 @@ UpdateTerminalInfo()
 	} else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
-	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 10 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -816,7 +816,6 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	std::cout << mParamGoal.transpose() << std::endl;
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
