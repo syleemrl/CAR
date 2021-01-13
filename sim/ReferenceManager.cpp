@@ -302,31 +302,26 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 				skel->setPositions(p_gen.back()->GetPosition());
 				skel->computeForwardKinematics(true,false,false);
 
-/*				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 				Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
-				// p_footl(1) = p0_footl(1);
-				// p_footr(1)= p0_footr(1);
+				p_footl(1) = p0_footl(1);
+				p_footr(1)= p0_footr(1);
 
 				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("LeftFoot", p_footl, Eigen::Vector3d(0, 0, 0)));
 				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("RightFoot", p_footr, Eigen::Vector3d(0, 0, 0)));
 
 				Eigen::VectorXd p = p_phase[phase]->GetPosition();
 				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
-				
+				p(4)= p_phase[phase]->GetPosition()(4);
 				skel->setPositions(p);
 				skel->computeForwardKinematics(true,false,false);
 
 				//// rotate "root" to seamlessly stitch foot
 				pos = solveMCIKRoot(skel, constraints);
-				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
-*/
-				Eigen::VectorXd p = p_phase[phase]->GetPosition();
-				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
-				skel->setPositions(p);
-				skel->computeForwardKinematics(true,false,false);
-
-				pos = p;
+				pos = p_phase[phase]->GetPosition();
+				pos.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
+				pos(4)= p_phase[phase]->GetPosition()(4);
 				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 
 			} else {

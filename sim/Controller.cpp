@@ -251,6 +251,8 @@ Step()
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mParamCur = mParamGoal;
+		left_detached = false;
+		right_detached = false;
 
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
 		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
@@ -300,6 +302,7 @@ Step()
 
 				Eigen::VectorXd cycle_0_root = mReferenceManager->GetMotion(mCurrentFrameOnPhase, true)->GetPosition().segment<6>(0);
 				double z = (mDefaultRootZero[5]- cycle_0_root[5]) ;
+				// std::cout<<"========================= "<<mCurrentFrameOnPhase<<", place at "<<(z+3.13)<<std::endl;
 
 				Eigen::Isometry3d newTransform = Eigen::Isometry3d::Identity();
 				newTransform.translation() = Eigen::Vector3d(0, mParamGoal[0], z+3.13);
@@ -737,25 +740,25 @@ UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 
-	else if(!mRecord && root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+	else if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
-		// std::cout<<mCurrentFrameOnPhase<<" , root_pos_diff: "<<root_pos_diff.norm()<<std::endl;
+		if(mRecord)std::cout<<mCurrentFrameOnPhase<<" , root_pos_diff: "<<root_pos_diff.norm()<<std::endl;
 	}
 
-	else if(!mRecord && (root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit)){
+	else if((root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > cur_height_limit)){
 		mIsTerminal = true;
 		terminationReason = 1;
 	}
-	else if(!mRecord && std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
+	else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 5;
-		// std::cout<<mCurrentFrameOnPhase<<", angle: "<<std::abs(angle)<<std::endl;
+		if(mRecord)std::cout<<mCurrentFrameOnPhase<<", angle: "<<std::abs(angle)<<std::endl;
 	}
-	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()*2 +15) { // this->mBVH->GetMaxFrame() - 1.0){
+	else if(mCurrentFrame > mReferenceManager->GetPhaseLength()*2 + 18) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
-		// std::cout<<mCurrentFrame<<" end of episode! "<<std::endl;
+		if(mRecord)std::cout<<mCurrentFrame<<" end of episode! "<<std::endl;
 	}
 	// else if(mCurrentFrameOnPhase>=40 && mCurrentFrameOnPhase<=50 && (!leftHandConstraint || !rightHandConstraint)){
 	// 	mIsTerminal = true;
