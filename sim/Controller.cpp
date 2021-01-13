@@ -158,11 +158,11 @@ Step()
 	}
 
 	// [23, 51)
-	if(mCurrentFrameOnPhase >=22 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	if(mCurrentFrameOnPhase >=42 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=71 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrameOnPhase >=22 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	if(mCurrentFrameOnPhase >=42 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=71 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	// Eigen::Vector3d obj_pos = mObject->GetSkeleton()->getBodyNode("Bar")->getWorldTransform().translation();
 	if(mRecord) std::cout<<"constraint: "<<(leftHandConstraint!=nullptr)<<" "<<(rightHandConstraint!=nullptr)<<" "<<left_detached<<" "<<right_detached<<std::endl;//" / obj: "<<obj_pos.transpose()<<std::endl;
@@ -627,7 +627,7 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	if(! gotParamReward && mCurrentFrameOnPhase >= 70){
+	if(! gotParamReward && mCurrentFrameOnPhase >= 100){
 		r_param = 1;
 		gotParamReward = true;
 	}
@@ -940,10 +940,9 @@ Reset(bool RSI)
 	dbg_LeftConstraintPoint= Eigen::Vector3d::Zero();
 	dbg_RightConstraintPoint= Eigen::Vector3d::Zero();
 	
-
 	//45, 59
-	left_detached= (mCurrentFrameOnPhase >=51) ? true: false; 
-	right_detached= (mCurrentFrameOnPhase >=51) ? true: false;
+	left_detached= (mCurrentFrameOnPhase >=71) ? true: false; 
+	right_detached= (mCurrentFrameOnPhase >=71) ? true: false;
 
 
 }
