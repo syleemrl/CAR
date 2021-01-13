@@ -220,6 +220,9 @@ protected:
 	double stickFoot_left_max;
 	double stickFoot_right_min;
 	double stickFoot_right_max;
+
+	double param_reward_avg;
+	int param_reward_cnt;
 };
 }
 #endif

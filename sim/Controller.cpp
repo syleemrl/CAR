@@ -363,6 +363,9 @@ Step()
 
 		}
 
+	param_reward_avg = 0;
+	param_reward_cnt = 0;
+	gotParamReward = false;
 
 	}
 
@@ -474,45 +477,46 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	Eigen::VectorXd ee_diff(mEndEffectors.size()*3);
 	ee_diff.setZero();	
 	for(int i=0;i<mEndEffectors.size(); i++){
+		// if(mEndEffectors[i].compare("LeftFoot")==0 || mEndEffectors[i].compare("RightFoot")==0) continue;
 		ee_transforms.push_back(skel->getBodyNode(mEndEffectors[i])->getWorldTransform());
 	}
 	
 	Eigen::Vector3d com_diff = skel->getCOM();
 
-	double left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
-	double right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+	// double left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
+	// double right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
 
 	skel->setPositions(position2);
 	skel->computeForwardKinematics(true,false,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
+		// if(mEndEffectors[i].compare("LeftFoot")==0 || mEndEffectors[i].compare("RightFoot")==0) continue;
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
 	}
 	com_diff -= skel->getCOM();
 
-	Eigen::VectorXd foot_x(2); 
-	foot_x.setZero();
+	// Eigen::VectorXd foot_x(2); 
+	// foot_x.setZero();
 
+	// auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+	// Eigen::VectorXd pos = p_v_target->GetPosition();
+	// Eigen::VectorXd vel = p_v_target->GetVelocity();
+	// delete p_v_target;
 
-	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
-	Eigen::VectorXd pos = p_v_target->GetPosition();
-	Eigen::VectorXd vel = p_v_target->GetVelocity();
-	delete p_v_target;
+	// skel->setPositions(pos);
+	// skel->setVelocities(vel);
+	// skel->computeForwardKinematics(true, true, false);
 
-	skel->setPositions(pos);
-	skel->setVelocities(vel);
-	skel->computeForwardKinematics(true, true, false);
-
-	double ref_left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
-	double ref_right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+	// double ref_left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
+	// double ref_right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
 
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
 	skel->computeForwardKinematics(true,true,false);
 
-	foot_x[0] = std::max(0.0, left_foot_x-ref_left_foot_x);
-	foot_x[1] = std::min(0.0, right_foot_x-ref_right_foot_x);
+	// foot_x[0] = std::max(0.0, left_foot_x-ref_left_foot_x);
+	// foot_x[1] = std::min(0.0, right_foot_x-ref_right_foot_x);
 
 	double scale = 1.0;
 
@@ -520,7 +524,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.5 * scale;		
-	double sig_foot_x = 0.5*scale;
+	// double sig_foot_x = 0.5*scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -531,11 +535,11 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double r_ee = exp_of_squared(ee_diff,sig_ee);
 	double r_com = exp_of_squared(com_diff,sig_com);
 
-	if(jump_phase ==1){
-		double r_foot_x = exp_of_squared(foot_x, sig_foot_x);
-		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
-		r_ee = (r_ee + r_foot_x)/2.0;		
-	}
+	// if(jump_phase ==1){
+	// 	double r_foot_x = exp_of_squared(foot_x, sig_foot_x);
+	// 	if(mRecord) std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
+	// 	r_ee = (r_ee + r_foot_x)/2.0;		
+	// }
 
 	std::vector<double> rewards;
 	rewards.clear();
@@ -684,7 +688,7 @@ GetSimilarityReward()
 		} 
 
 		if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
-			// std::cout<<mCurrentFrameOnPhase<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
+			// std::cout<<mCurrentFrameOnPhase<<" "<<name<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
 			p_diff(idx+2)*= 15;
 		}
 	}
@@ -744,10 +748,52 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	if(mCurrentFrameOnPhase >= 100 && !gotParamReward) {
-		r_param = 1;
+	// if(mCurrentFrameOnPhase >= 100 && !gotParamReward) {
+	// 	r_param = 1;
+	// 	gotParamReward = true;
+	// }
+	if(jump_phase==1){
+		auto& skel = this->mCharacter->GetSkeleton();
+
+		Eigen::VectorXd p_save = skel->getPositions();
+		Eigen::VectorXd v_save = skel->getVelocities();
+
+		double left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
+		double right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+		
+		auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
+		Eigen::VectorXd pos = p_v_target->GetPosition();
+		Eigen::VectorXd vel = p_v_target->GetVelocity();
+		delete p_v_target;
+
+		skel->setPositions(pos);
+		skel->setVelocities(vel);
+		skel->computeForwardKinematics(true, true, false);
+
+		double ref_left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
+		double ref_right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+
+		skel->setPositions(p_save);
+		skel->setVelocities(v_save);
+		skel->computeForwardKinematics(true,true,false);
+
+		Eigen::VectorXd foot_x(2); 
+		foot_x.setZero();
+		foot_x[0] = std::max(0.0, left_foot_x-ref_left_foot_x);
+		foot_x[1] = std::min(0.0, right_foot_x-ref_right_foot_x);
+
+		double sig_foot_x = 0.5;
+		double r_foot_x = exp_of_squared(foot_x, sig_foot_x);
+		param_reward_avg+= r_foot_x;
+		param_reward_cnt++;
+
+	}else if(mCurrentFrameOnPhase>=100 && !gotParamReward){
+		r_param = param_reward_avg/ param_reward_cnt;
 		gotParamReward = true;
 	}
+	// 	if(mRecord) std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
+	// 	r_ee = (r_ee + r_foot_x)/2.0;		
+
 	return r_param;
 }
 void
@@ -1150,6 +1196,8 @@ Reset(bool RSI)
 	gotParamReward = false;
 	placedObject= false;
 	
+	param_reward_avg = 0;
+	param_reward_cnt = 0;
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
 int
