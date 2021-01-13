@@ -160,12 +160,13 @@ Step()
 		return;
 	}
 
+	// [27, 37) 
+	// [27, 51)
+	if(mCurrentFrame >=56 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	else if(mCurrentFrame >=66 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrame >=27 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
-	else if(mCurrentFrame >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
-
-	if(mCurrentFrame >=27 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
-	else if(mCurrentFrame >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	if(mCurrentFrame >=56 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	else if(mCurrentFrame >=80 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 	Eigen::VectorXd s = this->GetState();
 
@@ -536,7 +537,7 @@ GetSimilarityReward()
 		}
 	}
 	double hand_con_diff = 0;
-	if(mCurrentFrameOnPhase >= 25 && mCurrentFrameOnPhase <= 40){
+	if(mCurrentFrameOnPhase >= 54 && mCurrentFrameOnPhase <= 69){
 		std::vector<std::string> hand_label;
 		hand_label.push_back("LeftHand");
 		hand_label.push_back("RightHand");
@@ -589,7 +590,7 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx) *= 5;
 			p_diff.segment<3>(idx + 3) *= 10;
 
-			if(mCurrentFrameOnPhase>=25 && mCurrentFrameOnPhase<=55){
+			if(mCurrentFrameOnPhase>=54 && mCurrentFrameOnPhase<=84){
 				p_diff(idx+4) *= 0;
 				v_diff(idx+4) *= 0;
 			}
@@ -616,7 +617,7 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	if(! gotParamReward && mCurrentFrameOnPhase >= 65){
+	if(! gotParamReward && mCurrentFrameOnPhase >= 110){
 		r_param = 1;
 		gotParamReward = true;
 	}
@@ -957,12 +958,12 @@ Reset(bool RSI)
 	dbg_RightConstraintPoint= Eigen::Vector3d::Zero();
 	
 	// std::cout<<"RSI : "<<mCurrentFrame<<std::endl;
-	if(leftHandConstraint && mCurrentFrame <30) removeHandFromBar(true);
-	if(rightHandConstraint && mCurrentFrame <30) removeHandFromBar(false);
+	if(leftHandConstraint) removeHandFromBar(true);
+	if(rightHandConstraint) removeHandFromBar(false);
 
 	//45, 59
-	left_detached= (mCurrentFrame >=37) ? true: false; 
-	right_detached= (mCurrentFrame >=51) ? true: false;
+	left_detached= (mCurrentFrame >=66) ? true: false; 
+	right_detached= (mCurrentFrame >=80) ? true: false;
 
 	min_hand = 10000;
 
@@ -1125,13 +1126,14 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	dart::dynamics::BodyNodePtr bar_bn = this->mObject->GetSkeleton()->getBodyNode("Jump_Box");
 	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
 
-	double obj_height = mParamGoal[0];
-	Eigen::Vector2d diff_middle (jointPos[1]-obj_height, jointPos[2]-3.6);
+	// double obj_height = mParamGoal[0];
+	Eigen::Vector3d barPos = bar_bn->getWorldTransform()*Eigen::Vector3d(0, 0.45, 0);
+	Eigen::Vector2d diff_middle (jointPos[1]-barPos[1], jointPos[2]-barPos[2]);
 	double distance = diff_middle.norm();
 
 	// std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<std::endl;
 
-	if(distance > 0.07 || jointPos[2] < 3.5 || jointPos[2] > 3.7 || jointPos[1] > (obj_height+0.05) ) return;
+	if(distance > 0.07 || jointPos[2] < (barPos[2]-0.1) || jointPos[2] > (barPos[2]+0.1) || jointPos[1] > (barPos[1]+0.05) ) return;
 
 	mParamCur[0]= mParamGoal[0];
 
@@ -1156,50 +1158,52 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 
 }
 
-void Controller::attachTwoHandsAtOnce( Eigen::Vector3d left_offset,  Eigen::Vector3d right_offset)
-{
-	dart::dynamics::BodyNodePtr left_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("LeftHand");
-	dart::dynamics::BodyNodePtr right_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("RightHand");
-	Eigen::Vector3d left_attach_pt = left_hand_bn->getTransform() * left_offset;
-	Eigen::Vector3d right_attach_pt = right_hand_bn->getTransform() * right_offset;
+// void Controller::attachTwoHandsAtOnce( Eigen::Vector3d left_offset,  Eigen::Vector3d right_offset)
+// {
+// 	dart::dynamics::BodyNodePtr left_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("LeftHand");
+// 	dart::dynamics::BodyNodePtr right_hand_bn = this->mCharacter->GetSkeleton()->getBodyNode("RightHand");
+// 	Eigen::Vector3d left_attach_pt = left_hand_bn->getTransform() * left_offset;
+// 	Eigen::Vector3d right_attach_pt = right_hand_bn->getTransform() * right_offset;
 	
-	if(left_attach_pt[2] <3.5 || left_attach_pt[2] >3.7 || right_attach_pt[2]<3.5 || right_attach_pt[2]>3.7 ) return;
 
-	double cur_min_hand = std::min(left_attach_pt[1], right_attach_pt[1]);
-	if(cur_min_hand <0.8 || cur_min_hand >1.8) return;
-	// if(min_hand < cur_min_hand && ((cur_min_hand- min_hand) > 0.05) ) return;
+// 	Eigen::Vector3d barPos = bar_bn->getWorldTransform()*Eigen::Vector3d(0, 0.45, 0);
+// 	if(left_attach_pt[2] <(barPos[2]-0.1) || left_attach_pt[2] >(barPos[2]+0.1) || right_attach_pt[2]<(barPos[2]-0.1) || right_attach_pt[2]>(barPos[2]+0.1) ) return;
+
+// 	double cur_min_hand = std::min(left_attach_pt[1], right_attach_pt[1]);
+// 	if(cur_min_hand <0.8 || cur_min_hand >1.8) return;
+// 	// if(min_hand < cur_min_hand && ((cur_min_hand- min_hand) > 0.05) ) return;
 	
-		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
-		obj_pos.setZero();
-		obj_pos[6] = (cur_min_hand) - mReferenceManager->getParamDMM()[0];
+// 		Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
+// 		obj_pos.setZero();
+// 		obj_pos[6] = (cur_min_hand) - mReferenceManager->getParamDMM()[0];
 
 
-			std::cout<<mCurrentFrameOnPhase<<" "<<obj_pos[6]<<std::endl;
+// 			std::cout<<mCurrentFrameOnPhase<<" "<<obj_pos[6]<<std::endl;
 
-		mObject->GetSkeleton()->setPositions(obj_pos);
-		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		mParamCur[0]= cur_min_hand;
+// 		mObject->GetSkeleton()->setPositions(obj_pos);
+// 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+// 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+// 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+// 		mParamCur[0]= cur_min_hand;
 
-	dart::dynamics::BodyNodePtr bar_bn = this->mObject->GetSkeleton()->getBodyNode("Jump_Box");
+// 	dart::dynamics::BodyNodePtr bar_bn = this->mObject->GetSkeleton()->getBodyNode("Jump_Box");
 
-	if(leftHandConstraint) removeHandFromBar(true);
-	else if(rightHandConstraint) removeHandFromBar(false);
+// 	if(leftHandConstraint) removeHandFromBar(true);
+// 	else if(rightHandConstraint) removeHandFromBar(false);
 
-	dbg_LeftConstraintPoint = left_attach_pt;
-	dbg_RightConstraintPoint = right_attach_pt;
+// 	dbg_LeftConstraintPoint = left_attach_pt;
+// 	dbg_RightConstraintPoint = right_attach_pt;
 
-	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( left_hand_bn, bar_bn, left_attach_pt);
-	this->mWorld->getConstraintSolver()->addConstraint(cl);
+// 	dart::constraint::BallJointConstraintPtr cl = std::make_shared<dart::constraint::BallJointConstraint>( left_hand_bn, bar_bn, left_attach_pt);
+// 	this->mWorld->getConstraintSolver()->addConstraint(cl);
 
-	leftHandConstraint = cl;
+// 	leftHandConstraint = cl;
 	
-	dart::constraint::BallJointConstraintPtr cr = std::make_shared<dart::constraint::BallJointConstraint>( right_hand_bn, bar_bn, right_attach_pt);
-	this->mWorld->getConstraintSolver()->addConstraint(cr);
+// 	dart::constraint::BallJointConstraintPtr cr = std::make_shared<dart::constraint::BallJointConstraint>( right_hand_bn, bar_bn, right_attach_pt);
+// 	this->mWorld->getConstraintSolver()->addConstraint(cr);
 
-	rightHandConstraint = cr;
-}
+// 	rightHandConstraint = cr;
+// }
 
 void Controller::removeHandFromBar(bool left){
 	// std::cout<<"REMOVE "<<left<<std::endl;
