@@ -113,24 +113,6 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
-
-	std::vector<int> check_frame = { 0, 10, 20, 44}; // {0, 41, 45, 81};
-	for(int cf=0; cf<20; cf++){//: check_frame){
-		mSkel_bvh->setPositions(mMotion_bvh[cf]);
-		mSkel_bvh->computeForwardKinematics(true, false, false);
-		Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
-		Eigen::Vector3d left_foot = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d right_foot = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
-
-		Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
-		Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
-
-		Eigen::Vector3d left_hand = mSkel_bvh->getBodyNode("LeftHand")->getWorldTransform().translation();
-		Eigen::Vector3d right_hand = mSkel_bvh->getBodyNode("RightHand")->getWorldTransform().translation();
-
-		// std::cout<<cf<<" lh ; "<<left_hand.transpose()<<"/ rh; "<<right_hand.transpose()<<std::endl;
-		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<left_toe.transpose()<<"/"<<right_toe.transpose()<<std::endl;
-	}
 	
 	double min_root = 10000;	int min_idx = -1;
 	double max_root = -10000;	int max_idx = -1;
@@ -215,7 +197,7 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	}
     	if(ppo != "") {
     		if (reg!="") this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
-    		else this->mController = new DPhy::Controller(mReferenceManager, true, false, true); //adaptive=true, bool parametric=true, bool record=true
+    		else this->mController = new DPhy::Controller(mReferenceManager, false, false, true); //adaptive=true, bool parametric=true, bool record=true
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
 
     		p::object ppo_main = p::import("ppo");
@@ -405,13 +387,14 @@ UpdateParam(const bool& pressed) {
 void
 MotionWidget::
 RunPPO() {
+	mTotalFrame = 0;
 	std::vector<Eigen::VectorXd> pos_bvh;
 	std::vector<Eigen::VectorXd> pos_reg;
 	std::vector<Eigen::VectorXd> pos_sim;
 	std::vector<Eigen::VectorXd> pos_obj;
 
 	int count = 0;
-	mController->Reset(false);
+	mController->Reset(true);
 	this->mTiming= std::vector<double>();
 	this->mTiming.push_back(this->mController->GetCurrentLength());
 
@@ -429,6 +412,8 @@ RunPPO() {
 		count += 1;
 	}
 
+	std::cout<<"count : "<<count<<std::endl;
+
 	for(int i = 0; i <= count; i++) {
 
 		Eigen::VectorXd position = this->mController->GetPositions(i);
@@ -445,6 +430,8 @@ RunPPO() {
 		pos_obj.push_back(position_obj);
 		#endif
 	}
+
+	std::cout<<"bvh : "<<pos_bvh.size()<<" / sim : "<<pos_sim.size()<<" / reg: "<<pos_reg.size()<<"/ obj: "<<pos_obj.size()<<std::endl;
 	// Eigen::VectorXd root_bvh = mReferenceManager->GetPosition(0, false);
 	// pos_sim =  DPhy::Align(pos_sim, root_bvh);
 	// pos_reg =  DPhy::Align(pos_reg, root_bvh);
@@ -1036,6 +1023,8 @@ UpdateMotion(std::vector<Eigen::VectorXd> motion, int type)
 	else if(mTotalFrame > motion.size()) {
 		mTotalFrame = motion.size();
 	}
+
+	std::cout<<"update : "<<type<<" / mTotalFrame: "<<mTotalFrame<<std::endl;
 }
 void
 MotionWidget::
@@ -1089,6 +1078,8 @@ ResetController()
     try {
     	if(mRunSim) {
     		this->mController->Reset(false);
+
+
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
 			RunPPO();
     	}    
