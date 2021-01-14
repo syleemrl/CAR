@@ -191,6 +191,7 @@ protected:
 	double mVelocity;
 	Eigen::Vector3d mMomentum;
 	double mCondiff;
+	double mCondiff_abs;
 	double mCountContact;
 	Eigen::Vector3d mMaxCOM;
 
@@ -199,6 +200,7 @@ protected:
 
 	Eigen::Vector3d mPrevLF_bvh;
 	Eigen::Vector3d mPrevRF_bvh;
+	Eigen::Vector3d mPrevCOMVelocity;
 	double mPrevHeight;
 //////////////////////////////////////////////////
 };

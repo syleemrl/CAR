@@ -224,9 +224,9 @@ class Monitor(object):
 		if self.num_evaluation % 20 == 19:
 			self.sim_env.SaveParamSpace(-1)
 
-		if (self.num_evaluation != 0 and self.num_evaluation < 200 and self.num_evaluation % 20 == 0) or \
-			(self.num_evaluation >= 200 and self.num_evaluation % 50 == 0):
-			self.saveParamSpaceSummary(v_func)
+		# if (self.num_evaluation != 0 and self.num_evaluation < 200 and self.num_evaluation % 20 == 0) or \
+		# 	(self.num_evaluation >= 200 and self.num_evaluation % 50 == 0):
+		# 	self.saveParamSpaceSummary(v_func)
 		
 		t_per_e = self.num_transitions_per_iteration / self.num_episodes_per_iteration
 

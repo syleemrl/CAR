@@ -55,7 +55,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.1;
+	mRadiusNeighbor = 0.15;
 	mThresholdInside = 0.8;
 	mRangeExplore = 0.6;
 	mThresholdActivate = 3;
@@ -651,7 +651,6 @@ UniformSample(int visited) {
 		for(int i = 0; i < mDim; i++) {
 			p(i) = mUniform(mMT);
 		}
-		
 		// r = std::floor(r * mGridMap.size());
 		// if(r == mGridMap.size())
 		// 	r -= 1;
@@ -899,7 +898,7 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::VectorXd diff = p - p_goal;
-	double r_param = exp_of_squared(diff, 0.2);
+	double r_param = exp_of_squared(diff, 0.1);
 	return r_param;
 }
 void 
@@ -936,7 +935,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
 		double fitness = preward*ps[i].second->reward;
-		// std::cout << Denormalize(ps[i].second->param_normalized).transpose() << " " << preward << " " << ps[i].second->reward << " / " <<fitness << std::endl;
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		// } else {

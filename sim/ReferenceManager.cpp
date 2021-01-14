@@ -449,10 +449,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamEnd << 0.5, 1.8;
 
 		// mParamBase.resize(2);
-		// mParamBase << 0.5, 0.5;
+		// mParamBase << 0.15, 0.8;
 
 		// mParamEnd.resize(2);
-		// mParamEnd << 1.5, 1.5;
+		// mParamEnd << 1.65, 1.8;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -515,7 +515,7 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-	
+
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
@@ -617,8 +617,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		reward_trajectory_th = reward_trajectory_th * (0.94 + 0.06 * std::get<2>(rewards).sum_reward);
 	}
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
-	if(reward_trajectory_th < 0.2)
-		return;
+	// if(reward_trajectory_th < 0.2)
+	// 	return;
 
 	mLock.lock();
 

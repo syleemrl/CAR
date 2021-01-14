@@ -387,7 +387,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 
@@ -443,7 +443,7 @@ class PPO(object):
 					timestep = times[i+1]  - times[i]
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
-				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
 
 
 				sum_V += V

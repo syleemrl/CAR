@@ -173,9 +173,9 @@ UpdateParam(const bool& pressed) {
 	if(mRunReg) {
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
 		tp = v_param*0.05;
-		for(int i = 0; i < tp.rows(); i++) {
-			tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
-		}
+		// for(int i = 0; i < tp.rows(); i++) {
+		// 	tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
+		// }
 		
 	   // tp = mRegressionMemory->GetNearestParams(tp, 1)[0].second->param_normalized;
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
@@ -656,5 +656,5 @@ Save() {
 
 	std::string time_str = std::ctime(&t);
 
-	mController->SaveDisplayedData(mPath + "record_" + time_str, true);
+	mController->SaveDisplayedData(mPath + "record_" + time_str, false);
 }

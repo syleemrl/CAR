@@ -40,11 +40,10 @@ BVHWidget(std::vector<std::string> motion)
 	    mMotions_bvh.push_back(p);
 	}
 	mTotalFrame = 1000;
-	std::cout << 1 << std::endl;
 	
-	DPhy::SetSkeletonColor(mSkels_bvh[0], Eigen::Vector4d(255./255., 102./255., 46./255., 1.0));
-	DPhy::SetSkeletonColor(mSkels_bvh[1], Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
-	DPhy::SetSkeletonColor(mSkels_bvh[2], Eigen::Vector4d(36./255., 162./255., 255./255., 1.0));
+	// DPhy::SetSkeletonColor(mSkels_bvh[0], Eigen::Vector4d(255./255., 102./255., 46./255., 1.0));
+	// DPhy::SetSkeletonColor(mSkels_bvh[1], Eigen::Vector4d(148./255., 202./255., 53./255., 1.0));
+	// DPhy::SetSkeletonColor(mSkels_bvh[2], Eigen::Vector4d(36./255., 162./255., 255./255., 1.0));
 
 }
 void

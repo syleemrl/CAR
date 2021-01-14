@@ -184,19 +184,19 @@ Step()
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 
 		for(int j = 0; j < 2; j++) {
-			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
-			// Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			// for(int j = 0; j < num_body_nodes; j++) {
-			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			// 	double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
-			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
+	//		mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
+			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
+			for(int j = 0; j < num_body_nodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+				double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+				double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
-			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			// }
+				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			}
 
-			// mCharacter->GetSkeleton()->setForces(torque);
+			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 			//mSumTorque += torque.cwiseAbs();
 
@@ -223,7 +223,7 @@ Step()
 			mFitness.sum_pos_threshold /= mCountTracking;
 			mFitness.sum_vel_threshold /= mCountTracking;
 			mFitness.sum_slide /= mCountSlide;
-
+			
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
 
@@ -242,6 +242,7 @@ Step()
 			mCountParam = 0;
 			mCountTracking = 0;
 			mCondiff = 0;
+			mCondiff_abs = 0;
 			mCountContact = 0;
 			mCountSlide = 0;
 
@@ -331,6 +332,7 @@ ClearRecord()
 	mMomentum.setZero();
 	mMaxCOM.setZero();
 	mCondiff = 0;
+	mCondiff_abs = 0;
 	mCountContact = 0;
 
 	////BASELINE
@@ -611,6 +613,20 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
+	if(mControlFlag[0] == 1 && mControlFlag[1] == 0 && mCurrentFrameOnPhase <= 34) {
+		Eigen::Vector3d curVel = skel->getCOMLinearVelocity();
+		if(curVel(1) * mPrevCOMVelocity(1) < 0) {
+			mControlFlag[1] = 1;
+			double f_diff = std::max(abs(mCurrentFrameOnPhase - 28)-1, 0.0);
+			double r_f = exp(-pow(f_diff, 2)*0.5);
+			r_param = 0.4 * r_f;
+			mFitness.sum_reward *= (0.6 + 0.4 * r_f);
+			if(mRecord) {
+				std::cout << skel->getCOM()(1) << std::endl;
+			std::cout << "climax frame: " << mCurrentFrameOnPhase << " / " << f_diff << " / " << r_f << std::endl;
+			}
+		}
+	}
 	if(mCurrentFrameOnPhase >= 26 && mControlFlag[0] == 0) {
 		Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
 		momentumGoal(1) *= mParamGoal(1);
@@ -630,15 +646,19 @@ GetParamReward()
 		if(mRecord) {
 			std::cout << "momentum: " << mMomentum.transpose() << " / " << m_diff.transpose() << " / " << r_m << std::endl;
 		}
-	} if(mCurrentFrameOnPhase >= 30 && mControlFlag[0] == 1) {
+	}
+	 if(mCurrentFrameOnPhase >= 30 && mControlFlag[0] == 1) {
 		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
 		for(int i = 0; i < contacts_cur.size(); i++) {
 			if(contacts_ref[i].first && !contacts_cur[i].first) {
 				mCondiff += pow(std::max(0.0, (contacts_cur[i].second)(1) - 0.07), 2);
+				mCondiff_abs += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
 			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
 				mCondiff += pow(std::max(0.0, (contacts_ref[i].second)(1) - 0.07), 2);
+				mCondiff_abs += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
+
 			}
 		}
 		mCountContact += 1;
@@ -646,22 +666,26 @@ GetParamReward()
 		if(mCurrentFrameOnPhase >= 44) {
 
 			double r_c = exp(-mCondiff * 7.5);
+			double r_c_abs = exp(-mCondiff_abs);
+
 			if(r_c < 0.5) {
 				mParamCur(0) = -5;
 			} 
 
-			r_param = 0.4 * r_c;
-			mFitness.sum_reward = r_c;
+			r_param = r_c;
+			mFitness.sum_reward *= r_c;
 
 
 			mControlFlag[0] = 2;
 
 			if(mRecord) {
-				std::cout << "contact: " << mCondiff << " / " << r_c << std::endl;
+				std::cout << "contact: " << mCondiff << " / " << r_c << " " << r_c_abs << std::endl;
 				std::cout << "final parameter: " <<  mParamCur.transpose() << std::endl;
 			}
 		}
 	} 
+	mPrevCOMVelocity = skel->getCOMLinearVelocity();
+
 	return r_param;
 	
 }
@@ -684,7 +708,6 @@ UpdateAdaptiveReward()
 	double r_param = this->GetParamReward();
 
 	double r_tot = r_tracking;
-
 	mRewardParts.clear();
 
 	if(dart::math::isNan(r_tot)){
