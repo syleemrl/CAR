@@ -198,12 +198,21 @@ Step()
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
-    this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033 * (mCurrentFrame - mPrevFrame);
+	delete p_v_target;
+
+	double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
+
+    this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(p_v_target->GetPosition(), mTargetPositions) / 0.033 * t;
+	// std::cout<<mCurrentFrame<<"/ mTargetVelocities: "<<mTargetVelocities.segment<9>(0).transpose()<<std::endl;
+
 	delete p_v_target;
 
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	this->mPDTargetPositions = p_v_target->GetPosition();
 	this->mPDTargetVelocities = p_v_target->GetVelocity();
+
+	// std::cout<<mCurrentFrame<<"/ vel: "<<mPDTargetVelocities.segment<9>(0).transpose()<<std::endl;
 	delete p_v_target;
 
 	int count_dof = 0;

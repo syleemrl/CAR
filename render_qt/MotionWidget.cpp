@@ -394,7 +394,7 @@ RunPPO() {
 	std::vector<Eigen::VectorXd> pos_obj;
 
 	int count = 0;
-	mController->Reset(true);
+	mController->Reset(false);
 	this->mTiming= std::vector<double>();
 	this->mTiming.push_back(this->mController->GetCurrentLength());
 

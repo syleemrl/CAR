@@ -166,7 +166,7 @@ LoadMotionFromBVH(std::string filename)
 		}
 
 		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
-		Eigen::VectorXd v;
+		Eigen::VectorXd v(p.rows());
 
 		if(t != 0)
 		{
@@ -213,6 +213,8 @@ LoadMotionFromBVH(std::string filename)
 						mContacts[i][j] = true;
 		}
 	 }
+
+//	 std::cout<<"bvh raw , 0 vel; "<<mMotions_raw[0]->GetVelocity().head<9>().transpose()<<std::endl;
 
 	delete bvh;
 
@@ -361,7 +363,6 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 		}
 	}
 	mLock.unlock();
-
 }
 Eigen::VectorXd 
 ReferenceManager::
