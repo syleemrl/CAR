@@ -687,9 +687,11 @@ GetSimilarityReward()
 			// v_diff(5) *= 2;
 		} 
 
-		if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
-			// std::cout<<mCurrentFrameOnPhase<<" "<<name<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
-			p_diff(idx+2)*= 15;
+		if(jump_phase == 1){
+			if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
+				// std::cout<<mCurrentFrameOnPhase<<" "<<name<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
+				p_diff(idx+2)*= 15;
+			}			
 		}
 	}
 
@@ -790,8 +792,8 @@ GetParamReward()
 	}else if(mCurrentFrameOnPhase>=100 && !gotParamReward){
 		r_param = param_reward_avg/ param_reward_cnt;
 		gotParamReward = true;
+		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" "<<r_param<<std::endl;
 	}
-	// 	if(mRecord) std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
 	// 	r_ee = (r_ee + r_foot_x)/2.0;		
 
 	return r_param;
