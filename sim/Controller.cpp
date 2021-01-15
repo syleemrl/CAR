@@ -196,17 +196,18 @@ Step()
 	
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
-	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
+	this->mTargetVelocities =  mCharacter->GetSkeleton()->getPositionDifferences( mTargetPositions, mPrevTargetPositions) / 0.033 * (mCurrentFrame - mPrevFrame);
 	delete p_v_target;
 
-	double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
+	// double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, isAdaptive);
+	// p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 
-    this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(p_v_target->GetPosition(), mTargetPositions) / 0.033 * t;
+ //    this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(p_v_target->GetPosition(), mTargetPositions) / 0.033 * t;
 	// std::cout<<mCurrentFrame<<"/ mTargetVelocities: "<<mTargetVelocities.segment<9>(0).transpose()<<std::endl;
 
-	delete p_v_target;
+	// delete p_v_target;
 
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	this->mPDTargetPositions = p_v_target->GetPosition();
@@ -312,8 +313,8 @@ Step()
 
 				Eigen::VectorXd cycle_0_root = mReferenceManager->GetMotion(mCurrentFrameOnPhase, true)->GetPosition().segment<6>(0);
 				Eigen::VectorXd cycle_cur_root = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
-				// double cur_z= mCharacter->GetSkeleton()->getPositions()[5];
-				double z = (cycle_cur_root[5]- cycle_0_root[5]) ;
+				double cur_z= mCharacter->GetSkeleton()->getPositions()[5];
+				double z = (cur_z- cycle_0_root[5]) ;
 
 				// std::cout<<"========================= "<<mCurrentFrameOnPhase<<", place at "<<(z+3.13)<<std::endl;
 
@@ -617,6 +618,10 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx) *= 5;
 			p_diff.segment<3>(idx + 3) *= 10;
 
+			if(mCurrentFrameOnPhase >=20 && mCurrentFrameOnPhase <=90){
+				p_diff[idx+4]*=0;
+				v_diff[idx+4]*=0;				
+			}
 			// if(mCurrentFrameOnPhase>=25 && mCurrentFrameOnPhase<=55){
 			// 	p_diff(idx+4) *= 0;
 			// 	v_diff(idx+4) *= 0;
@@ -930,7 +935,7 @@ Reset(bool RSI)
 	mPrevFrame2 = mPrevFrame;
 
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
-	mTimeQueue.push(0);
+	mTimeQueue.push(mCurrentFrame);
 	mAdaptiveStep = 1;
 
 
@@ -976,7 +981,31 @@ Reset(bool RSI)
 	left_detached= (mCurrentFrameOnPhase >=71) ? true: false; 
 	right_detached= (mCurrentFrameOnPhase >=71) ? true: false;
 
+	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
+	mCurrentFrame+=1;
+	mCurrentFrameOnPhase+=1;
+	nTotalSteps += 1;
 
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	this->mTargetPositions = p_v_target->GetPosition();
+	this->mTargetVelocities = p_v_target->GetVelocity();
+	delete p_v_target;
+
+	this->mPDTargetPositions = mTargetPositions;
+	this->mPDTargetVelocities = mTargetVelocities;
+
+	skel->setPositions(mTargetPositions);
+	skel->setVelocities(mTargetVelocities);
+	skel->computeForwardKinematics(true,true,false);
+	SaveStepInfo();
+
+	data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
+	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
+	mTimeQueue.push(mCurrentFrame);
+
+	mPrevTargetPositions = mTargetPositions;
+	mPrevFrame = mCurrentFrame;
+	mPrevFrame2 = mPrevFrame;
 }
 int
 Controller::
@@ -1287,7 +1316,7 @@ GetState()
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
-	// p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
 	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
