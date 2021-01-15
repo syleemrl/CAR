@@ -108,6 +108,7 @@ protected:
 
 	Character* mCharacter;
 	Character* mObject;
+	Character* mObject_next;
 	ReferenceManager* mReferenceManager;
 	dart::dynamics::SkeletonPtr mGround;
 
@@ -189,6 +190,16 @@ protected:
 	double mCountContact;
 	double mRootXdiff;
 //////////////////////////////////////////////////
+
+// 0:  rf : -0.74742  0.0436515 -0.0935549
+// 11: lf : -0.729605 0.0457789   1.26076 
+// 22: rf : -0.74742 0.0436515   2.54534
+// 33: lf : -0.729605 0.0457789   3.89966 
+
+
+	Eigen::Vector3d default_box0_pos(-0.74742,  0.0436515+1, -0.0935549);
+	Eigen::Vector3d default_box1_pos(-0.729605, 0.0457789+1,   1.26076);
+	Eigen::Vector3d default_box2_pos(-0.74742,  0.0436515+1,   2.54534);
 };
 }
 #endif

@@ -15,5 +15,5 @@
 
 #define CHARACTER_TYPE "mxm_gen"
 #define REF_CHARACTER_TYPE "mxm_gen"
-// #define OBJECT_TYPE "climb_box"
+#define OBJECT_TYPE "run_box"
 #endif

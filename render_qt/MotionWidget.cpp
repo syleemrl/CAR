@@ -117,6 +117,26 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
+	
+	std::vector<int> check_frame = { 0, 11, 22, 33}; // {0, 41, 45, 81};
+	for(int cf: check_frame){
+		mSkel_bvh->setPositions(mMotion_bvh[cf]);
+		mSkel_bvh->computeForwardKinematics(true, false, false);
+		Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
+		Eigen::Vector3d left_foot = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d right_foot = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+		Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+		Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+
+		Eigen::Vector3d left_hand = mSkel_bvh->getBodyNode("LeftHand")->getWorldTransform().translation();
+		Eigen::Vector3d right_hand = mSkel_bvh->getBodyNode("RightHand")->getWorldTransform().translation();
+
+		// std::cout<<cf<<" lh ; "<<left_hand.transpose()<<"/ rh; "<<right_hand.transpose()<<std::endl;
+		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<left_toe.transpose()<<"/"<<right_toe.transpose()<<std::endl;
+	}
+
+
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
     for(int i = 0; i < p1.rows(); i++) {
@@ -427,7 +447,7 @@ DrawSkeletons()
 
 	if(mDrawBvh){		
 		GUI::DrawSkeleton(this->mSkel_bvh, 0);
-		// GUI::DrawSkeleton(this->mSkel_obj, 0);
+		GUI::DrawSkeleton(this->mSkel_obj, 0);
 	}
 	if(mDrawSim) {
 		GUI::DrawSkeleton(this->mSkel_sim, 0);

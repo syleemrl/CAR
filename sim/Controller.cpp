@@ -115,11 +115,37 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 	// 	mObject  = new DPhy::Character(path);
 	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
 	// }
-	// #ifdef OBJECT_TYPE
-	// 	path = std::string(CAR_DIR)+std::string("/character/")+OBJECT_TYPE+std::string(".xml");
-	// 	mObject  = new DPhy::Character(path);
-	// 	this->mWorld->addSkeleton(this->mObject->GetSkeleton());
-	// #endif
+	#ifdef OBJECT_TYPE
+		path = std::string(CAR_DIR)+std::string("/character/")+OBJECT_TYPE+std::string(".xml");
+		mObject  = new DPhy::Character(path);
+		this->mWorld->addSkeleton(this->mObject->GetSkeleton());
+
+		mObject_next  = new DPhy::Character(path);
+		this->mWorld->addSkeleton(this->mObject_next->GetSkeleton());
+
+	dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
+	Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
+	newTransform_stand.translation() = default_box0_pos; //-0.74742  0.0436515 -0.0935549
+	auto props_stand = stand->getParentJoint()->getJointProperties();
+	props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
+	stand->getParentJoint()->setProperties(props_stand);
+
+	// object_next	
+	dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
+	Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
+	newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
+	auto props1 = bn1->getParentJoint()->getJointProperties();
+	props1.mT_ChildBodyToJoint = newTransform1.inverse();
+	bn1->getParentJoint()->setProperties(props1);
+
+	dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
+	Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
+	newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
+	auto props2 = bn2->getParentJoint()->getJointProperties();
+	props2.mT_ChildBodyToJoint = newTransform2.inverse();
+	bn2->getParentJoint()->setProperties(props2);
+
+	#endif
 }
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
@@ -223,6 +249,7 @@ Step()
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
 
+			double shift_height = (mParamGoal[1] < 0) ? mParamGoal[1] : 0;
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
 
@@ -243,6 +270,64 @@ Step()
 			mCountHeight = 0;
 			mRootXdiff = 0;
 		}
+
+		Eigen::Vector3d prev_b1= mObject_next->GetSkeleton()->getBodyNode("Box1")->getWorldTransform().translation();
+		Eigen::Vector3d prev_b2= mObject_next->GetSkeleton()->getBodyNode("Box2")->getWorldTransform().translation();
+
+	Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM(); // l, h, l2, h2
+
+	dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
+	Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
+	newTransform_stand.translation() = prev_b2; //-0.74742  0.0436515 -0.0935549
+	auto props_stand = stand->getParentJoint()->getJointProperties();
+	props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
+	stand->getParentJoint()->setProperties(props_stand);
+
+	// object_next	
+	dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
+	Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
+	newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
+	newTransform1.translation()[1]+= relative[1];
+	newTransform1.translation()[2]+= relative[0];
+	auto props1 = bn1->getParentJoint()->getJointProperties();
+	props1.mT_ChildBodyToJoint = newTransform1.inverse();
+	bn1->getParentJoint()->setProperties(props1);
+
+	dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
+	Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
+	newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
+	newTransform2.translation()[1]+= relative[3]+relative[1];
+	newTransform2.translation()[2]+= relative[2]+relative[0];
+
+	auto props2 = bn2->getParentJoint()->getJointProperties();
+	props2.mT_ChildBodyToJoint = newTransform2.inverse();
+	bn2->getParentJoint()->setProperties(props2);
+
+
+
+		// Eigen::VectorXd prev_pos = mObject_next->GetSkeleton()->getPositions();
+		// this->mObject->GetSkeleton()->setPositions(prev_pos);
+		// this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		// this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
+		// this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+		// double cycle_0_pos_z = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false)[5];				
+		// double cycle_cur_pos_z = mReferenceManager->GetPosition(mCurrentFrame, false)[5];	
+
+		// Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM();
+
+		// Eigen::VectorXd obj_pos(mObject_next->GetSkeleton()->getNumDofs());
+		// obj_pos.setZero();
+
+		// obj_pos.segment<3>(3) = Eigen::Vector3d(0, relative[1], (relative[0]+cycle_cur_pos_z- cycle_0_pos_z));
+		// obj_pos.segment<3>(9) = Eigen::Vector3d(0, relative[3], (relative[2]+cycle_cur_pos_z- cycle_0_pos_z));
+
+
+		// this->mObject_next->GetSkeleton()->setPositions(obj_pos);
+		// this->mObject_next->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_next->GetSkeleton()->getNumDofs()));
+		// this->mObject_next->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_next->GetSkeleton()->getNumDofs()));
+		// this->mObject_next->GetSkeleton()->computeForwardKinematics(true,false,false);
+
 	}
 	if(isAdaptive) {
 		this->UpdateAdaptiveReward();
@@ -753,19 +838,37 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	if(mRecord) {
-		// Eigen::VectorXd pos_obj = mObject->GetSkeleton()->getPositions();
-		// int n_obs = (int) floor((tp(0) - 0.6) * 10 / 2);
-		// std::cout << (tp(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
+	if(isAdaptive){
+		
+		Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM();
 
-		// double base = 0.15;
-		// for(int i = 0; i < n_obs; i++) {
-		// 	pos_obj(6+i) = base;
-		// 	base = pos_obj(6+i);
-		// } for (int i = n_obs; i < pos_obj.rows() - 6; i++) {
-		// 	pos_obj(6+i) = 0;
-		// }
-		// mObject->GetSkeleton()->setPositions(pos_obj);
+		dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
+		Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
+		newTransform_stand.translation() = default_box0_pos; //-0.74742  0.0436515 -0.0935549
+		auto props_stand = stand->getParentJoint()->getJointProperties();
+		props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
+		stand->getParentJoint()->setProperties(props_stand);
+
+		// object_next	
+		dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
+		Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
+		newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
+		newTransform1.translation()[1]+= relative[1];
+		newTransform1.translation()[2]+= relative[0];
+		auto props1 = bn1->getParentJoint()->getJointProperties();
+		props1.mT_ChildBodyToJoint = newTransform1.inverse();
+		bn1->getParentJoint()->setProperties(props1);
+
+		dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
+		Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
+		newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
+		newTransform2.translation()[1]+= relative[3]+relative[1];
+		newTransform2.translation()[2]+= relative[2]+relative[0];
+
+		auto props2 = bn2->getParentJoint()->getJointProperties();
+		props2.mT_ChildBodyToJoint = newTransform2.inverse();
+		bn2->getParentJoint()->setProperties(props2);
+
 	}
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
@@ -857,6 +960,41 @@ Reset(bool RSI)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
 	}
+
+
+// 0:  rf : -0.74742  0.0436515 -0.0935549
+// 11: lf : -0.729605 0.0457789   1.26076 
+// 22: rf : -0.74742 0.0436515   2.54534
+// 33: lf : -0.729605 0.0457789   3.89966 
+	Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM(); // l, h, l2, h2
+
+	dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
+	Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
+	newTransform_stand.translation() = default_box0_pos; //-0.74742  0.0436515 -0.0935549
+	auto props_stand = stand->getParentJoint()->getJointProperties();
+	props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
+	stand->getParentJoint()->setProperties(props_stand);
+
+	// object_next	
+	dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
+	Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
+	newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
+	newTransform1.translation()[1]+= relative[1];
+	newTransform1.translation()[2]+= relative[0];
+	auto props1 = bn1->getParentJoint()->getJointProperties();
+	props1.mT_ChildBodyToJoint = newTransform1.inverse();
+	bn1->getParentJoint()->setProperties(props1);
+
+	dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
+	Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
+	newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
+	newTransform2.translation()[1]+= relative[3]+relative[1];
+	newTransform2.translation()[2]+= relative[2]+relative[0];
+
+	auto props2 = bn2->getParentJoint()->getJointProperties();
+	props2.mT_ChildBodyToJoint = newTransform2.inverse();
+	bn2->getParentJoint()->setProperties(props2);
+
 
 }
 int

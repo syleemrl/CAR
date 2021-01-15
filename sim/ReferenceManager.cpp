@@ -43,7 +43,7 @@ ReferenceManager::ReferenceManager(Character* character)
 :mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	mCharacter = character;
-	mBlendingInterval = 3;
+	mBlendingInterval = 6;
 	
 	mMotions_gen.clear();
 	mMotions_raw.clear();
@@ -69,15 +69,19 @@ SaveAdaptiveMotion(std::string postfix) {
 	ofs.close();
 
 }
+
+
 void 
 ReferenceManager::
-LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
+LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement, double shift_height) {
 
 	std::vector<Eigen::VectorXd> d_space;
 	std::vector<Eigen::VectorXd> d_time;
 
 	for(int i = 0 ; i < displacement.size(); i++) {
-		d_space.push_back(displacement[i].head(displacement[i].rows()-1));
+		Eigen::VectorXd pos = displacement[i].head(displacement[i].rows()-1);
+		pos[4]+= shift_height;
+		d_space.push_back(pos);
 		d_time.push_back(displacement[i].tail(1));
 	}
 
@@ -90,7 +94,6 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
 	}
 
-
 	for(int i = 0; i < mPhaseLength; i++) {
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
 	}
@@ -98,6 +101,37 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
+
+// void 
+// ReferenceManager::
+// LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
+
+// 	std::vector<Eigen::VectorXd> d_space;
+// 	std::vector<Eigen::VectorXd> d_time;
+
+// 	for(int i = 0 ; i < displacement.size(); i++) {
+// 		d_space.push_back(displacement[i].head(displacement[i].rows()-1));
+// 		d_time.push_back(displacement[i].tail(1));
+// 	}
+
+// 	std::vector<Eigen::VectorXd> newpos;
+// 	this->AddDisplacementToBVH(d_space, newpos);
+// 	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+
+// 	for(int j = 0; j < mPhaseLength; j++) {
+// 		mMotions_phase_adaptive[j]->SetPosition(newpos[j]);
+// 		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
+// 	}
+
+
+// 	for(int i = 0; i < mPhaseLength; i++) {
+// 		mTimeStep_adaptive[i] = exp(d_time[i](0));
+// 	}
+
+// 	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
+// }
+
+
 void 
 ReferenceManager::
 LoadAdaptiveMotion(std::string postfix) {
@@ -479,62 +513,38 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
 	
 	mThresholdTracking = 0.8;
 
-	if(ctrl_type == "FW_JUMP"){
-		mParamCur.resize(1);
-		mParamCur << 0.6;
+// 0: -0.745037  0.933487 0.0187368 / lf : -0.667753  0.484039 -0.151269 / rf :   -0.74742  0.0436515 -0.0935549/ mid:-0.707586  0.263845 -0.122412/ toe: -0.666512  0.384357 -0.159352/ -0.748433  0.0461138 0.00393715
+// 11: -0.721257  0.925636    1.3989 / lf : -0.729605 0.0457789   1.26076 / rf : -0.847032  0.338858   1.13857/ mid:-0.788318  0.192319   1.19967/ toe:  -0.72788 0.0520323   1.35477/-0.883585  0.255299   1.17207
+// 22: -0.745037  0.933487   2.65763 / lf : -0.667753  0.484039   2.48762 / rf :  -0.74742 0.0436515   2.54534/ mid:-0.707586  0.263845   2.51648/ toe: -0.666512  0.384357   2.47954/-0.748433 0.0461138   2.64283
+// 33: -0.721257  0.925636   4.03779 / lf : -0.729605 0.0457789   3.89966 / rf : -0.847032  0.338858   3.77747/ mid:-0.788318  0.192319   3.83856/ toe:  -0.72788 0.0520323   3.99366/-0.883585  0.255299   3.81096
 
-		mParamGoal.resize(1);
-		mParamGoal << 0.6;
+	// foot l, h, l, h	// 1.35432, 0, 1.28458, 0
+	mParamCur.resize(4); 
+	mParamCur << (1.26076 -(-0.0935549)), 0, (2.54534- 1.26076), 0;
 
-		if(isParametric) {
-			Eigen::VectorXd paramUnit(1);
-			paramUnit<< 0.1;
+	mParamGoal.resize(4);
+	mParamGoal = mParamCur;
 
-			mParamBase.resize(1);
-			mParamBase << 0.5;
+	mParamDMM.resize(4);
+	mParamDMM = mParamGoal;
 
+	if(adaptive) {
 
-			mParamEnd.resize(1);
-			mParamEnd << 2.0;
-			
-			mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
-											  paramUnit, mDOF + 1, mPhaseLength);
+		Eigen::VectorXd paramUnit(4);
+		paramUnit << 0.05, 0.05, 0.05, 0.05;
 
+		mParamBase.resize(4);
+		mParamBase << 1.0, -0.3, 1.0, -0.3;
 
-			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
-		}		
-	}
-	else if(ctrl_type == "WALL_JUMP"){
-		mParamCur.resize(1); // wall height
-		mParamCur << 0.9;
+		mParamEnd.resize(4);
+		mParamEnd << 1.7, +0.3, 1.7, +0.3;
 
-		mParamGoal.resize(1);
-		mParamGoal = mParamCur;
+		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+										  paramUnit, mDOF + 1, mPhaseLength);
 
-		mParamDMM.resize(1);
-		mParamDMM = mParamGoal;
-
-		if(adaptive) {
-
-			Eigen::VectorXd paramUnit(1);
-			paramUnit << 0.1;
-
-			mParamBase.resize(1);
-			mParamBase << 0.8;
-
-			mParamEnd.resize(1);
-			mParamEnd << 1.8;
-			mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
-											  paramUnit, mDOF + 1, mPhaseLength);
-
-
-			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
-		}
-	}else{
-		
+		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 	}
 
-	std::cout<<ctrl_type<<" / "<<mParamGoal.transpose()<<std::endl;
 	ResetOptimizationParameters();
 }
 
@@ -588,7 +598,7 @@ void
 ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
-				 Eigen::VectorXd parameters) {
+				 Eigen::VectorXd parameters, double shift_height) {
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
@@ -604,9 +614,15 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	for(int i = 0; i < data_raw.size(); i++) {
 		trajectory.push_back(data_raw[i].first);
 	}
+	// trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
+	// for(int i = 0; i < data_raw.size(); i++) {
+	// 	data_raw[i].first = trajectory[i];
+	// }
+
 	trajectory = Align(trajectory, this->GetPosition(start_phase).segment<6>(0));
 	for(int i = 0; i < data_raw.size(); i++) {
 		data_raw[i].first = trajectory[i];
+		data_raw[i].first[4]+= shift_height;
 	}
 
 	std::vector<std::pair<Eigen::VectorXd,double>> data_uniform;

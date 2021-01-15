@@ -55,7 +55,7 @@ class ReferenceManager
 public:
 	ReferenceManager(Character* character=nullptr);
 	void SaveAdaptiveMotion(std::string postfix="");
-	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps);
+	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps, double shift_height);
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
@@ -66,7 +66,7 @@ public:
 	int GetPhaseLength() {return mPhaseLength; }
 	double GetTimeStep(double t, bool adaptive);
 
-	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, std::tuple<double, double, Fitness> rewards, Eigen::VectorXd parameters);
+	void SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, std::tuple<double, double, Fitness> rewards, Eigen::VectorXd parameters, double shift_height=0);
 	void InitOptimization(int nslaves, std::string save_path, bool adaptive=false, std::string ctrl_type="FW_JUMP");
 	void AddDisplacementToBVH(std::vector<Eigen::VectorXd> displacement, std::vector<Eigen::VectorXd>& position);
 	void GetDisplacementWithBVH(std::vector<std::pair<Eigen::VectorXd, double>> position, std::vector<std::pair<Eigen::VectorXd, double>>& displacement);
@@ -76,6 +76,8 @@ public:
 
 	Eigen::VectorXd GetParamGoal() {return mParamGoal; }
 	Eigen::VectorXd GetParamCur() {return mParamCur; }
+	Eigen::VectorXd GetParamDMM() {return mParamDMM; }
+
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetParamRange() {return std::pair<Eigen::VectorXd, Eigen::VectorXd>(mParamBase, mParamEnd); }
 	void SetParamGoal(Eigen::VectorXd g) { mParamGoal = g; }
 	void ResetOptimizationParameters(bool reset_displacement=true);
