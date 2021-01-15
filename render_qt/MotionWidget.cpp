@@ -76,11 +76,10 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 
 
-    // if(mRunReg) {
+    if(mRunReg) {
     	mRegressionMemory = new DPhy::RegressionMemory();
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
-
-    // }
+    }
     mPath = "";
     if(mRunSim) {
 	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
@@ -200,16 +199,21 @@ initNetworkSetting(std::string ppo, std::string reg) {
     	if(ppo != "") {
     		if (reg!="") this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
     		else this->mController = new DPhy::Controller(mReferenceManager, false, false, true); //adaptive=true, bool parametric=true, bool record=true
-
+    		std::cout<<"mController done"<<std::endl;
     		// this->mController = new DPhy::Controller(mReferenceManager, true, true, true);
 			mController->SetGoalParameters(mReferenceManager->GetParamCur());
-
+			std::cout<<"chkpt 0"<<std::endl;
     		p::object ppo_main = p::import("ppo");
+			std::cout<<"chkpt 1"<<std::endl;
 			this->mPPO = ppo_main.attr("PPO")();
+			std::cout<<"chkpt 2"<<std::endl;
 			std::string path = std::string(CAR_DIR)+ std::string("/network/output/") + ppo;
+			std::cout<<"chkpt 2"<<std::endl;
 			this->mPPO.attr("initRun")(path,
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
+
+			std::cout<<"chkpt 3"<<std::endl;
 			RunPPO();
 			
     	}
@@ -382,6 +386,7 @@ RunPPO() {
 		this->mTiming.push_back(this->mController->GetCurrentFrame());
 
 		count += 1;
+		std::cout<<"count "<<count<<std::endl;
 	}
 
 	for(int i = 0; i <= count; i++) {
@@ -500,7 +505,7 @@ MotionWidget::
 DrawGround()
 {
 	// GUI::DrawSkeleton(mGround, 0);
-	double height = mGround->getBodyNode(0)->getWorldTransform().translation()[1];
+	double height = mGround->getBodyNode(0)->getWorldTransform().translation()[1] +0.51;
 	glPushMatrix();
 	glTranslatef(0, height, 0);
 

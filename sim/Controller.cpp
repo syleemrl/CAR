@@ -123,18 +123,24 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mObject_next  = new DPhy::Character(path);
 		this->mWorld->addSkeleton(this->mObject_next->GetSkeleton());
 
-		Eigen::Vector3d box_shift= -(default_box2_pos-default_box0_pos);
-		setRunBoxPosition(0, 1, default_box1_pos+box_shift);
-		setRunBoxPosition(0, 2, default_box2_pos+box_shift);
+		if(isAdaptive){
+			Eigen::Vector3d box_shift= -(default_box2_pos-default_box0_pos);
+			
+			setRunBoxPosition(0, 1, default_box1_pos+box_shift);
+			setRunBoxPosition(0, 2, default_box2_pos+box_shift);
 
-		Eigen::Vector3d next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
-		next_1_pos[0]= default_box1_pos[0];
-		
-		Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
-		next_2_pos[0]= default_box0_pos[0];
+			Eigen::Vector3d next_1_pos = Eigen::Vector3d(1000, 0, 1000);
+			Eigen::Vector3d next_2_pos = Eigen::Vector3d(1000, 0, 1000);
+			
+				// next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
+				// next_1_pos[0]= default_box1_pos[0];
+				
+				// next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
+				// next_2_pos[0]= default_box0_pos[0];
 
-		setRunBoxPosition(1, 1, next_1_pos);
-		setRunBoxPosition(1, 2, next_2_pos);			
+			setRunBoxPosition(1, 1, next_1_pos);
+			setRunBoxPosition(1, 2, next_2_pos);						
+		}
 
 	#endif
 }
@@ -159,10 +165,6 @@ void
 Controller::
 Step()
 {	
-	// std::cout<<"@ "<<mCurrentFrame<<std::endl;
-	// std::cout<<"b1; "<<mObject->GetSkeleton()->getBodyNode(0)->getWorldTransform().translation().transpose()<<"/ b2; "<<mObject->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation().transpose()<<std::endl;
-	// std::cout<<"b1; "<<mObject_next->GetSkeleton()->getBodyNode(0)->getWorldTransform().translation().transpose()<<"/ b2; "<<mObject_next->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation().transpose()<<std::endl;
-
 	if(IsTerminalState())
 		return;
 
@@ -184,8 +186,7 @@ Step()
 	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
-	// if(!isAdaptive)
-	// 	mAdaptiveStep = 1;
+	if(!isAdaptive) mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += mAdaptiveStep;
@@ -248,6 +249,50 @@ Step()
 
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
+
+	if(isAdaptive){
+		if(mCurrentFrameOnPhase >=6.5 && !placed_left){
+			Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+
+			Eigen::Vector3d next_1_pos = lf + Eigen::Vector3d(0, -0.1, 0);
+
+			double prev_min = next_1_pos[1];
+			Eigen::Vector3d prevCheck= prevFoot- next_1_pos; prevCheck[1] = 0;
+			if(prevCheck.norm() < 0.25)	prev_min = std::min(prev_min, prevFoot[1]-0.1);
+			Eigen::Vector3d prevPrevCheck= prevPrevFoot- next_1_pos; prevPrevCheck[1] = 0;
+			if(prevPrevCheck.norm() < 0.25) prev_min = std::min(prev_min, prevPrevFoot[1]-0.1);
+			next_1_pos[1] = prev_min;
+
+			Eigen::Vector3d prev_pos = mObject->GetSkeleton()->getBodyNode("Box2")->getWorldTransform().translation();
+			mParamCur[0] = (next_1_pos- prev_pos)[2];
+			mParamCur[1] = (next_1_pos- prev_pos)[1];
+
+			setRunBoxPosition(1, 1, next_1_pos);
+			placed_left = true;
+
+		}else if(mCurrentFrameOnPhase>=17.5 && !placed_right){
+			Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+			Eigen::Vector3d next_2_pos = rf+ Eigen::Vector3d(0, -0.1, 0);
+
+			double prev_min = next_2_pos[1];
+			Eigen::Vector3d prevCheck= prevFoot- next_2_pos; prevCheck[1] = 0;
+			if(prevCheck.norm() < 0.25) prev_min = std::min(prev_min, prevFoot[1]-0.1);
+			Eigen::Vector3d prevPrevCheck= prevPrevFoot- next_2_pos; prevPrevCheck[1] = 0;
+			if(prevPrevCheck.norm() < 0.25) prev_min = std::min(prev_min, prevPrevFoot[1]-0.1);
+			next_2_pos[1] = prev_min;
+
+			Eigen::Vector3d prev_pos = mObject_next->GetSkeleton()->getBodyNode("Box1")->getWorldTransform().translation();
+			mParamCur[2] = (next_2_pos- prev_pos)[2];
+			mParamCur[3] = (next_2_pos- prev_pos)[1];
+
+			setRunBoxPosition(1, 2, next_2_pos);
+			placed_right = true;
+		}
+
+	}
+
+
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
@@ -281,21 +326,23 @@ Step()
 			mRootXdiff = 0;
 		}
 
-		Eigen::Vector3d prev_b1= mObject_next->GetSkeleton()->getBodyNode("Box1")->getWorldTransform().translation();
-		Eigen::Vector3d prev_b2= mObject_next->GetSkeleton()->getBodyNode("Box2")->getWorldTransform().translation();
+		if(isAdaptive){
 
-		setRunBoxPosition(0, 1, prev_b1);
-		setRunBoxPosition(0, 2, prev_b2);
+			Eigen::Vector3d prev_b1= mObject_next->GetSkeleton()->getBodyNode("Box1")->getWorldTransform().translation();
+			Eigen::Vector3d prev_b2= mObject_next->GetSkeleton()->getBodyNode("Box2")->getWorldTransform().translation();
 
-		Eigen::Vector3d next_1_pos = prev_b2+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
-		next_1_pos[0]= default_box1_pos[0];
+			setRunBoxPosition(0, 1, prev_b1);
+			setRunBoxPosition(0, 2, prev_b2);
 
-		Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
-		next_2_pos[0]= default_box0_pos[0];
+			Eigen::Vector3d next_1_pos = Eigen::Vector3d(1000, 0, 1000);
+			Eigen::Vector3d next_2_pos = Eigen::Vector3d(1000, 0, 1000);
 
-		setRunBoxPosition(1, 1, next_1_pos);
-		setRunBoxPosition(1, 2, next_2_pos);
+			setRunBoxPosition(1, 1, next_1_pos);
+			setRunBoxPosition(1, 2, next_2_pos);
 
+			placed_left = false;
+			placed_right = false;
+		}
 
 	}
 	if(isAdaptive) {
@@ -328,6 +375,10 @@ Step()
 
 	if(isAdaptive && mIsTerminal)
 		data_raw.clear();
+
+	prevPrevFoot= prevFoot;
+	std::string targetFoot= (mCurrentFrameOnPhase <=10)? "LeftFoot" : "RightFoot";
+	prevFoot= mCharacter->GetSkeleton()->getBodyNode(targetFoot)->getWorldTransform().translation();
 
 }
 void
@@ -572,8 +623,8 @@ GetSimilarityReward()
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 5;
-			p_diff(4) *= 0;
-			p_diff(5) *= 0;
+			p_diff(4) *= 0; // y-axis
+			p_diff(5) *= 0; // z-axis
 		} 
 	}
 
@@ -596,57 +647,27 @@ GetParamReward()
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 
-	if(mCurrentFrameOnPhase >= 20 && !gotParamReward) {
-		r_param = 1;
+	if(mCurrentFrameOnPhase >= 19 && !gotParamReward && placed_right && placed_left ) {
+		Eigen::Vector3d b1 = mObject_next->GetSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+		Eigen::Vector3d b2 = mObject_next->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation();
+		Eigen::VectorXd x_diff(2);
+		x_diff.setZero();
+		x_diff << (b1[0]-default_box1_pos[0]), (b2[0]- default_box2_pos[0]);
+		double r_x_diff= exp_of_squared(x_diff, 0.3);
+
+		Eigen::VectorXd goal_diff(mParamGoal.size());
+		goal_diff = mParamGoal- mParamCur;
+		double r_goal_diff= exp_of_squared(goal_diff, 0.5);
+
+		r_param = r_x_diff * r_goal_diff;
 		gotParamReward = true;
+
+		Eigen::Vector3d prev_b2 = mObject->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation();
+		mParamCur[0] = (b1- prev_b2)[2];
+		mParamCur[1] = (b1- prev_b2)[1];
+		mParamCur[2] = (b2-b1)[2];
+		mParamCur[3] = (b2-b1)[1];
 	}
-	// if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase < 27 && mControlFlag[0] == 0) 		
-	// {
-	// 	int num_body_nodes = mInterestedDof / 3;
-	
-	// 	double min_h = 0;
-	// 	for(int i = 0; i < num_body_nodes; i++) {
-	// 		double h = skel->getBodyNode(i)->getWorldTransform().translation()(1);
-	// 		if(i==0 || h < min_h)
-	// 			min_h = h;
-	// 	}
-	// 	mHeight += min_h;
-	// 	mCountHeight += 1;
-
-	// } else if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {	
-	// 	double meanHeight = mHeight / mCountHeight;
-	// 	double meanXdiff = mRootXdiff / mCountHeight;
-
-	// 	double h_diff = meanHeight - mParamGoal(0);
-	// 	double r_h = exp(-pow(h_diff,2)*150);
-
-	// 	r_param = r_h;
-	// 	mParamCur(0) = meanHeight;
-
-	// 	mControlFlag[0] = 1;
-	// 	if(mRecord) {
-	// 		std::cout << meanHeight << " / " << h_diff << " / " << r_h << std::endl;
-	// 	}
-	// } 	else if(mCurrentFrameOnPhase <= 36 && mControlFlag[0] == 1) {
-	// 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
-	// 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
-
-	// 	for(int i = 0; i < contacts_cur.size(); i++) {
-	// 		if(contacts_ref[i].first && !contacts_cur[i].first) {
-	// 			mCondiff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
-	// 		} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-	// 			mCondiff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
-	// 		}
-	// 	}
-	// 	mCountContact += 1;
-	// } else if(mControlFlag[0] == 1) {
-	// 	mCondiff /= mCountContact;
-	// 	r_param = 0.25 * exp(-mCondiff * 4);
-	// 	if(mRecord) {
-	// 		std::cout << mCondiff << "/ " << r_param * 2<< std::endl;
-	// 	}
-	// 	mControlFlag[0] = 2;
-	// }
 
 	return r_param;
 	
@@ -778,7 +799,7 @@ UpdateTerminalInfo()
 	// } else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 1 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 	// 	mIsTerminal = true;
 	// 	terminationReason =  8;
-	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(mCurrentFrame > mReferenceManager->GetPhaseLength()* 3) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
@@ -824,11 +845,16 @@ SetGoalParameters(Eigen::VectorXd tp)
 		setRunBoxPosition(0, 1, default_box1_pos+box_shift);
 		setRunBoxPosition(0, 2, default_box2_pos+box_shift);
 
-		Eigen::Vector3d next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
-		next_1_pos[0]= default_box1_pos[0];
-		
-		Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
-		next_2_pos[0]= default_box0_pos[0];
+		Eigen::Vector3d next_1_pos = Eigen::Vector3d(1000, 0, 1000);
+		Eigen::Vector3d next_2_pos = Eigen::Vector3d(1000, 0, 1000);
+
+		if(!isAdaptive){
+			next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
+			next_1_pos[0]= default_box1_pos[0];
+			
+			next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
+			next_2_pos[0]= default_box0_pos[0];
+		}
 
 		setRunBoxPosition(1, 1, next_1_pos);
 		setRunBoxPosition(1, 2, next_2_pos);
@@ -876,7 +902,6 @@ Reset(bool RSI)
 		mFitness.sum_pos = 0;
 		mFitness.sum_vel = 0;
 		mFitness.sum_reward = 0;
-
 	}
 
 	this->mCurrentFrameOnPhase = this->mCurrentFrame;
@@ -921,29 +946,35 @@ Reset(bool RSI)
 	if(isAdaptive)
 	{
 		data_raw.push_back(std::pair<Eigen::VectorXd,double>(mCharacter->GetSkeleton()->getPositions(), mCurrentFrame));
+	
+
+	// 0:  rf : -0.74742  0.0436515 -0.0935549
+	// 11: lf : -0.729605 0.0457789   1.26076 
+	// 22: rf : -0.74742 0.0436515   2.54534
+	// 33: lf : -0.729605 0.0457789   3.89966 
+		Eigen::Vector3d box_shift= -(default_box2_pos-default_box0_pos);
+		setRunBoxPosition(0, 1, default_box1_pos+box_shift);
+		setRunBoxPosition(0, 2, default_box2_pos+box_shift);
+
+		Eigen::Vector3d next_1_pos = Eigen::Vector3d(1000, 0, 1000);
+		Eigen::Vector3d next_2_pos = Eigen::Vector3d(1000, 0, 1000);
+
+			// next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
+			// next_1_pos[0]= default_box1_pos[0];
+			
+			// next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
+			// next_2_pos[0]= default_box0_pos[0];
+
+		setRunBoxPosition(1, 1, next_1_pos);
+		setRunBoxPosition(1, 2, next_2_pos);
 	}
 
 
-// 0:  rf : -0.74742  0.0436515 -0.0935549
-// 11: lf : -0.729605 0.0457789   1.26076 
-// 22: rf : -0.74742 0.0436515   2.54534
-// 33: lf : -0.729605 0.0457789   3.89966 
-	Eigen::Vector3d box_shift= -(default_box2_pos-default_box0_pos);
-	setRunBoxPosition(0, 1, default_box1_pos+box_shift);
-	setRunBoxPosition(0, 2, default_box2_pos+box_shift);
 
-	Eigen::Vector3d next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
-	next_1_pos[0]= default_box1_pos[0];
-	
-	Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
-	next_2_pos[0]= default_box0_pos[0];
+	std::string targetFoot= (mCurrentFrameOnPhase <=10)? "LeftFoot" : "RightFoot";
+	prevFoot= mCharacter->GetSkeleton()->getBodyNode(targetFoot)->getWorldTransform().translation();
+	prevPrevFoot = prevFoot;
 
-	setRunBoxPosition(1, 1, next_1_pos);
-	setRunBoxPosition(1, 2, next_2_pos);
-
-	// std::cout<<"============================= box positions =============================  "<<std::endl;
-	// std::cout<<(default_box1_pos+box_shift).transpose()<<" / "<<(default_box2_pos+box_shift).transpose()<<std::endl;
-	// std::cout<<next_1_pos.transpose()<<" / "<<next_2_pos.transpose()<<std::endl;
 }
 int
 Controller::

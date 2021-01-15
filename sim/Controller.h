@@ -204,6 +204,12 @@ protected:
 	Eigen::Vector3d default_box2_pos= Eigen::Vector3d(0.0026,  -0.05+m_shift_height,   2.54534);
 
 	bool gotParamReward = false;
+
+	bool placed_left = false;
+	bool placed_right = false;
+
+	Eigen::Vector3d prevFoot;
+	Eigen::Vector3d prevPrevFoot;
 };
 }
 #endif
