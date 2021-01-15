@@ -108,7 +108,7 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mRewardLabels.push_back("com");
 		mRewardLabels.push_back("ee");
 		mRewardLabels.push_back("v");
-		mRewardLabels.push_back("time");
+		// mRewardLabels.push_back("time");
 	}
 	// if(mRecord) {
 	// 	path = std::string(CAR_DIR)+std::string("/character/obstacle.xml");
@@ -693,9 +693,9 @@ UpdateAdaptiveReward()
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
-	mSumTorque /= mSimPerCon;
-	double r_torque = exp_of_squared(mSumTorque, 50);
-	r_tot = 0.99 * r_tot + 0.01 * r_torque;
+	// mSumTorque /= mSimPerCon;
+	// double r_torque = exp_of_squared(mSumTorque, 50);
+	// r_tot = 0.99 * r_tot + 0.01 * r_torque;
 	// std::cout << mCurrentFrameOnPhase << " " << con_diff << " " <<exp(-con_diff*3) << std::endl;
 	mRewardParts.clear();
 
@@ -731,12 +731,12 @@ UpdateReward()
 
 	double r_time = exp(-pow((mActions[mInterestedDof] - 1),2)*40);
 
-	mSumTorque /= mSimPerCon;
-	double r_torque = exp_of_squared(mSumTorque, 50);
+	// mSumTorque /= mSimPerCon;
+	// double r_torque = exp_of_squared(mSumTorque, 50);
 
 	mRewardParts.clear();
 	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
-	r_tot = 0.98 * r_tot + 0.02 * r_torque;
+	// r_tot = 0.98 * r_tot + 0.02 * r_torque;
 
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -747,7 +747,7 @@ UpdateReward()
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 		mRewardParts.push_back(tracking_rewards_bvh[3]);
-		mRewardParts.push_back(r_torque);
+		// mRewardParts.push_back(r_torque);
 	}
 }
 void
