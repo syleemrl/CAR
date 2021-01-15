@@ -123,30 +123,34 @@ Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bo
 		mObject_next  = new DPhy::Character(path);
 		this->mWorld->addSkeleton(this->mObject_next->GetSkeleton());
 
-	dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
-	Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
-	newTransform_stand.translation() = default_box0_pos; //-0.74742  0.0436515 -0.0935549
-	auto props_stand = stand->getParentJoint()->getJointProperties();
-	props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
-	stand->getParentJoint()->setProperties(props_stand);
+		Eigen::Vector3d box_shift= -(default_box2_pos-default_box0_pos);
+		setRunBoxPosition(0, 1, default_box1_pos+box_shift);
+		setRunBoxPosition(0, 2, default_box2_pos+box_shift);
 
-	// object_next	
-	dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
-	Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
-	newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
-	auto props1 = bn1->getParentJoint()->getJointProperties();
-	props1.mT_ChildBodyToJoint = newTransform1.inverse();
-	bn1->getParentJoint()->setProperties(props1);
+		Eigen::Vector3d next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
+		next_1_pos[0]= default_box1_pos[0];
+		
+		Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
+		next_2_pos[0]= default_box0_pos[0];
 
-	dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
-	Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
-	newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
-	auto props2 = bn2->getParentJoint()->getJointProperties();
-	props2.mT_ChildBodyToJoint = newTransform2.inverse();
-	bn2->getParentJoint()->setProperties(props2);
+		setRunBoxPosition(1, 1, next_1_pos);
+		setRunBoxPosition(1, 2, next_2_pos);			
 
 	#endif
 }
+
+void Controller::setRunBoxPosition(int box_series_idx, int box_idx, Eigen::Vector3d new_position){
+
+	auto& skel = (box_series_idx == 0)? mObject->GetSkeleton() : mObject_next->GetSkeleton();
+	auto bn = (box_idx == 1)? skel->getBodyNode("Box1") : skel->getBodyNode("Box2");
+	
+	Eigen::Isometry3d newTransform = Eigen::Isometry3d::Identity();
+	newTransform.translation() = new_position; 
+	auto props = bn->getParentJoint()->getJointProperties();
+	props.mT_ChildBodyToJoint = newTransform.inverse();
+	bn->getParentJoint()->setProperties(props);
+}
+
 const dart::dynamics::SkeletonPtr& 
 Controller::GetSkeleton() { 
 	return this->mCharacter->GetSkeleton(); 
@@ -154,7 +158,11 @@ Controller::GetSkeleton() {
 void 
 Controller::
 Step()
-{			
+{	
+	// std::cout<<"@ "<<mCurrentFrame<<std::endl;
+	// std::cout<<"b1; "<<mObject->GetSkeleton()->getBodyNode(0)->getWorldTransform().translation().transpose()<<"/ b2; "<<mObject->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation().transpose()<<std::endl;
+	// std::cout<<"b1; "<<mObject_next->GetSkeleton()->getBodyNode(0)->getWorldTransform().translation().transpose()<<"/ b2; "<<mObject_next->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation().transpose()<<std::endl;
+
 	if(IsTerminalState())
 		return;
 
@@ -249,9 +257,11 @@ Step()
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
 
-			double shift_height = (mParamGoal[1] < 0) ? mParamGoal[1] : 0;
+			mParamCur= mParamGoal;
+			// double shift_height = (mParamGoal[1] < 0) ? mParamGoal[1] : 0;
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
+			gotParamReward= false;
 
 			mFitness.sum_contact = 0;
 			mFitness.sum_pos = 0;
@@ -274,59 +284,18 @@ Step()
 		Eigen::Vector3d prev_b1= mObject_next->GetSkeleton()->getBodyNode("Box1")->getWorldTransform().translation();
 		Eigen::Vector3d prev_b2= mObject_next->GetSkeleton()->getBodyNode("Box2")->getWorldTransform().translation();
 
-	Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM(); // l, h, l2, h2
+		setRunBoxPosition(0, 1, prev_b1);
+		setRunBoxPosition(0, 2, prev_b2);
 
-	dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
-	Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
-	newTransform_stand.translation() = prev_b2; //-0.74742  0.0436515 -0.0935549
-	auto props_stand = stand->getParentJoint()->getJointProperties();
-	props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
-	stand->getParentJoint()->setProperties(props_stand);
+		Eigen::Vector3d next_1_pos = prev_b2+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
+		next_1_pos[0]= default_box1_pos[0];
 
-	// object_next	
-	dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
-	Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
-	newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
-	newTransform1.translation()[1]+= relative[1];
-	newTransform1.translation()[2]+= relative[0];
-	auto props1 = bn1->getParentJoint()->getJointProperties();
-	props1.mT_ChildBodyToJoint = newTransform1.inverse();
-	bn1->getParentJoint()->setProperties(props1);
+		Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
+		next_2_pos[0]= default_box0_pos[0];
 
-	dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
-	Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
-	newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
-	newTransform2.translation()[1]+= relative[3]+relative[1];
-	newTransform2.translation()[2]+= relative[2]+relative[0];
+		setRunBoxPosition(1, 1, next_1_pos);
+		setRunBoxPosition(1, 2, next_2_pos);
 
-	auto props2 = bn2->getParentJoint()->getJointProperties();
-	props2.mT_ChildBodyToJoint = newTransform2.inverse();
-	bn2->getParentJoint()->setProperties(props2);
-
-
-
-		// Eigen::VectorXd prev_pos = mObject_next->GetSkeleton()->getPositions();
-		// this->mObject->GetSkeleton()->setPositions(prev_pos);
-		// this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		// this->mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
-		// this->mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-
-		// double cycle_0_pos_z = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false)[5];				
-		// double cycle_cur_pos_z = mReferenceManager->GetPosition(mCurrentFrame, false)[5];	
-
-		// Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM();
-
-		// Eigen::VectorXd obj_pos(mObject_next->GetSkeleton()->getNumDofs());
-		// obj_pos.setZero();
-
-		// obj_pos.segment<3>(3) = Eigen::Vector3d(0, relative[1], (relative[0]+cycle_cur_pos_z- cycle_0_pos_z));
-		// obj_pos.segment<3>(9) = Eigen::Vector3d(0, relative[3], (relative[2]+cycle_cur_pos_z- cycle_0_pos_z));
-
-
-		// this->mObject_next->GetSkeleton()->setPositions(obj_pos);
-		// this->mObject_next->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_next->GetSkeleton()->getNumDofs()));
-		// this->mObject_next->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_next->GetSkeleton()->getNumDofs()));
-		// this->mObject_next->GetSkeleton()->computeForwardKinematics(true,false,false);
 
 	}
 	if(isAdaptive) {
@@ -372,9 +341,18 @@ SaveStepInfo()
 	mRecordCOM.push_back(mCharacter->GetSkeleton()->getCOM());
 	mRecordPhase.push_back(mCurrentFrame);
 
-	// if(mRecord) {
-	// 	mRecordObjPosition.push_back(mObject->GetSkeleton()->getPositions());
-	// }
+	if(mRecord) {
+		Eigen::Vector3d p0= mObject->GetSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+		Eigen::Vector3d p1= mObject->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation();
+		Eigen::Vector3d p2= mObject_next->GetSkeleton()->getBodyNode(0)->getWorldTransform().translation();
+		Eigen::Vector3d p3= mObject_next->GetSkeleton()->getBodyNode(1)->getWorldTransform().translation();
+
+		Eigen::VectorXd obj_pos(12);
+		obj_pos<< p0, p1, p2, p3;
+
+		mRecordObjPosition.push_back(obj_pos);
+	}
+
 	bool rightContact = CheckCollisionWithGround("RightFoot") || CheckCollisionWithGround("RightToe");
 	bool leftContact = CheckCollisionWithGround("LeftFoot") || CheckCollisionWithGround("LeftToe");
 
@@ -546,18 +524,18 @@ GetSimilarityReward()
 	Eigen::VectorXd vel = p_v_target->GetVelocity();
 	delete p_v_target;
 
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
-	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
+	// std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(pos);
+	// std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
 
 	double con_diff = 0;
 
-	for(int i = 0; i < contacts_cur.size(); i++) {
-		if(contacts_ref[i].first && !contacts_cur[i].first) {
-			con_diff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
-		} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-			con_diff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
-		}
-	}
+	// for(int i = 0; i < contacts_cur.size(); i++) {
+	// 	if(contacts_ref[i].first && !contacts_cur[i].first) {
+	// 		con_diff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
+	// 	} else if(!contacts_ref[i].first && contacts_cur[i].first) {
+	// 		con_diff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
+	// 	}
+	// }
 
 	//double r_con = exp(-con_diff);
 	Eigen::VectorXd p_aligned = skel->getPositions();
@@ -593,12 +571,9 @@ GetSimilarityReward()
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<2>(idx + 1) *= 5;
-			p_diff(4) *= 5;
-		} else if(name.find("Spine") != std::string::npos ) {
-			p_diff.segment<2>(idx + 1) *= 2;
-		} else if(name.find("UpLeg") != std::string::npos ) {
-			v_diff.segment<2>(idx + 1) *= 2;
+			p_diff.segment<3>(idx) *= 5;
+			p_diff(4) *= 0;
+			p_diff(5) *= 0;
 		} 
 	}
 
@@ -620,53 +595,59 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase < 27 && mControlFlag[0] == 0) 		
-	{
-		int num_body_nodes = mInterestedDof / 3;
-	
-		double min_h = 0;
-		for(int i = 0; i < num_body_nodes; i++) {
-			double h = skel->getBodyNode(i)->getWorldTransform().translation()(1);
-			if(i==0 || h < min_h)
-				min_h = h;
-		}
-		mHeight += min_h;
-		mCountHeight += 1;
 
-	} else if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {	
-		double meanHeight = mHeight / mCountHeight;
-		double meanXdiff = mRootXdiff / mCountHeight;
-
-		double h_diff = meanHeight - mParamGoal(0);
-		double r_h = exp(-pow(h_diff,2)*150);
-
-		r_param = r_h;
-		mParamCur(0) = meanHeight;
-
-		mControlFlag[0] = 1;
-		if(mRecord) {
-			std::cout << meanHeight << " / " << h_diff << " / " << r_h << std::endl;
-		}
-	} 	else if(mCurrentFrameOnPhase <= 36 && mControlFlag[0] == 1) {
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
-
-		for(int i = 0; i < contacts_cur.size(); i++) {
-			if(contacts_ref[i].first && !contacts_cur[i].first) {
-				mCondiff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
-			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-				mCondiff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
-			}
-		}
-		mCountContact += 1;
-	} else if(mControlFlag[0] == 1) {
-		mCondiff /= mCountContact;
-		r_param = 0.25 * exp(-mCondiff * 4);
-		if(mRecord) {
-			std::cout << mCondiff << "/ " << r_param * 2<< std::endl;
-		}
-		mControlFlag[0] = 2;
+	if(mCurrentFrameOnPhase >= 20 && !gotParamReward) {
+		r_param = 1;
+		gotParamReward = true;
 	}
+	// if(mCurrentFrameOnPhase >= 21 && mCurrentFrameOnPhase < 27 && mControlFlag[0] == 0) 		
+	// {
+	// 	int num_body_nodes = mInterestedDof / 3;
+	
+	// 	double min_h = 0;
+	// 	for(int i = 0; i < num_body_nodes; i++) {
+	// 		double h = skel->getBodyNode(i)->getWorldTransform().translation()(1);
+	// 		if(i==0 || h < min_h)
+	// 			min_h = h;
+	// 	}
+	// 	mHeight += min_h;
+	// 	mCountHeight += 1;
+
+	// } else if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] == 0) {	
+	// 	double meanHeight = mHeight / mCountHeight;
+	// 	double meanXdiff = mRootXdiff / mCountHeight;
+
+	// 	double h_diff = meanHeight - mParamGoal(0);
+	// 	double r_h = exp(-pow(h_diff,2)*150);
+
+	// 	r_param = r_h;
+	// 	mParamCur(0) = meanHeight;
+
+	// 	mControlFlag[0] = 1;
+	// 	if(mRecord) {
+	// 		std::cout << meanHeight << " / " << h_diff << " / " << r_h << std::endl;
+	// 	}
+	// } 	else if(mCurrentFrameOnPhase <= 36 && mControlFlag[0] == 1) {
+	// 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
+	// 	std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
+
+	// 	for(int i = 0; i < contacts_cur.size(); i++) {
+	// 		if(contacts_ref[i].first && !contacts_cur[i].first) {
+	// 			mCondiff += abs(std::max(0.0, (contacts_cur[i].second)(1) - 0.07));
+	// 		} else if(!contacts_ref[i].first && contacts_cur[i].first) {
+	// 			mCondiff += abs(std::max(0.0, (contacts_ref[i].second)(1) - 0.07));
+	// 		}
+	// 	}
+	// 	mCountContact += 1;
+	// } else if(mControlFlag[0] == 1) {
+	// 	mCondiff /= mCountContact;
+	// 	r_param = 0.25 * exp(-mCondiff * 4);
+	// 	if(mRecord) {
+	// 		std::cout << mCondiff << "/ " << r_param * 2<< std::endl;
+	// 	}
+	// 	mControlFlag[0] = 2;
+	// }
+
 	return r_param;
 	
 }
@@ -802,7 +783,7 @@ UpdateTerminalInfo()
 		terminationReason =  8;
 	}
 	if(mRecord) {
-		if(mIsTerminal) std::cout << terminationReason << std::endl;
+		if(mIsTerminal) std::cout << "terminate because of : "<<terminationReason << std::endl;
 	}
 
 	skel->setPositions(p_save);
@@ -839,39 +820,20 @@ SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
 	if(isAdaptive){
+		Eigen::Vector3d box_shift= -(default_box2_pos-default_box0_pos);
+		setRunBoxPosition(0, 1, default_box1_pos+box_shift);
+		setRunBoxPosition(0, 2, default_box2_pos+box_shift);
+
+		Eigen::Vector3d next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
+		next_1_pos[0]= default_box1_pos[0];
 		
-		Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM();
+		Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
+		next_2_pos[0]= default_box0_pos[0];
 
-		dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
-		Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
-		newTransform_stand.translation() = default_box0_pos; //-0.74742  0.0436515 -0.0935549
-		auto props_stand = stand->getParentJoint()->getJointProperties();
-		props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
-		stand->getParentJoint()->setProperties(props_stand);
-
-		// object_next	
-		dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
-		Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
-		newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
-		newTransform1.translation()[1]+= relative[1];
-		newTransform1.translation()[2]+= relative[0];
-		auto props1 = bn1->getParentJoint()->getJointProperties();
-		props1.mT_ChildBodyToJoint = newTransform1.inverse();
-		bn1->getParentJoint()->setProperties(props1);
-
-		dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
-		Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
-		newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
-		newTransform2.translation()[1]+= relative[3]+relative[1];
-		newTransform2.translation()[2]+= relative[2]+relative[0];
-
-		auto props2 = bn2->getParentJoint()->getJointProperties();
-		props2.mT_ChildBodyToJoint = newTransform2.inverse();
-		bn2->getParentJoint()->setProperties(props2);
+		setRunBoxPosition(1, 1, next_1_pos);
+		setRunBoxPosition(1, 2, next_2_pos);
 
 	}
-	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
-	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }
 
 void
@@ -966,36 +928,22 @@ Reset(bool RSI)
 // 11: lf : -0.729605 0.0457789   1.26076 
 // 22: rf : -0.74742 0.0436515   2.54534
 // 33: lf : -0.729605 0.0457789   3.89966 
-	Eigen::VectorXd relative= mParamGoal- mReferenceManager->GetParamDMM(); // l, h, l2, h2
+	Eigen::Vector3d box_shift= -(default_box2_pos-default_box0_pos);
+	setRunBoxPosition(0, 1, default_box1_pos+box_shift);
+	setRunBoxPosition(0, 2, default_box2_pos+box_shift);
 
-	dart::dynamics::BodyNode* stand = mObject->GetSkeleton()->getBodyNode("Box2");
-	Eigen::Isometry3d newTransform_stand = Eigen::Isometry3d::Identity();
-	newTransform_stand.translation() = default_box0_pos; //-0.74742  0.0436515 -0.0935549
-	auto props_stand = stand->getParentJoint()->getJointProperties();
-	props_stand.mT_ChildBodyToJoint = newTransform_stand.inverse();
-	stand->getParentJoint()->setProperties(props_stand);
+	Eigen::Vector3d next_1_pos = default_box0_pos+ Eigen::Vector3d(0, mParamGoal[1], mParamGoal[0]);
+	next_1_pos[0]= default_box1_pos[0];
+	
+	Eigen::Vector3d next_2_pos = next_1_pos + Eigen::Vector3d(0, mParamGoal[3], mParamGoal[2]);
+	next_2_pos[0]= default_box0_pos[0];
 
-	// object_next	
-	dart::dynamics::BodyNode* bn1= mObject_next->GetSkeleton()->getBodyNode("Box1");
-	Eigen::Isometry3d newTransform1 = Eigen::Isometry3d::Identity();
-	newTransform1.translation() = default_box1_pos; //-0.7296 -0.05 1.26076
-	newTransform1.translation()[1]+= relative[1];
-	newTransform1.translation()[2]+= relative[0];
-	auto props1 = bn1->getParentJoint()->getJointProperties();
-	props1.mT_ChildBodyToJoint = newTransform1.inverse();
-	bn1->getParentJoint()->setProperties(props1);
+	setRunBoxPosition(1, 1, next_1_pos);
+	setRunBoxPosition(1, 2, next_2_pos);
 
-	dart::dynamics::BodyNode* bn2= mObject_next->GetSkeleton()->getBodyNode("Box2");
-	Eigen::Isometry3d newTransform2 = Eigen::Isometry3d::Identity();
-	newTransform2.translation() = default_box2_pos; //-0.747 -0.05 2.54534
-	newTransform2.translation()[1]+= relative[3]+relative[1];
-	newTransform2.translation()[2]+= relative[2]+relative[0];
-
-	auto props2 = bn2->getParentJoint()->getJointProperties();
-	props2.mT_ChildBodyToJoint = newTransform2.inverse();
-	bn2->getParentJoint()->setProperties(props2);
-
-
+	// std::cout<<"============================= box positions =============================  "<<std::endl;
+	// std::cout<<(default_box1_pos+box_shift).transpose()<<" / "<<(default_box2_pos+box_shift).transpose()<<std::endl;
+	// std::cout<<next_1_pos.transpose()<<" / "<<next_2_pos.transpose()<<std::endl;
 }
 int
 Controller::

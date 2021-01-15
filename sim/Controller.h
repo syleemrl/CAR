@@ -86,6 +86,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass);
+	void setRunBoxPosition(int box_series_idx, int box_idx, Eigen::Vector3d new_position);
 
 protected:
 	dart::simulation::WorldPtr mWorld;
@@ -196,10 +197,13 @@ protected:
 // 22: rf : -0.74742 0.0436515   2.54534
 // 33: lf : -0.729605 0.0457789   3.89966 
 
+	double m_shift_height = 0;
 
-	Eigen::Vector3d default_box0_pos(-0.74742,  0.0436515+1, -0.0935549);
-	Eigen::Vector3d default_box1_pos(-0.729605, 0.0457789+1,   1.26076);
-	Eigen::Vector3d default_box2_pos(-0.74742,  0.0436515+1,   2.54534);
+	Eigen::Vector3d default_box0_pos= Eigen::Vector3d(0.0026,  -0.05+m_shift_height, -0.0935549);
+	Eigen::Vector3d default_box1_pos= Eigen::Vector3d(0.0204, -0.05+m_shift_height,   1.26076);
+	Eigen::Vector3d default_box2_pos= Eigen::Vector3d(0.0026,  -0.05+m_shift_height,   2.54534);
+
+	bool gotParamReward = false;
 };
 }
 #endif

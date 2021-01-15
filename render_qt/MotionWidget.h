@@ -78,6 +78,7 @@ protected:
 	std::vector<Eigen::VectorXd> 	mMotion_sim;
 	std::vector<Eigen::VectorXd> 	mMotion_exp;
 	std::vector<Eigen::VectorXd> 	mMotion_obj;
+	std::vector<Eigen::VectorXd> 	mMotion_obj_next;
 	std::vector<Eigen::VectorXd> 	mMotion_points;
 
 	std::vector<double>				mTiming; // Controller->GetCurrentLength()
@@ -88,7 +89,10 @@ protected:
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
 	dart::dynamics::SkeletonPtr 	mSkel_exp;
 	dart::dynamics::SkeletonPtr 	mSkel_obj;
+	dart::dynamics::SkeletonPtr 	mSkel_obj_next;
 
+	dart::dynamics::SkeletonPtr		mGround;
+	
 	bool							mTrackCamera;
 
 	bool 							mRunSim;
@@ -114,6 +118,8 @@ protected:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+
+	void setRunBoxPosition(int box_series_idx, int box_idx, Eigen::Vector3d new_position);
 
 };
 #endif

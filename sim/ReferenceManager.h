@@ -55,7 +55,7 @@ class ReferenceManager
 public:
 	ReferenceManager(Character* character=nullptr);
 	void SaveAdaptiveMotion(std::string postfix="");
-	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps, double shift_height);
+	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps, double shift_height=0);
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
@@ -136,6 +136,7 @@ protected:
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
 	std::vector<std::string> mHierarchyStr;
+
 
 };
 }

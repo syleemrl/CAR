@@ -1,14 +1,15 @@
 <Skeleton name="Run_Box">
-	<Joint type="WeldJoint" name="Box2" parent_name="None" size="0.5 0.1 0.5" axis="0 1 0" mass="50000.0">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.7296 -0.05 1.26076"></BodyPosition>
+	<Joint type="WeldJoint" name="Box1" parent_name="None" size="0.5 0.1 0.5" axis="0 1 0" mass="50000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.204 -0.05 1.26076"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="WeldJoint" name="Box3" parent_name="None" size="0.5 0.1 0.5" mass="500000.0">
-		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.747 -0.05 2.54534"></BodyPosition>
+	<Joint type="WeldJoint" name="Box2" parent_name="None" size="0.5 0.1 0.5" mass="50000.0">
+		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.0398 -0.05 2.54534"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
 
-<!-- 	<Joint type="FreeJoint" name="Box4" parent_name="None" size="0.4 0.1 0.4" axis="0 1 0" mass="50000.0">
+<!-- 
+	<Joint type="FreeJoint" name="Box4" parent_name="None" size="0.4 0.1 0.4" axis="0 1 0" mass="50000.0">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="-0.7296 -0.05 3.89966"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
@@ -31,3 +32,4 @@
 33: lf : -0.729605 0.0457789   3.89966 
 
  -->
+
