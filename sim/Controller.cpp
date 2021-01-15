@@ -308,7 +308,9 @@ Step()
 				DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
 			}
 			Eigen::VectorXd cycle_0_root = mReferenceManager->GetMotion(mCurrentFrameOnPhase, true)->GetPosition().segment<6>(0);
-			double z = (mDefaultRootZero[5]- cycle_0_root[5]) ;
+			
+			double cur_z = mCharacter->GetSkeleton()->getPositions()[5];
+			double z = (cur_z- cycle_0_root[5]) ;
 			obj_pos[5] = z;
 
 			this->mObject->GetSkeleton()->setPositions(obj_pos);
@@ -938,9 +940,17 @@ Reset(bool RSI)
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
 	if(isAdaptive) {
-		// double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
-		// auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
-		// DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/0.9, 1), 1));
+		double h_grow = mParamGoal[0]- mReferenceManager->getParamDMM()[0];
+	
+		auto bn = mObject->GetSkeleton()->getBodyNode("Jump_Box");
+
+		auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+		auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
+		Eigen::Vector3d origin = box->getSize();
+
+		// std::cout<<mParamGoal[0]<<std::endl; //<<" "<<h_grow<<" "<<origin[1]<<" "<<(h_grow+0.9)/origin[1]<<std::endl;
+
+		DPhy::SkeletonBuilder::DeformBodyNode(mObject->GetSkeleton(), bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
 	}
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
@@ -1127,11 +1137,11 @@ void Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	Eigen::Vector3d jointPos = hand_bn->getTransform() * offset;
 
 	// double obj_height = mParamGoal[0];
-	Eigen::Vector3d barPos = bar_bn->getWorldTransform()*Eigen::Vector3d(0, 0.45, 0);
+	Eigen::Vector3d barPos = bar_bn->getWorldTransform()*Eigen::Vector3d(0, mParamGoal[0]/2., 0);
 	Eigen::Vector2d diff_middle (jointPos[1]-barPos[1], jointPos[2]-barPos[2]);
 	double distance = diff_middle.norm();
 
-	// std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<std::endl;
+	// std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<"barPos: "<<barPos.transpose()<<std::endl;
 
 	if(distance > 0.07 || jointPos[2] < (barPos[2]-0.1) || jointPos[2] > (barPos[2]+0.1) || jointPos[1] > (barPos[1]+0.05) ) return;
 
