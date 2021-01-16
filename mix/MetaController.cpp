@@ -74,6 +74,7 @@ MetaController::MetaController(std::string ctrl, std::string scene_obj, std::str
 
 	mRef1 = mCurrentController->mReferenceManager;
 	mTime1 = 0;
+	if(mCurrentController == mSubControllers["RUN_SWING"]) mTime1= 1;
 	mAlign1 = Eigen::Isometry3d::Identity();
 
 	mRef2 = nullptr;
@@ -190,6 +191,9 @@ void MetaController::handleTargetObject_init()
 		
 		std::cout<<" set object : "<<mTakeList[0].target_object<<std::endl;
 		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[0].target_object];
+		// Eigen::VectorXd p(obj->getNumDofs());
+		// p.setZero();
+		// obj->setPositions(p);
 
 		if(mTakeList[0].ctrl_type.compare("RUN_SWING")==0 && mCurrentController->mIsParametric){
 			// swing bar specific code
@@ -253,6 +257,9 @@ void MetaController::handleTargetObject()
 		
 		std::cout<<" set object : "<<mTakeList[mCurrentTake+1].target_object<<std::endl;
 		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake+1].target_object];
+		// Eigen::VectorXd p(obj->getNumDofs());
+		// p.setZero();
+		// obj->setPositions(p);
 
 		if(obj->getJoint(0)->getNumDofs() == 6){
 			Eigen::VectorXd p = obj->getPositions();
@@ -330,7 +337,11 @@ void MetaController::runScenario(){
 	std::cout<<"mCurrent Controller Type : "<<mCurrentController->mType<<std::endl;
 
 	this->reset();
-	// handleTargetObject_init();
+	handleTargetObject_init();
+
+	for(auto obj: mSceneObjects) {
+		std::cout<<obj.first<<" / "<<obj.second->getBodyNode(0)->getWorldTransform().translation().transpose()<<std::endl;
+	}
 
 	while(! IsTerminalState()){
 
@@ -468,8 +479,9 @@ void MetaController::loadSceneObjects(std::string obj_path)
 	SkeletonBuilder::loadScene(obj_path, mSceneObjects);
 	for(auto obj: mSceneObjects) {
 		this->mWorld->addSkeleton(obj.second);
-		Eigen::VectorXd p(obj.second->getNumDofs());
-		for(int i=0; i<p.size(); i++) p[i] = 1000;
+		// Eigen::VectorXd p(obj.second->getNumDofs());
+		// for(int i=0; i<p.size(); i++) p[i] = 1000;
+		// obj.second->setPositions(p);
 	}
 	this->mLoadScene = true;
 }
