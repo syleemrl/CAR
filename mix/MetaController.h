@@ -29,6 +29,7 @@ public:
 	SubController* mCurrentController;
 	void switchController(std::string type, int frame=-1);
 	void handleTargetObject();
+	void handleTargetObject_init();
 	std::map<std::pair<std::string, std::string>, std::pair<int, int>> mTransitionRules;
 
 	void runScenario();

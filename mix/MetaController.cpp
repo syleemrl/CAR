@@ -152,7 +152,6 @@ void MetaController::reset()
 		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake].target_object];
 		Eigen::VectorXd p(obj->getNumDofs());
 		p.setZero();
-		if(mCurrentTake==1) p[5]+=0.1;
 		obj->setPositions(p);
 
 		mCurrentController->setCurObject(obj);
@@ -184,6 +183,62 @@ Eigen::Isometry3d MetaController::calculateAlign(Eigen::Isometry3d cur, std::str
 	}
 
 	return align;
+}
+void MetaController::handleTargetObject_init()
+{
+	if(mTakeList[0].target_object!="") {
+		
+		std::cout<<" set object : "<<mTakeList[0].target_object<<std::endl;
+		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[0].target_object];
+
+		if(mTakeList[0].ctrl_type.compare("RUN_SWING")==0 && mCurrentController->mIsParametric){
+			// swing bar specific code
+			Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();			
+			Eigen::VectorXd param = mTakeList[0].goalParam;
+			newTransform.translation()[1] = param[0];
+			std::cout<<"swing bar height : "<<newTransform.translation()[1]<<std::endl;
+			dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
+			dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
+
+			auto parent_props = parent->getParentJoint()->getJointProperties();
+			parent_props.mT_ChildBodyToJoint = newTransform.inverse();
+			parent->getParentJoint()->setProperties(parent_props);
+
+			auto props = bn->getParentJoint()->getJointProperties();
+			props.mT_ParentBodyToJoint = parent->getTransform().inverse()*newTransform;
+			bn->getParentJoint()->setProperties(props);
+		}
+
+		if(mTakeList[0].ctrl_type.compare("FW_JUMP")==0 && mCurrentController->mIsParametric){
+			Eigen::VectorXd param = mTakeList[0].goalParam;			
+			Eigen::VectorXd pos_obj = obj->getPositions();
+			int n_obs = (int) floor((param(0) - 0.6) * 10 / 2);
+			// std::cout << (param(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
+
+			double base = 0.15;
+			for(int i = 0; i < n_obs; i++) {
+				pos_obj(6+i) = base;
+				base = pos_obj(6+i);
+			} for (int i = n_obs; i < pos_obj.rows() - 7; i++) {
+				pos_obj(6+i) = 0;
+			}
+			obj->setPositions(pos_obj);
+		}
+
+		if(mTakeList[0].ctrl_type.compare("WALL_JUMP")==0 && mCurrentController->mIsParametric){
+			Eigen::VectorXd param = mTakeList[0].goalParam;
+			double h_grow = param[0]- mCurrentController->mReferenceManager->GetParamDMM()[0];
+		
+			auto bn = obj->getBodyNode("Jump_Box");
+
+			auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+			auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
+			Eigen::Vector3d origin = box->getSize();
+
+			DPhy::SkeletonBuilder::DeformBodyNode(obj, bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
+		}
+		mCurrentController->setCurObject(obj);
+	}
 }
 
 void MetaController::handleTargetObject()
@@ -219,6 +274,7 @@ void MetaController::handleTargetObject()
 			if(mSubControllers[to]->mIsParametric) {
 				Eigen::VectorXd param = mTakeList[mCurrentTake+1].goalParam;
 				newTransform.translation()[1] = param[0];
+				std::cout<<"swing bar height : "<<newTransform.translation()[1]<<std::endl;
 			}
 			dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
 			dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
@@ -274,6 +330,7 @@ void MetaController::runScenario(){
 	std::cout<<"mCurrent Controller Type : "<<mCurrentController->mType<<std::endl;
 
 	this->reset();
+	// handleTargetObject_init();
 
 	while(! IsTerminalState()){
 
@@ -298,8 +355,8 @@ void MetaController::runScenario(){
 		mTransitionRules.emplace(std::make_pair("WALL_JUMP", "RUN_SWING"), std::make_pair(92, 23));
 		mTransitionRules.emplace(std::make_pair("RUN_SWING", "WALL_JUMP"), std::make_pair(99, 29));
 
-		mTransitionRules.emplace(std::make_pair("FW_JUMP", "RUN_SWING"), std::make_pair(42, 13-20)); // TODO
-		mTransitionRules.emplace(std::make_pair("RUN_SWING", "FW_JUMP"), std::make_pair(96, 0));
+		mTransitionRules.emplace(std::make_pair("FW_JUMP", "RUN_SWING"), std::make_pair(42, 13)); // TODO
+		mTransitionRules.emplace(std::make_pair("RUN_SWING", "FW_JUMP"), std::make_pair(95, 0));
 
 		if(mCurrentTake+1 < mTakeList.size()){
 
@@ -347,11 +404,12 @@ void MetaController::runScenario(){
 			// }
 			// else{
 
-
-				if(control_mode ==0 && mTime1+mBlendMargin >=blendFrame1){
+				double mTime1OnPhase = std::fmod(mTime1, mSubControllers[from]->mReferenceManager->GetPhaseLength());
+				double mTime2OnPhase = std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+					
+				if(control_mode ==0 && mTime1OnPhase+mBlendMargin >=blendFrame1){
 					control_mode = 1;
 					std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<std::endl;
-
 
 					if(mSubControllers[to]->mIsParametric) {
 						mSubControllers[to]->mParamGoal = mTakeList[mCurrentTake+1].goalParam;
@@ -363,17 +421,19 @@ void MetaController::runScenario(){
 
 					mRef2 = mSubControllers[to]->mReferenceManager;
 					mTime2 = blendFrame2- mBlendMargin;
-					mSubControllers[to]->reset(mTime2, std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength()));
+					if(mTime2 < 0) mTime2 += mSubControllers[to]->mReferenceManager->GetPhaseLength();
+					mTime2OnPhase = std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+					mSubControllers[to]->reset(mTime2, mTime2OnPhase);
 					mBlendStep = 1;
 					mAlign2 = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2);
 					handleTargetObject();
 				}
-				else if(control_mode == 1 && (mTime1>= blendFrame1)){
+				else if(control_mode == 1 && (mTime1OnPhase>= blendFrame1)){
 					mCurrentController= mSubControllers[to];
 					control_mode = 2;
-					mCurrentFrameOnPhase = std::fmod(mTime2, GetCurrentRefManager()->GetPhaseLength());
+					mCurrentFrameOnPhase = mTime2OnPhase;
 					std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<"/ phase: "<<mCurrentFrameOnPhase<<std::endl;
-				}else if(control_mode == 2 && (mTime2>=blendFrame2+mBlendMargin)){
+				}else if(control_mode == 2 && (mTime2OnPhase>=blendFrame2+mBlendMargin)){
 					mRef1 = mRef2;
 					mAlign1 = mAlign2;
 					mTime1 = mTime2;
@@ -393,7 +453,7 @@ void MetaController::runScenario(){
 		// 	scenario_done= true;
 		// 	break;
 		// }
-		if(mCurrentTake+1 == mTakeList.size() && mCurrentFrameOnPhase >= mRef1->GetPhaseLength()-1){
+		if(mCurrentTake+1 == mTakeList.size() && mCurrentFrameOnPhase +1 >= mRef1->GetPhaseLength()){
 			scenario_done =true;
 			break;
 		}
