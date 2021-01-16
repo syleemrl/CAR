@@ -182,17 +182,18 @@ class Regression(object):
 						}
 					)
 					lossval_reg += val[1]
-			if n_iteration % 10 == 0:
+			if n_iteration % 1 == 0:
 				print(n_iteration, lossval_reg)
 			if abs(lossval_reg_prev - lossval_reg) < 1e-4:
 				epsilon_count += 1
 			if n_iteration > 200 and abs(lossval_reg_prev - lossval_reg) < 1e-3:
 				break
+			self.save()
+
 		self.lossvals.append(['num iteration', n_iteration])
 		self.lossvals.append(['loss regression', lossval_reg])
 
 		self.printNetworkSummary()
-		self.save()
 
 	def run(self, input):
 		input = np.reshape(input, (-1, self.num_input))

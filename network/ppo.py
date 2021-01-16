@@ -523,7 +523,10 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		self.env.sampler.resetExplore()
+
+		self.env.mode = 1
+		self.env.sampler.resetExploit()
+		self.env.sampler.updateGoalDistribution(1, self.critic_target)
 
 		it_cur = 0
 

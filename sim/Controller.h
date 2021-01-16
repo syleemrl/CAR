@@ -192,6 +192,8 @@ protected:
 	double mCartwheelStart;
 	double mPosDiff;
 	Eigen::Vector3d mVelocity;
+	double mTotalXrot;
+	Eigen::Vector3d mTotalrot;
 
 	double mMassArm=1;
 	double mMassLeg=1;

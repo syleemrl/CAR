@@ -136,7 +136,7 @@ Step()
 		mActions[i] = dart::math::clip(mActions[i]*0.2, -0.7*M_PI, 0.7*M_PI);
 	}
 
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -2.0, 1.0);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.2, -3.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
 
@@ -220,7 +220,8 @@ Step()
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
 			mFitness.sum_slide /= mSlideCount;
-
+			// mFitness.sum_reward /= mCountParam;
+			// if(mFitness.sum_reward > 0.5)
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
 
@@ -262,7 +263,7 @@ Step()
 	}
 
 	mPrevTargetPositions = mTargetPositions;
-
+	mPrevPositions = mCharacter->GetSkeleton()->getPositions();
 	if(mPosQueue.size() >= 3)
 		mPosQueue.pop();
 	if(mTimeQueue.size() >= 3)
@@ -556,30 +557,52 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
+	if(mCurrentFrameOnPhase <= 17) {
+		mTotalXrot = 0;
+		mTotalrot.setZero();
+	} else if(mControlFlag[0] <= 1) {
+		for(int i = 0; i < 3; i++) {
+			double delta = skel->getPositions()(i) - mPrevPositions(i);
+			if(skel->getPositions()(i) * mPrevPositions(i) < 0 && 
+				skel->getPositions()(i) < - 0.5 * M_PI ) {
+				delta = 2 * M_PI - mPrevPositions(i) + skel->getPositions()(i);
+			} else if(skel->getPositions()(i) * mPrevPositions(i) < 0 && 
+				skel->getPositions()(i) > 0.5 * M_PI) {
+				delta = -(2 * M_PI + mPrevPositions(i) - skel->getPositions()(i));
+			}
+			if(i == 0)
+				mTotalXrot += delta;
+			mTotalrot(i) += delta;
+		}
+	}
 	if(mCurrentFrameOnPhase >= 64 && mControlFlag[0] == 1) {
-		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(125, 52, 25);
+		// double x_diff = 6.21 - mTotalXrot;
+		// double r_x = exp(-pow(x_diff, 2)*75);
+		// r_param = r_x;
+
+		// Eigen::Vector3d rotBVH = Eigen::Vector3d(6.10365,  -1.3734, -5.56088);
+		// Eigen::Vector3d rot_diff = rotBVH - mTotalrot;
+		// double r_rot = exp_of_squared(rot_diff, 0.3);
+		// r_param = r_rot;
+	
+		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(121, 50, 29);
 		Eigen::Vector3d l_diff = totalLengthBVH - mTotalLength;
-		l_diff *= 0.5;
-		l_diff(0) *= 4;
-		double r_l = exp_of_squared(l_diff , 8);
+		double r_l = exp_of_squared(l_diff , 10);
+		r_param = r_l;
 
 		// double t = (mCurrentFrame - mCartwheelStart) / mCount;
-		// double r_t = exp(-pow(t - 1, 2) * 200);
+		// double r_t = exp(-pow(t - 1, 2) * 400);
 
-		// Eigen::Vector3d mVelocityBVH = Eigen::Vector3d(2.6, 1.1, -0.35);
-		// mVelocity /= mCount;
-		// Eigen::Vector3d v_diff = (mVelocity - mVelocityBVH);
-		// v_diff(0) *= 4;
-		//r_param = exp_of_squared(v_diff, 0.4);
-		r_param =  r_l;
 		mFitness.sum_reward = r_param;
-		if(r_l >= 0.5) {
+		if(r_param >= 0.4) {
 			mParamCur = mParamGoal;
 		} else {
 			mParamCur(0) = -100;
 		}	
 		mControlFlag[0] = 2;		
+
 		if(mRecord) {
+		//	std::cout << mTotalrot.transpose() << " " << r_param << std::endl;
 		 	std::cout << mTotalLength.transpose()  << " / " << l_diff.transpose() << " / " << r_l << std::endl;
 		 	// std::cout << t  << " / " << t - 1 << " / " << r_t << std::endl;
 		 	// std::cout << mVelocity.transpose() << " / " << v_diff.transpose() << " / " << r_param << std::endl;
@@ -610,12 +633,13 @@ UpdateAdaptiveReward()
 	double r_torque = exp_of_squared(mSumTorque, 50);
 
 	double r_tot = 0.98 * r_tracking + 0.02 * r_torque;
-	// if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 64) {
+	// if(mCurrentFrameOnPhase >= 17 && mCurrentFrameOnPhase <= 67) {
 	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
 	// 	Eigen::Vector3d pos_diff = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
 	// 	double r_pos = exp_of_squared(pos_diff, 0.2);
+	// 	mFitness.sum_reward += r_pos;
 	// 	// mPosDiff += exp_of_squared(pos_diff, 0.2);
-	// 	// mCount += 1;
+	// 	mCountParam += 1;
 	// 	r_tot = 0.9 * r_tot + 0.1 * r_pos;
 	// }
 	
@@ -756,19 +780,17 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	// if(mParamGoal(0) < 0) {
-	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 1);
-	// 	this->SetSkeletonWeight(1, 2);
-	// } else {
-	// 	this->SetSkeletonWeight((abs(mParamGoal(0)) + 1), 2);
-	// 	this->SetSkeletonWeight(1, 1);
-	// }
+	mParamCur = mParamGoal;
+	// this->SetSkeletonLength(1, sqrt(mParamGoal(0)), 1);
+	// this->SetSkeletonLength(1, sqrt(mParamGoal(1)), 2);
+	// this->SetSkeletonWeight(mParamGoal(0), 1);
+	// this->SetSkeletonWeight(mParamGoal(1), 2);
+
 	this->SetSkeletonLength(mParamGoal(0), sqrt(mParamGoal(2)), 1);
 	this->SetSkeletonLength(mParamGoal(1), sqrt(mParamGoal(3)), 2);
 	this->SetSkeletonWeight(mParamGoal(0)*mParamGoal(2), 1);
 	this->SetSkeletonWeight(mParamGoal(1)*mParamGoal(3), 2);
-	
-	// std::cout << "goal updated : " << mCurrentFrameOnPhase << " / " << tp.transpose() << std::endl;
+
 }
 void
 Controller::
@@ -788,7 +810,6 @@ SetSkeletonLength(double length, double width, int type)
 		w = width / mWidthLeg;
 		mWidthLeg = width;
 	}
-
 	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 	int n_bnodes = mCharacter->GetSkeleton()->getNumBodyNodes();
 	// arm

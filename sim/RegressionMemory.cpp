@@ -55,9 +55,20 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.3;
-	mThresholdInside = 0.8;
+	// mRadiusNeighbor = 0.3;
+	// mThresholdInside = 0.5;
+	// mRangeExplore = 0.49;
+
+	//t7
+	// mRadiusNeighbor = 0.25;
+	// mThresholdInside = 0.6;
+	// mRangeExplore = 0.5;
+
+	//t6
+	mRadiusNeighbor = 0.2;
+	mThresholdInside = 0.6;
 	mRangeExplore = 0.5;
+
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 2; i++) {
@@ -218,13 +229,13 @@ SaveParamSpace(std::string path) {
 	ofs.close();
 	std::cout << "save param space : " << x.size() / mNumKnots << std::endl;
 
-	ofs.open(path+"_active");
-	auto it = mParamActivated.begin();
-	while(it != mParamActivated.end()) {
-		ofs << it->first.cwiseProduct(mParamGridUnit).transpose() << std::endl;
-		it++;
-	}
-	ofs.close();
+	// ofs.open(path+"_active");
+	// auto it = mParamActivated.begin();
+	// while(it != mParamActivated.end()) {
+	// 	ofs << it->first.cwiseProduct(mParamGridUnit).transpose() << std::endl;
+	// 	it++;
+	// }
+	// ofs.close();
 
 }
 bool cmp_pair_int(const std::pair<double, int> &p1, 
@@ -649,46 +660,47 @@ RegressionMemory::
 UniformSample(int visited) {
 	int count = 0;
 	while(1) {
-		// Eigen::VectorXd p(mDim);
-		// for(int i = 0; i < mDim; i++) {
-		// 	p(i) = mUniform(mMT);
-		// }
+		Eigen::VectorXd p(mDim);
+		for(int i = 0; i < mDim; i++) {
+			p(i) = mUniform(mMT);
+		}
 		count += 1;
 
-		double r = mUniform(mMT);
-		r = std::floor(r * mGridMap.size());
+		// double r = mUniform(mMT);
+		// r = std::floor(r * mGridMap.size());
 
-		if(r == mGridMap.size())
-			r -= 1;
-		auto it_grid = std::next(mGridMap.begin(), (int)r);
+		// if(r == mGridMap.size())
+		// 	r -= 1;
+		// auto it_grid = std::next(mGridMap.begin(), (int)r);
 
-		std::vector<Param*> params = it_grid->second->GetParams(); 
-		if(params.size() == 0)
-			continue;
+		// std::vector<Param*> params = it_grid->second->GetParams(); 
+		// if(params.size() == 0)
+		// 	continue;
 
-		r = mUniform(mMT);
-		r = std::floor(r * params.size());
+		// r = mUniform(mMT);
+		// r = std::floor(r * params.size());
 
-		if(r == params.size())
-			r -= 1;
-		if(params[r]->update)
-			continue;
+		// if(r == params.size())
+		// 	r -= 1;
+		// if(params[r]->update)
+		// 	continue;
 
-		Eigen::VectorXd p = params[r]->param_normalized;
-		Eigen::VectorXd dir(mDim);
+		// Eigen::VectorXd p = params[r]->param_normalized;
+		// for(int i = 0; i < mDim; i++) {
+		// 	r = mUniform(mMT);
+		// 	if(r > 0.5)
+		// 		p(i) += mUniform(mMT) * mParamGridUnit(i);
+		// 	else
+		// 		p(i) -= mUniform(mMT) * mParamGridUnit(i);
 
-		for(int i = 0; i < mDim; i++) {
-			dir(i) =  mUniform(mMT) - 0.5;
-		}
-		dir.normalize();
-
-		for(int i = 0; i < mDim; i++) {
-			r = mUniform(mMT);
-			p(i) += dir(i) * r * mParamGridUnit(i);
-			if(p(i) > 1 || p(i) < 0) {
-				p(i) = std::min(1.0, std::max(0.0, p(i)));
-			} 
-		}
+		// 	while(p(i) > 1 || p(i) < 0) {
+		// 		r = mUniform(mMT);
+		// 		if(r > 0.5)
+		// 			p(i) += mUniform(mMT) * mParamGridUnit(i);
+		// 		else
+		// 			p(i) -= mUniform(mMT) * mParamGridUnit(i);
+		// 	} 
+		// }
 		if(visited == -1) 
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 
@@ -710,6 +722,15 @@ UniformSample(int visited) {
 
 		if(!visited && count > 10000) {
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), false);
+		} else if(count > 10000) {
+			for(int i = 0; i < mDim; i++) {
+				p(i) = mParamBVH->param_normalized[i] + 0.2 * (mUniform(mMT) - 0.5);
+				if(p(i) < 0)
+					p(i) = 0;
+				else if(p(i) > 1)
+					p(i) = 1;
+			}
+			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		}
 	}
 
@@ -910,7 +931,7 @@ double
 RegressionMemory::
 GetParamReward(Eigen::VectorXd p, Eigen::VectorXd p_goal) {
 	Eigen::VectorXd diff = p - p_goal;
-	double r_param = exp_of_squared(diff, 0.08);
+	double r_param = exp_of_squared(diff, 0.06);
 	return r_param;
 }
 void 

@@ -298,6 +298,21 @@ UpdateParam(const bool& pressed) {
 		double m2 = (tp_denorm(1)*tp_denorm(3)) / mMassLeg;
 		mMassLeg = (tp_denorm(1)*tp_denorm(3));
 
+
+		// double l1 = 1;
+		// double l2 = 1;
+
+		// double w1 = sqrt(tp_denorm(0)) / mWidthArm;
+		// mWidthArm = sqrt(tp_denorm(0));
+		// double w2 = sqrt(tp_denorm(1)) / mWidthLeg;
+		// mWidthLeg = sqrt(tp_denorm(1));
+
+		// double m1 = tp_denorm(0) / mMassArm;
+		// mMassArm = tp_denorm(0);
+
+		// double m2 = tp_denorm(1) / mMassLeg;
+		// mMassLeg = tp_denorm(1);
+
 		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
 		int n_bnodes = mSkel_exp->getNumBodyNodes();
 		for(int i = 0; i < n_bnodes; i++){

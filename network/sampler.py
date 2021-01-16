@@ -126,7 +126,7 @@ class Sampler(object):
 		self.progress_cur_new += plist[0]
 		self.progress_cur_update += plist[1]
 		if mode == 0 or mode == 2:
-			self.progress_cur_list.append(p * 10)
+			self.progress_cur_list.append(p * 20)
 
 	def updateCurrentStatus(self, mode, results, info):
 		if mode == 0 or mode == 2:
@@ -317,8 +317,11 @@ class Sampler(object):
 		p_mean = np.array(self.progress_queue_exploit).mean()
 		p_mean_prev = np.array(self.progress_queue_explore).mean()
 
-		if self.n_exploit < 10:
+		if self.n_exploit < 5:
 			return False
+
+		# if self.v_mean > 13.7:
+		# 	return True
 
 		if self.use_table:
 			max_mean = 0
@@ -346,8 +349,8 @@ class Sampler(object):
 			if p_mean <= max_mean or p_mean <= 0.2:
 				return True
 		else:
-			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
-			if (p_mean + 1e-3) - p_mean_prev * 0.9 < 0:
+			print(p_mean, p_mean_prev, p_mean - p_mean_prev < 0)
+			if p_mean - p_mean_prev  < 0:
 				return True
 
 		return False

@@ -86,6 +86,10 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     buttonlayout->addWidget(button);    
     buttonlayout->addStretch(1);
 
+    button = new QPushButton("capture", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(SaveScreenshot())); 
+    buttonlayout->addWidget(button); 
+
     motionlayout->addLayout(buttonlayout);
 
     QVBoxLayout *mParamlayout = new QVBoxLayout();
@@ -150,6 +154,18 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
     mMainLayout->addLayout(mParamlayout);
     mMainLayout->addStretch(1);
 
+}
+void
+MainWindow::
+SaveScreenshot() 
+{
+    QWidget *w = QApplication::activeWindow();
+    if(w) {
+        static int count = 0;
+        QPixmap p = QPixmap::grabWidget(w);
+        p.save(QString("./screenshot%1.png").arg(count));
+        count++;
+    }
 }
 void 
 MainWindow::

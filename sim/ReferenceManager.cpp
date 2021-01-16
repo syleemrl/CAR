@@ -355,6 +355,8 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 				}
 
 				pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+				pos(4) = p_phase[phase]->GetPosition()(4);
+
 			}
 
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, p_gen.back()->GetPosition()) / 0.033;
@@ -460,6 +462,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.8;
 
 	//arm length, leg length, arm mass, leg mass 
+
 	mParamCur.resize(4);
 	mParamCur << 1, 1, 1, 1;
 
@@ -467,32 +470,42 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mParamGoal << 1, 1, 1, 1;
 
 	if(isParametric) {
+
+		// Eigen::VectorXd paramUnit(4);
+		// paramUnit<< 0.15, 0.15, 0.3, 0.15;
+
+		// mParamBase.resize(4);
+		// mParamBase << 0.5, 0.5, 1, 1;
+
+		// mParamEnd.resize(4);
+		// mParamEnd << 2, 2, 4, 2.5;
+
 		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.2, 0.1;
+		paramUnit<< 0.15, 0.15, 0.3, 0.15;
 
 		mParamBase.resize(4);
-		mParamBase << 0.5, 0.5, 1, 1;
+		mParamBase << 0.6, 0.6, 1, 1;
 
 		mParamEnd.resize(4);
-		mParamEnd << 2, 2, 4, 2.5;
+		mParamEnd << 1.6, 1.6, 4, 2.5;
 
+	// mParamCur.resize(2);
+	// mParamCur << 1, 1;
 
-	// mParamCur.resize(1);
-	// mParamCur << 0;
-
-	// mParamGoal.resize(1);
-	// mParamGoal << 0;
+	// mParamGoal.resize(2);
+	// mParamGoal << 1, 1;
 
 	// if(isParametric) {
-	// 	Eigen::VectorXd paramUnit(1);
-	// 	paramUnit<< 0.5;
-
-	// 	mParamBase.resize(1);
-	// 	mParamBase << -7;
 
 
-	// 	mParamEnd.resize(1);
-	// 	mParamEnd << 3;
+	// 	Eigen::VectorXd paramUnit(2);
+	// 	paramUnit<< 0.1, 0.1;
+
+	// 	mParamBase.resize(2);
+	// 	mParamBase << 1, 1;
+
+	// 	mParamEnd.resize(2);
+	// 	mParamEnd << 4, 2.5;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -559,7 +572,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
-	// std::cout << std::get<0>(rewards) << " " << std::get<2>(rewards).sum_contact << " " << parameters << std::endl;
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
