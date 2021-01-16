@@ -486,6 +486,9 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
 		mParamGoal.resize(1);
 		mParamGoal << 0.6;
 
+		mParamDMM.resize(1);
+		mParamDMM << 0.6;
+
 		if(isParametric) {
 			Eigen::VectorXd paramUnit(1);
 			paramUnit<< 0.1;

@@ -28,8 +28,8 @@ public:
 	SubController* mPrevController;	
 	SubController* mCurrentController;
 	void switchController(std::string type, int frame=-1);
-
-	std::vector<std::tuple<std::string, int, std::string, int>> transition_rules;
+	void handleTargetObject();
+	std::map<std::pair<std::string, std::string>, std::pair<int, int>> mTransitionRules;
 
 	void runScenario();
 

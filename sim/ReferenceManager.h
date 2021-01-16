@@ -90,6 +90,8 @@ public:
 	void ConnectSinglePhaseMotion(int cycle, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen, int trimLength);
 	void LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement, int trimLength);
 
+	RegressionMemory* GetRegressionMemory(){return mRegressionMemory;}
+	Eigen::VectorXd GetParamDMM(){return mParamDMM;}
 protected:
 	Character* mCharacter;
 	double mTimeStep;
