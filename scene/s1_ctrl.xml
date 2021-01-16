@@ -1,11 +1,17 @@
 <ControllerList>
-	<SubController type="WALL_JUMP"	bvh="j3_8_81.bvh" reg="j3_tl_p1/network-0" ppo="j3_tl_p1/network-0" isParametric="true"/> 
-<!-- 	<SubController type="WALL_JUMP"	bvh="j3_8_81.bvh" reg="j3_tl4/network-0" ppo="j3_tl4/network-0" isParametric="false"/>  -->
+	<SubController type="WALL_JUMP"	bvh="j3_con5.bvh" reg="" ppo="j3_con5/network-0" isParametric="false"/> 
 	<SubController type="FW_JUMP"	bvh="forward_jump_mxm.bvh" reg="forward_jump_mxm_t2/network-0" ppo="forward_jump_mxm_t2/network-0"/> 
-	<SubController type="RUN_CONNECT" bvh="run.bvh" reg="" ppo="run_connect/network-0" isParametric="false"/> 
-	<SubController type="RUN_SWING" bvh="runswing_74.bvh" reg="rs_003_rev_c3_tl_p/network-0" ppo="rs_003_rev_c3_tl_p/network-0" isParametric="true"/> 
+	<SubController type="RUN_SWING" bvh="rs_con.bvh" reg="" ppo="rs_con/network-0" isParametric="false"/> 
+	<!-- <SubController type="RUN_CONNECT" bvh="run.bvh" reg="" ppo="rc2/network-0" isParametric="false"/>  -->
 
 </ControllerList>
+
+<!-- 	<SubController type="WALL_JUMP"	bvh="j3_8_81.bvh" reg="j3_tl_p1/network-0" ppo="j3_tl_p1/network-0" isParametric="true"/> 
+	<SubController type="FW_JUMP"	bvh="forward_jump_mxm.bvh" reg="forward_jump_mxm_t2/network-0" ppo="forward_jump_mxm_t2/network-0"/> 
+	<SubController type="RUN_CONNECT" bvh="run.bvh" reg="" ppo="rc2/network-0" isParametric="false"/> 
+	<SubController type="RUN_SWING" bvh="runswing_74.bvh" reg="rs_003_rev_c3_tl_p/network-0" ppo="rs_003_rev_c3_tl_p/network-0" isParametric="true"/> 
+ -->
+<!-- 	<SubController type="WALL_JUMP"	bvh="j3_8_81.bvh" reg="j3_tl4/network-0" ppo="j3_tl4/network-0" isParametric="false"/>  -->
 <!-- run_swing_hik1_fik1 -->
 <!-- 
 

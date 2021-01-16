@@ -1,29 +1,29 @@
 <Skeleton name="Obstacle">
-	<Joint type="FreeJoint" name="Ground" parent_name="None" size="1.4 0.5 0.15" mass="5">
+	<Joint type="FreeJoint" name="Ground" parent_name="None" size="1.4 0.5 0.15" mass="50000">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.05 0.25 0.2"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="PrismaticJoint" name="Sub1" parent_name="Ground" size="1.4 0.2 0.15" axis="0 1 0" mass="5">
+	<Joint type="PrismaticJoint" name="Sub1" parent_name="Ground" size="1.4 0.2 0.15" axis="0 1 0" mass="50000">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.05 0.4 0.2"></BodyPosition>
 		<JointPosition translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="PrismaticJoint" name="Sub2" parent_name="Sub1" size="1.4 0.2 0.15" axis="0 1 0" mass="5">
+	<Joint type="PrismaticJoint" name="Sub2" parent_name="Sub1" size="1.4 0.2 0.15" axis="0 1 0" mass="50000">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.05 0.4 0.2"></BodyPosition>
 		<JointPosition translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="PrismaticJoint" name="Sub3" parent_name="Sub2" size="1.4 0.2 0.15" axis="0 1 0" mass="5">
+	<Joint type="PrismaticJoint" name="Sub3" parent_name="Sub2" size="1.4 0.2 0.15" axis="0 1 0" mass="50000">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.05 0.4 0.2"></BodyPosition>
 		<JointPosition translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="PrismaticJoint" name="Sub4" parent_name="Sub3" size="1.4 0.2 0.15" axis="0 1 0" mass="5">
+	<Joint type="PrismaticJoint" name="Sub4" parent_name="Sub3" size="1.4 0.2 0.15" axis="0 1 0" mass="50000">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.05 0.4 0.2"></BodyPosition>
 		<JointPosition translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="PrismaticJoint" name="Sub5" parent_name="Sub4" size="1.4 0.2 0.15" axis="0 1 0" mass="5">
+	<Joint type="PrismaticJoint" name="Sub5" parent_name="Sub4" size="1.4 0.2 0.15" axis="0 1 0" mass="50000">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.05 0.4 0.2"></BodyPosition>
 		<JointPosition translation="0 0 0"></JointPosition>
 	</Joint>
-	<Joint type="PrismaticJoint" name="Sub6" parent_name="Sub5" size="1.4 0.2 0.15" axis="0 1 0" mass="5">
+	<Joint type="PrismaticJoint" name="Sub6" parent_name="Sub5" size="1.4 0.2 0.15" axis="0 1 0" mass="50000">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0.05 0.4 0.2"></BodyPosition>
 		<JointPosition translation="0 0 0"></JointPosition>
 	</Joint>

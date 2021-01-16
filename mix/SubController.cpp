@@ -111,8 +111,8 @@ void WALL_JUMP_Controller::reset(double frame, double frameOnPhase){
 	this->mCurrentFrame = frame;
 	this->mCurrentFrameOnPhase = frameOnPhase;
 
-	if(leftHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(true);
-	if(rightHandConstraint && mCurrentFrameOnPhase <30) removeHandFromBar(false);
+	if(leftHandConstraint) removeHandFromBar(true);
+	if(rightHandConstraint) removeHandFromBar(false);
 
 	//45, 59
 	left_detached= (mCurrentFrameOnPhase >=37) ? true: false; 
@@ -126,11 +126,13 @@ bool WALL_JUMP_Controller::Step()
 
 	this->mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
 	
-	if(mCurrentFrameOnPhase >=27 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=37 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	// [27, 37) 
+	// [27, 51)
+	if(mCurrentFrameOnPhase >=55 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=66 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
-	if(mCurrentFrameOnPhase >=27 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	if(mCurrentFrameOnPhase >=56 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.06, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=80 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 }
 
@@ -142,17 +144,13 @@ void WALL_JUMP_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	Eigen::Vector3d jointPos = hand_bn->getWorldTransform() * offset;
 
 	Eigen::VectorXd mParamGoal = mReferenceManager->GetParamGoal();
-	std::cout<<"mParamGoal; "<<mParamGoal.transpose()<<std::endl;
-	double obj_height = mParamGoal[0];
-	Eigen::Vector3d middle = bar_bn->getWorldTransform()*Eigen::Vector3d(0, 0.45, 0);
-	Eigen::Vector2d diff_middle (jointPos[1]-middle[1], jointPos[2]-middle[2]);
+	Eigen::Vector3d barPos = bar_bn->getWorldTransform()*Eigen::Vector3d(0, mParamGoal[0]/2., 0);
+	Eigen::Vector2d diff_middle (jointPos[1]-barPos[1], jointPos[2]-barPos[2]);
 	double distance = diff_middle.norm();
 
-	std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<"/ middle:"<<middle.transpose()<<std::endl;
+	// std::cout<<mCurrentFrameOnPhase<<", attach, "<<left<<": "<<distance<<"/ joint:"<<jointPos.transpose()<<"barPos: "<<barPos.transpose()<<std::endl;
 
-	if(distance > 0.1 || jointPos[2] < (middle[2]-0.1) || jointPos[2] > (middle[2]+0.1) || jointPos[1] > (obj_height+0.05) ) return;
-
-	// mParamCur[0]= mParamGoal[0];
+	if(distance > 0.07 || jointPos[2] < (barPos[2]-0.1) || jointPos[2] > (barPos[2]+0.1) || jointPos[1] > (barPos[1]+0.05) ) return;
 
 	if(left && leftHandConstraint) removeHandFromBar(true);
 	else if(!left && rightHandConstraint) removeHandFromBar(false);
@@ -225,17 +223,18 @@ void RUN_SWING_Controller::reset(double frame, double frameOnPhase){
 
 bool RUN_SWING_Controller::Step()
 {
+		// [23, 51)
 
 	if(left_detached && mMC->mCurrentFrameOnPhase<=1) left_detached = false;
 	if(right_detached && mMC->mCurrentFrameOnPhase<=1) right_detached = false;
 
 	this->mCurrentFrameOnPhase = mMC->mCurrentFrameOnPhase;
 	// [23, 51)
-	if(mCurrentFrameOnPhase >=24 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=51 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
+	if(mCurrentFrameOnPhase >=42 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.03, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=71 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 	
-	if(mCurrentFrameOnPhase >=24 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
-	else if(mCurrentFrameOnPhase >=51 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
+	if(mCurrentFrameOnPhase >=42 && !right_detached && !rightHandConstraint) attachHandToBar(false, Eigen::Vector3d(-0.03, -0.025, 0));
+	else if(mCurrentFrameOnPhase >=71 && rightHandConstraint) {removeHandFromBar(false); right_detached =true;}
 
 
 
@@ -243,7 +242,7 @@ bool RUN_SWING_Controller::Step()
 
 
 void RUN_SWING_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
-	// std::cout<<"attach; "<<left;
+	std::cout<<"attach; "<<left;
 	
 	std::string hand = (left) ? "LeftHand" : "RightHand";
 	dart::dynamics::BodyNodePtr hand_bn = mMC->mCharacter->GetSkeleton()->getBodyNode(hand);
@@ -255,7 +254,7 @@ void RUN_SWING_Controller::attachHandToBar(bool left, Eigen::Vector3d offset){
 	diff[0]=0;
 	double distance= diff.norm();
 
-	// std::cout<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
+	std::cout<<", attempt/ distance: "<<distance<<", bar_pos:"<<bar_pos.transpose()<<std::endl;
 
 	if(distance > 0.09) return;
 

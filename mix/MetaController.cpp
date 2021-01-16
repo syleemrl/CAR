@@ -170,13 +170,27 @@ Eigen::Isometry3d MetaController::calculateAlign(Eigen::Isometry3d cur, std::str
 	Eigen::Isometry3d cycle_start= mSubControllers[to]->mReferenceManager->GetRootTransform(frame2, true);
 
 	// Align
-	Eigen::Isometry3d align = prev_cycle_end*cycle_start.inverse();
-	Eigen::Vector3d p01 = dart::math::logMap(align.linear());			
-	align.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+	// Eigen::Isometry3d align = prev_cycle_end*cycle_start.inverse();
+	// Eigen::Vector3d p01 = dart::math::logMap(align.linear());			
+	// align.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
 
-	Eigen::Isometry3d cycle_start_edit = cycle_start;
-	cycle_start_edit.linear() = align.linear().inverse()*prev_cycle_end.linear();
-	align = prev_cycle_end*cycle_start_edit.inverse();
+	// Eigen::Isometry3d cycle_start_edit = cycle_start;
+	// cycle_start_edit.linear() = align.linear().inverse()*prev_cycle_end.linear();
+	// align = prev_cycle_end*cycle_start_edit.inverse();
+
+	Eigen::Isometry3d align= Eigen::Isometry3d::Identity();
+
+	Eigen::Vector3d prev_z= prev_cycle_end.linear()*Eigen::Vector3d::UnitZ();
+	Eigen::Vector3d cur_z= cycle_start.linear()*Eigen::Vector3d::UnitZ();
+	if(prev_z.dot(cur_z) < 0){
+		align.linear() = Eigen::Matrix3d(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitY()));
+		align.translation() = prev_cycle_end.translation()+cycle_start.translation();
+		align.translation()[1] = 0;		
+	}else{
+		align.linear() = Eigen::Matrix3d::Identity();
+		align.translation() = prev_cycle_end.translation()-cycle_start.translation();
+		align.translation()[1] = 0;
+	}
 
 	return align;
 }
@@ -205,9 +219,17 @@ void MetaController::runScenario(){
 		this->Step();	
 		
 		std::map<std::pair<std::string, std::string>, std::pair<int, int>> transitionRules;
-		transitionRules.emplace(std::make_pair("FW_JUMP", "WALL_JUMP"), std::make_pair(40, 69+4));
-		transitionRules.emplace(std::make_pair("WALL_JUMP", "RUN_CONNECT"), std::make_pair(69+67, 6));
-		transitionRules.emplace(std::make_pair("RUN_CONNECT", "RUN_SWING"), std::make_pair(24, 72+1));
+		transitionRules.emplace(std::make_pair("FW_JUMP", "WALL_JUMP"), std::make_pair(40, 33)); //13
+		transitionRules.emplace(std::make_pair("WALL_JUMP", "FW_JUMP"), std::make_pair(103, 5)); //13
+
+		// transitionRules.emplace(std::make_pair("WALL_JUMP", "RUN_CONNECT"), std::make_pair(69+67, 6));
+		// transitionRules.emplace(std::make_pair("WALL_JUMP", "RUN_SWING"), std::make_pair(100, 11));
+		transitionRules.emplace(std::make_pair("WALL_JUMP", "RUN_SWING"), std::make_pair(92, 23));
+		// transitionRules.emplace(std::make_pair("RUN_SWING", "WALL_JUMP"), std::make_pair(102, 12));
+		transitionRules.emplace(std::make_pair("RUN_SWING", "WALL_JUMP"), std::make_pair(99, 29));
+
+		transitionRules.emplace(std::make_pair("FW_JUMP", "RUN_SWING"), std::make_pair(42, 13-20)); // TODO
+		transitionRules.emplace(std::make_pair("RUN_SWING", "FW_JUMP"), std::make_pair(96, 0));
 
 		if(mCurrentTake+1 < mTakeList.size()){
 
