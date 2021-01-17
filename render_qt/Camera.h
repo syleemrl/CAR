@@ -19,6 +19,11 @@ public:
 	void SetCenter(Eigen::Vector3d c);
 	void SetLookAt(const Eigen::Vector3d& lookAt);
 	Eigen::Vector3d GetDeltaPosition(int x,int y,int prev_x,int prev_y);
+
+	void updateLookVector();
+	void trackEyeUpdate(Eigen::Vector3d newLookAt);
+	Eigen::Vector3d GetLookAt(){return lookAt;} 
+
 private:
 	Eigen::Vector3d lookAt;
 	Eigen::Vector3d eye;
@@ -29,6 +34,8 @@ private:
 	Eigen::Vector3d Rotateq(const Eigen::Vector3d& target, const Eigen::Vector3d& rotateVector,double angle);
 	Eigen::Vector3d GetTrackballPoint(int mouseX, int mouseY,int w,int h);
 	Eigen::Vector3d UnProject(const Eigen::Vector3d& vec);
+
+	Eigen::Vector3d lookVector; 
 };
 
 

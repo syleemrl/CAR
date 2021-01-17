@@ -81,13 +81,17 @@ void
 SceneMotionWidget::
 DrawSkeletons()
 {
-	GUI::DrawSkeleton(this->mSkel_sim, 0);
-	for(auto obj: this->mMC->mSceneObjects) GUI::DrawSkeleton(obj.second);
+	if(mDrawSim){		
+		GUI::DrawSkeleton(this->mSkel_sim, 0);
+		for(auto obj: this->mMC->mSceneObjects) GUI::DrawSkeleton(obj.second);
+	}
 
-	glPushMatrix();
-	glTranslated(1.5, 0, 0);
-	GUI::DrawSkeleton(this->mSkel_bvh, 0);
-	glPopMatrix();
+	if(mDrawBvh){		
+		glPushMatrix();
+		glTranslated(1.5, 0, 0);
+		GUI::DrawSkeleton(this->mSkel_bvh, 0);
+		glPopMatrix();
+	}
 }	
 void
 SceneMotionWidget::
@@ -179,6 +183,14 @@ timerEvent(QTimerEvent* event)
 		mCurFrame += 1;
 	} 
 	SetFrame(this->mCurFrame);
+
+	if(mTrackCamera){
+		Eigen::Vector3d charRoot= mSkel_bvh->getRootBodyNode()->getWorldTransform().translation();
+		charRoot[1] = mCamera->GetLookAt()[1];
+
+		mCamera->trackEyeUpdate(charRoot);
+	}
+
 	update();
 
 }
@@ -200,6 +212,13 @@ toggleDrawSim() {
 	if(mRunSim)
 		mDrawSim = !mDrawSim;
 
+}
+
+void 
+SceneMotionWidget::
+followCamera(){
+	mTrackCamera = !mTrackCamera;
+	mCamera->updateLookVector();
 }
 
 void
@@ -233,6 +252,8 @@ mouseMoveEvent(QMouseEvent* event)
 	if(!mIsDrag)
 	return;
 
+	bool track_tmp = mTrackCamera;	
+	mTrackCamera = false;
 	if (mButton == Qt::MidButton)
 		mCamera->Translate(event->x(),event->y(),mPrevX,mPrevY);
 	else if(mButton == Qt::LeftButton)
@@ -241,24 +262,36 @@ mouseMoveEvent(QMouseEvent* event)
 	mPrevX = event->x();
 	mPrevY = event->y();
 	update();
+
+	mTrackCamera= track_tmp;
 }
 void
 SceneMotionWidget::
 mouseReleaseEvent(QMouseEvent* event)
 {
+	bool track_tmp = mTrackCamera;	
+	mTrackCamera = false;
+
 	mIsDrag = false;
 	mButton = Qt::NoButton;
 	update();
+
+	mTrackCamera = track_tmp;
 }
 void
 SceneMotionWidget::
 wheelEvent(QWheelEvent *event)
 {
+	bool track_tmp = mTrackCamera;	
+	mTrackCamera = false;
+
 	if(event->angleDelta().y()>0)
 	mCamera->Pan(0,-5,0,0);
 	else
 	mCamera->Pan(0,5,0,0);
 	update();
+
+	mTrackCamera = track_tmp;
 }
 
 void

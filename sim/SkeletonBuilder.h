@@ -107,6 +107,7 @@ public:
 
 
 	static void loadScene(std::string scene_path, std::map<std::string, dart::dynamics::SkeletonPtr>& sceneObjects);
+	static dart::dynamics::SkeletonPtr loadSingleObj(std::string scene_path, std::map<std::string, dart::dynamics::SkeletonPtr>& sceneObjects, std::string name);
 
 };
 }

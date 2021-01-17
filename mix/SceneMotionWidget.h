@@ -38,7 +38,8 @@ public slots:
 	void toggleDrawBvh();
 	void toggleDrawSim();
 	void toggleDrawReg();
-
+	void followCamera();
+	
 protected:
 	void initializeGL() override;	
 	void resizeGL(int w,int h) override;

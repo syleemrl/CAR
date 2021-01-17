@@ -171,3 +171,18 @@ UnProject(const Eigen::Vector3d& vec)
 
 	return vec.z()*n + vec.x()*v + vec.y()*u;
 }
+
+void 
+Camera::
+updateLookVector()
+{
+	lookVector= eye- lookAt;
+}
+
+void 
+Camera::
+trackEyeUpdate(Eigen::Vector3d newLookAt)
+{
+	lookAt = newLookAt;
+	eye = lookAt + lookVector;
+}

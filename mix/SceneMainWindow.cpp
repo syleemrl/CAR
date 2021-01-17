@@ -44,6 +44,10 @@ initLayoutSetting(std::string ctrl, std::string obj, std::string scenario) {
     connect(checkbox, SIGNAL(clicked(bool)), mMotionWidget, SLOT(toggleDrawReg())); 
     checkboxlayout->addWidget(checkbox);
 
+    checkbox = new QCheckBox("followCamera", this);
+    connect(checkbox, SIGNAL(clicked(bool)), mMotionWidget, SLOT(followCamera())); 
+    checkboxlayout->addWidget(checkbox);
+
     checkboxlayout->addStretch(1);
 
     motionlayout->addLayout(checkboxlayout);

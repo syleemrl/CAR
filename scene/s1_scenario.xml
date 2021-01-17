@@ -1,10 +1,10 @@
 <Scenario>
 	<Take type="FW_JUMP" goal_param="0.6" target_object="obstacle_0" /> 
 	<Take type="WALL_JUMP" target_object="j3_box_0" /> 
-	<Take type="RUN_SWING" goal_param="3.0" target_object="swing_bar_0" /> 
+	<Take type="RUN_SWING" goal_param="2.1" target_object="swing_bar_0" /> 
 	<Take type="WALL_JUMP" target_object="j3_box_1" /> 
+	<Take type="RUN_SWING" goal_param="3.0" target_object="swing_bar_1" /> 
 	<Take type="FW_JUMP" goal_param="1.5" target_object="obstacle_1" /> 
-	<Take type="RUN_SWING" goal_param="2.2" target_object="swing_bar_1" /> 
 </Scenario>
 <!-- 
 	<Take type="FW_JUMP" goal_param="0.6" target_object="" /> 

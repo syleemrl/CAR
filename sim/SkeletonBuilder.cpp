@@ -826,4 +826,42 @@ loadScene(std::string scene_path, std::map<std::string, SkeletonPtr>& sceneObjec
 	}
 }
 
+
+SkeletonPtr
+SkeletonBuilder::
+loadSingleObj(std::string scene_path, std::map<std::string, SkeletonPtr>& sceneObjects, std::string name)
+{
+	TiXmlDocument doc;
+	if(!doc.LoadFile(scene_path)){
+		std::cout << "Can't open scene file : " << scene_path << std::endl;
+	}
+
+	SkeletonPtr newObj = nullptr;
+	TiXmlElement *skeldoc = doc.FirstChildElement("Scene");
+	
+	for(TiXmlElement *body = skeldoc->FirstChildElement("Skeleton"); body != nullptr; body = body->NextSiblingElement("Skeleton"))
+	{
+		if(body->Attribute("name")!=nullptr){
+			std::string object_name = body->Attribute("name");
+			if(object_name.compare(name)==0){
+				std::string object_type = body->Attribute("xml");
+				std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
+
+				std::pair<SkeletonPtr, std::map<std::string, double>*> p = SkeletonBuilder::BuildFromFile(object_path);
+				newObj = p.first;
+				newObj->setName(object_name);		
+		
+				Eigen::VectorXd pos(newObj->getNumDofs()); pos.setZero();
+				newObj->setPositions(pos);
+				newObj->computeForwardKinematics(true, false, false);			
+		
+				sceneObjects[newObj->getName()]= newObj;			
+			}else continue;
+			// obj->setName(object_name);
+		}else continue;	
+	}
+	return newObj;
+
+}
+
 }// end DPhy

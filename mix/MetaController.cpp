@@ -147,16 +147,16 @@ void MetaController::reset()
 				for(int v_i=0; v_i<v.size(); v_i++) std::cout<<v[v_i]<<", ";
 				std::cout<<"\n\n";
 	
-	if(mTakeList[mCurrentTake].target_object!="") {
-		std::cout<<" set object : "<<mTakeList[mCurrentTake].target_object<<std::endl;
+	// if(mTakeList[mCurrentTake].target_object!="") {
+	// 	std::cout<<" set object : "<<mTakeList[mCurrentTake].target_object<<std::endl;
 
-		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake].target_object];
-		Eigen::VectorXd p(obj->getNumDofs());
-		p.setZero();
-		obj->setPositions(p);
+	// 	// dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake].target_object];
+	// 	Eigen::VectorXd p(obj->getNumDofs());
+	// 	p.setZero();
+	// 	obj->setPositions(p);
 
-		mCurrentController->setCurObject(obj);
-	}
+	// 	mCurrentController->setCurObject(obj);
+	// }
 
 	mCurrentController->reset();
 
@@ -185,163 +185,125 @@ Eigen::Isometry3d MetaController::calculateAlign(Eigen::Isometry3d cur, std::str
 
 	return align;
 }
-void MetaController::handleTargetObject_init()
-{
-	if(mTakeList[0].target_object!="") {
-		
-		std::cout<<" set object : "<<mTakeList[0].target_object<<std::endl;
-		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[0].target_object];
-		// Eigen::VectorXd p(obj->getNumDofs());
-		// p.setZero();
-		// obj->setPositions(p);
+void MetaController::handleTargetObject(int scene_number)
+{	
+	if(mTakeList[scene_number].target_object=="") return;
 
-		if(mTakeList[0].ctrl_type.compare("RUN_SWING")==0 && mCurrentController->mIsParametric){
-			// swing bar specific code
-			Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();			
-			Eigen::VectorXd param = mTakeList[0].goalParam;
-			newTransform.translation()[1] = param[0];
-			std::cout<<"swing bar height : "<<newTransform.translation()[1]<<std::endl;
-			dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
-			dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
+	dart::dynamics::SkeletonPtr obj = SkeletonBuilder::loadSingleObj(m_obj_path, mSceneObjects, mTakeList[scene_number].target_object);
+	mWorld->addSkeleton(obj);
 
-			auto parent_props = parent->getParentJoint()->getJointProperties();
-			parent_props.mT_ChildBodyToJoint = newTransform.inverse();
-			parent->getParentJoint()->setProperties(parent_props);
+	SubController* sc= mSubControllers[mTakeList[scene_number].ctrl_type];
 
-			auto props = bn->getParentJoint()->getJointProperties();
-			props.mT_ParentBodyToJoint = parent->getTransform().inverse()*newTransform;
-			bn->getParentJoint()->setProperties(props);
-		}
+	std::cout<<" set object : "<<mTakeList[scene_number].target_object<<std::endl;
 
-		if(mTakeList[0].ctrl_type.compare("FW_JUMP")==0 && mCurrentController->mIsParametric){
-			Eigen::VectorXd param = mTakeList[0].goalParam;			
-			Eigen::VectorXd pos_obj = obj->getPositions();
-			int n_obs = (int) floor((param(0) - 0.6) * 10 / 2);
-			// std::cout << (param(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
+	if(mTakeList[scene_number].ctrl_type.compare("RUN_SWING")==0 && sc->mIsParametric){
+		// swing bar specific code
+		Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();			
+		Eigen::VectorXd param = mTakeList[scene_number].goalParam;
+		newTransform.translation()[1] = param[0];
+		std::cout<<"swing bar height : "<<newTransform.translation()[1]<<std::endl;
+		dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
+		dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
 
-			double base = 0.15;
-			for(int i = 0; i < n_obs; i++) {
-				pos_obj(6+i) = base;
-				base = pos_obj(6+i);
-			} for (int i = n_obs; i < pos_obj.rows() - 7; i++) {
-				pos_obj(6+i) = 0;
-			}
-			obj->setPositions(pos_obj);
-		}
+		auto parent_props = parent->getParentJoint()->getJointProperties();
+		parent_props.mT_ChildBodyToJoint = newTransform.inverse();
+		parent->getParentJoint()->setProperties(parent_props);
 
-		if(mTakeList[0].ctrl_type.compare("WALL_JUMP")==0 && mCurrentController->mIsParametric){
-			Eigen::VectorXd param = mTakeList[0].goalParam;
-			double h_grow = param[0]- mCurrentController->mReferenceManager->GetParamDMM()[0];
-		
-			auto bn = obj->getBodyNode("Jump_Box");
-
-			auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
-			auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
-			Eigen::Vector3d origin = box->getSize();
-
-			DPhy::SkeletonBuilder::DeformBodyNode(obj, bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
-		}
-		mCurrentController->setCurObject(obj);
+		auto props = bn->getParentJoint()->getJointProperties();
+		props.mT_ParentBodyToJoint = parent->getTransform().inverse()*newTransform;
+		bn->getParentJoint()->setProperties(props);
 	}
-}
 
-void MetaController::handleTargetObject()
-{
-	std::string from = mTakeList[mCurrentTake].ctrl_type;
-	std::string to = mTakeList[mCurrentTake+1].ctrl_type;
+	if(mTakeList[scene_number].ctrl_type.compare("FW_JUMP")==0 && sc->mIsParametric){
+		Eigen::VectorXd param = mTakeList[scene_number].goalParam;			
+		Eigen::VectorXd pos_obj = obj->getPositions();
+		int n_obs = (int) floor((param(0) - 0.6) * 10 / 2);
+
+		double base = 0.15;
+		for(int i = 0; i < n_obs; i++) {
+			pos_obj(6+i) = base;
+			base = pos_obj(6+i);
+		} for (int i = n_obs; i < pos_obj.rows() - 7; i++) {
+			pos_obj(6+i) = 0;
+		}
+		obj->setPositions(pos_obj);
+	}
+
+	if(mTakeList[scene_number].ctrl_type.compare("WALL_JUMP")==0 && sc->mIsParametric){
+		Eigen::VectorXd param = mTakeList[scene_number].goalParam;
+		double h_grow = param[0]- sc->mReferenceManager->GetParamDMM()[0];
+	
+		auto bn = obj->getBodyNode("Jump_Box");
+
+		auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+		auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
+		Eigen::Vector3d origin = box->getSize();
+
+		DPhy::SkeletonBuilder::DeformBodyNode(obj, bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
+	}
+	sc->setCurObject(obj);
+
+	if(scene_number == 0) return;
+
+	std::string from = mTakeList[scene_number-1].ctrl_type;
+	std::string to = mTakeList[scene_number].ctrl_type;
 	auto frame_from_to = mTransitionRules[std::make_pair(from, to)];
 	int blendFrame1 = frame_from_to.first;
 	int blendFrame2 = frame_from_to.second;
 
-	if(mTakeList[mCurrentTake+1].target_object!="") {
-		
-		std::cout<<" set object : "<<mTakeList[mCurrentTake+1].target_object<<std::endl;
-		dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake+1].target_object];
-		// Eigen::VectorXd p(obj->getNumDofs());
-		// p.setZero();
-		// obj->setPositions(p);
+	if(obj->getJoint(0)->getNumDofs() == 6){
+		Eigen::VectorXd p = obj->getPositions();
+		double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
 
-		if(obj->getJoint(0)->getNumDofs() == 6){
-			Eigen::VectorXd p = obj->getPositions();
-			double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-			Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
-
-			MultiplyRootTransform(p, align_obj, false);
-			// if(to.compare("WALL_JUMP")==0) p[5]+=0.1;
-			obj->setPositions(p);
-		}
-
-		if(to.compare("RUN_SWING")==0){
-			// swing bar specific code
-			Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();
-			double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-			Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
-			newTransform = align_obj*newTransform;
-			
-			if(mSubControllers[to]->mIsParametric) {
-				Eigen::VectorXd param = mTakeList[mCurrentTake+1].goalParam;
-				newTransform.translation()[1] = param[0];
-				std::cout<<"swing bar height : "<<newTransform.translation()[1]<<std::endl;
-			}
-			dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
-			dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
-
-			auto parent_props = parent->getParentJoint()->getJointProperties();
-			parent_props.mT_ChildBodyToJoint = newTransform.inverse();
-			parent->getParentJoint()->setProperties(parent_props);
-
-			auto props = bn->getParentJoint()->getJointProperties();
-			props.mT_ParentBodyToJoint = parent->getTransform().inverse()*newTransform;
-			bn->getParentJoint()->setProperties(props);
-
-		}
-
-		if(to.compare("FW_JUMP")==0 && mSubControllers[to]->mIsParametric){
-			Eigen::VectorXd param = mTakeList[mCurrentTake+1].goalParam;
-			
-			Eigen::VectorXd pos_obj = obj->getPositions();
-			int n_obs = (int) floor((param(0) - 0.6) * 10 / 2);
-			// std::cout << (param(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
-
-			double base = 0.15;
-			for(int i = 0; i < n_obs; i++) {
-				pos_obj(6+i) = base;
-				base = pos_obj(6+i);
-			} for (int i = n_obs; i < pos_obj.rows() - 7; i++) {
-				pos_obj(6+i) = 0;
-			}
-			obj->setPositions(pos_obj);
-		}
-
-		if(to.compare("WALL_JUMP")==0){
-			if(mSubControllers[to]->mIsParametric){
-				Eigen::VectorXd param = mTakeList[mCurrentTake+1].goalParam;
-				double h_grow = param[0]- mSubControllers[to]->mReferenceManager->GetParamDMM()[0];
-			
-				auto bn = obj->getBodyNode("Jump_Box");
-
-				auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
-				auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
-				Eigen::Vector3d origin = box->getSize();
-
-				DPhy::SkeletonBuilder::DeformBodyNode(obj, bn, std::make_tuple("Jump_Box", Eigen::Vector3d(1, (h_grow+0.9)/origin[1], 1), 1));
-			}
-		}
-
-		mSubControllers[to]->setCurObject(obj);
+		MultiplyRootTransform(p, align_obj, false);
+		// if(to.compare("WALL_JUMP")==0) p[5]+=0.1;
+		obj->setPositions(p);
 	}
+	if(to.compare("RUN_SWING")==0){
+		// swing bar specific code
+		Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();
+		double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
+		newTransform = align_obj*newTransform;
+		
+		dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
+		dart::dynamics::BodyNode* parent= bn->getParentBodyNode();
+
+		auto parent_props = parent->getParentJoint()->getJointProperties();
+		parent_props.mT_ChildBodyToJoint = newTransform.inverse();
+		parent->getParentJoint()->setProperties(parent_props);
+
+		auto props = bn->getParentJoint()->getJointProperties();
+		props.mT_ParentBodyToJoint = parent->getTransform().inverse()*newTransform;
+		bn->getParentJoint()->setProperties(props);
+	}
+	if(to.compare("FW_JUMP")==0 && mSubControllers[to]->mIsParametric){
+		Eigen::VectorXd param = mTakeList[scene_number].goalParam;
+		
+		Eigen::VectorXd pos_obj = obj->getPositions();
+		int n_obs = (int) floor((param(0) - 0.6) * 10 / 2);
+		// std::cout << (param(0) - 0.6) * 10 / 2 << " "<< n_obs << std::endl;
+
+		double base = 0.15;
+		for(int i = 0; i < n_obs; i++) {
+			pos_obj(6+i) = base;
+			base = pos_obj(6+i);
+		} for (int i = n_obs; i < pos_obj.rows() - 7; i++) {
+			pos_obj(6+i) = 0;
+		}
+		obj->setPositions(pos_obj);
+	}
+
 }
+
 
 void MetaController::runScenario(){
 	//TODO
 	std::cout<<"mCurrent Controller Type : "<<mCurrentController->mType<<std::endl;
 
 	this->reset();
-	handleTargetObject_init();
-
-	for(auto obj: mSceneObjects) {
-		std::cout<<obj.first<<" / "<<obj.second->getBodyNode(0)->getWorldTransform().translation().transpose()<<std::endl;
-	}
+	handleTargetObject(0);
 
 	while(! IsTerminalState()){
 
@@ -432,12 +394,15 @@ void MetaController::runScenario(){
 
 					mRef2 = mSubControllers[to]->mReferenceManager;
 					mTime2 = blendFrame2- mBlendMargin;
-					if(mTime2 < 0) mTime2 += mSubControllers[to]->mReferenceManager->GetPhaseLength();
+					if(mTime2 < 0) {
+						mTime2 += mSubControllers[to]->mReferenceManager->GetPhaseLength();
+						blendFrame2 += mSubControllers[to]->mReferenceManager->GetPhaseLength();
+					}
 					mTime2OnPhase = std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
 					mSubControllers[to]->reset(mTime2, mTime2OnPhase);
 					mBlendStep = 1;
 					mAlign2 = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2);
-					handleTargetObject();
+					handleTargetObject(mCurrentTake+1);
 				}
 				else if(control_mode == 1 && (mTime1OnPhase>= blendFrame1)){
 					mCurrentController= mSubControllers[to];
@@ -474,15 +439,17 @@ void MetaController::runScenario(){
 
 void MetaController::loadSceneObjects(std::string obj_path)
 {
-	std::cout<<"loadSceneObjects: "<<obj_path<<std::endl;
+	// std::cout<<"loadSceneObjects: "<<obj_path<<std::endl;
+	m_obj_path= obj_path;
 	mSceneObjects = std::map<std::string, dart::dynamics::SkeletonPtr>();
-	SkeletonBuilder::loadScene(obj_path, mSceneObjects);
-	for(auto obj: mSceneObjects) {
-		this->mWorld->addSkeleton(obj.second);
-		// Eigen::VectorXd p(obj.second->getNumDofs());
-		// for(int i=0; i<p.size(); i++) p[i] = 1000;
-		// obj.second->setPositions(p);
-	}
+
+	// SkeletonBuilder::loadScene(obj_path, mSceneObjects);
+	// for(auto obj: mSceneObjects) {
+	// 	this->mWorld->addSkeleton(obj.second);
+	// 	// Eigen::VectorXd p(obj.second->getNumDofs());
+	// 	// for(int i=0; i<p.size(); i++) p[i] = 1000;
+	// 	// obj.second->setPositions(p);
+	// }
 	this->mLoadScene = true;
 }
 
@@ -677,6 +644,10 @@ void MetaController::Step()
 	bool mRecord= true;
 
 	// Eigen::VectorXd s = this->GetState();
+	std::cout<<"@ "<<mCurrentFrame<<std::endl;
+	for(auto obj: mSceneObjects) {
+		std::cout<<obj.first<<" / "<<obj.second->getBodyNode(0)->getWorldTransform().translation().transpose()<<std::endl;
+	}
 
 	Eigen::VectorXd a = mActions;
 
@@ -823,16 +794,16 @@ void MetaController::UpdateTerminalInfo()
 		terminationReason = 4;
 	}
 	//characterConfigration
-	// else if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
-	// 	mIsTerminal = true;
-	// 	terminationReason = 2;
-	// } else if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
-	// 	mIsTerminal = true;
-	// 	terminationReason = 1;
-	// } else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
-	// 	mIsTerminal = true;
-	// 	terminationReason = 5;
-	// } 
+	else if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
+		mIsTerminal = true;
+		terminationReason = 2;
+	} else if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
+		mIsTerminal = true;
+		terminationReason = 1;
+	} else if(std::abs(angle) > TERMINAL_ROOT_DIFF_ANGLE_THRESHOLD){
+		mIsTerminal = true;
+		terminationReason = 5;
+	} 
 	else if(scenario_done){
 		mIsTerminal = true;
 		terminationReason =  8;
