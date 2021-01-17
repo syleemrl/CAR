@@ -1,5 +1,6 @@
 <ControllerList>
-	<SubController type="WALL_JUMP"	bvh="j3_con5.bvh" reg="" ppo="j3_con5/network-0" isParametric="false"/> 
+	<SubController type="WALL_JUMP"	bvh="j3_con5.bvh" reg="j3_con5_3_p1/network-0" ppo="j3_con5_3_p1/network-0" isParametric="true"/> 
+	<!-- <SubController type="WALL_JUMP"	bvh="j3_con5.bvh" reg="" ppo="j3_con5/network-0" isParametric="false"/>  -->
 	<SubController type="FW_JUMP"	bvh="forward_jump_mxm.bvh" reg="forward_jump_mxm_t3/network-0" ppo="forward_jump_mxm_t3/network-0" isParametric="true"/> 
 	<SubController type="RUN_SWING" bvh="rs_con.bvh" reg="rs_con_p1/network-0" ppo="rs_con_p1/network-0" isParametric="true"/> 
 	<!-- <SubController type="RUN_SWING" bvh="rs_con.bvh" reg="" ppo="rs_con/network-0" isParametric="false"/>  -->

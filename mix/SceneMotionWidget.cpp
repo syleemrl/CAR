@@ -26,7 +26,8 @@ SceneMotionWidget(std::string ctrl, std::string obj, std::string scenario)
 
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
-	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+	// DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
+	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
     mMotion_sim= std::vector<Eigen::VectorXd>();
     for(Eigen::VectorXd & p: mMC->mRecordPosition) mMotion_sim.push_back(p);
 
@@ -184,8 +185,8 @@ timerEvent(QTimerEvent* event)
 	} 
 	SetFrame(this->mCurFrame);
 
-	if(mTrackCamera){
-		Eigen::Vector3d charRoot= mSkel_bvh->getRootBodyNode()->getWorldTransform().translation();
+	if(mTrackCamera && mButton == Qt::NoButton){
+		Eigen::Vector3d charRoot= mSkel_sim->getRootBodyNode()->getWorldTransform().translation();
 		charRoot[1] = mCamera->GetLookAt()[1];
 
 		mCamera->trackEyeUpdate(charRoot);
@@ -277,6 +278,7 @@ mouseReleaseEvent(QMouseEvent* event)
 	update();
 
 	mTrackCamera = track_tmp;
+
 }
 void
 SceneMotionWidget::

@@ -176,11 +176,14 @@ Eigen::Isometry3d MetaController::calculateAlign(Eigen::Isometry3d cur, std::str
 	if(prev_z.dot(cur_z) < 0){
 		align.linear() = Eigen::Matrix3d(Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitY()));
 		align.translation() = prev_cycle_end.translation()+cycle_start.translation();
-		align.translation()[1] = 0;		
+		align.translation()[1] = 0;	
+
+		std::cout<<"diff / prev end "<<prev_cycle_end.translation().transpose()<<" / cycle start: "<<cycle_start.translation().transpose()<<" / align: "<<align.translation().transpose()<<std::endl;
 	}else{
 		align.linear() = Eigen::Matrix3d::Identity();
 		align.translation() = prev_cycle_end.translation()-cycle_start.translation();
 		align.translation()[1] = 0;
+		std::cout<<"same / prev end "<<prev_cycle_end.translation().transpose()<<" / cycle start: "<<cycle_start.translation().transpose()<<" / align: "<<align.translation().transpose()<<std::endl;
 	}
 
 	return align;
@@ -254,7 +257,7 @@ void MetaController::handleTargetObject(int scene_number)
 	if(obj->getJoint(0)->getNumDofs() == 6){
 		Eigen::VectorXd p = obj->getPositions();
 		double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
+		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, (mTime1+ mBlendMargin), to, blendFrame2_phase);
 
 		MultiplyRootTransform(p, align_obj, false);
 		// if(to.compare("WALL_JUMP")==0) p[5]+=0.1;
@@ -264,7 +267,7 @@ void MetaController::handleTargetObject(int scene_number)
 		// swing bar specific code
 		Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();
 		double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2_phase);
+		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, (mTime1+ mBlendMargin), to, blendFrame2_phase);
 		newTransform = align_obj*newTransform;
 		
 		dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
@@ -401,7 +404,8 @@ void MetaController::runScenario(){
 					mTime2OnPhase = std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
 					mSubControllers[to]->reset(mTime2, mTime2OnPhase);
 					mBlendStep = 1;
-					mAlign2 = calculateAlign(mAlign1, from, blendFrame1, to, blendFrame2);
+					std::cout<<"blendFrame1 ; "<<blendFrame1<<" / mTime1+mBlendMargin: "<<(mTime1+mBlendMargin)<<std::endl;
+					mAlign2 = calculateAlign(mAlign1, from, (mTime1+ mBlendMargin), to, blendFrame2);
 					handleTargetObject(mCurrentTake+1);
 				}
 				else if(control_mode == 1 && (mTime1OnPhase>= blendFrame1)){
@@ -429,7 +433,7 @@ void MetaController::runScenario(){
 		// 	scenario_done= true;
 		// 	break;
 		// }
-		if(mCurrentTake+1 == mTakeList.size() && mCurrentFrameOnPhase +1 >= mRef1->GetPhaseLength()){
+		if(mCurrentTake+1 == mTakeList.size() && mCurrentFrameOnPhase + 5 >= mRef1->GetPhaseLength()){
 			scenario_done =true;
 			break;
 		}
@@ -443,13 +447,6 @@ void MetaController::loadSceneObjects(std::string obj_path)
 	m_obj_path= obj_path;
 	mSceneObjects = std::map<std::string, dart::dynamics::SkeletonPtr>();
 
-	// SkeletonBuilder::loadScene(obj_path, mSceneObjects);
-	// for(auto obj: mSceneObjects) {
-	// 	this->mWorld->addSkeleton(obj.second);
-	// 	// Eigen::VectorXd p(obj.second->getNumDofs());
-	// 	// for(int i=0; i<p.size(); i++) p[i] = 1000;
-	// 	// obj.second->setPositions(p);
-	// }
 	this->mLoadScene = true;
 }
 
@@ -797,6 +794,7 @@ void MetaController::UpdateTerminalInfo()
 	else if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 		mIsTerminal = true;
 		terminationReason = 2;
+		std::cout<<p.segment<3>(3).transpose()<<" / target: "<<mTargetPositions.segment<3>(3).transpose()<<"/ dist: "<<root_pos_diff.norm()<<std::endl;
 	} else if(root_y<TERMINAL_ROOT_HEIGHT_LOWER_LIMIT || root_y > TERMINAL_ROOT_HEIGHT_UPPER_LIMIT){
 		mIsTerminal = true;
 		terminationReason = 1;
@@ -926,6 +924,7 @@ Motion* MetaController::GetMotion(double t, bool isAdaptive){
 		Eigen::VectorXd new_p = BlendPosition(m1->GetPosition(), m2->GetPosition(), blendRatio);
 		// m->SetPosition(BlendPosition(m1->GetPosition(), m2->GetPosition(), blendRatio));
 
+		std::cout<<m1->GetPosition().segment<3>(3).transpose()<<" / "<<m2->GetPosition().segment<3>(3).transpose()<<" / "<<blendRatio<<std::endl;
 		// // next
 		// Motion* m1_next = mRef1->GetMotion(mTime1+t+1, isAdaptive);
 		// m1_next->MultiplyRootTransform(mAlign1);
