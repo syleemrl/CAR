@@ -143,6 +143,8 @@ public:
 	int mCurrentTake;
 
 	std::string m_obj_path;
+
+	int mChangeFrame;
 };
 } // end namespace DPhy
 
