@@ -13,7 +13,7 @@
 #define JOINT_DAMPING (0.05)
 #define FOOT_CONTACT_THERESHOLD (0.3)
 
-#define CHARACTER_TYPE "mxm_gen"
-#define REF_CHARACTER_TYPE "mxm_gen"
+#define CHARACTER_TYPE "sm_mxm_gen"
+#define REF_CHARACTER_TYPE "sm_mxm_gen"
 #define OBJECT_TYPE "run_box"
 #endif
