@@ -133,7 +133,7 @@ public:
 
 	Motion* GetMotion(double t, bool isAdaptive);
 
-	Eigen::Isometry3d calculateAlign(Eigen::Isometry3d align, std::string from, double frame1, std::string to, double frame2);
+	Eigen::Isometry3d calculateAlign(Eigen::Isometry3d align, DPhy::ReferenceManager* ref1, double frame1, DPhy::ReferenceManager* ref2, double frame2);
 	int control_mode = 0; 
 	// 0: single controller
 	// 1: 1->2 (1)
@@ -145,7 +145,10 @@ public:
 	std::string m_obj_path;
 
 	int mChangeFrame;
+
+	void saveResult();
 };
+
 } // end namespace DPhy
 
 // 공통: mWorld 유일

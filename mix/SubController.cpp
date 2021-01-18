@@ -10,8 +10,10 @@ SubController::SubController(std::string type, MetaController* mc, std::string m
     DPhy::Character* mCharacter = new DPhy::Character(path);
 
     mReferenceManager = new DPhy::ReferenceManager(mCharacter);
-    
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
+
+    mReferenceManager_tmp = new DPhy::ReferenceManager(mCharacter);
+	mReferenceManager_tmp->LoadMotionFromBVH(std::string("/motion/") + motion);
 
     mUseReg= (reg!="");
 
@@ -20,12 +22,19 @@ SubController::SubController(std::string type, MetaController* mc, std::string m
     	mRegressionMemory = new DPhy::RegressionMemory();
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
 		mReferenceManager->InitOptimization(1, path, true,mType);
+
+		mReferenceManager_tmp->SetRegressionMemory(mRegressionMemory);
+		mReferenceManager_tmp->InitOptimization(1, path, true,mType);
+
+
     }
     else{
     	mReferenceManager->InitOptimization(1, path, false, mType);
+    	mReferenceManager_tmp->InitOptimization(1, path, false, mType);
     }
 
     mReferenceManager->LoadAdaptiveMotion("ref_1");
+    mReferenceManager_tmp->LoadAdaptiveMotion("ref_1");
 
     Py_Initialize();
     np::initialize();

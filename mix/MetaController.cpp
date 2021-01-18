@@ -163,12 +163,12 @@ void MetaController::reset()
 
 }
 
-Eigen::Isometry3d MetaController::calculateAlign(Eigen::Isometry3d cur, std::string from, double frame1, std::string to, double frame2){
+Eigen::Isometry3d MetaController::calculateAlign(Eigen::Isometry3d cur, ReferenceManager* ref1, double frame1, ReferenceManager* ref2, double frame2){
 
-	Eigen::Isometry3d prev_cycle_end= mSubControllers[from]->mReferenceManager->GetRootTransform(frame1, true);
+	Eigen::Isometry3d prev_cycle_end= ref1->GetRootTransform(frame1, true);
 	prev_cycle_end = cur*prev_cycle_end;
 
-	Eigen::Isometry3d cycle_start= mSubControllers[to]->mReferenceManager->GetRootTransform(frame2, true);
+	Eigen::Isometry3d cycle_start= ref2->GetRootTransform(frame2, true);
 
 	Eigen::Isometry3d align= Eigen::Isometry3d::Identity();
 
@@ -258,7 +258,7 @@ void MetaController::handleTargetObject(int scene_number)
 	if(obj->getJoint(0)->getNumDofs() == 6){
 		Eigen::VectorXd p = obj->getPositions();
 		double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, (mTime1+ mBlendMargin), to, blendFrame2_phase);
+		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, mRef1, (mTime1+ mBlendMargin), mRef2, blendFrame2_phase);
 
 		MultiplyRootTransform(p, align_obj, false);
 		// if(to.compare("WALL_JUMP")==0) p[5]+=0.1;
@@ -268,7 +268,7 @@ void MetaController::handleTargetObject(int scene_number)
 		// swing bar specific code
 		Eigen::Isometry3d newTransform = obj->getBodyNode(0)->getWorldTransform();
 		double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, from, (mTime1+ mBlendMargin), to, blendFrame2_phase);
+		Eigen::Isometry3d align_obj = calculateAlign(mAlign1, mRef1, (mTime1+ mBlendMargin), mRef2, blendFrame2_phase);
 		newTransform = align_obj*newTransform;
 		
 		dart::dynamics::BodyNode* bn= obj->getBodyNode("Bar");
@@ -339,7 +339,7 @@ void MetaController::runScenario(){
 		// mTransitionRules.emplace(std::make_pair("RUN_SWING", "RUN_SWING"), std::make_pair(95, 0));
 		// mTransitionRules.emplace(std::make_pair("WALL_JUMP", "WALL_JUMP"), std::make_pair(95, 0));
 
-		if(mCurrentTake+1 < mTakeList.size() && (mCurrentFrame - mChangeFrame >= 5)){
+		if(mCurrentTake+1 < mTakeList.size()){
 
 			std::string from = mTakeList[mCurrentTake].ctrl_type;
 			std::string to = mTakeList[mCurrentTake+1].ctrl_type;
@@ -347,63 +347,113 @@ void MetaController::runScenario(){
 			int blendFrame1 = frame_from_to.first;
 			int blendFrame2 = frame_from_to.second;
 
-			if(control_mode == 0 && from == to){
-				if(mCurrentFrameOnPhase +2 >= mCurrentController->mReferenceManager->GetPhaseLength()){
-					if(mCurrentController->mIsParametric) {
-						mCurrentController->mParamGoal = mTakeList[mCurrentTake+1].goalParam;
-						mCurrentController->mReferenceManager->SetParamGoal(mTakeList[mCurrentTake+1].goalParam);
+			// if(from==to) to =""
+			// // WITHOUT BLENDING
+			// if(to=="RUN_CONNECT"){
 
-				     	std::vector<Eigen::VectorXd> cps = mCurrentController->mReferenceManager->GetRegressionMemory()->GetCPSFromNearestParams(mTakeList[mCurrentTake+1].goalParam);
-					    mCurrentController->mReferenceManager->LoadAdaptiveMotion(cps);
+			// 	if(mTime1 >= blendFrame1){
 
-						std::cout<<"same connect: "<<mCurrentFrame<<" / "<<mCurrentFrameOnPhase<<"/ "<<mTakeList[mCurrentTake+1].goalParam.transpose()<<std::endl;
-					}					
-					handleTargetObject(mCurrentTake+1);
-					mCurrentTake++;
-					mChangeFrame = mCurrentFrame;
-					control_mode = 0;
-				}
-			}
+			// 		std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<std::endl;
 
-			else{
+			// 		Eigen::Isometry3d prevAlign = mAlign1;
+			// 		mAlign1 = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2);
+			// 		std::cout<<mAlign1.linear()<<"\n"<<mAlign1.translation().transpose()<<"\n";
 
-
-				double mTime1OnPhase = std::fmod(mTime1, mSubControllers[from]->mReferenceManager->GetPhaseLength());
-				double mTime2OnPhase = std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+			// 		mCurrentController = mSubControllers[to];
+			// 		mRef1 = mSubControllers[to]->mReferenceManager;
+			// 		mTime1 = blendFrame2;
+			// 		mCurrentFrameOnPhase = std::fmod(mTime1, mRef1->GetPhaseLength());
+			// 		mCurrentTake ++;
+			// 		mCurrentController->reset(mCurrentFrame, mCurrentFrameOnPhase);
 					
-				if(control_mode ==0 && mTime1OnPhase+mBlendMargin >=blendFrame1){
+			// 		// TODO				
+			// 		if(mTakeList[mCurrentTake].target_object!="") {
+			// 			std::cout<<" set object : "<<mTakeList[mCurrentTake].target_object<<std::endl;
+
+			// 			dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake].target_object];
+			// 			Eigen::VectorXd p = obj->getPositions();
+			// 			double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
+			// 			Eigen::Isometry3d align_obj = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2_phase);
+
+			// 			MultiplyRootTransform(p, align_obj, false);
+			// 			if(mCurrentTake==1) p[5]+=0.1;
+			// 			obj->setPositions(p);
+
+			// 			mCurrentController->setCurObject(obj);
+			// 		}
+			// 	}
+			// }
+			// else{
+
+			// if(from == to) to = to+"_tmp";
+
+			// if(control_mode == 0 && from == to){
+			// 	if(mCurrentFrameOnPhase +2 >= mCurrentController->mReferenceManager->GetPhaseLength()){
+			// 		if(mCurrentController->mIsParametric) {
+			// 			mCurrentController->mParamGoal = mTakeList[mCurrentTake+1].goalParam;
+			// 			mCurrentController->mReferenceManager->SetParamGoal(mTakeList[mCurrentTake+1].goalParam);
+
+			// 	     	std::vector<Eigen::VectorXd> cps = mCurrentController->mReferenceManager->GetRegressionMemory()->GetCPSFromNearestParams(mTakeList[mCurrentTake+1].goalParam);
+			// 		    mCurrentController->mReferenceManager->LoadAdaptiveMotion(cps);
+
+			// 			std::cout<<"same connect: "<<mCurrentFrame<<" / "<<mCurrentFrameOnPhase<<"/ "<<mTakeList[mCurrentTake+1].goalParam.transpose()<<std::endl;
+			// 		}					
+			// 		handleTargetObject(mCurrentTake+1);
+			// 		mCurrentTake++;
+			// 		mChangeFrame = mCurrentFrame;
+			// 		control_mode = 0;
+			// 	}
+			// }
+
+			// else{
+				ReferenceManager* from_rm= mSubControllers[from]->mReferenceManager;
+				ReferenceManager* to_rm= mSubControllers[to]->mReferenceManager;
+				if(from == to) to_rm = mSubControllers[to]->mReferenceManager_tmp;
+
+				double mTime1OnPhase = std::fmod(mTime1, from_rm->GetPhaseLength());
+				double mTime2OnPhase = std::fmod(mTime2, to_rm->GetPhaseLength());
+					
+				std::cout<<"mTime1OnPhase; "<<mTime1OnPhase<<" / "<< mTime1<<" / blendFrame1 : "<<blendFrame1<<std::endl;
+				std::cout<<"mTime2OnPhase; "<<mTime2OnPhase<<" / "<< mTime2<<" / blendFrame2 : "<<blendFrame2<<std::endl;
+
+				if(control_mode ==0 && mTime1OnPhase+mBlendMargin >=blendFrame1 && (mCurrentFrame - mChangeFrame >= 5)){
 					control_mode = 1;
 					std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<std::endl;
 
 					if(mSubControllers[to]->mIsParametric) {
 						mSubControllers[to]->mParamGoal = mTakeList[mCurrentTake+1].goalParam;
-						mSubControllers[to]->mReferenceManager->SetParamGoal(mTakeList[mCurrentTake+1].goalParam);
+						to_rm->SetParamGoal(mTakeList[mCurrentTake+1].goalParam);
 
-				     	std::vector<Eigen::VectorXd> cps = mSubControllers[to]->mReferenceManager->GetRegressionMemory()->GetCPSFromNearestParams(mTakeList[mCurrentTake+1].goalParam);
-					    mSubControllers[to]->mReferenceManager->LoadAdaptiveMotion(cps);
+				     	std::vector<Eigen::VectorXd> cps = to_rm->GetRegressionMemory()->GetCPSFromNearestParams(mTakeList[mCurrentTake+1].goalParam);
+					    to_rm->LoadAdaptiveMotion(cps);
 					}
 
-					mRef2 = mSubControllers[to]->mReferenceManager;
+					mRef2 = to_rm;
 					mTime2 = blendFrame2- mBlendMargin;
 					if(mTime2 < 0) {
-						mTime2 += mSubControllers[to]->mReferenceManager->GetPhaseLength();
-						blendFrame2 += mSubControllers[to]->mReferenceManager->GetPhaseLength();
+						mTime2 += to_rm->GetPhaseLength();
+						blendFrame2 += to_rm->GetPhaseLength();
 					}
-					mTime2OnPhase = std::fmod(mTime2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-					mSubControllers[to]->reset(mTime2, mTime2OnPhase);
+					mTime2OnPhase = std::fmod(mTime2, to_rm->GetPhaseLength());
+					if(from!=to) mSubControllers[to]->reset(mTime2, mTime2OnPhase);
 					mBlendStep = 1;
 					std::cout<<"blendFrame1 ; "<<blendFrame1<<" / mTime1+mBlendMargin: "<<(mTime1+mBlendMargin)<<std::endl;
-					mAlign2 = calculateAlign(mAlign1, from, (mTime1+ mBlendMargin), to, blendFrame2);
+					mAlign2 = calculateAlign(mAlign1, mRef1, (mTime1+ mBlendMargin), mRef2, blendFrame2);
 					handleTargetObject(mCurrentTake+1);
 					mChangeFrame = mCurrentFrame;
 				}
-				else if(control_mode == 1 && (mTime1OnPhase>= blendFrame1)){
+				else if(control_mode == 1 && (mCurrentFrame- mChangeFrame >= mBlendMargin)){
 					mCurrentController= mSubControllers[to];
 					control_mode = 2;
 					mCurrentFrameOnPhase = mTime2OnPhase;
 					std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<" :: "<<control_mode<<"/ phase: "<<mCurrentFrameOnPhase<<std::endl;
 				}else if(control_mode == 2 && (mTime2OnPhase>=blendFrame2+mBlendMargin)){
 					mRef1 = mRef2;
+					if(from == to) {
+						mCurrentController->mReferenceManager= to_rm;
+						mCurrentController->mReferenceManager= from_rm;
+					}
+
 					mAlign1 = mAlign2;
 					mTime1 = mTime2;
 
@@ -413,7 +463,7 @@ void MetaController::runScenario(){
 
 					mRef2 = nullptr;
 				}
-			}
+			// }
 		}
 
 			// }
@@ -422,7 +472,7 @@ void MetaController::runScenario(){
 		// 	scenario_done= true;
 		// 	break;
 		// }
-		if(mCurrentTake+1 == mTakeList.size() && mCurrentFrameOnPhase + 5 >= mRef1->GetPhaseLength()){
+		if(mCurrentTake+1 == mTakeList.size() && mCurrentFrameOnPhase + 3 >= mRef1->GetPhaseLength()){
 			scenario_done =true;
 			break;
 		}
@@ -486,7 +536,10 @@ void MetaController::loadControllers(std::string ctrl_path)
 			newSC->mParamGoal = newSC->mReferenceManager->GetParamGoal();
 			// newSC_copy->mParamGoal = newSC_copy->mReferenceManager->GetParamGoal();
 		}
+
 		addSubController(newSC);
+		// newSC_copy->mType = newSC_copy->mType+"_tmp";
+		// addSubController(newSC_copy);
 	}
 		// std::string ctrl_bvh = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
 		// Eigen::VectorXd pos = string_to_vectorXd(body->Attribute("pos"));
@@ -636,11 +689,6 @@ void MetaController::Step()
 	bool mRecord= true;
 
 	// Eigen::VectorXd s = this->GetState();
-	std::cout<<"@ "<<mCurrentFrame<<std::endl;
-	for(auto obj: mSceneObjects) {
-		std::cout<<obj.first<<" / "<<obj.second->getBodyNode(0)->getWorldTransform().translation().transpose()<<std::endl;
-	}
-
 	Eigen::VectorXd a = mActions;
 
 	// set action target pos
@@ -946,6 +994,169 @@ Motion* MetaController::GetMotion(double t, bool isAdaptive){
    return m;
 }
 
+ 
+std::vector<std::string> split(std::string targetStr, std::string token)
+{
+    // Check parameters
+    if(token.length() == 0 || targetStr.find(token) == std::string::npos)
+        return std::vector<std::string>({targetStr});
+ 
+    // return var
+    std::vector<std::string> ret;
+ 
+    int findOffset  = 0;
+    int splitOffset = 0;
+    while ((splitOffset = targetStr.find(token, findOffset)) != std::string::npos)
+    {
+         ret.push_back(targetStr.substr(findOffset, splitOffset - findOffset));
+         findOffset = splitOffset + token.length();
+    }
+    ret.push_back(targetStr.substr(findOffset, targetStr.length() - findOffset));
+    
+    return ret;
+}
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
+template<typename K, typename V>
+std::map<V,K> inverse_map(std::map<K,V> &map)
+{
+    std::map<V,K> inv;
+    std::for_each(map.begin(), map.end(),
+                [&inv] (const std::pair<K,V> &p)
+                {
+                    inv.insert(std::make_pair(p.second, p.first));
+                });
+    return inv;
+}
+#include <memory>
+#include <string>
+template<typename ... Args>
+std::string format_string(const std::string& format, Args ... args)
+{
+	size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;
+	std::unique_ptr<char[]> buffer(new char[size]);
+	snprintf(buffer.get(), size, format.c_str(), args ...);
+	return std::string(buffer.get(), buffer.get() + size - 1);
+}
+
+void 
+MetaController::
+saveResult()
+{
+	std::string raw_file_path = std::string(CAR_DIR) + "/motion/forward_jump_mxm.bvh";
+
+	std::ofstream outfile;
+	std::string outfile_path =  std::string(CAR_DIR)+ "/motion/scene_1.bvh";
+	outfile.open(outfile_path, std::ios_base::out); 
+
+	// std::ofstream obj_outfile;
+	// std::string obj_outfile_path =  std::string(CAR_DIR)+ "/motion/obj_1.csv";
+	// obj_outfile.open(obj_outfile_path, std::ios_base::out); 
+	// obj_outfile<<",x,y,z\n";
+
+	std::ifstream rawfile;
+	rawfile.open(raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+
+	int mTotalFrame = mRecordPosition.size();
+	std::cout<<"raw_file_path: "<<raw_file_path<<std::endl;
+	std::cout<<"outfile_path: "<<outfile_path<<std::endl;
+	std::cout<<"open, mTotalFrame: "<<mTotalFrame<<std::endl;
+
+	std::vector<std::string> joint_order;
+
+	while(true){
+		getline(rawfile, raw_line);
+		
+		if(raw_line.find("Frames:")!=std::string::npos){
+			outfile<<"Frames: "<<mTotalFrame<<std::endl;
+		}
+		else outfile<<raw_line<<std::endl;
+
+		if(raw_line.find("JOINT")!=std::string::npos || raw_line.find("ROOT")!=std::string::npos){
+			std::string line_copy = raw_line;
+			trim(line_copy);
+			joint_order.push_back(split(line_copy, " ")[1]);
+			// std::cout<<joint_order.back()<<std::endl;
+		}
+
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	std::map<std::string,std::string> bvhMap = GetCurrentRefManager()->GetBVHMap();
+	std::map<std::string,std::string> bvhMap_inverse = inverse_map<std::string, std::string>(bvhMap);
+
+
+	for(auto t: mRecordPosition){
+		
+		std::string newline="";
+
+		outfile << t.segment<3>(3).transpose() * 100 << " ";
+
+		for(std::string& joint: joint_order){
+			if(bvhMap_inverse.find(joint)!=bvhMap_inverse.end()){
+				std::string skelJoint = bvhMap_inverse.find(joint)->second;
+				int idx = mCharacter->GetSkeleton()->getBodyNode(skelJoint)->getParentJoint()->getIndexInSkeleton(0);
+				Eigen::AngleAxisd aa(t.segment<3>(idx).norm(), t.segment<3>(idx).normalized());
+				Eigen::Matrix3d m;
+				m = aa;
+				Eigen::Vector3d v = dart::math::matrixToEulerZXY(m);
+				outfile << v.transpose() * 180 / M_PI << " ";		
+			}
+		}
+		outfile << std::endl;
+
+		// #ifdef OBJECT_TYPE
+		// 	mSkel_obj->setPositions(mMotion_obj[frame]);
+		// 	mSkel_obj->computeForwardKinematics(true, false, false);
+		// 	Eigen::Vector3d obj_trans= mSkel_obj->getBodyNode("Box")->getWorldTransform().translation();
+		// 	obj_trans*=100;
+		// 	obj_outfile<<frame<<","<<obj_trans[0]<<","<<obj_trans[1]<<","<<obj_trans[2]<<std::endl;
+		// #endif
+	}
+
+	outfile.close();
+	rawfile.close();
+	// obj_outfile.close();
+
+	std::cout<<"@ "<<mCurrentFrame<<std::endl;
+	for(auto obj: mSceneObjects) {
+		int n_bn = obj.second->getNumBodyNodes();
+		std::cout<<obj.first<<" / "<<obj.second->getBodyNode(n_bn-1)->getWorldTransform().translation().transpose();
+
+		auto bn = obj.second->getBodyNode(n_bn-1);
+		auto shape_old = bn->getShapeNodesWith<dart::dynamics::VisualAspect>()[0]->getShape().get();
+		auto box = dynamic_cast<dart::dynamics::BoxShape*>(shape_old);
+		Eigen::Vector3d box_size = box->getSize();
+
+		std::cout<<"/ "<<box_size.transpose()<<std::endl;
+	}
+
+	// std::cout<<"obstacle_0"<<mSceneObjects["obstacle_0"]->getBodyNode("Sub6")->getWorldTransform().translation().transpose()<<std::endl;
+	// std::cout<<"obstacle_1"<<mSceneObjects["obstacle_1"]->getBodyNode("Sub6")->getWorldTransform().translation().transpose()<<std::endl;
+}
+
 
 
 } //end of namespace DPhy
@@ -953,40 +1164,3 @@ Motion* MetaController::GetMotion(double t, bool isAdaptive){
 
 
 
-			// if(from==to) to =""
-			// WITHOUT BLENDING
-			// if(to=="RUN_CONNECT"){
-
-			// 	if(mTime1 >= blendFrame1){
-
-			// 		std::cout<<"TRANSITION :: "<<from<<" -> "<<to<<std::endl;
-
-			// 		Eigen::Isometry3d prevAlign = mAlign1;
-			// 		mAlign1 = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2);
-			// 		std::cout<<mAlign1.linear()<<"\n"<<mAlign1.translation().transpose()<<"\n";
-
-			// 		mCurrentController = mSubControllers[to];
-			// 		mRef1 = mSubControllers[to]->mReferenceManager;
-			// 		mTime1 = blendFrame2;
-			// 		mCurrentFrameOnPhase = std::fmod(mTime1, mRef1->GetPhaseLength());
-			// 		mCurrentTake ++;
-			// 		mCurrentController->reset(mCurrentFrame, mCurrentFrameOnPhase);
-					
-			// 		// TODO				
-			// 		if(mTakeList[mCurrentTake].target_object!="") {
-			// 			std::cout<<" set object : "<<mTakeList[mCurrentTake].target_object<<std::endl;
-
-			// 			dart::dynamics::SkeletonPtr obj = mSceneObjects[mTakeList[mCurrentTake].target_object];
-			// 			Eigen::VectorXd p = obj->getPositions();
-			// 			double blendFrame2_phase = std::fmod(blendFrame2, mSubControllers[to]->mReferenceManager->GetPhaseLength());
-			// 			Eigen::Isometry3d align_obj = calculateAlign(prevAlign, from, blendFrame1, to, blendFrame2_phase);
-
-			// 			MultiplyRootTransform(p, align_obj, false);
-			// 			if(mCurrentTake==1) p[5]+=0.1;
-			// 			obj->setPositions(p);
-
-			// 			mCurrentController->setCurObject(obj);
-			// 		}
-			// 	}
-			// }
-			// else{

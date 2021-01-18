@@ -37,6 +37,8 @@ SceneMotionWidget(std::string ctrl, std::string obj, std::string scenario)
     for(Eigen::VectorXd & p: mMC->mRecordTargetPosition) mMotion_bvh.push_back(p);
 
     mTotalFrame= mMotion_sim.size();
+
+	setFocusPolicy( Qt::StrongFocus );
 }
 void 
 SceneMotionWidget::
@@ -236,6 +238,9 @@ keyPressEvent(QKeyEvent *event)
 		else 
 			std::cout << "Pause." << std::endl;
 	}
+	if(event->key() == Qt::Key_S){
+		mMC->saveResult();		
+	}
 }
 void
 SceneMotionWidget::
@@ -336,3 +341,4 @@ Save() {
 
 	// mController->SaveDisplayedData(mPath + "record_" + time_str, true);
 }
+

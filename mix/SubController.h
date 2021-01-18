@@ -40,6 +40,7 @@ public:
 
 	p::object 						mPPO;
 	DPhy::ReferenceManager*			mReferenceManager;
+	DPhy::ReferenceManager*			mReferenceManager_tmp;
 	p::object 						mRegression;
 	DPhy::RegressionMemory* 		mRegressionMemory;
 

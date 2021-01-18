@@ -92,6 +92,7 @@ public:
 
 	RegressionMemory* GetRegressionMemory(){return mRegressionMemory;}
 	Eigen::VectorXd GetParamDMM(){return mParamDMM;}
+	std::map<std::string,std::string> GetBVHMap() {return mCharacter->GetBVHMap();} 
 protected:
 	Character* mCharacter;
 	double mTimeStep;
