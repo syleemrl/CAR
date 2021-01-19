@@ -350,7 +350,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, param_info = zip(*data)
 
-			if len(times) == self.env.phaselength:
+			if len(times) == self.env.phaselength*2+25:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:
@@ -525,10 +525,7 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		self.env.mode = 1
-		self.env.sampler.resetExploit()
-		self.env.sampler.updateGoalDistribution(1, self.critic_target)
-
+		self.env.sampler.resetExplore()
 		it_cur = 0
 
 		for it in range(num_iteration):

@@ -119,27 +119,42 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	DPhy::SetSkeletonColor(mSkel_exp, Eigen::Vector4d(87./255., 235./255., 87./255., 1.0));
 
 	std::vector<int> check_frame = { 0, 31, 57, 94, 120}; // {0, 41, 45, 81};
-	for(int cf: check_frame){
-		mSkel_bvh->setPositions(mMotion_bvh[cf]);
-		mSkel_bvh->computeForwardKinematics(true, false, false);
-		Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
-		Eigen::Vector3d left_foot = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		Eigen::Vector3d right_foot = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
-
-		Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
-		Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
-
-		std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
-	}
-
-	// double min_root_h = 10000; double max_root_h= -100000;
-	// for(int i=0; i<mReferenceManager->GetPhaseLength();i++){
-	// 	mSkel_bvh->setPositions(mMotion_bvh[i]);
+	// for(int cf: check_frame){
+	// 	mSkel_bvh->setPositions(mMotion_bvh[cf]);
 	// 	mSkel_bvh->computeForwardKinematics(true, false, false);
 	// 	Eigen::Vector3d root = mSkel_bvh->getPositions().segment<3>(3);
-	// 	if(min_root_h > root[1]) min_root_h = root[1];
-	// 	if(max_root_h < root[1]) max_root_h = root[1];
+	// 	Eigen::Vector3d left_foot = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 	Eigen::Vector3d right_foot = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
+
+	// 	Eigen::Vector3d left_toe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+	// 	Eigen::Vector3d right_toe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+
+	// 	std::cout<<cf<<": "<<root.transpose()<<" / lf : "<<left_foot.transpose()<<" / rf : "<<right_foot.transpose()<<"/ mid:"<<((left_foot+right_foot)/2.).transpose()<<"/ toe: "<<((left_toe+right_toe)/2.).transpose()<<std::endl;
 	// }
+
+	// double min_root_h = 10000; double max_root_h= -100000;
+	Eigen::Vector3d prevLeftToe; prevLeftToe.setZero();
+	Eigen::Vector3d prevRightToe; prevRightToe.setZero();
+	mSkel_bvh->setPositions(mMotion_bvh[0]);
+	mSkel_bvh->computeForwardKinematics(true, false, false);
+	prevLeftToe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+	prevRightToe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+	
+	for(int i=1; i<mReferenceManager->GetPhaseLength();i++){
+		mSkel_bvh->setPositions(mMotion_bvh[i]);
+		mSkel_bvh->computeForwardKinematics(true, false, false);
+		Eigen::Vector3d leftToe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+		Eigen::Vector3d rightToe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+
+		Eigen::VectorXd toe_velocity (6);
+		toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
+		double slide = DPhy::exp_of_squared(toe_velocity, 0.05);
+
+		std::cout<<"@ "<<i<<"/ "<<slide<<"\t"<<toe_velocity.transpose()<<std::endl;
+
+		prevLeftToe = leftToe;
+		prevRightToe = rightToe;
+	}
 	// std::cout<<min_root_h<<" "<<max_root_h<<std::endl; //0.39, 1.6
 
 	this->mJointsUEOrder.clear();

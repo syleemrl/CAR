@@ -196,8 +196,8 @@ protected:
 	Eigen::Vector3d mStartFoot; //middle of two feet at 0th frame
 	std::vector<double> foot_diff;
 
-	Eigen::Vector3d stickLeftFoot;
-	Eigen::Vector3d stickRightFoot;
+	Eigen::Vector3d prevLeftToe;
+	Eigen::Vector3d prevRightToe;
 	bool stickFoot;
 
 	Fitness mFitness;

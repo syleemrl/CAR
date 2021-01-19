@@ -544,15 +544,15 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
 
-	if(mRecord) std::cout<<"1 ; "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).com_rot_norm<<" "<<std::get<2>(rewards).sum_slide<<std::endl;
+	if(mRecord) std::cout<<"1 ; "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).sum_slide<<std::endl;
 
 	if(std::get<0>(rewards) < mThresholdTracking) {
 		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
 
-	if(abs(std::get<2>(rewards).com_rot_norm) > 0.2) return;
-	if(std::get<2>(rewards).sum_slide > 0.25) return;
+	// if(abs(std::get<2>(rewards).com_rot_norm) > 0.2) return;
+	// if(std::get<2>(rewards).sum_slide > 0.25) return;
 
 	// if(std::get<2>(rewards).fall_cnt > 10) return;
 
@@ -651,7 +651,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	
 	}
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
-	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.4, 2.0));
+	double r_slide = std::get<2>(rewards).sum_slide; // exp(- pow(std::get<2>(rewards).sum_slide/0.4, 2.0));
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;

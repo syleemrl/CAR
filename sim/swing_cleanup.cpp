@@ -685,6 +685,46 @@ void stitch_toe(std::string filename){
 	outfile.close();
 	std::cout<<outfile_path<<" DONE"<<std::endl;
 }
+
+void parse_cleanup(std::string filename)
+{
+	std::string path = std::string(CAR_DIR)+std::string("/character/mxm_t3.xml");
+	DPhy::Character* ref = new DPhy::Character(path);
+	DPhy::ReferenceManager* mReferenceManager = new DPhy::ReferenceManager(ref);
+
+	std::string raw_file_path = "/motion/"+filename+".bvh";
+	mReferenceManager->LoadMotionFromBVH(raw_file_path);
+	std::cout<<"total frame :"<<mReferenceManager->GetPhaseLength()<<std::endl;
+
+	std::ofstream outfile;
+	std::string outfile_path = "/motion/"+filename+"_tmp.bvh";
+	outfile.open( std::string(CAR_DIR)+outfile_path, std::ios_base::out); 
+
+	std::ifstream rawfile;
+	rawfile.open(std::string(CAR_DIR)+raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+	while(true){
+		getline(rawfile, raw_line);
+		std::cout<<raw_line<<std::endl;
+		outfile<<raw_line<<std::endl;
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	char buffer[256];
+	double val;
+
+	for(int f=0; f<mReferenceManager->GetPhaseLength(); f++){
+		for(int i=0; i<69; i++) {
+			rawfile>> val;
+			outfile<<val<<" ";
+		}
+		outfile<<"\n";
+	}
+	rawfile.close();
+	outfile.close();
+}
 int main(int argc, char ** argv){
 	
 	// FLAIR cleanup
@@ -702,7 +742,8 @@ int main(int argc, char ** argv){
 	else if(command.compare("shift_root") == 0) shift_root(argv[2], std::stof(argv[3]));
 	else if(command.compare("rotate_foot") == 0) remove_foot_penetration(argv[2]);
 	else if(command.compare("stitch_toe") == 0) stitch_toe(argv[2]);
-
+	else if(command.compare("parse_cleanup") == 0) parse_cleanup(argv[2]);
+	
 	else std::cout<<"NO COMMAND FOUND"<<std::endl;
 }
 

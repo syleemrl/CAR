@@ -267,26 +267,31 @@ Step()
 	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<foot<<" " <<land_foot_cnt<<std::endl;
 	// }
 
-	double min_foot = std::min(mCharacter->getBodyWorldTrans("LeftFoot")[1], mCharacter->getBodyWorldTrans("RightFoot")[1]);
-	
-	if(mCurrentFrameOnPhase >=56 && mCurrentFrameOnPhase <60 && stickFoot) {
-		stickFoot = false;
-		jump_phase = 1;
-		double slide = std::max((stickFoot_left_max - stickFoot_left_min), (stickFoot_right_max- stickFoot_right_min));
-		mFitness.sum_slide+= 0.7*slide;
+
+	// std::cout<<"@ "<<mCurrentFrame<<" / "<<jump_phase<<" / "<< stickFoot<<std::endl;
+	//32 , 54
+
+	if(stickFoot){
+		Eigen::Vector3d leftToe = mCharacter->getBodyWorldTrans("LeftToe");
+		Eigen::Vector3d rightToe = mCharacter->getBodyWorldTrans("RightToe");
+
+		Eigen::VectorXd toe_velocity (6);
+		toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
+		double slide = exp_of_squared(toe_velocity, 0.05);
+		mFitness.sum_slide+= slide;
+		mFitness.slide_cnt++;
 		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" , slide: "<<slide<<std::endl;
 	}
-	if(mCurrentFrameOnPhase >= 80 || (mCurrentFrameOnPhase>70 &&  min_foot < 0.05)){
+
+	if(mCurrentFrameOnPhase >=32 && mCurrentFrameOnPhase <35 && stickFoot) {
+		stickFoot = false;
+		jump_phase = 1;
+	}
+	double min_foot = std::min(mCharacter->getBodyWorldTrans("LeftFoot")[1], mCharacter->getBodyWorldTrans("RightFoot")[1]);
+	if(isAdaptive) min_foot-= (mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235);
+	if(mCurrentFrameOnPhase >= 55 || (mCurrentFrameOnPhase>50 &&  min_foot < 0.05)){
 		if(!stickFoot){
-			stickLeftFoot = mCharacter->getBodyWorldTrans("LeftToe");
-			stickRightFoot = mCharacter->getBodyWorldTrans("RightToe");
 			stickFoot = true;
-
-			stickFoot_left_min = stickFoot_left_max = stickLeftFoot[2];
-			stickFoot_right_min = stickFoot_right_max = stickRightFoot[2];
-			// stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
-			// stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
-
 			jump_phase= 2;
 			if(mRecord) std::cout<<"stickFoot @ "<<mCurrentFrameOnPhase<<std::endl;
 		}
@@ -306,27 +311,18 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
-			
-			// mFitness.sum_slide/= mFitness.slide_cnt;
-			// mFitness.sum_slide+= 0.5*(stickFoot_max - stickFoot_min);
-			double slide = std::max((stickFoot_left_max - stickFoot_left_min), (stickFoot_right_max- stickFoot_right_min));
-			mFitness.sum_slide+= 0.7*slide;
-			if(mRecord) std::cout<<mCurrentFrameOnPhase<<", slide: "<<slide<<std::endl;
-
-			mFitness.com_rot_norm/= mFitness.fall_cnt;
+			mFitness.sum_slide/= mFitness.slide_cnt;
+			// mFitness.com_rot_norm/= mFitness.fall_cnt;
 
 			if((mCurrentFrame < 2*mReferenceManager->GetPhaseLength())  && (land_foot_cnt > 0)){
 				mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
-				// std::cout<<mParamCur.transpose()<<std::endl;
-				// double shift_height = - (mParamCur[0]- mReferenceManager->getParamDMM()[0]);
 				double shift_height = (mParamGoal[0] < 0) ? mParamGoal[0] : 0;
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur, shift_height);
 			}
 			data_raw.clear();
 	
 			this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-			mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);		
-
+			mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 			mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
 			mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
@@ -339,8 +335,8 @@ Step()
 			mFitness.sum_contact = 0;
 			mFitness.sum_slide = 0;
 			mFitness.slide_cnt = 0;
-			mFitness.fall_cnt = 0;
-			mFitness.com_rot_norm= 0;
+			// mFitness.fall_cnt = 0;
+			// mFitness.com_rot_norm= 0;
 			
 			auto& skel = mCharacter->GetSkeleton();
 			mFitness.sum_pos.resize(skel->getNumDofs());
@@ -361,6 +357,7 @@ Step()
 			mean_land_foot = 0;
 			land_foot_cnt = 0;
 
+			jump_phase= 0;
 		}
 
 
@@ -392,9 +389,12 @@ Step()
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(mCurrentFrame);
 	mPrevTargetPositions = mTargetPositions;
+	prevLeftToe = mCharacter->getBodyWorldTrans("LeftToe");
+	prevRightToe = mCharacter->getBodyWorldTrans("RightToe");
 
 	if(isAdaptive && mIsTerminal)
 		data_raw.clear();
+
 
 }
 void
@@ -604,9 +604,9 @@ GetSimilarityReward()
 	double ref_obj_height = 0;
 	double cur_obj_height = 0;
 	if(isAdaptive){
-		if(mCurrentFrameOnPhase <= 60){
+		if(mCurrentFrameOnPhase <= 40){
 			cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
-		}else if(mCurrentFrameOnPhase >70){
+		}else if(mCurrentFrameOnPhase >45){
 			cur_obj_height = mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
 		}
 	}
@@ -689,43 +689,18 @@ GetSimilarityReward()
 		}
 	}
 
-	// std::cout<<mCurrentFrameOnPhase<<" "<<jump_phase<<" "<<stickFoot<<" "<<stickLeftFoot.transpose()<<" "<<stickRightFoot.transpose()<<std::endl;
-
-	if(stickFoot){
-		Eigen::Vector3d lf = skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-		Eigen::Vector3d rf = skel->getBodyNode("RightToe")->getWorldTransform().translation();
-		
-		// double foot_min = std::min(lf[2], rf[2]);
-		// double foot_max = std::max(lf[2], rf[2]);
-		// if(foot_min < stickFoot_min) stickFoot_min = foot_min;
-		// else if(foot_max > stickFoot_max) stickFoot_max = foot_max;
-
-		if(lf[2] < stickFoot_left_min) stickFoot_left_min = lf[2];
-		if(lf[2] > stickFoot_left_max) stickFoot_left_max = lf[2];
-
-		if(rf[2] < stickFoot_right_min) stickFoot_right_min = rf[2];
-		if(rf[2] > stickFoot_right_max) stickFoot_right_max = rf[2];
-		
-		// Eigen::VectorXd foot_diff (6);
-		// foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
-
-		// mFitness.sum_slide += foot_diff.norm();
-		// mFitness.slide_cnt++;
-		// r_footSlide = exp_of_squared(foot_diff, 0.1);
-	}
-
-	if(mCurrentFrameOnPhase>=115) {
-		// Eigen::Vector3d com = mCharacter->GetSkeleton()->getCOM();
-		// Eigen::Vector3d foot_middle = 0.5*(mCharacter->getBodyWorldTrans("LeftFoot")+ mCharacter->getBodyWorldTrans("RightFoot"));
-		// Eigen::Vector3d toe_middle = 0.5*(mCharacter->getBodyWorldTrans("LeftToe")+ mCharacter->getBodyWorldTrans("RightToe"));
-		Eigen::VectorXd com_vel = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
-		// if(com_vel.segment<3>(3).norm() > 0.1) mFitness.fall_cnt++;
-		mFitness.com_rot_norm += mCharacter->GetSkeleton()->getPositions()(0);
-		mFitness.fall_cnt++;
-		// std::cout<<mCurrentFrameOnPhase<<" "<<mFitness.fall_cnt<<std::endl;		
-		// std::cout<<mCurrentFrameOnPhase<<" "<<p_aligned(0)<<"\t"<<com[2]<<"/"<<foot_middle[2]<<" "<<toe_middle[2]<<"/"<<com_vel.segment<3>(3).norm()<<" "<<fall_cnt<<std::endl;
-		// std::cout<<mCurrentFrameOnPhase<<" "<<com_vel.segment<3>(3).norm()<<" "<<mFitness.fall_cnt<<std::endl;
-	}
+	// if(mCurrentFrameOnPhase>=115) {
+	// 	// Eigen::Vector3d com = mCharacter->GetSkeleton()->getCOM();
+	// 	// Eigen::Vector3d foot_middle = 0.5*(mCharacter->getBodyWorldTrans("LeftFoot")+ mCharacter->getBodyWorldTrans("RightFoot"));
+	// 	// Eigen::Vector3d toe_middle = 0.5*(mCharacter->getBodyWorldTrans("LeftToe")+ mCharacter->getBodyWorldTrans("RightToe"));
+	// 	Eigen::VectorXd com_vel = mCharacter->GetSkeleton()->getCOMSpatialVelocity();
+	// 	// if(com_vel.segment<3>(3).norm() > 0.1) mFitness.fall_cnt++;
+	// 	mFitness.com_rot_norm += mCharacter->GetSkeleton()->getPositions()(0);
+	// 	mFitness.fall_cnt++;
+	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<mFitness.fall_cnt<<std::endl;		
+	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<p_aligned(0)<<"\t"<<com[2]<<"/"<<foot_middle[2]<<" "<<toe_middle[2]<<"/"<<com_vel.segment<3>(3).norm()<<" "<<fall_cnt<<std::endl;
+	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<com_vel.segment<3>(3).norm()<<" "<<mFitness.fall_cnt<<std::endl;
+	// }
 
 	double r_con = exp(-abs(con_diff));
 	double r_ee = exp_of_squared(v_diff, 3);
@@ -744,6 +719,9 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
+
+	
+
 	// if(mCurrentFrameOnPhase >= 100 && !gotParamReward) {
 	// 	r_param = 1;
 	// 	gotParamReward = true;
@@ -898,7 +876,7 @@ UpdateTerminalInfo()
 	// }
 
 	// mRecord = true;
-	if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >= 90){
+	if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >= 60){
 		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
 		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
 		if(lf_ground || rf_ground) {
@@ -942,7 +920,10 @@ UpdateTerminalInfo()
 		}
 	}
 
-	if(mCurrentFrame > mReferenceManager->GetPhaseLength()) { // this->mBVH->GetMaxFrame() - 1.0){
+	int length_limit = mReferenceManager->GetPhaseLength() + 25;
+	if(!isAdaptive) length_limit= mReferenceManager->GetPhaseLength()*2 + 25;
+
+	if(mCurrentFrame > length_limit) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 		if(mRecord) 
@@ -1028,8 +1009,8 @@ Reset(bool RSI)
 		mFitness.sum_contact = 0;
 		mFitness.sum_slide = 0;
 		mFitness.slide_cnt = 0;
-		mFitness.fall_cnt = 0;
-		mFitness.com_rot_norm = 0;
+		// mFitness.fall_cnt = 0;
+		// mFitness.com_rot_norm = 0;
 		
 		mFitness.sum_pos.resize(skel->getNumDofs());
 		mFitness.sum_vel.resize(skel->getNumDofs());
@@ -1070,24 +1051,21 @@ Reset(bool RSI)
 	}
 
 	mRootZero = mTargetPositions.segment<6>(0);
+	mDefaultRootZero = mRootZero; 
 	this->mRootZeroDiff= mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
 	stickFoot = false;
-	if(mCurrentFrameOnPhase <55){
-		stickLeftFoot = mCharacter->getBodyWorldTrans("LeftToe");
-		stickRightFoot = mCharacter->getBodyWorldTrans("RightToe");
+	if(mCurrentFrameOnPhase <32){
 		stickFoot = true;
-		stickFoot_left_min = stickFoot_left_max = stickLeftFoot[2];
-		stickFoot_right_min = stickFoot_right_max = stickRightFoot[2];
-
-		// stickFoot_min = std::min(stickLeftFoot[2], stickRightFoot[2]);
-		// stickFoot_max = std::max(stickLeftFoot[2], stickRightFoot[2]);
-		jump_phase =0;
-	}else if(mCurrentFrameOnPhase < 74) jump_phase =1;
-	else jump_phase = 2;
-	// mFootZero = (lf+rf)/2.;
-	mDefaultRootZero = mRootZero; 
-
+		jump_phase = 0;
+	}else if(mCurrentFrameOnPhase < 55) jump_phase =1;
+	else {
+		stickFoot = true;
+		jump_phase = 2;
+	}
+	prevLeftToe = mCharacter->getBodyWorldTrans("LeftToe");
+	prevRightToe = mCharacter->getBodyWorldTrans("RightToe");
+		
 	mTlPrev2 = mTlPrev;
 	mTlPrev = tl_cur;	
 
