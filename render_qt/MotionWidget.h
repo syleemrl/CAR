@@ -137,5 +137,10 @@ protected:
 	struct sockaddr_in serveraddr, clientaddr;
 	char *mBuffer;
 	char *mBuffer2;
+
+	std::string motionFile;
+
+	void saveCurrentResult();
+	void saveAll();
 };
 #endif

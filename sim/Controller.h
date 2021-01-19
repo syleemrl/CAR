@@ -91,6 +91,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 
 	Eigen::Isometry3d getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel);
 
+	Eigen::VectorXd GetGoalParameters(){return mParamGoal;}
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;

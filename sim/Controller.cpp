@@ -744,10 +744,10 @@ Controller::
 GetParamReward()
 {
 	double r_param = 0;
-	if(mCurrentFrameOnPhase >= 100 && !gotParamReward) {
-		r_param = 1;
-		gotParamReward = true;
-	}
+	// if(mCurrentFrameOnPhase >= 100 && !gotParamReward) {
+	// 	r_param = 1;
+	// 	gotParamReward = true;
+	// }
 	return r_param;
 }
 void

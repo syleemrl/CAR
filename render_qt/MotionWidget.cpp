@@ -20,6 +20,7 @@ MotionWidget::
 MotionWidget(std::string motion, std::string ppo, std::string reg)
   :MotionWidget()
 {
+	motionFile = motion;
 	mCurFrame = 0;
 	mTotalFrame = 0;
 
@@ -170,6 +171,8 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 
 	this->mBuffer = new char[(this->mJointsUEOrder.size()+3)*4*4*sizeof(double)];
 	this->mBuffer2 = new char[128];
+
+	setFocusPolicy( Qt::StrongFocus );
 
 }
 bool cmp(const Eigen::VectorXd &p1, const Eigen::VectorXd &p2){
@@ -938,6 +941,12 @@ keyPressEvent(QKeyEvent *event)
 		else 
 			std::cout << "Pause." << std::endl;
 	}
+	if(event->key() == Qt::Key_S){
+		saveCurrentResult();
+	}
+	if(event->key() == Qt::Key_A){
+		saveAll();
+	}
 }
 void
 MotionWidget::
@@ -1070,4 +1079,184 @@ ResetController()
     } catch (const p::error_already_set&) {
         PyErr_Print();
     }    
+}
+
+std::vector<std::string> split(std::string targetStr, std::string token)
+{
+    // Check parameters
+    if(token.length() == 0 || targetStr.find(token) == std::string::npos)
+        return std::vector<std::string>({targetStr});
+ 
+    // return var
+    std::vector<std::string> ret;
+ 
+    int findOffset  = 0;
+    int splitOffset = 0;
+    while ((splitOffset = targetStr.find(token, findOffset)) != std::string::npos)
+    {
+         ret.push_back(targetStr.substr(findOffset, splitOffset - findOffset));
+         findOffset = splitOffset + token.length();
+    }
+    ret.push_back(targetStr.substr(findOffset, targetStr.length() - findOffset));
+    
+    return ret;
+}
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
+template<typename K, typename V>
+std::map<V,K> inverse_map(std::map<K,V> &map)
+{
+    std::map<V,K> inv;
+    std::for_each(map.begin(), map.end(),
+                [&inv] (const std::pair<K,V> &p)
+                {
+                    inv.insert(std::make_pair(p.second, p.first));
+                });
+    return inv;
+}
+#include <memory>
+#include <string>
+template<typename ... Args>
+std::string format_string(const std::string& format, Args ... args)
+{
+	size_t size = snprintf(nullptr, 0, format.c_str(), args ...) + 1;
+	std::unique_ptr<char[]> buffer(new char[size]);
+	snprintf(buffer.get(), size, format.c_str(), args ...);
+	return std::string(buffer.get(), buffer.get() + size - 1);
+}
+
+void 
+MotionWidget::
+saveCurrentResult()
+{
+	// mTimeTicks= false;
+
+	std::string raw_file_path = std::string(CAR_DIR) + "/motion/"+motionFile;
+	Eigen::VectorXd paramGoal = mController->GetGoalParameters();
+	std::string paramGoal_str= "";
+	for(int d=0; d<paramGoal.rows(); d++) paramGoal_str+= "_"+format_string("%4.2f", paramGoal[d]);
+
+	std::ofstream outfile;
+	std::string outfile_path =  std::string(CAR_DIR)+ "/motion/"+split(motionFile,".")[0]+paramGoal_str+".bvh";
+	outfile.open(outfile_path, std::ios_base::out); 
+
+	// std::ofstream obj_outfile;
+	// std::string obj_outfile_path =  std::string(CAR_DIR)+ "/motion/"+split(motionFile,".")[0]+paramGoal_str+"_obj.csv";
+	// obj_outfile.open(obj_outfile_path, std::ios_base::out); 
+	// obj_outfile<<",x,y,z\n";
+
+	std::ifstream rawfile;
+	rawfile.open(raw_file_path, std::ios_base::in); 	
+	std::string raw_line;
+
+	std::cout<<"raw_file_path: "<<raw_file_path<<std::endl;
+	std::cout<<"outfile_path: "<<outfile_path<<std::endl;
+	std::cout<<"open, mTotalFrame: "<<mTotalFrame<<std::endl;
+
+	std::vector<std::string> joint_order;
+
+	while(true){
+		getline(rawfile, raw_line);
+		
+		if(raw_line.find("Frames:")!=std::string::npos){
+			outfile<<"Frames: "<<mTotalFrame<<std::endl;
+		}
+		else outfile<<raw_line<<std::endl;
+
+		if(raw_line.find("JOINT")!=std::string::npos || raw_line.find("ROOT")!=std::string::npos){
+			std::string line_copy = raw_line;
+			trim(line_copy);
+			joint_order.push_back(split(line_copy, " ")[1]);
+			// std::cout<<joint_order.back()<<std::endl;
+		}
+
+		if(raw_line.find("Time:")!=std::string::npos){
+			break;
+		}
+	}
+
+	std::map<std::string,std::string> bvhMap = mReferenceManager->GetBVHMap();
+	std::map<std::string,std::string> bvhMap_inverse = inverse_map<std::string, std::string>(bvhMap);
+
+	for(auto t: mMotion_sim){
+		
+		std::string newline="";
+
+		outfile << t.segment<3>(3).transpose() * 100 << " ";
+
+		for(std::string& joint: joint_order){
+			if(bvhMap_inverse.find(joint)!=bvhMap_inverse.end()){
+				std::string skelJoint = bvhMap_inverse.find(joint)->second;
+				int idx = mSkel_sim->getBodyNode(skelJoint)->getParentJoint()->getIndexInSkeleton(0);
+				Eigen::AngleAxisd aa(t.segment<3>(idx).norm(), t.segment<3>(idx).normalized());
+				Eigen::Matrix3d m;
+				m = aa;
+				Eigen::Vector3d v = dart::math::matrixToEulerZXY(m);
+				outfile << v.transpose() * 180 / M_PI << " ";		
+			}
+		}
+		outfile << std::endl;
+
+		// #ifdef OBJECT_TYPE
+		// 	mSkel_obj->setPositions(mMotion_obj[frame]);
+		// 	mSkel_obj->computeForwardKinematics(true, false, false);
+		// 	Eigen::Vector3d obj_trans= mSkel_obj->getBodyNode("Box")->getWorldTransform().translation();
+		// 	obj_trans*=100;
+		// 	obj_outfile<<frame<<","<<obj_trans[0]<<","<<obj_trans[1]<<","<<obj_trans[2]<<std::endl;
+		// #endif
+	}
+
+	outfile.close();
+	rawfile.close();
+	// obj_outfile.close();
+
+	// mSkel_sim->setPositions(mMotion_sim[mCurFrame]);
+	// mSkel_sim->computeForwardKinematics(true, false, false);
+
+	// mTimeTicks= true;
+}
+
+void 
+MotionWidget::
+saveAll(){
+
+	std::vector<double> dist = {1.0, 1.3, 1.6, 1.9, 2.1, 2.3, 2.5, 2.7};
+	std::vector<double> height = {-1.2, -0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9, 1.2};
+
+	for(double h: height){
+		for(double d: dist){
+			Eigen::VectorXd tp_denorm_raw(2);
+			tp_denorm_raw<<h, d;
+
+	     	mTotalFrame = 0;
+	     	mController->SetGoalParameters(tp_denorm_raw);
+	     	
+		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm_raw);
+		    mReferenceManager->LoadAdaptiveMotion(cps);
+			RunPPO();
+
+			if(mTotalFrame >= 80){
+				saveCurrentResult();
+			}
+		}
+	}
 }

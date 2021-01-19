@@ -97,6 +97,7 @@ public:
 	Eigen::VectorXd getParamDMM(){ return mParamDMM;}
 	void setRecord(){mRecord = true;}
 	void setRegressionMemoryRecord(){mRegressionMemory->setRecord();}
+	std::map<std::string,std::string> GetBVHMap() {return mCharacter->GetBVHMap();} //body_node name and bvh_node name
 
 protected:
 	Character* mCharacter;
