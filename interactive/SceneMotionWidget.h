@@ -37,7 +37,7 @@ public slots:
 
 	void toggleDrawSim();
 	void toggleDrawReg();
-
+	void RE();
 protected:
 	void initializeGL() override;	
 	void resizeGL(int w,int h) override;

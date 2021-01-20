@@ -60,9 +60,13 @@ SubController::SubController(std::string type, std::string motion, std::string p
 void
 SubController::
 Synchronize(Character* character, double frame) {
+	std::cout << 1 << std::endl;
 	Eigen::VectorXd pos = character->GetSkeleton()->getPositions();
+	std::cout << frame << std::endl;
 
-	Eigen::VectorXd pos_not_aligned = mReferenceManager->GetPosition(frame);
+	Eigen::VectorXd pos_not_aligned = mReferenceManager->GetPosition(frame, true);
+	std::cout << 2 << std::endl;
+
 	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(pos_not_aligned.head<6>());
 	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 
@@ -76,7 +80,7 @@ Synchronize(Character* character, double frame) {
 	std::vector<Eigen::VectorXd> p;
 	std::vector<double> t;
 	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
-		Eigen::VectorXd p_tmp = mReferenceManager->GetPosition(i);
+		Eigen::VectorXd p_tmp = mReferenceManager->GetPosition(i, true);
 		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(p_tmp.head<6>());
 		T_current = T0_phase.inverse()*T_current;
 		T_current = T0_gen*T_current;
@@ -85,16 +89,19 @@ Synchronize(Character* character, double frame) {
 		p.push_back(p_tmp);
 		t.push_back(mReferenceManager->GetTimeStep(i, true));
 	}
+	std::cout << 3 << std::endl;
 
 	mReferenceManager->LoadAdaptiveMotion(p, t);
 	mCurrentFrameOnPhase = frame;
 	mCurrentFrame = frame;
 	mPrevFrame = mCurrentFrame;
+	std::cout << 4 << std::endl;
 
 	mAdaptiveStep = mReferenceManager->GetTimeStep(frame, true);
-	
 	mTargetPositions = mReferenceManager->GetPosition(frame, true);
 	mPrevTargetPositions = mTargetPositions;
+	std::cout << 5 << std::endl;
+
 }
 bool
 SubController::
@@ -258,7 +265,7 @@ GetState(Character* character) {
 		Eigen::VectorXd param = mReferenceManager->GetParamGoal();
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+param.rows());
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, param;
-		std::cout<<"@ "<<mCurrentFrame<<" / "<<mCurrentFrameOnPhase<<" / goal ; "<<param.transpose()<<std::endl;
+		// std::cout<<"@ "<<mCurrentFrame<<" / "<<mCurrentFrameOnPhase<<" / goal ; "<<param.transpose()<<std::endl;
 
 	} else {
  		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
@@ -285,9 +292,7 @@ IDLE_Controller::IDLE_Controller(std::string motion, std::string ppo)
 : SubController(std::string("Idle"),  motion, ppo)
 {}
 bool IDLE_Controller::Synchronizable(std::string) {
-	if(mCurrentFrameOnPhase <= 10 || mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength() - 5)
-		return true;
-	return false;
+	return true;
 }
 //////////////////////////////////// BLOCK  ////////////////////////////////////
 

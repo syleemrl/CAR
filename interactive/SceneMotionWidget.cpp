@@ -26,6 +26,9 @@ SceneMotionWidget()
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(235./255., 235./255., 0./255., 1.0));
 	Record();
+
+	setFocusPolicy( Qt::StrongFocus );
+
 }
 void
 SceneMotionWidget::
@@ -37,8 +40,10 @@ Record() {
 void
 SceneMotionWidget::
 Step() {
-	this->mMC->Step();		
-	Record();
+	for(int i = 0 ; i <= 2; i++) {
+		this->mMC->Step();		
+		Record();
+	}
 }
 void
 SceneMotionWidget::
@@ -73,6 +78,20 @@ DrawSkeletons()
 	if(mDrawReg)
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
 }	
+void 
+SceneMotionWidget::
+RE()
+{
+
+	mCurFrame = 0;
+	mTotalFrame = 0;
+	mMotion_reg.clear();
+	mMotion_sim.clear();
+
+	mMC->Reset();
+	Record();
+
+}
 void
 SceneMotionWidget::
 DrawGround()
@@ -103,7 +122,7 @@ paintGL()
 
 	DrawGround();
 	DrawSkeletons();
-
+	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame)+" / "+std::to_string(mTotalFrame), true, Eigen::Vector3d::Zero());
 	// GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mMC->mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 	// else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
@@ -160,6 +179,7 @@ timerEvent(QTimerEvent* event)
 {
 	if(mPlay && this->mCurFrame == this->mTotalFrame - 1) {
 		Step();
+		mCurFrame += 1;
 	} else if(mPlay){
 		mCurFrame += 1;
 	}
@@ -195,19 +215,24 @@ keyPressEvent(QKeyEvent *event)
 			std::cout << "Pause." << std::endl;
 	}
 	if(event->key() == Qt::Key_S) {
+		std::cout << "S pressed" << std::endl;
 		mMC->SwitchController("Idle");
 	}
 	if(event->key() == Qt::Key_D) {
-		mMC->SwitchController("pivot");
+		std::cout << "D pressed" << std::endl;
+		mMC->SwitchController("Pivot");
 	}
 	if(event->key() == Qt::Key_W) {
-		mMC->SwitchController("punch");
+		std::cout << "W pressed" << std::endl;
+		mMC->SwitchController("Punch");
 	}
 	if(event->key() == Qt::Key_E) {
-		mMC->SwitchController("kick");
+		std::cout << "E pressed" << std::endl;
+		mMC->SwitchController("Kick");
 	}
 	if(event->key() == Qt::Key_A) {
-		mMC->SwitchController("block");
+		std::cout << "A pressed" << std::endl;
+		mMC->SwitchController("Block");
 	}
 }
 void

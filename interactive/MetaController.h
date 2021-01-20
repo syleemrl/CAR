@@ -13,7 +13,7 @@ public:
 	Eigen::VectorXd GetCurrentRefPositions() {return mTargetPositions;}
 	Eigen::VectorXd GetCurrentSimPositions() {return mCharacter->GetSkeleton()->getPositions();}
 
-	void SwitchController(std::string type, int frame=-1);
+	void SwitchController(std::string type, int frame=0);
 	void LoadControllers();
 	void AddSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
 	void Reset();

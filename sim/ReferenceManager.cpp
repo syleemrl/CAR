@@ -127,7 +127,7 @@ LoadMotionFromBVH(std::string filename)
 	std::string path = std::string(CAR_DIR) + filename;
 	bvh->Parse(path);
 	mHierarchyStr = bvh->GetHierarchyStr(); 
-	std::cout << "load trained data from: " << path << std::endl;
+	std::cout << "load clip from: " << path << std::endl;
 
 	std::vector<std::string> contact;
 	contact.clear();
@@ -379,13 +379,12 @@ GetPosition(double t , bool adaptive)
 	else {
 		p_gen = &mMotions_gen;
 	}
-
 	auto& skel = mCharacter->GetSkeleton();
 
 	if((*p_gen).size()-1 < t) {
 	 	return (*p_gen).back()->GetPosition();
 	}
-	
+
 	int k0 = (int) std::floor(t);
 	int k1 = (int) std::ceil(t);	
 	if (k0 == k1)
@@ -465,13 +464,72 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
 
 		mParamEnd.resize(1);
 		mParamEnd << 3.0;
-		if(isParametric) {
-			mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+		
+		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										paramUnit, mDOF + 1, mPhaseLength);
-			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
-		}		
+		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
 	}
+ 	if(ctrl_type == "Kick") {
+ 		mParamCur.resize(2);
+		mParamCur << 1, 1;
 
+		mParamGoal.resize(2);
+		mParamGoal << 1, 1;
+
+		Eigen::VectorXd paramUnit(2);
+		paramUnit<< 0.1, 0.1;
+
+		mParamBase.resize(2);
+		mParamBase << 0.5, 0.5;
+
+		mParamEnd.resize(2);
+		mParamEnd << 2.0, 1.5;
+
+		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+										paramUnit, mDOF + 1, mPhaseLength);
+		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+ 	}
+ 	if(ctrl_type == "Block") {
+ 		mParamCur.resize(2);
+		mParamCur << 0, 1.0;
+
+		mParamGoal.resize(2);
+		mParamGoal << 0, 1.0;
+
+		Eigen::VectorXd paramUnit(2);
+		paramUnit<< 0.2, 0.1;
+
+		mParamBase.resize(2);
+		mParamBase << -0.95, 0.8;
+
+		mParamEnd.resize(2);
+		mParamEnd << 0.95, 1.2;
+
+		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+										paramUnit, mDOF + 1, mPhaseLength);
+		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+ 	}
+ 	if(ctrl_type == "Punch") {
+
+		mParamCur.resize(1);
+		mParamCur <<  0.4;
+
+		mParamGoal.resize(1);
+		mParamGoal <<  0.4;
+
+		Eigen::VectorXd paramUnit(1);
+		paramUnit<<  0.1;
+
+		mParamBase.resize(1);
+		mParamBase << 0.4;
+
+		mParamEnd.resize(1);
+		mParamEnd << 4.0;
+		
+		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+										paramUnit, mDOF + 1, mPhaseLength);
+		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+ 	}
 	ResetOptimizationParameters();
 
 }

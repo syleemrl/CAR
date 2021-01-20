@@ -102,14 +102,19 @@ void MetaController::Step()
 	mTotalSteps += 1;
 
 	if(mIsWaiting && mCurrentController->Synchronizable(mWaiting.first)) {
+		std::cout << "make transition to : " << mWaiting.first << " , " << mWaiting.second << std::endl;
+
 		mCurrentController = mSubControllers[mWaiting.first];
 		mCurrentController->Synchronize(mCharacter, mWaiting.second);
 		mIsWaiting = false;
+		std::cout << "make transition done " << std::endl;
+
 	}
 }
 void MetaController::SwitchController(std::string type, int frame)
 {
 	mIsWaiting = true;
 	mWaiting = std::pair<std::string, double>(type, frame);
+	std::cout << "waiting: " << type << " , " << frame << std::endl;
 }
 } //end of namespace DPhy
