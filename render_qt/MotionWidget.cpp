@@ -142,18 +142,27 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	
 	for(int i=1; i<mReferenceManager->GetPhaseLength();i++){
 		mSkel_bvh->setPositions(mMotion_bvh[i]);
-		mSkel_bvh->computeForwardKinematics(true, false, false);
-		Eigen::Vector3d leftToe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
-		Eigen::Vector3d rightToe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+		mSkel_bvh->computeForwardKinematics(true, true, false);
 
-		Eigen::VectorXd toe_velocity (6);
-		toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
-		double slide = DPhy::exp_of_squared(toe_velocity, 0.05);
+		Eigen::VectorXd left_v= mSkel_bvh->getBodyNode("LeftToe")->getCOMSpatialVelocity();
+		Eigen::VectorXd right_v= mSkel_bvh->getBodyNode("RightToe")->getCOMSpatialVelocity();
+	
+		Eigen::VectorXd toe_v(12);
+		toe_v<< left_v, right_v;
+		double slide = DPhy::exp_of_squared(toe_v, 0.05);		
+		// std::cout<<"@ "<<i<<"/ "<<slide<<"\t"<<toe_v.transpose()<<std::endl;
+
+		// Eigen::Vector3d leftToe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+		// Eigen::Vector3d rightToe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+
+		// Eigen::VectorXd toe_velocity (6);
+		// toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
+		// double slide = DPhy::exp_of_squared(toe_velocity, 0.05);
 
 		// std::cout<<"@ "<<i<<"/ "<<slide<<"\t"<<toe_velocity.transpose()<<std::endl;
 
-		prevLeftToe = leftToe;
-		prevRightToe = rightToe;
+		// prevLeftToe = leftToe;
+		// prevRightToe = rightToe;
 	}
 	// std::cout<<min_root_h<<" "<<max_root_h<<std::endl; //0.39, 1.6
 

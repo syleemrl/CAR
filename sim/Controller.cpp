@@ -260,12 +260,26 @@ Step()
 		Eigen::Vector3d leftToe = mCharacter->getBodyWorldTrans("LeftToe");
 		Eigen::Vector3d rightToe = mCharacter->getBodyWorldTrans("RightToe");
 
-		Eigen::VectorXd toe_velocity (6);
-		toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
-		double slide = exp_of_squared(toe_velocity, 0.05);
+		// Eigen::VectorXd toe_velocity (6);
+		// toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
+		// double slide = exp_of_squared(toe_velocity, 0.05);
+		// mFitness.sum_slide+= slide;
+		// mFitness.slide_cnt++;
+		// if(mRecord) std::cout<<mCurrentFrameOnPhase<<" , slide: "<<slide<<std::endl;
+
+
+		Eigen::VectorXd left_v= mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getCOMSpatialVelocity();
+		Eigen::VectorXd right_v= mCharacter->GetSkeleton()->getBodyNode("RightToe")->getCOMSpatialVelocity();
+	
+		Eigen::VectorXd toe_v(12);
+		toe_v<< left_v, right_v;
+		double slide = DPhy::exp_of_squared(toe_v, 1.5);
+
 		mFitness.sum_slide+= slide;
-		mFitness.slide_cnt++;
-		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" , slide: "<<slide<<std::endl;
+		mFitness.slide_cnt++;		
+
+		if(mRecord) std::cout<<"@ "<<mCurrentFrame<<"/ "<<slide<<"/\t"<<toe_v.transpose()<<std::endl;
+
 	}
 
 	if(mCurrentFrameOnPhase >=32 && mCurrentFrameOnPhase <35 && stickFoot) {
@@ -501,8 +515,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_p = 0.4 * scale; 
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
-	double sig_ee = 0.3 * scale;		
-	double sig_foot_x = 0.5*scale;
+	double sig_ee = 0.2 * scale;		
+	double sig_foot_x = 0.8*scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -520,7 +534,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 			std::cout<<"left ref: "<<ref_left_foot_x<<" / "<<left_foot_x<<std::endl;
 			std::cout<<"right ref: "<<ref_right_foot_x<<" / "<<right_foot_x<<std::endl;
 		}
-		r_ee = 0.9*r_ee + 0.1*r_foot_x; //(r_ee + r_foot_x)/2.0;		
+		r_ee = 0.85*r_ee + 0.15*r_foot_x; //(r_ee + r_foot_x)/2.0;		
 	}
 
 	std::vector<double> rewards;
@@ -862,6 +876,27 @@ UpdateTerminalInfo()
 	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<(lf[1]-cur_obj_height)<<" "<<(rf[1]-cur_obj_height)<<(lt[1]-cur_obj_height)<<" "<<(rt[1]-cur_obj_height)<<std::endl;
 	// 	// std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<" "<<lt_v.norm()<<" "<<rt_v.norm()<<std::endl;
 	// }
+
+	if(mCurrentFrame <=30){
+		Eigen::Vector3d lf= mCharacter->getBodyWorldTrans("LeftFoot");
+		Eigen::Vector3d rf= mCharacter->getBodyWorldTrans("RightFoot");
+
+		Eigen::Vector3d lf_v = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getLinearVelocity();
+		Eigen::Vector3d rf_v = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getLinearVelocity();
+		double cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
+
+	
+		if( ((lf[1]-cur_obj_height)> 0.1 && lf_v.norm()>0.15) || (((rf[1]-cur_obj_height) >0.1) && rf_v.norm()> 0.15) ){
+			if(mRecord){
+				std::cout<<"------------------------------- foot violation -------------------------------"<<std::endl;
+				std::cout<<mCurrentFrame<<" / "<<(lf[1]-cur_obj_height)<<" "<<(rf[1]-cur_obj_height)<<std::endl;
+				std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
+			}else{
+				mIsTerminal = true;
+				terminationReason = 16;
+			}
+		}
+	}
 
 	// mRecord = true;
 	if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >= 60){
