@@ -953,25 +953,36 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	// }
 	// mPrevReward = currentReward;
 	// std::cout << "Elite Set Updated" <<std::endl;
+
 	std::vector<Eigen::VectorXd> mean_cps;   
+ 	std::vector<Eigen::Matrix3d> mean_root_cps;   
+
    	mean_cps.clear();
    	for(int i = 0; i < mNumKnots; i++) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDimDOF));
+		Eigen::Matrix3d m;
+		m.setZero();
+		mean_root_cps.push_back(m);
 	}
 	double weight_sum = 0;
+
 	for(int i = 0; i < mNumElite; i++) {
 		double w = ps_elite[i].first;
 		weight_sum += w;
 	    std::vector<Eigen::VectorXd> cps = ps_elite[i].second->cps;
 	    for(int j = 0; j < mNumKnots; j++) {
 			mean_cps[j] += w * cps[j];
+			mean_root_cps[j] += w * dart::math::expMapRot(cps[j].segment<3>(0));
 	    }
 	}
 
 	for(int i = 0; i < mNumKnots; i++) {
 	    mean_cps[i] /= weight_sum;
+	    mean_root_cps[i] /=weight_sum;
+	    Eigen::Vector3d mean_root = dart::math::logMap(mean_root_cps[i]);
+	    mean_cps[i].segment<3>(0) = mean_root;
+	    // std::cout << i << " " << exp(mean_cps[i][mDimDOF-1]) << std::endl;
 	}
-
 
 	return mean_cps;
 }

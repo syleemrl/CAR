@@ -229,7 +229,6 @@ LoadMotionFromBVH(std::string filename)
 	 }
 
 	delete bvh;
-
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
@@ -532,6 +531,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards)) || data_raw[0].second != 0) {
 		return;
 	}
+
+	if( abs(data_raw[data_raw.size()-1].first(0) + 0.1) >= 0.1 ||
+		abs(data_raw[data_raw.size()-1].first(2) + 0.02) >= 0.1)
+		return;
+
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
@@ -614,10 +618,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_foot = exp(-std::get<2>(rewards).sum_contact*0.4); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
-	double r_slide = exp(- std::get<2>(rewards).sum_slide * 3.0);
+	double r_slide = exp(- std::get<2>(rewards).sum_slide * 7.0);
 	double reward_trajectory = r_pos * r_vel * r_slide * r_foot;
-	if(reward_trajectory < 0.4) 
-		return;
+
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
 
 

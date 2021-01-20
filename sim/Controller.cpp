@@ -12,7 +12,8 @@ namespace DPhy
 Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bool record, int id)
 	:mControlHz(30),mSimulationHz(150),mCurrentFrame(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
-	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
+	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false),
+	mRD(), mMT(mRD()), mUniform(0.0, 1.0)
 {
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 	this->isAdaptive = adaptive;
@@ -144,8 +145,8 @@ Step()
 	mAdaptiveStep = mActions[mInterestedDof];
 	// std::cout << mAdaptiveStep << std::endl;
 
-	if(!isAdaptive)
-		mAdaptiveStep = 1;
+	// if(!isAdaptive)
+	// 	mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += mAdaptiveStep;
@@ -179,9 +180,18 @@ Step()
 	Eigen::VectorXd torque;
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
+	// if(mUniform(mMT) < 0.2) {
+	// 	Eigen::Vector3d random_dir = Eigen::Vector3d::Zero();
+	// 	bool flag = false;
+	// 	random_dir(0) = 2 * (mUniform(mMT) - 0.5);
+	// 	random_dir(1) = 2 * (mUniform(mMT) - 0.5);
+	// 	random_dir(2) = 2 * (mUniform(mMT) - 0.5);
+	// 	random_dir.normalize();
 
+	// 	mCharacter->GetSkeleton()->getBodyNode("Hips")->setExtForce(300 * random_dir, Eigen::Vector3d::Zero(), false, true);
+
+	// }
 	for(int i = 0; i < this->mSimPerCon; i += 2){
-
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			mWorld->step(false);
@@ -189,6 +199,7 @@ Step()
 
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
+	// mCharacter->GetSkeleton()->getBodyNode("Hips")->setExtForce(Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero(), false, true);
 	
 	if(this->mCurrentFrameOnPhase > mReferenceManager->GetPhaseLength()){
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -498,7 +509,7 @@ GetSimilarityReward()
 			f += skel->getBodyNode("RightToe")->getWorldTransform().translation();
 			f /= 2.0;
 		}
-		bool contact_now = f(1) < 0.07;
+		bool contact_now = f(1) < 0.05 && mPrevContactInfo[i].second(1) < 0.05;
 		if(mPrevContactInfo[i].first && contact_now) {
 			Eigen::Vector3d v_slide = mPrevContactInfo[i].second - f;
 			v_slide(1) = 0;
@@ -546,9 +557,9 @@ GetParamReward()
 
 		for(int i = 0; i < contacts_cur.size(); i++) {
 			if(contacts_ref[i].first && !contacts_cur[i].first) {
-				mConDiff += pow(std::max(0.0, (contacts_cur[i].second)(1) - 0.07), 2);
+				mConDiff += pow(std::max(0.0, (contacts_cur[i].second)(1) - 0.05), 2);
 			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-				mConDiff += pow(std::max(0.0, (contacts_ref[i].second)(1) - 0.07), 2);
+				mConDiff += pow(std::max(0.0, (contacts_ref[i].second)(1) - 0.05), 2);
 			}
 		}
 		mCountContact += 1;
@@ -738,7 +749,7 @@ UpdateTerminalInfo()
 	} else if(isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 3 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
-	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 5 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
+	} else if(!isAdaptive && mCurrentFrame > mReferenceManager->GetPhaseLength()* 10 + 10) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
 		terminationReason =  8;
 	}
