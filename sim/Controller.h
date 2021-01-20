@@ -186,14 +186,10 @@ protected:
 	std::vector<std::pair<bool, Eigen::Vector3d>> mPrevContactInfo;
 /////////////////////////////////////////////////
 // for action parameter design
-	int mCount;
-	double mJumpStartFrame;
-	double mPosDiff;
-	double mJumpHeight;
-	Eigen::Vector3d mTotalLength;
-	Eigen::Vector3d mMomentum;
+	double mTotalYrot;
+	double mConDiff;
 	int mCountContact;
-	double mCondiff;
+	std::vector<Eigen::Vector3d> mEndYrot;
 //////////////////////////////////////////////////
 };
 }

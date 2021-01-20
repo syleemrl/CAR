@@ -322,7 +322,7 @@ class PPO(object):
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]
 					self.target_y_batch = self.target_y_batch[-2000:]
-			if self.env.mode == 0 and self.env.mode_counter % 3 == 1:
+			if self.env.mode == 1 and self.env.mode_counter % 3 == 1:
 				for n in range(50):
 					ind = np.arange(len(self.target_x_batch))
 					np.random.shuffle(ind)
@@ -351,7 +351,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, param_info = zip(*data)
 
-			if len(times) == self.env.phaselength * 3 + 10 + 1:
+			if len(times) == self.env.phaselength * 5 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:

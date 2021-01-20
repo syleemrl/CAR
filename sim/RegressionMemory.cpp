@@ -57,7 +57,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mNumElite = 5;
 	mRadiusNeighbor = 0.1;
 	mThresholdInside = 0.7;
-	mRangeExplore = 0.3;
+	mRangeExplore = 0.5;
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 2; i++) {
@@ -819,7 +819,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 								update_max = 0;
 							} else {
 								flag = false;
-								std::cout << "insert fail, cur: "  << std::get<2>(candidate) << " prev: " << flist[j].second  << std::endl;
+								// std::cout << "insert fail, cur: "  << std::get<2>(candidate) << " prev: " << flist[j].second  << std::endl;
 								return flag;
 							}
 						} 
@@ -933,7 +933,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 	
 	for(int i = 0; i < ps.size(); i++) {
 		double preward = GetParamReward(Denormalize(ps[i].second->param_normalized), p_goal);
-		double fitness = preward*ps[i].second->reward;
+		double fitness = preward; //*ps[i].second->reward;
 	//	if(f_baseline < fitness) {
 			ps_elite.push_back(std::pair<double, Param*>(fitness, ps[i].second));
 		// } else {
@@ -959,6 +959,7 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDimDOF));
 	}
 	double weight_sum = 0;
+	mNumElite= 1;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = ps_elite[i].first;
 		weight_sum += w;
