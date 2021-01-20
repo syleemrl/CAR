@@ -55,9 +55,9 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.1;
-	mThresholdInside = 0.7;
-	mRangeExplore = 0.5;
+	mRadiusNeighbor = 0.05;
+	mThresholdInside = 0.8;
+	mRangeExplore = 0.6;
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 2; i++) {
@@ -829,7 +829,7 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 		}
 		// std::cout << 2 << std::endl;
 
-		std::cout << candidate_scaled.transpose() << " " << std::get<2>(candidate) << " "<< update_max << std::endl;
+		std::cout << candidate_scaled.transpose() << " " << std::get<2>(candidate) << " "<< update_max << "#"<< std::endl;
 
 		// std::cout << Denormalize(std::get<1>(candidate)).transpose() << " " <<to_be_deleted.size() << std::endl; 
 		for(int i = 0; i < to_be_deleted.size(); i++) {

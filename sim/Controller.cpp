@@ -199,7 +199,6 @@ Step()
 			mFitness.sum_contact /= mCountTracking;
 			mFitness.sum_pos /= mCountTracking;
 			mFitness.sum_vel /= mCountTracking;
-
 			mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur);
 			data_raw.clear();
 
@@ -471,7 +470,9 @@ GetSimilarityReward()
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
 		int idx = mCharacter->GetSkeleton()->getBodyNode(i)->getParentJoint()->getIndexInSkeleton(0);
 		if(name.compare("Hips") == 0 ) {
-			p_diff.segment<3>(idx+3) *= 3;
+			p_diff.segment<3>(idx+3) *= 5;
+			v_diff.segment<3>(idx+3) *= 5;
+
 		}
 		p_diff(1) *= 0.2;
 
@@ -599,7 +600,7 @@ GetParamReward()
 			}
 			mTotalYrot += delta;
 
-			double curYrot = mTotalYrot / (-1.26);
+			double curYrot = mTotalYrot / (-1.4);
 
 			double y_diff = mParamGoal(0) - curYrot;
 			double r_y = exp(-pow(y_diff, 2)*150);
@@ -632,7 +633,7 @@ UpdateAdaptiveReward()
 	std::vector<double> tracking_rewards_bvh = this->GetTrackingReward(skel->getPositions(), mTargetPositions,
 								 skel->getVelocities(), mTargetVelocities, mRewardBodies, false);
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
-	double time_diff = mAdaptiveStep  - mParamGoal(0); //mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
+	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*150);
 
 	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
@@ -844,6 +845,7 @@ Reset(bool RSI)
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
+	mPrevContactInfo.clear();
 	for(int i = 0; i < 2; i++) {
 		Eigen::Vector3d f; 
 		if(i == 0) {

@@ -301,6 +301,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 	T01.linear() = dart::math::expMapRot(DPhy::projectToXZ(p01));
 	T01.translation()[1] = 0;
 
+	
 	int totalLength = p_phase.size();
 	int smooth_time = 10;
 	for(int i = 0; i < frames; i++) {
@@ -324,9 +325,10 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 
 				Eigen::Vector3d deltaRoot = JointPositionDifferences(curRoot, prevRoot);
 				deltaRoot = DPhy::projectToXZ(deltaRoot);
-				p.segment<3>(0) = dart::math::logMap(dart::math::expMapRot(prevRoot) * dart::math::expMapRot(deltaRoot)); 
+				p.segment<3>(0) = curRoot;// dart::math::logMap(dart::math::expMapRot(prevRoot) * dart::math::expMapRot(deltaRoot)); 
+				p(1) = curRoot(1);
 				T0_gen = dart::dynamics::FreeJoint::convertToTransform(p.head<6>());
-
+				pos = p;
 			} else {
 				pos = p_phase[phase]->GetPosition();
 				Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
@@ -345,7 +347,6 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 					Eigen::Quaterniond q_blend = q_smooth.slerp(slerp_t, q);
 					pos.segment<3>(0) = QuaternionToDARTPosition(q_blend);
 				} 
-				pos(4)= p_phase[phase]->GetPosition()(4);
 			}
 
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, p_gen.back()->GetPosition()) / 0.033;
@@ -464,7 +465,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		mParamBase << 0.8;
 
 		mParamEnd.resize(1);
-		mParamEnd << 2.0;
+		mParamEnd << 3.0;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -614,10 +615,9 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 	double r_slide = exp(- std::get<2>(rewards).sum_slide * 3.0);
-	double reward_trajectory = 1;
-	// double reward_trajectory = r_pos * r_vel * r_slide * r_foot;
-	// if(reward_trajectory < 0.4) 
-	// 	return;
+	double reward_trajectory = r_pos * r_vel * r_slide * r_foot;
+	if(reward_trajectory < 0.4) 
+		return;
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
 
 
