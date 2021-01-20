@@ -337,16 +337,16 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 				T_current = T0_gen*T_current;
 				pos.segment<6>(0) = dart::dynamics::FreeJoint::convertToPositions(T_current);
 
-				if(phase < smooth_time){
-					Eigen::Quaterniond q(T_current.linear());
-					Eigen::Quaterniond q_smooth(T_current_smooth.linear());
+				// if(phase < smooth_time){
+				// 	Eigen::Quaterniond q(T_current.linear());
+				// 	Eigen::Quaterniond q_smooth(T_current_smooth.linear());
 
-					double slerp_t = (double)phase/smooth_time; 
-					slerp_t = 0.5*(1-cos(M_PI*slerp_t)); //smooth slerp t [0,1]
+				// 	double slerp_t = (double)phase/smooth_time; 
+				// 	slerp_t = 0.5*(1-cos(M_PI*slerp_t)); //smooth slerp t [0,1]
 						
-					Eigen::Quaterniond q_blend = q_smooth.slerp(slerp_t, q);
-					pos.segment<3>(0) = QuaternionToDARTPosition(q_blend);
-				} 
+				// 	Eigen::Quaterniond q_blend = q_smooth.slerp(slerp_t, q);
+				// 	pos.segment<3>(0) = QuaternionToDARTPosition(q_blend);
+				// } 
 			}
 
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, p_gen.back()->GetPosition()) / 0.033;

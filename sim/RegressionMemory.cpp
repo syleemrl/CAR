@@ -56,8 +56,8 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	mNumElite = 5;
 	mRadiusNeighbor = 0.05;
-	mThresholdInside = 0.8;
-	mRangeExplore = 0.6;
+	mThresholdInside = 0.6;
+	mRangeExplore = 0.4;
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 2; i++) {
@@ -959,7 +959,6 @@ GetCPSFromNearestParams(Eigen::VectorXd p_goal) {
 		mean_cps.push_back(Eigen::VectorXd::Zero(mDimDOF));
 	}
 	double weight_sum = 0;
-	mNumElite= 1;
 	for(int i = 0; i < mNumElite; i++) {
 		double w = ps_elite[i].first;
 		weight_sum += w;
