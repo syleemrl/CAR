@@ -304,7 +304,6 @@ Step()
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur, shift_height);
 			}
 			data_raw.clear();
-	
 
 			mFitness.sum_contact = 0;
 			mFitness.sum_slide = 0;
@@ -502,7 +501,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_p = 0.4 * scale; 
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
-	double sig_ee = 0.5 * scale;		
+	double sig_ee = 0.3 * scale;		
 	double sig_foot_x = 0.5*scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
@@ -516,8 +515,12 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	if(jump_phase ==1){
 		double r_foot_x = exp_of_squared(foot_x, sig_foot_x);
-		if(mRecord) std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
-		r_ee = (r_ee + r_foot_x)/2.0;		
+		if(mRecord) {
+			std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
+			std::cout<<"left ref: "<<ref_left_foot_x<<" / "<<left_foot_x<<std::endl;
+			std::cout<<"right ref: "<<ref_right_foot_x<<" / "<<right_foot_x<<std::endl;
+		}
+		r_ee = 0.9*r_ee + 0.1*r_foot_x; //(r_ee + r_foot_x)/2.0;		
 	}
 
 	std::vector<double> rewards;
@@ -872,7 +875,7 @@ UpdateTerminalInfo()
 		}
 	}
 
-	if(!mRecord){
+	// if(!mRecord){
 
 		if(root_pos_diff.norm() > TERMINAL_ROOT_DIFF_THRESHOLD){
 			mIsTerminal = true;
@@ -903,7 +906,7 @@ UpdateTerminalInfo()
 				std::cout <<mCurrentFrame<<",terminate Reason : "<<terminationReason <<std::endl;
 
 		}
-	}
+	// }
 
 	int length_limit = mReferenceManager->GetPhaseLength() + 25;
 	if(!isAdaptive) length_limit= mReferenceManager->GetPhaseLength()*2 + 25;

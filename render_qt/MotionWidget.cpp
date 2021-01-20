@@ -150,7 +150,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 		toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
 		double slide = DPhy::exp_of_squared(toe_velocity, 0.05);
 
-		std::cout<<"@ "<<i<<"/ "<<slide<<"\t"<<toe_velocity.transpose()<<std::endl;
+		// std::cout<<"@ "<<i<<"/ "<<slide<<"\t"<<toe_velocity.transpose()<<std::endl;
 
 		prevLeftToe = leftToe;
 		prevRightToe = rightToe;
