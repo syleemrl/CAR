@@ -445,19 +445,18 @@ ResetOptimizationParameters(bool reset_displacement) {
 }
 void
 ReferenceManager::
-InitOptimization(int nslaves, std::string save_path, bool adaptive) {
+InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string ctrl_type) {
 	isParametric = adaptive;
 	mPath = save_path;
 
 	mThresholdTracking = 0.8;
+	if(ctrl_type == "Pivot"){
+		mParamCur.resize(1);
+		mParamCur << 1;
 
-	mParamCur.resize(1);
-	mParamCur << 1;
+		mParamGoal.resize(1);
+		mParamGoal << 1;
 
-	mParamGoal.resize(1);
-	mParamGoal << 1;
-
-	if(isParametric) {
 		Eigen::VectorXd paramUnit(1);
 		paramUnit<< 0.1;
 
@@ -466,13 +465,11 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 		mParamEnd.resize(1);
 		mParamEnd << 3.0;
-
-		
-		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
-										  paramUnit, mDOF + 1, mPhaseLength);
-
-
-		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+		if(isParametric) {
+			mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
+										paramUnit, mDOF + 1, mPhaseLength);
+			std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
+		}		
 	}
 
 	ResetOptimizationParameters();

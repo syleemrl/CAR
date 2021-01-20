@@ -41,3 +41,11 @@ file(GLOB srcs "*.h" "*.cpp")
 
 add_executable(render_qt ${srcs})
 target_link_libraries(render_qt Qt5::Widgets Qt5::OpenGL ${DART_LIBRARIES} ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} GL GLU glut GLEW sim ${TinyXML_LIBRARIES})
+
+file (GLOB lib_srcs
+	Camera.cpp
+	DART_interface.cpp
+	GLfunctions.cpp
+	)
+add_library(render_lib ${lib_srcs} )
+target_link_libraries(render_lib ${DART_LIBRARIES} ${Boost_LIBRARIES} ${TinyXML_LIBRARIES} ${PYTHON_LIBRARIES})
