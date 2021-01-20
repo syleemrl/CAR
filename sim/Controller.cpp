@@ -205,7 +205,7 @@ Step()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	// if(isAdaptive) p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	this->mTargetPositions = p_now ; //p_v_target->GetPosition();
 	this->mTargetVelocities = mCharacter->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033;
 	delete p_v_target;
@@ -252,23 +252,8 @@ Step()
 		mTimeElapsed += 2 * (mAdaptiveStep);
 	}
 
-	// // std::cout<<mCurrentFrame<<"/ obj: "<<CheckCollisionWithObject("LeftFoot")<<" "<<CheckCollisionWithObject("RightFoot")<<" / ground : "<<CheckCollisionWithGround("LeftFoot")<<" "<<CheckCollisionWithGround("RightFoot")<<std::endl;
-	// if(! mLanded && mCurrentFrameOnPhase >= 70){
-	// 	bool left_land = (mParamGoal[0] > 0)? CheckCollisionWithObject("LeftFoot") :  (CheckCollisionWithGround("LeftFoot") || CheckCollisionWithObject("LeftFoot") );
-	// 	bool right_land = (mParamGoal[0] > 0)? CheckCollisionWithObject("RightFoot") :  (CheckCollisionWithGround("RightFoot") || CheckCollisionWithObject("RightFoot") );
-	// 	if(left_land || right_land) mLanded = true;
-	// }
-	// if(mLanded){
-	// 	double foot = (mCharacter->getBodyWorldTrans("LeftFoot")[2]+ mCharacter->getBodyWorldTrans("RightFoot")[2])/2;
-	// 	mean_land_foot+= foot;
-	// 	land_foot_cnt++;
-	// 	std::cout<<mCurrentFrame<<"/ obj: "<<CheckCollisionWithObject("LeftFoot")<<" "<<CheckCollisionWithObject("RightFoot")<<" / ground : "<<CheckCollisionWithGround("LeftFoot")<<" "<<CheckCollisionWithGround("RightFoot")<<std::endl;
-	// 	// std::cout<<mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation().transpose()<<std::endl;
-	// 	// std::cout<<mCurrentFrameOnPhase<<" "<<foot<<" " <<land_foot_cnt<<std::endl;
-	// }
-
-
 	// std::cout<<"@ "<<mCurrentFrame<<" / "<<jump_phase<<" / "<< stickFoot<<std::endl;
+	
 	//32 , 54
 
 	if(stickFoot){
@@ -289,7 +274,7 @@ Step()
 	}
 	double min_foot = std::min(mCharacter->getBodyWorldTrans("LeftFoot")[1], mCharacter->getBodyWorldTrans("RightFoot")[1]);
 	if(isAdaptive) min_foot-= (mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235);
-	if(mCurrentFrameOnPhase >= 55 || (mCurrentFrameOnPhase>50 &&  min_foot < 0.05)){
+	if((mCurrentFrameOnPhase >= 55) || ((mCurrentFrameOnPhase>50) &&  (min_foot < 0.05))) {
 		if(!stickFoot){
 			stickFoot = true;
 			jump_phase= 2;
@@ -315,22 +300,11 @@ Step()
 			// mFitness.com_rot_norm/= mFitness.fall_cnt;
 
 			if((mCurrentFrame < 2*mReferenceManager->GetPhaseLength())  && (land_foot_cnt > 0)){
-				mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
 				double shift_height = (mParamGoal[0] < 0) ? mParamGoal[0] : 0;
 				mReferenceManager->SaveTrajectories(data_raw, std::tuple<double, double, Fitness>(mTrackingRewardTrajectory, mParamRewardTrajectory, mFitness), mParamCur, shift_height);
 			}
 			data_raw.clear();
 	
-			this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
-			mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
-			mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
-			mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
-
-			this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
-			Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
-			Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
-			Eigen::Vector3d mf = (lf+rf)/2.; 
-			this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
 
 			mFitness.sum_contact = 0;
 			mFitness.sum_slide = 0;
@@ -356,11 +330,19 @@ Step()
 			mLanded= false;
 			mean_land_foot = 0;
 			land_foot_cnt = 0;
-
-			jump_phase= 0;
 		}
 
+		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
+		mRootZero = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+		mDefaultRootZero = mReferenceManager->GetMotion(mCurrentFrame, true)->GetPosition().segment<6>(0);
+		mRootZeroDiff = mRootZero.segment<3>(3) - mReferenceManager->GetMotion(mCurrentFrameOnPhase, false)->GetPosition().segment<3>(3);
 
+		this->mStartRoot = this->mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+		Eigen::Vector3d lf = this->mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		Eigen::Vector3d rf = this->mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getWorldTransform().translation();
+		Eigen::Vector3d mf = (lf+rf)/2.; 
+		this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
+		jump_phase= 0;
 	}
 
 	if(isAdaptive) {
@@ -389,6 +371,7 @@ Step()
 	mPosQueue.push(mCharacter->GetSkeleton()->getPositions());
 	mTimeQueue.push(mCurrentFrame);
 	mPrevTargetPositions = mTargetPositions;
+
 	prevLeftToe = mCharacter->getBodyWorldTrans("LeftToe");
 	prevRightToe = mCharacter->getBodyWorldTrans("RightToe");
 
@@ -720,12 +703,14 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	
+	if(mCurrentFrameOnPhase >= 73 && !gotParamReward)
+	{
+		mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
 
-	// if(mCurrentFrameOnPhase >= 100 && !gotParamReward) {
-	// 	r_param = 1;
-	// 	gotParamReward = true;
-	// }
+		r_param = std::exp(- std::pow((mParamCur[1]- mParamGoal[1])/0.2, 2.0));
+		gotParamReward = true;
+	}	
+
 	return r_param;
 }
 void
@@ -1325,7 +1310,7 @@ GetState()
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, isAdaptive);
 	Eigen::VectorXd p_now = p_v_target->GetPosition();
 	// p_now[4] -= (mDefaultRootZero[4]- mRootZero[4]);
-	p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
+	// if(isAdaptive) p_now.segment<3>(3) = p_now.segment<3>(3)- (mDefaultRootZero.segment<3>(3)- mRootZero.segment<3>(3));
 	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_now, p_v_target->GetVelocity()*t);
 	// Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
 
