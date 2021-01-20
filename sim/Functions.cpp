@@ -948,7 +948,8 @@ std::vector<Eigen::VectorXd> Align(std::vector<Eigen::VectorXd> data, Eigen::Vec
 		T_current = T0_phase.inverse()*T_current;
 		T_current = T0_gen*T_current;
 
-		result[i].head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+		//result[i].segment<6>(0) = dart::dynamics::FreeJoint::convertToPositions(T_current);
+		result[i].segment<3>(3) = dart::dynamics::FreeJoint::convertToPositions(T_current).segment<3>(3);
 	}
 
 	return result;

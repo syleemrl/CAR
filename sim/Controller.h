@@ -87,7 +87,7 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	void SetGoalParameters(Eigen::VectorXd tp);
 	void SetSkeletonWeight(double mass, int type);
 	void SetSkeletonLength(double length, double width, int type);
-
+	void SetTerminal(bool terminal) { mIsTerminal = terminal; }
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -139,6 +139,9 @@ protected:
 	std::vector<Eigen::VectorXd> mRecordTargetPosition;
 	std::vector<Eigen::VectorXd> mRecordBVHPosition;
 	std::vector<Eigen::VectorXd> mRecordObjPosition;
+	std::vector<Eigen::VectorXd> mRecordParam;
+
+
 	std::vector<std::pair<bool, bool>> mRecordFootContact;
 	std::vector<double> mRecordPhase;
 

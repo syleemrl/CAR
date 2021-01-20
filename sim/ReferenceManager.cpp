@@ -320,15 +320,16 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
 				Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
-				// p_footl(1) = p0_footl(1);
-				// p_footr(1)= p0_footr(1);
+				p_footl(1) = p0_footl(1);
+				p_footr(1)= p0_footr(1);
 
 				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("LeftFoot", p_footl, Eigen::Vector3d(0, 0, 0)));
 				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("RightFoot", p_footr, Eigen::Vector3d(0, 0, 0)));
 
 				Eigen::VectorXd p = p_phase[phase]->GetPosition();
 				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
-				
+				// p(4) = p_phase[phase]->GetPosition()(4);
+
 				skel->setPositions(p);
 				skel->computeForwardKinematics(true,false,false);
 
@@ -658,7 +659,6 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 
 		d.push_back(d_t);
 	}
-
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);

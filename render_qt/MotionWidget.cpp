@@ -56,18 +56,18 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     mReferenceManager = new DPhy::ReferenceManager(ref);
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
 
-    if(mRunReg) {
+    // if(mRunReg) {
     	mRegressionMemory = new DPhy::RegressionMemory();
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
 
-    }
+    // }
     mPath = "";
     if(mRunSim) {
 	    path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
 	    if(mRunReg)
 	    	mReferenceManager->InitOptimization(1, path, true);
 	    else
-	    	mReferenceManager->InitOptimization(1, path);
+	    	mReferenceManager->InitOptimization(1, path, true);
 	    mReferenceManager->LoadAdaptiveMotion("ref_1");
 	    mDrawReg = true;
 	    mPath = path;
@@ -148,6 +148,9 @@ initNetworkSetting(std::string ppo, std::string reg) {
 			this->mPPO.attr("initRun")(path,
 									   this->mController->GetNumState(), 
 									   this->mController->GetNumAction());
+	        // path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(reg, '/')[0] + std::string("/");
+			mRegressionMemory->LoadParamSpace(path + "param_space");
+
 			RunPPO();
 			
     	}
@@ -166,69 +169,207 @@ setValue(const int &x){
 void 
 MotionWidget::
 UpdateRandomParam(const bool& pressed) {
-	if(mRunReg) {
+	// if(mRunReg) {
 		Eigen::VectorXd tp_cur = mReferenceManager->GetParamCur();
 		tp_cur = mRegressionMemory->Normalize(tp_cur);
 		v_param_record.push_back(mRegressionMemory->Denormalize(tp_cur));
-
+		std::cout << tp_cur.transpose() << std::endl;
 		int total = 0;
 		int flag = 0;
 		int flag_count = 0;
 		std::vector<Eigen::VectorXd> pos;
 		std::vector<double> t;
-		while(total < 1000) {
+		while(1) {
+			bool endFlag = false;
 			if(total != 0) {
 				if(flag == 0) {
-					if(flag_count < 2) {
-						flag_count += 1;
-					} else {
-						for(int i = 1; i < tp_cur.rows(); i++) {
-							tp_cur(i) += 0.01; // std::min(1.0, std::max(0.0, tp_cur(i) +  0.1 * (0.5 - mUniform(mMT))));
-						}
-						if(tp_cur(1) >= 0.9) {
-							flag = 1;
-							flag_count = 0;
-						}
-					}
-				} else if(flag == 1) {
 					if(flag_count < 4) {
 						flag_count += 1;
 					} else {
-						tp_cur(1) -= 0.01; 
-						if(tp_cur(1) <= 0.1) {
+						tp_cur(1) += 0.02; // std::min(1.0, std::max(0.0, tp_cur(i) +  0.1 * (0.5 - mUniform(mMT))));
+						if(tp_cur(1) >= 0.9) {
+							flag = 1;
+							flag_count = 0;
+							std::cout << "transition to 1" << std::endl;
+						}
+					}
+				} else if(flag == 1) {
+					if(flag_count < 2) {
+						flag_count += 1;
+					} else {
+						tp_cur(3) += 0.02; 
+						if(tp_cur(3) >= 0.9) {
 							flag = 2;
 							flag_count = 0;
+							std::cout << "transition to 2" << std::endl;
+
 						}
 					}
 				} else if(flag == 2) {
 					if(flag_count < 4) {
 						flag_count += 1;
 					} else {
-						tp_cur(1) += 0.01; 
-						tp_cur(2) -= 0.01; 
-
-						if(tp_cur(1) >= 0.9) {		
+						tp_cur(0) += 0.02; 
+						if(tp_cur(0) >= 0.9) {
 							flag = 3;
 							flag_count = 0;
+							std::cout << "transition to 3" << std::endl;
+
 						}
 					}
 				} else if(flag == 3) {
 					if(flag_count < 4) {
 						flag_count += 1;
 					} else {
-						tp_cur(1) -= 0.01; 
-						tp_cur(2) += 0.01; 
+						tp_cur(2) += 0.02; 
+						tp_cur(3) -= 0.02; 
 
-						if(tp_cur(1) <= 0.5) {
-							flag = 0;
+						if(tp_cur(2) >= 0.85) {		
+							flag = 4;
 							flag_count = 0;
+							std::cout << "transition to 4" << std::endl;
+
+						}
+					}
+				} else if(flag == 4) {
+					if(flag_count < 4) {
+						flag_count += 1;
+					} else {
+						tp_cur(1) -= 0.02; 
+						if(tp_cur(1) <= 0.1) {		
+							flag = 5;
+							flag_count = 0;
+							std::cout << "transition to 5" << std::endl;
+						}
+					}
+				} else if(flag == 5) {
+					if(flag_count < 4) {
+						flag_count += 1;
+					} else {
+						tp_cur(0) -= 0.02; 
+						if(tp_cur(0) <= 0.1) {		
+							flag = 6;
+							flag_count = 0;
+							std::cout << "transition to 6" << std::endl;
+						}
+					}
+				} else if(flag == 6) {
+					if(flag_count < 4) {
+						flag_count += 1;
+					} else {
+						if(tp_cur(0) < 0.4)
+							tp_cur(0) += 0.02;
+
+						if(tp_cur(1) < 0.4)
+							tp_cur(1) += 0.02;
+
+						if(tp_cur(2) >= 0.05)
+							tp_cur(2) -= 0.02;
+
+						if(tp_cur(3) >= 0.05)
+							tp_cur(3) -= 0.02;
+
+						if(tp_cur(0) >= 0.4 && tp_cur(1) >= 0.4 && tp_cur(2) <= 0.05 && tp_cur(3) <= 0.05 ) {		
+							flag = 5;
+							flag_count = 0;
+							std::cout << "END" << std::endl;
+							endFlag = true;
 						}
 					}
 				}
+				// if(flag == 0) {
+				// 	if(flag_count < 2) {
+				// 		flag_count += 1;
+				// 	} else {
+				// 		tp_cur(0) += 0.01; // std::min(1.0, std::max(0.0, tp_cur(i) +  0.1 * (0.5 - mUniform(mMT))));
+				// 		if(tp_cur(0) >= 0.9) {
+				// 			flag = 1;
+				// 			flag_count = 0;
+				// 			std::cout << "transition to 1" << std::endl;
+				// 		}
+				// 	}
+				// } else if(flag == 1) {
+				// 	if(flag_count < 4) {
+				// 		flag_count += 1;
+				// 	} else {
+				// 		tp_cur(2) += 0.02; 
+				// 		if(tp_cur(2) >= 0.9) {
+				// 			flag = 2;
+				// 			flag_count = 0;
+				// 			std::cout << "transition to 2" << std::endl;
+
+				// 		}
+				// 	}
+				// } else if(flag == 2) {
+				// 	if(flag_count < 4) {
+				// 		flag_count += 1;
+				// 	} else {
+				// 		tp_cur(1) += 0.01; 
+				// 		if(tp_cur(1) >= 0.9) {		
+				// 			flag = 3;
+				// 			flag_count = 0;
+				// 			std::cout << "transition to 3" << std::endl;
+
+				// 		}
+				// 	}
+				// } else if(flag == 3) {
+				// 	if(flag_count < 4) {
+				// 		flag_count += 1;
+				// 	} else {
+				// 		tp_cur(0) -= 0.01; 
+				// 		tp_cur(2) -= 0.01; 
+
+				// 		if(tp_cur(0) <= 0.4) {
+				// 			flag = 4;
+				// 			flag_count = 0;
+				// 			std::cout << "transition to 4" << std::endl;
+
+				// 		}
+				// 	}
+				// } else if(flag == 4) {
+				// 	if(flag_count < 4) {
+				// 		flag_count += 1;
+				// 	} else {
+				// 		tp_cur(3) += 0.02; 
+
+				// 		if(tp_cur(3) >= 0.9) {
+				// 			flag = 5;
+				// 			flag_count = 0;
+				// 			std::cout << "transition to 5" << std::endl;
+
+				// 		}
+				// 	}
+				// } else if(flag == 5) {
+				// 	if(flag_count < 4) {
+				// 		flag_count += 1;
+				// 	} else {
+				// 		if(tp_cur(0) > 0)
+				// 			tp_cur(0) -= 0.01; 
+				// 		tp_cur(3) -= 0.02;
+				// 		if(tp_cur(3) <= 0.05) {
+				// 			flag = 6;
+				// 			flag_count = 0;
+				// 			std::cout << "transition to 6" << std::endl;
+
+				// 		}
+				// 	}
+				// } else if(flag == 6) {
+				// 	if(flag_count < 4) {
+				// 		flag_count += 1;
+				// 	} else {
+				// 		tp_cur(0) -= 0.01; 
+				// 		if(tp_cur(0) <= 0.05) {
+				// 			endFlag = true;
+				// 			std::cout << "transition end" << std::endl;
+
+				// 		}
+				// 	}
+				// }
  
 			   	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(mRegressionMemory->Denormalize(tp_cur));
 				mReferenceManager->LoadAdaptiveMotion(cps);
 			}
+
 			v_param_record.push_back(mRegressionMemory->Denormalize(tp_cur));
 
 			int count = 0;
@@ -257,6 +398,8 @@ UpdateRandomParam(const bool& pressed) {
 					t.push_back(t_param[i]);
 				}
 			}
+			if(endFlag)
+				break;
 		}
 		if(!mRunSim) {
 			UpdateMotion(pos, 3);
@@ -266,90 +409,66 @@ UpdateRandomParam(const bool& pressed) {
 			RunPPO();
 
 		}
+	// }
+}
+void
+MotionWidget::
+DeformSkeleton(Eigen::VectorXd tp_denorm) {
+    int dof = mReferenceManager->GetDOF() + 1;
+
+	double l1 = tp_denorm(0) / mLengthArm;
+	mLengthArm = tp_denorm(0);
+	double l2 = tp_denorm(1) / mLengthLeg;
+	mLengthLeg = tp_denorm(1);
+
+	double w1 = sqrt(tp_denorm(2)) / mWidthArm;
+	mWidthArm = sqrt(tp_denorm(2));
+	double w2 = sqrt(tp_denorm(3)) / mWidthLeg;
+	mWidthLeg = sqrt(tp_denorm(3));
+
+	double m1 = (tp_denorm(0)*tp_denorm(2)) / mMassArm;
+	mMassArm = tp_denorm(0)*tp_denorm(2);
+
+	double m2 = (tp_denorm(1)*tp_denorm(3)) / mMassLeg;
+	mMassLeg = (tp_denorm(1)*tp_denorm(3));
+
+	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
+	int n_bnodes = mSkel_exp->getNumBodyNodes();
+	for(int i = 0; i < n_bnodes; i++){
+		std::string name = mSkel_exp->getBodyNode(i)->getName();
+		if(name.find("Arm") != std::string::npos ||
+			name.find("Hand") != std::string::npos) {
+			deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, w1, w1), m1));
+		}
+		else if (name.find("Leg") != std::string::npos) {
+			deform.push_back(std::make_tuple(name, Eigen::Vector3d(w2, l2, w2), m2));
+
+		} else if(name.find("Toe") != std::string::npos ||
+			name.find("Foot") != std::string::npos) {
+			deform.push_back(std::make_tuple(name, Eigen::Vector3d(w2, 1, l2), m2));
+
+		}
 	}
+
+	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
+	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
+	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
 }
 void 
 MotionWidget::
 UpdateParam(const bool& pressed) {
-	if(mRunReg) {
+	// if(mRunReg) {
+		v_param_record.clear();
 		Eigen::VectorXd tp(mRegressionMemory->GetDim());
 		tp = v_param*0.05;
 		// for(int i = 0; i < tp.rows(); i++) {
 		// 	tp(i) += 0.05 * (0.5 - mUniform(mMT)); 
 		// }
-		
+		double d = mRegressionMemory->GetDensity(tp);
 	    Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
-	    int dof = mReferenceManager->GetDOF() + 1;
-	    double d = mRegressionMemory->GetDensity(tp);
-
-		double l1 = tp_denorm(0) / mLengthArm;
-		mLengthArm = tp_denorm(0);
-		double l2 = tp_denorm(1) / mLengthLeg;
-		mLengthLeg = tp_denorm(1);
-
-		double w1 = sqrt(tp_denorm(2)) / mWidthArm;
-		mWidthArm = sqrt(tp_denorm(2));
-		double w2 = sqrt(tp_denorm(3)) / mWidthLeg;
-		mWidthLeg = sqrt(tp_denorm(3));
-
-		double m1 = (tp_denorm(0)*tp_denorm(2)) / mMassArm;
-		mMassArm = tp_denorm(0)*tp_denorm(2);
-
-		double m2 = (tp_denorm(1)*tp_denorm(3)) / mMassLeg;
-		mMassLeg = (tp_denorm(1)*tp_denorm(3));
-
-
-		// double l1 = 1;
-		// double l2 = 1;
-
-		// double w1 = sqrt(tp_denorm(0)) / mWidthArm;
-		// mWidthArm = sqrt(tp_denorm(0));
-		// double w2 = sqrt(tp_denorm(1)) / mWidthLeg;
-		// mWidthLeg = sqrt(tp_denorm(1));
-
-		// double m1 = tp_denorm(0) / mMassArm;
-		// mMassArm = tp_denorm(0);
-
-		// double m2 = tp_denorm(1) / mMassLeg;
-		// mMassLeg = tp_denorm(1);
-
-		std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-		int n_bnodes = mSkel_exp->getNumBodyNodes();
-		for(int i = 0; i < n_bnodes; i++){
-			std::string name = mSkel_exp->getBodyNode(i)->getName();
-			if(name.find("Arm") != std::string::npos ||
-			   name.find("Hand") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, w1, w1), m1));
-			}
-			else if (name.find("Leg") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(w2, l2, w2), m2));
-
-			} else if(name.find("Toe") != std::string::npos ||
-					  name.find("Foot") != std::string::npos) {
-				deform.push_back(std::make_tuple(name, Eigen::Vector3d(w2, 1, l2), m2));
-
-			}
-		}
-
-		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
-		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
-		DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
+	    DeformSkeleton(tp_denorm);
 	    std::cout << tp.transpose() << " " << tp_denorm.transpose() << " " << d << std::endl;
 
-	    std::vector<Eigen::VectorXd> cps;
-	    for(int i = 0; i < mReferenceManager->GetNumCPS() ; i++) {
-	        cps.push_back(Eigen::VectorXd::Zero(dof));
-	    }
-	    for(int j = 0; j < mReferenceManager->GetNumCPS(); j++) {
-	        Eigen::VectorXd input(mRegressionMemory->GetDim() + 1);
-	        input << j, tp;
-	        p::object a = this->mRegression.attr("run")(DPhy::toNumPyArray(input));
-	    
-	        np::ndarray na = np::from_object(a);
-	        cps[j] = DPhy::toEigenVector(na, dof);
-	    }
-
-	    mReferenceManager->LoadAdaptiveMotion(cps);
 	    
 	    double phase = 0;
 
@@ -399,7 +518,13 @@ UpdateParam(const bool& pressed) {
 		    mReferenceManager->LoadAdaptiveMotion(cps);
 			RunPPO();
 	    }
-	}
+	// }
+}
+void MotionWidget::
+RE() {
+	Reset();
+	mController->Reset();
+	RunPPO();
 }
 void MotionWidget::UpdateIthParam(int i)
 {
@@ -462,7 +587,6 @@ RunPPO() {
 	mController->Reset(false);
 	this->mTiming= std::vector<double>();
 	this->mTiming.push_back(this->mController->GetCurrentFrame());
-	
 	while(!this->mController->IsTerminalState()) {
 		Eigen::VectorXd state = this->mController->GetState();
 
@@ -476,13 +600,20 @@ RunPPO() {
 		double curF = this->mController->GetCurrentFrame();
 		this->mTiming.push_back(curF);
 		if(v_param_record.size() != 0 && std::floor(prevF / 3) != std::floor(curF / 3)) {
+
 			int idx = std::floor(curF / 3);
-			this->mController->SetGoalParameters(v_param_record[idx]);
+
+			if(v_param_record.size() > idx) {
+				this->mController->SetGoalParameters(v_param_record[idx]);
+			} 
+			// else {
+			// 	this->mController->SetTerminal(true);
+			// }
+
 		}
 
 		count += 1;
 	}
-
 	for(int i = 0; i <= count; i++) {
 
 		Eigen::VectorXd position = this->mController->GetPositions(i);
@@ -689,35 +820,10 @@ timerEvent(QTimerEvent* event)
 			int idx;
 			if(!mRunSim)
 				idx = mCurFrame / 3;
-			else
+			else if(mTiming.size() > mCurFrame)
 				idx = std::floor(mTiming[mCurFrame] / 3);
-			double l1 = v_param_record[idx](1) / mLengthArm;
-			mLengthArm = v_param_record[idx](1);
-			double l2 = v_param_record[idx](2) / mLengthLeg;
-			mLengthLeg = v_param_record[idx](2);
-
-			std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-			int n_bnodes = mSkel_exp->getNumBodyNodes();
-			for(int i = 0; i < n_bnodes; i++){
-				std::string name = mSkel_exp->getBodyNode(i)->getName();
-				if(name.find("Shoulder") != std::string::npos ||
-				   name.find("Arm") != std::string::npos ||
-				   name.find("Hand") != std::string::npos) {
-					deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
-				}
-				else if (name.find("Leg") != std::string::npos) {
-					deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
-
-				} else if(name.find("Toe") != std::string::npos ||
-						  name.find("Foot") != std::string::npos) {
-					deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
-
-				}
-			}
-			DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
-			DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
-			DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
-
+			if(idx < v_param_record.size())
+				DeformSkeleton(v_param_record[idx]);
 		}
 	} 
 	SetFrame(this->mCurFrame);
@@ -855,34 +961,12 @@ void
 MotionWidget::
 Reset()
 {
-	double l1 = 1 / mLengthArm;
-	mLengthArm = 1;
-	double l2 = 1 / mLengthLeg;
-	mLengthLeg = 1;
-
-	std::vector<std::tuple<std::string, Eigen::Vector3d, double>> deform;
-	int n_bnodes = mSkel_exp->getNumBodyNodes();
-	for(int i = 0; i < n_bnodes; i++){
-		std::string name = mSkel_exp->getBodyNode(i)->getName();
-		if(name.find("Shoulder") != std::string::npos ||
-			name.find("Arm") != std::string::npos ||
-			name.find("Hand") != std::string::npos) {
-			deform.push_back(std::make_tuple(name, Eigen::Vector3d(l1, 1, 1), 1));
-		}
-		else if (name.find("Leg") != std::string::npos) {
-			deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, l2, 1), 1));
-
-		} else if(name.find("Toe") != std::string::npos ||
-			name.find("Foot") != std::string::npos) {
-			deform.push_back(std::make_tuple(name, Eigen::Vector3d(1, 1, l2), 1));
-		}
-	}
-	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_exp, deform);
-	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_reg, deform);
-	DPhy::SkeletonBuilder::DeformSkeleton(mSkel_sim, deform);
-
 	this->mCurFrame = 0;
 	this->SetFrame(this->mCurFrame);
+
+	if(mRunSim && v_param_record.size() != 0) {
+		DeformSkeleton(v_param_record[0]);
+	}
 }
 void 
 MotionWidget::

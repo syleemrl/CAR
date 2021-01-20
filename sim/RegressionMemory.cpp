@@ -66,8 +66,8 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 
 	//t6
 	mRadiusNeighbor = 0.2;
-	mThresholdInside = 0.6;
-	mRangeExplore = 0.5;
+	mThresholdInside = 0.3;
+	mRangeExplore = 0.2;
 
 	mThresholdActivate = 3;
 
@@ -259,6 +259,8 @@ bool cmp_pair_param(const std::pair<double, Param*> &p1,
 void
 RegressionMemory::
 LoadParamSpace(std::string path) {
+	std::cout << 2 << std::endl;
+
 	mRecordLog.clear();
 	mloadAllSamples= std::vector<Param*>();
 	char buffer[256];

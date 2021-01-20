@@ -63,8 +63,11 @@ initLayoutSetting(std::string motion, std::string ppo, std::string reg) {
 
     QHBoxLayout *buttonlayout = new QHBoxLayout();
     buttonlayout->addStretch(1);
+    QPushButton* button = new QPushButton("RE", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(RE())); 
+    buttonlayout->addWidget(button); 
 
-    QPushButton* button = new QPushButton("reset", this);
+    button = new QPushButton("reset", this);
     connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Reset())); 
     buttonlayout->addWidget(button);
     

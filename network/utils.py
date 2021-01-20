@@ -45,7 +45,7 @@ class RunningMeanStd(object):
             self.mean, self.var, self.count, batch_mean, batch_var, batch_count)
 
         if np.isnan(np.sum(mean)) or np.isnan(np.sum(var)) or np.isnan(np.sum(count)):
-            embed()
+            return
         else:
             self.mean = mean
             self.var = var

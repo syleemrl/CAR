@@ -44,6 +44,9 @@ public slots:
 	void toggleDrawReg();
 	void toggleDrawExp();
 	void toggleCamera();
+	void RE();
+	void DeformSkeleton(Eigen::VectorXd tp_denorm);
+
 protected:
 	void initializeGL() override;	
 	void resizeGL(int w,int h) override;

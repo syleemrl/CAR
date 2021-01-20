@@ -322,7 +322,7 @@ class PPO(object):
 				if len(self.target_x_batch) > 5000:
 					self.target_x_batch = self.target_x_batch[-2000:]
 					self.target_y_batch = self.target_y_batch[-2000:]
-			if self.env.mode == 0 and self.env.mode_counter % 3 == 1:
+			if self.env.mode == 1 and self.env.mode_counter % 5 == 1:
 				for n in range(50):
 					ind = np.arange(len(self.target_x_batch))
 					np.random.shuffle(ind)
