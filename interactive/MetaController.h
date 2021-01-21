@@ -39,6 +39,7 @@ public:
 	
 	Eigen::VectorXd mTargetPositions;
 	std::vector<Eigen::VectorXd> mRecordPosition;
+	std::vector<Eigen::Vector3d> mHitPoints;
 	bool mIsWaiting=false;
 };
 } 

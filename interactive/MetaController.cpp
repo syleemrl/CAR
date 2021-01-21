@@ -81,7 +81,10 @@ void MetaController::Reset()
 
 	this->mTotalSteps = 0; 
 	mCurrentController = mSubControllers["Idle"];
-	mCurrentController->Synchronize(mCharacter, 0);
+	Eigen::VectorXd prevTargetPos(skel->getNumDofs());
+	prevTargetPos.setZero();
+
+	mCurrentController->Synchronize(mCharacter, prevTargetPos,0);
 
 	mTargetPositions = mCurrentController->GetCurrentRefPositions();
 	Eigen::VectorXd vel(mTargetPositions.rows());
@@ -100,15 +103,21 @@ void MetaController::Step()
 	mTargetPositions = mCurrentController->GetCurrentRefPositions();
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mTotalSteps += 1;
-
 	if(mIsWaiting && mCurrentController->Synchronizable(mWaiting.first)) {
 		std::cout << "make transition to : " << mWaiting.first << " , " << mWaiting.second << std::endl;
+		Eigen::VectorXd prevTargetPos = mCurrentController->GetCurrentRefPositions();
 
 		mCurrentController = mSubControllers[mWaiting.first];
-		mCurrentController->Synchronize(mCharacter, mWaiting.second);
+		mCurrentController->Synchronize(mCharacter, prevTargetPos, mWaiting.second);
 		mIsWaiting = false;
 		std::cout << "make transition done " << std::endl;
 
+	} else if(mCurrentController->mType != "Idle" && mCurrentController->IsEnd()) {
+		std::cout << "make transition to : Idle " << std::endl;
+		Eigen::VectorXd prevTargetPos = mCurrentController->GetCurrentRefPositions();
+
+		mCurrentController = mSubControllers["Idle"];
+		mCurrentController->Synchronize(mCharacter, prevTargetPos, 0);
 	}
 }
 void MetaController::SwitchController(std::string type, int frame)

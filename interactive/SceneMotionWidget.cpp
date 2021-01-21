@@ -220,7 +220,7 @@ keyPressEvent(QKeyEvent *event)
 	}
 	if(event->key() == Qt::Key_D) {
 		std::cout << "D pressed" << std::endl;
-		mMC->SwitchController("Pivot");
+		mMC->SwitchController("Pivot", 5);
 	}
 	if(event->key() == Qt::Key_W) {
 		std::cout << "W pressed" << std::endl;
@@ -228,7 +228,7 @@ keyPressEvent(QKeyEvent *event)
 	}
 	if(event->key() == Qt::Key_E) {
 		std::cout << "E pressed" << std::endl;
-		mMC->SwitchController("Kick");
+		mMC->SwitchController("Kick", 10);
 	}
 	if(event->key() == Qt::Key_A) {
 		std::cout << "A pressed" << std::endl;

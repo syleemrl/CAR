@@ -20,6 +20,7 @@
 #include "GLfunctions.h"
 #include "DART_interface.h"
 #include "Controller.h"
+#include "Functions.h"
 #pragma pop_macro("slots")
 
 namespace p = boost::python;
@@ -46,12 +47,13 @@ public:
 	Eigen::VectorXd mParamGoal;
 
 	bool Step(dart::simulation::WorldPtr world, Character* character);
-	void Synchronize(Character* character, double frame=0);
+	void Synchronize(Character* character, Eigen::VectorXd endPosition, double frame);
 	bool virtual Synchronizable(std::string)=0;
 
 	Eigen::VectorXd GetState(Character* character);
 	Eigen::VectorXd GetEndEffectorStatePosAndVel(Character* character, Eigen::VectorXd pos, Eigen::VectorXd vel);
 	Eigen::VectorXd GetCurrentRefPositions() { return mTargetPositions; }
+	bool IsEnd() { return mEndofMotion; }
 	double mCurrentFrame;
 	double mPrevFrame;
 
@@ -68,6 +70,9 @@ public:
 	Eigen::VectorXd mTargetPositions;
 	std::vector<std::string> mEndEffectors;
 
+	bool mEndofMotion;
+	Eigen::VectorXd mPrevEndPos;
+	int mBlendInterval;
 };
 
 

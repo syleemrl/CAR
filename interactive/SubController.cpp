@@ -3,7 +3,7 @@
 
 namespace DPhy{
 
-SubController::SubController(std::string type, std::string motion, std::string ppo) : mType(type), mSimPerCon(5)
+SubController::SubController(std::string type, std::string motion, std::string ppo) : mType(type), mSimPerCon(5), mBlendInterval(8)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     DPhy::Character* character = new DPhy::Character(path);
@@ -28,10 +28,12 @@ SubController::SubController(std::string type, std::string motion, std::string p
 	mEndEffectors.push_back("RightHand");
 	mEndEffectors.push_back("Head");
 
+	mPrevEndPos.resize(character->GetSkeleton()->getNumDofs());
+
     numStates = GetState(character).rows();
 	mInterestedDof = character->GetSkeleton()->getNumDofs() - 6;
-    numActions = mInterestedDof + 1;  
-
+    numActions = mInterestedDof + 1; 
+    
     Py_Initialize();
     np::initialize();
     try {
@@ -59,23 +61,23 @@ SubController::SubController(std::string type, std::string motion, std::string p
 }
 void
 SubController::
-Synchronize(Character* character, double frame) {
-	std::cout << 1 << std::endl;
+Synchronize(Character* character, Eigen::VectorXd endPosition, double frame) {
 	Eigen::VectorXd pos = character->GetSkeleton()->getPositions();
-	std::cout << frame << std::endl;
-
 	Eigen::VectorXd pos_not_aligned = mReferenceManager->GetPosition(frame, true);
-	std::cout << 2 << std::endl;
 
 	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(pos_not_aligned.head<6>());
 	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 
 	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
+	T01.translation()[1] = 0;
+
+	Eigen::Isometry3d T01_projected = T01;
 
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
-	T01.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
-	T01.translation()[1] = 0;
+	T01_projected.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+
 	Eigen::Isometry3d T0_gen = T01*T0_phase;
+	Eigen::Isometry3d T0_gen_projected = T01_projected*T0_phase;
 
 	std::vector<Eigen::VectorXd> p;
 	std::vector<double> t;
@@ -83,25 +85,32 @@ Synchronize(Character* character, double frame) {
 		Eigen::VectorXd p_tmp = mReferenceManager->GetPosition(i, true);
 		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(p_tmp.head<6>());
 		T_current = T0_phase.inverse()*T_current;
+		Eigen::Isometry3d T_current_projected = T0_gen_projected*T_current;
 		T_current = T0_gen*T_current;
 
-		p_tmp.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+		p_tmp.head<3>() = dart::dynamics::FreeJoint::convertToPositions(T_current_projected).segment<3>(0);
+		p_tmp.segment<3>(3) = dart::dynamics::FreeJoint::convertToPositions(T_current).segment<3>(3);
+		p_tmp(4) = mReferenceManager->GetPosition(i, true)(4);
+
 		p.push_back(p_tmp);
 		t.push_back(mReferenceManager->GetTimeStep(i, true));
 	}
-	std::cout << 3 << std::endl;
+
 
 	mReferenceManager->LoadAdaptiveMotion(p, t);
 	mCurrentFrameOnPhase = frame;
 	mCurrentFrame = frame;
 	mPrevFrame = mCurrentFrame;
-	std::cout << 4 << std::endl;
 
 	mAdaptiveStep = mReferenceManager->GetTimeStep(frame, true);
 	mTargetPositions = mReferenceManager->GetPosition(frame, true);
 	mPrevTargetPositions = mTargetPositions;
-	std::cout << 5 << std::endl;
 
+	if(endPosition.norm() < 1e-3)
+		mPrevEndPos = mTargetPositions;
+	else
+		mPrevEndPos = endPosition;
+	mEndofMotion = false;
 }
 bool
 SubController::
@@ -130,6 +139,10 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame, true);
 	this->mTargetPositions = p_v_target->GetPosition();
+	if(mCurrentFrame < mBlendInterval - 1) {
+		double weight = (mCurrentFrame+1) / mBlendInterval;
+		this->mTargetPositions = BlendPosition(mPrevEndPos, mTargetPositions, weight, false);
+	}
 	Eigen::VectorXd TargetVelocities = character->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033 * (mCurrentFrame - mPrevFrame);
 	delete p_v_target;
 
@@ -161,6 +174,9 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 	}
 	mPrevTargetPositions = mTargetPositions;
 	mPrevFrame = mCurrentFrame;
+	if(mReferenceManager->GetPhaseLength() <= mCurrentFrame)
+		mEndofMotion = true;
+
 }
 Eigen::VectorXd 
 SubController::
@@ -252,8 +268,12 @@ GetState(Character* character) {
 	}
 	double t = mReferenceManager->GetTimeStep(mCurrentFrameOnPhase, true);
 	Motion* p_v_target = mReferenceManager->GetMotion(mCurrentFrame+t, true);
-
-	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(character, p_v_target->GetPosition(), p_v_target->GetVelocity()*t);
+	Eigen::VectorXd p_target = p_v_target->GetPosition();
+	if(mCurrentFrame < mBlendInterval - 1) {
+		double weight = (mCurrentFrame+1) / mBlendInterval;
+		p_target = BlendPosition(mPrevEndPos, p_target, weight, false);
+	}
+	Eigen::VectorXd p_next = GetEndEffectorStatePosAndVel(character, p_target, p_v_target->GetVelocity()*t);
 
 	delete p_v_target;
 
