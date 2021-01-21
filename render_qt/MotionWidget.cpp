@@ -455,6 +455,9 @@ paintGL()
 	DrawGround();
 	DrawSkeletons();
 
+	GUI::DrawPoint(Eigen::Vector3d(-0.4+0.75,      1.08,   0), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+	GUI::DrawPoint(Eigen::Vector3d(0.4+0.75,     1.08, 0), Eigen::Vector3d(1.0, 0.0, 0.0), 10);
+
 	if(mRunSim) GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 	else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }

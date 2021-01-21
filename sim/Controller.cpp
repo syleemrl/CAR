@@ -12,8 +12,7 @@ namespace DPhy
 Controller::Controller(ReferenceManager* ref, bool adaptive, bool parametric, bool record, int id)
 	:mControlHz(30),mSimulationHz(150),mCurrentFrame(0),
 	w_p(0.35),w_v(0.1),w_ee(0.3),w_com(0.25),
-	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false),
-	mRD(), mMT(mRD()), mUniform(0.0, 1.0)
+	terminationReason(-1),mIsNanAtTerminal(false), mIsTerminal(false)
 {
 	this->mRescaleParameter = std::make_tuple(1.0, 1.0, 1.0);
 	this->isAdaptive = adaptive;
@@ -145,8 +144,8 @@ Step()
 	mAdaptiveStep = mActions[mInterestedDof];
 	// std::cout << mAdaptiveStep << std::endl;
 
-	// if(!isAdaptive)
-	// 	mAdaptiveStep = 1;
+	if(!isAdaptive)
+		mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += mAdaptiveStep;
@@ -225,11 +224,9 @@ Step()
 			mControlFlag.setZero();
 			mCountParam = 0;
 			mCountTracking = 0;
-
-			mTotalYrot = 0;
-			mConDiff = 0;
-			mCountContact = 0;
-			mEndYrot.clear();
+			
+			mTargetHead.setZero();
+			mCountTarget = 0;
 		}
 	}
 
@@ -302,10 +299,8 @@ ClearRecord()
 	while(!mTimeQueue.empty())
 		mTimeQueue.pop();
 	
-	mTotalYrot = 0;
-	mConDiff = 0;
-	mCountContact = 0;
-	mEndYrot.clear();
+	mTargetHead.setZero();
+	mCountTarget = 0;
 
 	data_raw.clear();
 
@@ -539,96 +534,44 @@ GetParamReward()
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
 
-	if(mControlFlag[0] < 2) {
-		double delta = skel->getPositions()(1) - mPrevPositions(1);
-		if(skel->getPositions()(1) * mPrevPositions(1) < 0 && 
-			skel->getPositions()(1) < - 0.5 * M_PI ) {
-			delta = 2 * M_PI - mPrevPositions(1) + skel->getPositions()(1);
-		} else if(skel->getPositions()(1) * mPrevPositions(1) < 0 && 
-			skel->getPositions()(1) > 0.5 * M_PI) {
-			delta = -(2 * M_PI + mPrevPositions(1) - skel->getPositions()(1));
-		}
-		mTotalYrot += delta;
-	}
+	if(mCurrentFrameOnPhase >= 14 && mControlFlag[0] == 0) {
+		mTargetHead += skel->getBodyNode("Head")->getWorldTransform().translation();
+		mCountTarget += 1;
+		if(mCurrentFrameOnPhase >= 16.5) {
+			mTargetHead /= mCountTarget;
+			Eigen::Vector3d root_new = mRootZero.segment<3>(0);
+			root_new = projectToXZ(root_new);
+			Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
 
-	if(mCurrentFrameOnPhase >= 27 && mControlFlag[0] < 3) {
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_ref = GetContactInfo(mReferenceManager->GetPosition(mCurrentFrameOnPhase, false));
-		std::vector<std::pair<bool, Eigen::Vector3d>> contacts_cur = GetContactInfo(skel->getPositions());
+			Eigen::Vector3d head = mTargetHead - mRootZero.segment<3>(3);
+			head(1) = 0;
+			Eigen::Vector3d dir =  aa.inverse() * head;
+			double norm = dir.norm();
+			dir.normalize();
 
-		for(int i = 0; i < contacts_cur.size(); i++) {
-			if(contacts_ref[i].first && !contacts_cur[i].first) {
-				mConDiff += pow(std::max(0.0, (contacts_cur[i].second)(1) - 0.05), 2);
-			} else if(!contacts_ref[i].first && contacts_cur[i].first) {
-				mConDiff += pow(std::max(0.0, (contacts_ref[i].second)(1) - 0.05), 2);
-			}
-		}
-		mCountContact += 1;
-	}
-	if(mCurrentFrameOnPhase >= 32 && mEndYrot.size() < 5) {
-		mControlFlag[0] = 2;
-	
-		// Eigen::Vector3d curRoot = skel->getPositions().segment<3>(0);
-		// Eigen::Vector3d root_xz = projectToXZ(curRoot);
-		// Eigen::AngleAxisd aa_root(root_xz.norm(), root_xz.normalized());
+			double angle = -2.54 + mParamGoal(0);
+			if(angle < -M_PI)
+				angle + 2 * M_PI;
 
-		// Eigen::Vector3d rf = 0.5 * skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-		// rf += 0.5 * skel->getBodyNode("RightToe")->getWorldTransform().translation();
-		// rf -= skel->getPositions().segment<3>(3);
-		// rf(1) = 0;
-		// rf = aa_root.inverse() * rf;
-
-		// Eigen::Vector3d lf = 0.5 * skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		// lf += 0.5 * skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-		// lf -= skel->getPositions().segment<3>(3);
-		// lf(1) = 0;
-		// lf = aa_root.inverse() * lf;
-
-		// Eigen::Vector3d l_diff = lf.normalized() - mlfRelativeBVH.normalized();
-		// Eigen::Vector3d r_diff = rf.normalized() - mrfRelativeBVH.normalized();
-
-		// Eigen::VectorXd ee_bvh_diff(6);
-		// ee_bvh_diff << l_diff, r_diff;
-
-		// mFootDiff += ee_bvh_diff.dot(ee_bvh_diff) / 4;
-		// mCountFoot += 1;
-
-		mEndYrot.push_back(skel->getPositions().segment<3>(0));
-		if(mEndYrot.size() == 5) {
-			Eigen::Matrix3d mean_root_mat;
-			mean_root_mat.setZero();
-			for(int i = 1 ; i < 5; i++) {
-				mean_root_mat += dart::math::expMapRot(mEndYrot[i]);
-			} 
-			Eigen::Vector3d EndYrot = dart::math::logMap(mean_root_mat / 4);
-
-			double delta = EndYrot(1) - mEndYrot[0](1);
-			if(EndYrot(1) * mEndYrot[0](1) < 0 && 
-				EndYrot(1) < - 0.5 * M_PI ) {
-				delta = 2 * M_PI - mEndYrot[0](1) + EndYrot(1);
-			} else if(EndYrot(1) * mEndYrot[0](1) < 0 && 
-				EndYrot(1) > 0.5 * M_PI) {
-				delta = -(2 * M_PI + mEndYrot[0](1) - EndYrot(1));
-			}
-			mTotalYrot += delta;
-
-			double curYrot = mTotalYrot / (-1.4);
-
-			double y_diff = mParamGoal(0) - curYrot;
-			double r_y = exp(-pow(y_diff, 2)*150);
+			Eigen::Vector3d dir_goal = Eigen::Vector3d(cos(angle), 0, sin(angle));
 		
-			mConDiff /= mCountContact;
-			double r_c = exp(-mConDiff * 100);
+			Eigen::Vector3d dir_diff = dir_goal - dir;
+			double h_diff = mTargetHead(1) - 1.08;
 
-			r_param = r_y * r_c;
-		
-			mParamCur(0) = curYrot;
-
-			mControlFlag[0] = 3;
-
+			if(mTargetHead(1)  < 1.12 &&  mTargetHead(1) > 0.92) {
+				mParamCur(0) = atan2(dir(2), dir(0)) + 2.54;
+				if(mParamCur(0) > M_PI)
+					mParamCur(0) -= 2 * M_PI;
+			} else {
+				mParamCur(0) = -100;
+			}
+			r_param = exp_of_squared(dir_diff,0.2) * exp(-pow(h_diff,2)*100);
+			
+			mControlFlag[0] = 1;
 			if(mRecord) {
-				std::cout << "current parameter: " <<mParamCur.transpose() << std::endl;
-				std::cout << "contact : " << mConDiff << " / " << r_c << std::endl;
-				std::cout << "rotation : " << mTotalYrot << " / " <<  y_diff << " / " <<  r_y << std::endl;
+				std::cout << "mTargetHead: " <<mTargetHead.transpose() << " / " << mParamCur << std::endl;
+				std::cout << "dir: " << dir.transpose() << " #" << exp_of_squared(dir_diff,0.2) << " / " <<
+							 "height: " <<  mTargetHead(1) << " #" << exp(-pow(h_diff,2)*100) << std::endl;
 			}
 		}
 	}
@@ -653,6 +596,13 @@ UpdateAdaptiveReward()
 
 	double r_tot = r_tracking;
 
+
+	Eigen::Vector3d root_new = skel->getPositions().segment<3>(0);
+	root_new = projectToXZ(root_new);
+	double r_diff = root_new(1) + 0.75;
+	double r_root = exp(-pow(r_diff, 2) * 20);
+
+	r_tot = 0.9 * r_tot + 0.1 * r_root;
 	mRewardParts.clear();
 
 	if(dart::math::isNan(r_tot)){

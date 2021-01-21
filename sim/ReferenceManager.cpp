@@ -451,20 +451,20 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.8;
 
 	mParamCur.resize(1);
-	mParamCur << 1;
+	mParamCur << 0;
 
 	mParamGoal.resize(1);
-	mParamGoal << 1;
+	mParamGoal << 0;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(1);
 		paramUnit<< 0.1;
 
 		mParamBase.resize(1);
-		mParamBase << 0.8;
+		mParamBase << -1.5;
 
 		mParamEnd.resize(1);
-		mParamEnd << 3.0;
+		mParamEnd << 1.5;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -532,17 +532,12 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		return;
 	}
 
-	if( abs(data_raw[data_raw.size()-1].first(0) + 0.1) >= 0.1 ||
-		abs(data_raw[data_raw.size()-1].first(2) + 0.02) >= 0.1)
-		return;
-
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
-	// if(std::get<0>(rewards) < mThresholdTracking) {
-	// 	return;
-	// }
-
+	if(std::get<2>(rewards).sum_slide > 0.025) {
+		return;
+	}
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 
 	std::vector<Eigen::VectorXd> trajectory;
@@ -620,7 +615,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 	double r_slide = exp(- std::get<2>(rewards).sum_slide * 7.0);
 	double reward_trajectory = r_pos * r_vel * r_slide * r_foot;
-
+	if(reward_trajectory < 0.5)
+		return;
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
 
 
