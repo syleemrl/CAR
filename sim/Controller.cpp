@@ -278,7 +278,7 @@ Step()
 		mFitness.sum_slide+= slide;
 		mFitness.slide_cnt++;		
 
-		if(mRecord) std::cout<<"@ "<<mCurrentFrame<<"/ "<<slide<<"/\t"<<toe_v.transpose()<<std::endl;
+		// if(mRecord) std::cout<<"@ "<<mCurrentFrame<<"/ "<<slide<<"/\t"<<toe_v.transpose()<<std::endl;
 
 	}
 
@@ -531,9 +531,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	if(jump_phase ==1){
 		double r_foot_x = exp_of_squared(foot_x, sig_foot_x);
 		if(mRecord) {
-			std::cout<<mCurrentFrameOnPhase<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<std::endl;
-			std::cout<<"left ref: "<<ref_left_foot_x<<" / "<<left_foot_x<<std::endl;
-			std::cout<<"right ref: "<<ref_right_foot_x<<" / "<<right_foot_x<<std::endl;
+			// std::cout<<mCurrentFrame<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<" / left: "<<ref_left_foot_x<<" / "<<left_foot_x<<"/ right; "<<ref_right_foot_x<<" / "<<right_foot_x<<std::endl;
 		}
 		r_ee = 0.8*r_ee + 0.2*r_foot_x; //(r_ee + r_foot_x)/2.0;		
 	}
@@ -605,9 +603,9 @@ GetSimilarityReward()
 	double ref_obj_height = 0;
 	double cur_obj_height = 0;
 	if(isAdaptive){
-		if(mCurrentFrameOnPhase <= 40){
+		if(mCurrentFrame <= 40){
 			cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
-		}else if(mCurrentFrameOnPhase >45){
+		}else if(mCurrentFrame >45){
 			cur_obj_height = mObject_end->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
 		}
 	}
@@ -713,6 +711,7 @@ GetSimilarityReward()
 	mFitness.sum_vel += v_diff.cwiseAbs();
 	mFitness.sum_contact += abs(con_diff);
 
+	if(mRecord) std::cout<<"@ "<<mCurrentFrame<<" / "<<r_con<<" , "<<r_ee<<" , "<<r_p<<std::endl;
 	return r_con  * r_p * r_ee;
 }
 double 
@@ -905,7 +904,7 @@ UpdateTerminalInfo()
 	}
 
 	// mRecord = true;
-	if(mParamGoal[0] >= 0.1 &&  mCurrentFrameOnPhase >= 60){
+	if(mParamGoal[0] >= 0.1 &&  mCurrentFrame >= 60){
 		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
 		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
 		if(lf_ground || rf_ground) {
