@@ -273,7 +273,7 @@ Step()
 	
 		Eigen::VectorXd toe_v(12);
 		toe_v<< left_v, right_v;
-		double slide = DPhy::exp_of_squared(toe_v, 1.0);
+		double slide = DPhy::exp_of_squared(toe_v, 1.2);
 
 		mFitness.sum_slide+= slide;
 		mFitness.slide_cnt++;		
@@ -310,6 +310,7 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
+			mFitness.sum_slide/= mFitness.slide_cnt;
 			// mFitness.com_rot_norm/= mFitness.fall_cnt;
 
 			if((mCurrentFrame < 2*mReferenceManager->GetPhaseLength())  && (land_foot_cnt > 0)){
@@ -726,10 +727,10 @@ GetParamReward()
 
 		r_param = std::exp(- std::pow((mParamCur[1]- mParamGoal[1])/0.2, 2.0));
 		
-		mFitness.sum_slide/= mFitness.slide_cnt;
-		double r_slide= mFitness.sum_slide;
+		double r_slide= mFitness.sum_slide/mFitness.slide_cnt;
 		r_param = r_param * r_slide;
-			
+		
+		// std::cout<<"r_slide: "<<r_slide<<std::endl;
 		gotParamReward = true;
 	}	
 
