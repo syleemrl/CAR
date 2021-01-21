@@ -273,7 +273,7 @@ Step()
 	
 		Eigen::VectorXd toe_v(12);
 		toe_v<< left_v, right_v;
-		double slide = DPhy::exp_of_squared(toe_v, 1.5);
+		double slide = DPhy::exp_of_squared(toe_v, 1.0);
 
 		mFitness.sum_slide+= slide;
 		mFitness.slide_cnt++;		
@@ -310,7 +310,6 @@ Step()
 			mFitness.sum_contact/= mCountTracking;
 			mFitness.sum_pos/= mCountTracking;
 			mFitness.sum_vel/= mCountTracking;
-			mFitness.sum_slide/= mFitness.slide_cnt;
 			// mFitness.com_rot_norm/= mFitness.fall_cnt;
 
 			if((mCurrentFrame < 2*mReferenceManager->GetPhaseLength())  && (land_foot_cnt > 0)){
@@ -482,6 +481,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	skel->computeForwardKinematics(true,false,false);
 
 	for(int i=0;i<mEndEffectors.size();i++){
+		// ee_diff.segment<3>(3*i) = ee_transforms[i].translation() - skel->getBodyNode(mEndEffectors[i])->getWorldTransform().translation();
 		Eigen::Isometry3d diff = ee_transforms[i].inverse() * skel->getBodyNode(mEndEffectors[i])->getWorldTransform();
 		ee_diff.segment<3>(3*i) = diff.translation();
 	}
@@ -534,7 +534,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 			std::cout<<"left ref: "<<ref_left_foot_x<<" / "<<left_foot_x<<std::endl;
 			std::cout<<"right ref: "<<ref_right_foot_x<<" / "<<right_foot_x<<std::endl;
 		}
-		r_ee = 0.85*r_ee + 0.15*r_foot_x; //(r_ee + r_foot_x)/2.0;		
+		r_ee = 0.8*r_ee + 0.2*r_foot_x; //(r_ee + r_foot_x)/2.0;		
 	}
 
 	std::vector<double> rewards;
@@ -725,6 +725,11 @@ GetParamReward()
 		mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
 
 		r_param = std::exp(- std::pow((mParamCur[1]- mParamGoal[1])/0.2, 2.0));
+		
+		mFitness.sum_slide/= mFitness.slide_cnt;
+		double r_slide= mFitness.sum_slide;
+		r_param = r_param * r_slide;
+			
 		gotParamReward = true;
 	}	
 
