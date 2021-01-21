@@ -186,15 +186,11 @@ protected:
 	std::vector<std::pair<bool, Eigen::Vector3d>> mPrevContactInfo;
 /////////////////////////////////////////////////
 // for action parameter design
-	double mTotalYrot;
-	double mConDiff;
-	int mCountContact;
-	std::vector<Eigen::Vector3d> mEndYrot;
+	double maxSpeedObj;
+	Eigen::Vector6d mHeadRoot;
+	int mCountHead;
 
-	std::random_device mRD;
-	std::mt19937 mMT;
-	std::uniform_real_distribution<double> mUniform;
-	
+	Eigen::Vector3d mHandPosition;
 //////////////////////////////////////////////////
 };
 }

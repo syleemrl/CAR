@@ -450,21 +450,21 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 	mThresholdTracking = 0.8;
 
-	mParamCur.resize(1);
-	mParamCur << 1;
+	mParamCur.resize(4);
+	mParamCur << 0.67, 1.22, 1.13, 0.4;
 
-	mParamGoal.resize(1);
-	mParamGoal << 1;
+	mParamGoal.resize(4);
+	mParamGoal << 0.67, 1.22, 1.13, 0.4;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(1);
-		paramUnit<< 0.1;
+		Eigen::VectorXd paramUnit(4);
+		paramUnit<< 0.1, 0.1, 0.1, 0.2;
 
-		mParamBase.resize(1);
-		mParamBase << 0.8;
+		mParamBase.resize(4);
+		mParamBase << -0.2, 1.1, 0.9, 0.4;
 
-		mParamEnd.resize(1);
-		mParamEnd << 3.0;
+		mParamEnd.resize(4);
+		mParamEnd << 1.0, 1.4, 1.4, 2.2;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -528,7 +528,7 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards)) || data_raw[0].second != 0) {
+	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
 
