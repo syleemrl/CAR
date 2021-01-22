@@ -221,6 +221,8 @@ protected:
 	double stickFoot_left_max;
 	double stickFoot_right_min;
 	double stickFoot_right_max;
+
+	int v_count = 0;
 };
 }
 #endif

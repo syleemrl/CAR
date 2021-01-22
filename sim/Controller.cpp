@@ -475,8 +475,11 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	
 	Eigen::Vector3d com_diff = skel->getCOM();
 
+	double root_x= skel->getBodyNode("Hips")->getWorldTransform().translation()[0];
 	double left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
 	double right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+	left_foot_x-= root_x;
+	right_foot_x-= root_x;
 
 	skel->setPositions(position2);
 	skel->computeForwardKinematics(true,false,false);
@@ -501,8 +504,11 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	skel->setVelocities(vel);
 	skel->computeForwardKinematics(true, true, false);
 
+	double ref_root_x= skel->getBodyNode("Hips")->getWorldTransform().translation()[0];
 	double ref_left_foot_x = skel->getBodyNode("LeftFoot")->getWorldTransform().translation()[0];
 	double ref_right_foot_x = skel->getBodyNode("RightFoot")->getWorldTransform().translation()[0];
+	ref_left_foot_x-= ref_root_x;
+	ref_right_foot_x-= ref_root_x;
 
 	skel->setPositions(p_save);
 	skel->setVelocities(v_save);
@@ -517,7 +523,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	double sig_v = 3 * scale;	
 	double sig_com = 0.2 * scale;		
 	double sig_ee = 0.2 * scale;		
-	double sig_foot_x = 0.8*scale;
+	double sig_foot_x = 0.6*scale;
 
 	double r_p = exp_of_squared(p_diff_reward,sig_p);
 	double r_v;
@@ -531,9 +537,10 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	if(jump_phase ==1){
 		double r_foot_x = exp_of_squared(foot_x, sig_foot_x);
 		if(mRecord) {
+			std::cout<<mCurrentFrame<<":: "<<r_foot_x<<": "<<foot_x.transpose()<<"/ "<<left_foot_x<<"("<<ref_left_foot_x<<"), "<<right_foot_x<<"("<<ref_right_foot_x<<")"<<std::endl;
 			// std::cout<<mCurrentFrame<<" "<<r_foot_x<<" / "<<foot_x.transpose()<<"/ r_ee: "<<r_ee<<" / left: "<<ref_left_foot_x<<" / "<<left_foot_x<<"/ right; "<<ref_right_foot_x<<" / "<<right_foot_x<<std::endl;
 		}
-		r_ee = 0.8*r_ee + 0.2*r_foot_x; //(r_ee + r_foot_x)/2.0;		
+		r_ee = 0.6*r_ee + 0.4*r_foot_x; //(r_ee + r_foot_x)/2.0;		
 	}
 
 	std::vector<double> rewards;
@@ -720,7 +727,7 @@ GetParamReward()
 {
 	double r_param = 0;
 
-	if(mCurrentFrameOnPhase >= 73 && !gotParamReward)
+	if(mCurrentFrameOnPhase >= 74 && !gotParamReward)
 	{
 		mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
 
@@ -890,8 +897,19 @@ UpdateTerminalInfo()
 		Eigen::Vector3d rf_v = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getLinearVelocity();
 		double cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
 
-	
-		if( ((lf[1]-cur_obj_height)> 0.1 && lf_v.norm()>0.15) || (((rf[1]-cur_obj_height) >0.1) && rf_v.norm()> 0.15) ){
+		// if(mRecord) std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
+
+		bool c1= ((lf[1]-cur_obj_height)> 0.1 && lf_v.norm()>0.15) || (((rf[1]-cur_obj_height) >0.1) && rf_v.norm()> 0.15);
+		bool c2 = (lf_v.norm()>1.0 || rf_v.norm()>1.0);
+		Eigen::Vector3d root_v = mCharacter->GetSkeleton()->getBodyNode("Hips")->getLinearVelocity();
+		bool c3= root_v.norm() > 1.0;
+
+		if (c1 || c2 || c3) v_count++;
+		else v_count = 0;
+
+		bool c_once= (lf_v.norm()>3.5|| rf_v.norm()>3.5 || root_v.norm() > 3.5);
+
+		if( c_once || (v_count > 3)){
 			if(mRecord){
 				std::cout<<"------------------------------- foot violation -------------------------------"<<std::endl;
 				std::cout<<mCurrentFrame<<" / "<<(lf[1]-cur_obj_height)<<" "<<(rf[1]-cur_obj_height)<<std::endl;
@@ -948,7 +966,7 @@ UpdateTerminalInfo()
 		}
 	// }
 
-	int length_limit = mReferenceManager->GetPhaseLength() + 25;
+	int length_limit = mReferenceManager->GetPhaseLength();// + 25;
 	if(!isAdaptive) length_limit= mReferenceManager->GetPhaseLength()*2 + 25;
 
 	if(mCurrentFrame > length_limit) { // this->mBVH->GetMaxFrame() - 1.0){
@@ -1155,6 +1173,8 @@ Reset(bool RSI)
 
 	gotParamReward = false;
 	placedObject= false;
+
+	v_count=0;
 	
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
