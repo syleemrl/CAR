@@ -489,21 +489,21 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
 										paramUnit, mDOF + 1, mPhaseLength);
 		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;
  	}
- 	if(ctrl_type == "Block") {
- 		mParamCur.resize(2);
-		mParamCur << 0, 1.0;
+ 	if(ctrl_type == "Dodge") {
+ 		mParamCur.resize(1);
+		mParamCur << 0;
 
-		mParamGoal.resize(2);
-		mParamGoal << 0, 1.0;
+		mParamGoal.resize(1);
+		mParamGoal << 0;
 
-		Eigen::VectorXd paramUnit(2);
-		paramUnit<< 0.2, 0.1;
+		Eigen::VectorXd paramUnit(1);
+		paramUnit<< 0.1;
 
-		mParamBase.resize(2);
-		mParamBase << -0.95, 0.8;
+		mParamBase.resize(1);
+		mParamBase << -1.5;
 
-		mParamEnd.resize(2);
-		mParamEnd << 0.95, 1.2;
+		mParamEnd.resize(1);
+		mParamEnd << 1.5;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										paramUnit, mDOF + 1, mPhaseLength);
@@ -511,20 +511,20 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
  	}
  	if(ctrl_type == "Punch") {
 
-		mParamCur.resize(1);
-		mParamCur <<  0.4;
+		mParamCur.resize(4);
+		mParamCur << 0.7, 1.22, 1.13, 0.4;
 
-		mParamGoal.resize(1);
-		mParamGoal <<  0.4;
+		mParamGoal.resize(4);
+		mParamGoal << 0.7, 1.22, 1.13, 0.4;
 
-		Eigen::VectorXd paramUnit(1);
-		paramUnit<<  0.1;
+		Eigen::VectorXd paramUnit(4);
+		paramUnit<< 0.1, 0.1, 0.1, 0.2;
 
-		mParamBase.resize(1);
-		mParamBase << 0.4;
+		mParamBase.resize(4);
+		mParamBase << -0.2, 1.1, 0.9, 0.4;
 
-		mParamEnd.resize(1);
-		mParamEnd << 4.0;
+		mParamEnd.resize(4);
+		mParamEnd << 1.0, 1.4, 1.4, 2.2;
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										paramUnit, mDOF + 1, mPhaseLength);

@@ -9,7 +9,7 @@ public:
 	Camera(int w,int h);
 		
 	void SetSize(int w,int h);
-	void SetCamera(const Eigen::Vector3d& lookAt,const Eigen::Vector3d& eye,const Eigen::Vector3d& up);
+	void SetCamera(Eigen::Vector3d lookAt, Eigen::Vector3d eye, Eigen::Vector3d up=Eigen::Vector3d(0,1,0));
 	void Apply();
 
 	void Pan(int x,int y,int prev_x,int prev_y);

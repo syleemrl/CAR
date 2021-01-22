@@ -12,12 +12,18 @@ public:
 	
 	Eigen::VectorXd GetCurrentRefPositions() {return mTargetPositions;}
 	Eigen::VectorXd GetCurrentSimPositions() {return mCharacter->GetSkeleton()->getPositions();}
+	Eigen::Vector3d GetCOM() {return mCharacter->GetSkeleton()->getCOM(); }
 
 	void SwitchController(std::string type, int frame=0);
+	void SetAction(Eigen::VectorXd action);
 	void LoadControllers();
 	void AddSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
 	void Reset();
 	void Step();
+	void AddNewRandomHitPoint();
+	void ClearHitPoints() {mHitPoints.clear();}
+	std::vector<Eigen::Vector3d> GetHitPoints() {return mHitPoints; }
+	std::string GetNextAction();
 
 	SubController* mPrevController;	
 	SubController* mCurrentController;
@@ -41,6 +47,12 @@ public:
 	std::vector<Eigen::VectorXd> mRecordPosition;
 	std::vector<Eigen::Vector3d> mHitPoints;
 	bool mIsWaiting=false;
+	bool mActionSelected;
+	Eigen::VectorXd mNextAction;
+
+	std::random_device mRD;
+	std::mt19937 mMT;
+	std::uniform_real_distribution<double> mUniform;
 };
 } 
 

@@ -16,7 +16,7 @@ SetSize(int w,int h)
 }
 void
 Camera::
-SetCamera(const Eigen::Vector3d& lookAt,const Eigen::Vector3d& eye,const Eigen::Vector3d& up)
+SetCamera(Eigen::Vector3d lookAt,Eigen::Vector3d eye,Eigen::Vector3d up)
 {
 	this->lookAt = lookAt, this->eye = eye, this->up = up;
 }

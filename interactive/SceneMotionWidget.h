@@ -4,6 +4,8 @@
 #include <QOpenGLWidget>
 #include <QTimerEvent>
 #include <QKeyEvent>
+#include <QSet>
+#include <QEvent>
 #pragma push_macro("slots")
 #undef slots
 #include <boost/python.hpp>
@@ -51,6 +53,7 @@ protected:
 	void mouseMoveEvent(QMouseEvent* event);
 	void mouseReleaseEvent(QMouseEvent* event);
 	void wheelEvent(QWheelEvent *event);
+	bool eventFilter(QObject * obj, QEvent * event);
 
 	void DrawGround();
 	void DrawSkeletons();
@@ -90,6 +93,7 @@ protected:
 	std::uniform_real_distribution<double> mUniform;
 
 	DPhy::MetaController* mMC;
+	std::vector<std::pair<int, std::chrono::steady_clock::time_point>> pressedKeys;
 
 };
 #endif
