@@ -191,6 +191,11 @@ protected:
 	int mCountHead;
 
 	Eigen::Vector3d mHandPosition;
+	Eigen::Vector3d mPivotFoot;
+
+	Eigen::VectorXd mStickLeftfoot;
+	Eigen::VectorXd mStickRightfoot;
+
 //////////////////////////////////////////////////
 };
 }

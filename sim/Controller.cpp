@@ -261,7 +261,7 @@ Step()
 	} else if(mControlFlag[0] == 2) {
 		mControlFlag[0] = 3;
 	}
-	if(mCountHead < 5) {
+	if(mCountHead < 5 && mCurrentFrame > mCurrentFrameOnPhase) {
 		mHeadRoot += mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		mCountHead += 1;
 		if(mCountHead == 5) {
@@ -560,34 +560,47 @@ GetSimilarityReward()
 	}
 
 	double footSlide = 0;
-	Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-	lf /= 2.0;
 
-	Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-	rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
-	rf /= 2.0;
+	// Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+	// rf /= 2.0;
 		
-	for(int i = 0; i < 2; i++) {
-		Eigen::Vector3d f; 
-		if(i == 0) {
-			f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-			f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-			f /= 2.0;
-		} else if(i == 1) {
-			f = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
-			f += skel->getBodyNode("RightToe")->getWorldTransform().translation();
-			f /= 2.0;
-		}
+	if(mCurrentFrameOnPhase <= 12.5) {
+		Eigen::Vector3d	f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		f /= 2.0;
 		bool contact_now = f(1) < 0.07;
-		if(mPrevContactInfo[i].first && contact_now) {
-			Eigen::Vector3d v_slide = mPrevContactInfo[i].second - f;
-			v_slide(1) = 0;
-			footSlide += v_slide.dot(v_slide);
-		}
-		mPrevContactInfo[i] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
-	}
 
+		mPrevContactInfo[0] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
+	}
+	else if(mCurrentFrameOnPhase <= 32) {
+		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+		lf /= 2.0;
+
+		Eigen::Vector3d v_slide = mPrevContactInfo[0].second - lf;
+		v_slide(1) = 0;
+		footSlide += v_slide.dot(v_slide);
+	}
+	// for(int i = 0; i < 2; i++) {
+	// 	Eigen::Vector3d f; 
+	// 	if(i == 0) {
+	// 		f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 		f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+	// 		f /= 2.0;
+	// 	} else if(i == 1) {
+	// 		f = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+	// 		f += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+	// 		f /= 2.0;
+	// 	}
+	// 	bool contact_now = f(1) < 0.07;
+	// 	if(mPrevContactInfo[i].first && contact_now) {
+	// 		Eigen::Vector3d v_slide = mPrevContactInfo[i].second - f;
+	// 		v_slide(1) = 0;
+	// 		footSlide += v_slide.dot(v_slide);
+	// 	}
+	// 	mPrevContactInfo[i] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
+	// }
 
 	double r_con = exp(-con_diff);
 	double r_ee = exp_of_squared(v_diff, 3);
@@ -608,6 +621,10 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
+	if(mCurrentFrameOnPhase >= 13 && mControlFlag[1] == 0) {
+		mControlFlag[1] = 1;
+		mPivotFoot = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	}
 	if(mControlFlag[0] == 3) {
 		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
 		root_new = projectToXZ(root_new);
@@ -628,8 +645,10 @@ GetParamReward()
 		dir = aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-		if(dir(0) > 0)
+		if(dir(0) > 0) {
 			mParamCur << dir(2), mHandPosition(1), norm, maxSpeedObj;
+
+		}
 		mControlFlag[0] = 4;
 		if(mRecord) {
 			std::cout << "hand position : " << hand_diff.transpose() << " / "<< exp_of_squared(hand_diff,0.1) << std::endl;
@@ -652,11 +671,18 @@ UpdateAdaptiveReward()
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();	
 	double time_diff = mAdaptiveStep  - mReferenceManager->GetTimeStep(mPrevFrameOnPhase, true);
 	double r_time = exp(-pow(time_diff, 2)*75);
+	double r_tracking = 0.85 * (0.5 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2]) + 0.15 * r_time;
 
-	double r_tracking = 0.85 * accum_bvh + 0.15 * r_time;
+	// if(mControlFlag[1] == 1 && mCurrentFrameOnPhase <= 29) {
+	// 	Eigen::Vector3d curPivotFoot = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 	Eigen::Vector3d f_diff = curPivotFoot - mPivotFoot;
+	// 	double r_stick = exp_of_squared(f_diff, 0.08);
+	// 	std::cout << f_diff.transpose() << " / " << r_stick << std::endl;
+	// 	r_tracking = 0.85 * (0.5 * tracking_rewards_bvh[0] + 0.2 * tracking_rewards_bvh[1] + 0.2 * tracking_rewards_bvh[2] + 0.1 * r_stick) + 0.15 * r_time;
+	// }
+
 	double r_similarity = this->GetSimilarityReward();
 	double r_param = this->GetParamReward();
-
 	double r_tot = r_tracking;
 	
 	
@@ -863,6 +889,7 @@ Reset(bool RSI)
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
 
+	mPrevContactInfo.clear();
 	for(int i = 0; i < 2; i++) {
 		Eigen::Vector3d f; 
 		if(i == 0) {

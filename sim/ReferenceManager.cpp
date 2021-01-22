@@ -268,7 +268,7 @@ void
 ReferenceManager::
 GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen)
 {
-	mLock.lock();
+		mLock.lock();
 	while(!p_gen.empty()){
 		Motion* m = p_gen.back();
 		p_gen.pop_back();
@@ -292,69 +292,74 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(p_phase.back()->GetPosition().head<6>());
 
 	Eigen::Isometry3d T0_gen = T0_phase;
-	Eigen::Isometry3d T0_gen_smooth = T0_phase;
-
+	
 	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
 
 	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
 	T01.linear() = dart::math::expMapRot(DPhy::projectToXZ(p01));
 	T01.translation()[1] = 0;
 
-	
-	int totalLength = p_phase.size();
-	int smooth_time = 10;
 	for(int i = 0; i < frames; i++) {
 		
-		int phase = i % totalLength;
+		int phase = i % mPhaseLength;
 		
-		if(i < totalLength) {
-			p_gen.push_back(new Motion(p_phase[i]));
+		if(i < mPhaseLength) {
+			if(phase < 4) {
+				double weight = phase / 4;
+				Eigen::VectorXd blended_pos = DPhy::BlendPosition(mMotions_phase[i]->GetPosition(), p_phase[i]->GetPosition(), weight);
+				blended_pos.segment<3>(3) = p_phase[phase]->GetPosition().segment<3>(3);
+				Eigen::VectorXd	blended_vel = mMotions_phase[i]->GetVelocity();
+
+				p_gen.push_back(new Motion(blended_pos, blended_vel));
+			} else
+				p_gen.push_back(new Motion(p_phase[i]));
 		} else {
 			Eigen::VectorXd pos;
 			if(phase == 0) {
+				std::vector<std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>> constraints;
 	
-				pos = p_phase[phase]->GetPosition();
-				pos.segment<6>(0) = p_gen.back()->GetPosition().segment<6>(0);
-				pos(4) = p_phase[phase]->GetPosition()(4);
- 				T0_gen_smooth = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+				skel->setPositions(p_gen.back()->GetPosition());
+				skel->computeForwardKinematics(true,false,false);
 
- 				Eigen::VectorXd p = pos;
-				Eigen::Vector3d prevRoot = p_phase[phase]->GetPosition().segment<3>(0);
-				Eigen::Vector3d curRoot = p_gen.back()->GetPosition().segment<3>(0);
+				Eigen::Vector3d p_footl = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+				Eigen::Vector3d p_footr = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
 
-				Eigen::Vector3d deltaRoot = JointPositionDifferences(curRoot, prevRoot);
-				deltaRoot = DPhy::projectToXZ(deltaRoot);
-				p.segment<3>(0) = curRoot;// dart::math::logMap(dart::math::expMapRot(prevRoot) * dart::math::expMapRot(deltaRoot)); 
-				p(1) = curRoot(1);
-				T0_gen = dart::dynamics::FreeJoint::convertToTransform(p.head<6>());
+				p_footl(1) = p0_footl(1);
+				p_footr(1)= p0_footr(1);
+
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("LeftFoot", p_footl, Eigen::Vector3d(0, 0, 0)));
+				constraints.push_back(std::tuple<std::string, Eigen::Vector3d, Eigen::Vector3d>("RightFoot", p_footr, Eigen::Vector3d(0, 0, 0)));
+
+				Eigen::VectorXd p = mMotions_phase[phase]->GetPosition();
+				p.segment<3>(3) = p_gen.back()->GetPosition().segment<3>(3);
+
+				// skel->setPositions(p);
+				// skel->computeForwardKinematics(true,false,false);
+				// pos = solveMCIKRoot(skel, constraints);
+				// pos(4) = mMotions_phase[phase]->GetPosition()(4);
 				pos = p;
+				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 			} else {
-				pos = p_phase[phase]->GetPosition();
+				if(phase < 4) {
+					double weight = phase / 4;
+					pos = DPhy::BlendPosition(mMotions_phase[phase]->GetPosition(), p_phase[phase]->GetPosition(), weight);
+					pos.segment<3>(3) = p_phase[phase]->GetPosition().segment<3>(3);
+				} else
+					pos = p_phase[phase]->GetPosition();
+
 				Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 				T_current = T0_phase.inverse()*T_current;
-				Eigen::Isometry3d T_current_smooth = T0_gen_smooth*T_current;
 				T_current = T0_gen*T_current;
-				pos.segment<6>(0) = dart::dynamics::FreeJoint::convertToPositions(T_current);
-
-				// if(phase < smooth_time){
-				// 	Eigen::Quaterniond q(T_current.linear());
-				// 	Eigen::Quaterniond q_smooth(T_current_smooth.linear());
-
-				// 	double slerp_t = (double)phase/smooth_time; 
-				// 	slerp_t = 0.5*(1-cos(M_PI*slerp_t)); //smooth slerp t [0,1]
-						
-				// 	Eigen::Quaterniond q_blend = q_smooth.slerp(slerp_t, q);
-				// 	pos.segment<3>(0) = QuaternionToDARTPosition(q_blend);
-				// } 
+				pos.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
 			}
 
 			Eigen::VectorXd vel = skel->getPositionDifferences(pos, p_gen.back()->GetPosition()) / 0.033;
 			p_gen.back()->SetVelocity(vel);
 			p_gen.push_back(new Motion(pos, vel));
-	
-			if(blend && phase == 0) {
-				for(int j = mBlendingInterval; j > 0; j--) {
-					double weight = 1.0 - j / (double)(mBlendingInterval+1);
+
+			if(blend && phase == mBlendingInterval) {
+				for(int j = 2 * mBlendingInterval - 1; j > 0; j--) {
+					double weight = 1.0 - j / (double)(2 * mBlendingInterval);
 					Eigen::VectorXd oldPos = p_gen[i - j]->GetPosition();
 					p_gen[i - j]->SetPosition(DPhy::BlendPosition(oldPos, pos, weight));
 					vel = skel->getPositionDifferences(p_gen[i - j]->GetPosition(), p_gen[i - j - 1]->GetPosition()) / 0.033;
@@ -364,7 +369,6 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 		}
 	}
 	mLock.unlock();
-
 }
 Eigen::VectorXd 
 ReferenceManager::
@@ -451,10 +455,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.8;
 
 	mParamCur.resize(4);
-	mParamCur << 0.67, 1.22, 1.13, 0.4;
+	mParamCur << 0.7, 1.22, 1.13, 0.4;
 
 	mParamGoal.resize(4);
-	mParamGoal << 0.67, 1.22, 1.13, 0.4;
+	mParamGoal << 0.7, 1.22, 1.13, 0.4;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(4);
@@ -531,17 +535,16 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
-
 	if( abs(data_raw[data_raw.size()-1].first(0) + 0.1) >= 0.1 ||
-		abs(data_raw[data_raw.size()-1].first(2) + 0.02) >= 0.1)
+		abs(data_raw[data_raw.size()-1].first(2)) >= 0.1)
 		return;
 
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
 
-	// if(std::get<0>(rewards) < mThresholdTracking) {
-	// 	return;
-	// }
+	if(std::get<2>(rewards).sum_slide > 0.5) {
+		return;
+	}
 
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 
@@ -618,9 +621,10 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_foot = exp(-std::get<2>(rewards).sum_contact*0.4); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
-	double r_slide = exp(- std::get<2>(rewards).sum_slide * 7.0);
+	double r_slide = exp(- std::get<2>(rewards).sum_slide * 1.0);
 	double reward_trajectory = r_pos * r_vel * r_slide * r_foot;
-
+	if(reward_trajectory < 0.4)
+		return;
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;
 
 
