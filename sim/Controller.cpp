@@ -844,7 +844,7 @@ Reset(bool RSI)
 	this->mTimeElapsed = 0;
 
 	Motion* p_v_target;
-	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, isAdaptive);
+	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	this->mTargetPositions = p_v_target->GetPosition();
 	this->mTargetVelocities = p_v_target->GetVelocity();
 	delete p_v_target;

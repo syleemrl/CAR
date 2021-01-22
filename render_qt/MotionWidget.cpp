@@ -248,6 +248,7 @@ UpdateParam(const bool& pressed) {
 	     	mController->SetGoalParameters(tp_denorm);
 		    std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 		    mReferenceManager->LoadAdaptiveMotion(cps);
+		    mReferenceManager->AddNewNoise();
 			RunPPO();
 	    }
 	}

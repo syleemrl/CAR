@@ -19,7 +19,57 @@ ReferenceManager::ReferenceManager(Character* character)
 
 	auto& skel = mCharacter->GetSkeleton();
 	mDOF = skel->getPositions().rows();
+	LoadMotionFromIdle();
+}
+void
+ReferenceManager::
+LoadMotionFromIdle() {
+	mMotions_idle.clear();
+	
+	this->mCharacter->LoadBVHMap();
 
+	BVH* bvh = new BVH();
+	std::string path = std::string(CAR_DIR) + "/motion/idle_mxm.bvh";
+	bvh->Parse(path);
+	std::cout << "load trained data from: " << path << std::endl;
+
+	auto& skel = mCharacter->GetSkeleton();
+	int dof = skel->getPositions().rows();
+	std::map<std::string,std::string> bvhMap = mCharacter->GetBVHMap(); 
+	for(const auto ss :bvhMap){
+		bvh->AddMapping(ss.first,ss.second);
+	}
+
+	double t = 0;
+	for(int i = 0; i < bvh->GetMaxFrame(); i++)
+	{
+		Eigen::VectorXd p = Eigen::VectorXd::Zero(dof);
+		Eigen::VectorXd p1 = Eigen::VectorXd::Zero(dof);
+
+		//Set p
+		bvh->SetMotion(t);
+
+		for(auto ss :bvhMap)
+		{
+			dart::dynamics::BodyNode* bn = skel->getBodyNode(ss.first);
+			Eigen::Matrix3d R = bvh->Get(ss.first);
+
+			dart::dynamics::Joint* jn = bn->getParentJoint();
+			Eigen::Vector3d a = dart::dynamics::BallJoint::convertToPositions(R);
+			a = QuaternionToDARTPosition(DARTPositionToQuaternion(a));
+			// p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
+			if(dynamic_cast<dart::dynamics::BallJoint*>(jn)!=nullptr
+				|| dynamic_cast<dart::dynamics::FreeJoint*>(jn)!=nullptr){
+				p.block<3,1>(jn->getIndexInSkeleton(0),0) = a;
+			}
+		}
+
+		p.block<3,1>(3,0) = bvh->GetRootCOM(); 
+		
+		mMotions_idle.push_back(p);
+		t += bvh->GetTimeStep();
+	}
+	delete bvh;
 }
 void 
 ReferenceManager::
@@ -235,6 +285,7 @@ LoadMotionFromBVH(std::string filename)
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	mEndPos = mMotions_phase[0]->GetPosition();
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -414,12 +465,30 @@ GetMotion(double t, bool adaptive)
 	int k0 = (int) std::floor(t);
 	int k1 = (int) std::ceil(t);	
 
-	if (k0 == k1)
-		return new Motion((*p_gen)[k0]);
-	else {
-		return new Motion(DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0)), 
-				DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+	if(k1 < 8) {
+		Eigen::VectorXd p0, p1;
+		p0 = (*p_gen)[k0]->GetPosition();
+		p1 = (*p_gen)[k1]->GetPosition();
+		double w0 = (k0+1) / 9.0;
+		double w1 = (k1+1) / 9.0;
+
+		p0 = BlendPosition(mEndPos, p0, w0, true);
+		p1 = BlendPosition(mEndPos, p1, w1, true);
+		if (k0 == k1)
+			return new Motion(p0, (*p_gen)[k1]->GetVelocity());
+		else {
+			return new Motion(DPhy::BlendPosition(p0, p1, 1 - (t-k0)), 
+					DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+		}
+	} else {
+		if (k0 == k1)
+			return new Motion((*p_gen)[k0]);
+		else {
+			return new Motion(DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0)), 
+					DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+		}
 	}
+
 }
 void
 ReferenceManager::
@@ -700,4 +769,14 @@ SelectReference(){
 		LoadAdaptiveMotion(mCPS_exp);
 	}
 }
+void
+ReferenceManager::
+AddNewNoise() {
+	int idx = (int)std::floor(mUniform(mMT) * 50);
+	mEndPos = mMotions_idle[idx];
+	mEndPos.segment<6>(0) = mMotions_phase_adaptive[0]->GetPosition().segment<6>(0);
+	mEndPos(3) += 0.4 * (mUniform(mMT) - 0.5);
+	mEndPos(5) += 0.4 * (mUniform(mMT) - 0.5);
+
+}	
 };

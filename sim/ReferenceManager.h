@@ -56,6 +56,7 @@ public:
 	void LoadAdaptiveMotion(std::vector<Eigen::VectorXd> cps);
 	void LoadAdaptiveMotion(std::string postfix="");
 	void LoadMotionFromBVH(std::string filename);
+	void LoadMotionFromIdle();
 	void GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_phase, std::vector<Motion*>& p_gen);
 	Motion* GetMotion(double t, bool adaptive=false);
 	std::vector<Eigen::VectorXd> GetVelocityFromPositions(std::vector<Eigen::VectorXd> pos); 
@@ -83,7 +84,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
 	std::vector<std::string> GetHierarchyStr() {return mHierarchyStr; }
-
+	void AddNewNoise();
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -127,6 +128,8 @@ protected:
 	std::uniform_real_distribution<double> mUniform;
 	std::vector<std::string> mHierarchyStr;
 
+	std::vector<Eigen::VectorXd> mMotions_idle;
+	Eigen::VectorXd mEndPos;
 };
 }
 
