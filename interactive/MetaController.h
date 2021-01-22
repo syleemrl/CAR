@@ -15,7 +15,7 @@ public:
 	Eigen::Vector3d GetCOM() {return mCharacter->GetSkeleton()->getCOM(); }
 
 	void SwitchController(std::string type, int frame=0);
-	void SetAction(Eigen::VectorXd action);
+	void SetAction();
 	void LoadControllers();
 	void AddSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
 	void Reset();

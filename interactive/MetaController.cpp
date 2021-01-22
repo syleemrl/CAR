@@ -108,9 +108,7 @@ void MetaController::Step()
 		Eigen::VectorXd prevTargetPos = mCurrentController->GetCurrentRefPositions();
 
 		mCurrentController = mSubControllers[mWaiting.first];
-		if(mActionSelected) {
-			mCurrentController->SetAction(mNextAction);
-		}
+		this->SetAction();
 		mCurrentController->Synchronize(mCharacter, prevTargetPos, mWaiting.second);
 		mIsWaiting = false;
 		std::cout << "make transition done " << std::endl;
@@ -123,61 +121,58 @@ void MetaController::Step()
 		mCurrentController->Synchronize(mCharacter, prevTargetPos, 0);
 	}
 }
-void MetaController::SetAction(Eigen::VectorXd action){
+void MetaController::SetAction(){
 	mActionSelected = true;
-	if(mIsWaiting) {
-		if(mWaiting.first == "Kick"){
-			if(action(1) == 0 && action(0) != 0.7) {
-				action(1) = 0.4;
-			}
-			if(action(1) == 0 && action(0) == 0.7) {
-				action(1) = 0.3;
-			}
-			if(action(0) == 0) {
-				action(0) = 0.33;
-			}
-			mNextAction = action;
-		} else if(mWaiting.first == "Punch"){
-			if(action(1) == 0 && action(0) != 0.7) {
-				action(1) = 0.4;
-			}
-			if(action(1) == 0 && action(0) == 0.7) {
-				action(1) = 0.3;
-			}
-			if(action(0) == 0) {
-				action(0) = 0.33;
-			}
-			mNextAction = action;
-		} else
-			mNextAction = action;
+	Eigen::VectorXd action;
+	if(mWaiting.first == "Kick"){
+			
+	} else if(mWaiting.first == "Punch"){
+	} else if(mWaiting.first == "Pivot"){
+		action.resize(1);
+		action(0) = 0.0;
+		if(mHitPoints.size() != 0) {
+			Eigen::Vector6d root = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+			Eigen::Vector3d root_ori = mCharacter->GetSkeleton()->getPositions().segment<3>(0);
+			root_ori = projectToXZ(root_ori);
+			Eigen::AngleAxisd root_aa(root_ori.norm(), root_ori.normalized());
+			double angle = 0;
+			double distance = 0;
+			int idx = 0;
+			for(int i = 0; i < mHitPoints.size(); i++) {
+				Eigen::Vector3d point_local = mHitPoints[i] - root.segment<3>(3);
+				point_local(1) = 0;
+				point_local = root_aa.inverse() * point_local; 
+				double angle_cur = atan2(point_local(2), point_local(0));
 
-	} else {
-		if(mCurrentController->mType == "Kick"){
-			if(action(1) == 0 && action(0) != 0.7) {
-				action(1) = 0.4;
-			}
-			if(action(1) == 0 && action(0) == 0.7) {
-				action(1) = 0.3;
-			}
-			if(action(0) == 0) {
-				action(0) = 0.33;
-			}
-		} else if(mCurrentController->mType == "Punch"){
-			if(action(1) == 0 && action(0) != 0.7) {
-				action(1) = 0.4;
-			}
-			if(action(1) == 0 && action(0) == 0.7) {
-				action(1) = 0.3;
-			}
-			if(action(0) == 0) {
-				action(0) = 0.33;
-			}
-		} 
-		mCurrentController->SetAction(action);
+				if(angle_cur < 0.5 * M_PI)
+					angle_cur += 2* M_PI; 
+				angle_cur -= 0.5 * M_PI;
 
-		Eigen::VectorXd prevTargetPos = mCurrentController->GetCurrentRefPositions();
-		mCurrentController->Synchronize(mCharacter, prevTargetPos, mWaiting.second);
+
+				if(i == 0) {
+					angle = angle_cur;
+					distance = point_local.norm();
+				} else if(distance > 1.5 && point_local.norm() <= 1.5) {
+					angle = angle_cur;
+					distance = point_local.norm();
+					idx = i;
+				} else if( angle > angle_cur && point_local.norm() <= 1.5) {
+					angle = angle_cur;
+					distance = point_local.norm();
+					idx = i;
+
+				}
+			}
+			std::cout << "Target : "<< idx << ", " << angle << std::endl;
+			if(angle > 0.1 * M_PI) {
+				action(0) = std::min(0.3 * (angle - 0.1 * M_PI), 0.7);
+			}
+		}
+	} else if(mWaiting.first == "Dodge"){
 	}
+
+	mCurrentController->SetAction(action);
+
 	std::cout <<"action set : " << action.transpose() << std::endl;
 
 }

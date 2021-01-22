@@ -48,7 +48,7 @@ public:
 
 	bool Step(dart::simulation::WorldPtr world, Character* character);
 	void Synchronize(Character* character, Eigen::VectorXd endPosition, double frame);
-	bool virtual Synchronizable(std::string)=0;
+	bool virtual Synchronizable(std::string next)=0;
 	void virtual SetAction(Eigen::VectorXd tp)=0;
 
 	Eigen::VectorXd GetState(Character* character);
@@ -86,7 +86,7 @@ public:
 	PUNCH_Controller(){}
 	PUNCH_Controller(std::string motion, std::string ppo);
 
-	bool virtual Synchronizable(std::string);
+	bool virtual Synchronizable(std::string next);
 	void virtual SetAction(Eigen::VectorXd tp);
 };
 
@@ -97,7 +97,7 @@ public:
 	IDLE_Controller(){}
 	IDLE_Controller(std::string motion, std::string ppo);
 
-	bool virtual Synchronizable(std::string);
+	bool virtual Synchronizable(std::string next);
 	void virtual SetAction(Eigen::VectorXd tp) {}
 };
 
@@ -108,7 +108,7 @@ public:
 	DODGE_Controller(){}
 	DODGE_Controller( std::string motion, std::string ppo);
 
-	bool virtual Synchronizable(std::string);
+	bool virtual Synchronizable(std::string next);
 	void virtual SetAction(Eigen::VectorXd tp);
 };
 class PIVOT_Controller : public SubController
@@ -117,7 +117,7 @@ public:
 	PIVOT_Controller(){}
 	PIVOT_Controller( std::string motion, std::string ppo);
 
-	bool virtual Synchronizable(std::string);
+	bool virtual Synchronizable(std::string next);
 	void virtual SetAction(Eigen::VectorXd tp);
 };
 
@@ -127,7 +127,7 @@ public:
 	KICK_Controller(){}
 	KICK_Controller(std::string motion, std::string ppo);
 	
-	bool virtual Synchronizable(std::string);
+	bool virtual Synchronizable(std::string next);
 	void virtual SetAction(Eigen::VectorXd tp);
 };
 

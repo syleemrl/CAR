@@ -222,113 +222,6 @@ toggleDrawSim() {
 		mDrawSim = !mDrawSim;
 
 }
-bool 
-SceneMotionWidget::
-eventFilter(QObject * obj, QEvent * event)
-{
-
-    if ( event->type() == QEvent::KeyPress ) {
-    	if(((QKeyEvent*)event)->key() == Qt::Key_D) {
-			std::cout << "Pivot on wait" << std::endl;
-			mMC->SwitchController("Pivot", 0);
-		} else if(((QKeyEvent*)event)->key() == Qt::Key_W) {
-			std::cout << "Punch on wait" << std::endl;
-			mMC->SwitchController("Punch");
-		} else if(((QKeyEvent*)event)->key() == Qt::Key_A) {
-			std::cout << "Kick on wait" << std::endl;
-			mMC->SwitchController("Kick", 5);
-		} else if(((QKeyEvent*)event)->key() == Qt::Key_S) {
-			std::cout << "Dodge on wait" << std::endl;
-			mMC->SwitchController("Dodge");
-		}
-
-		if(((QKeyEvent*)event)->key() == Qt::Key_1) {
-			std::cout << "Add new hitpoint" << std::endl;
-			mMC->AddNewRandomHitPoint();
-		} else if(((QKeyEvent*)event)->key() == Qt::Key_2) {
-			std::cout << "clear and add" << std::endl;
-			mMC->ClearHitPoints();
-			mMC->AddNewRandomHitPoint();
-		} else {
-			std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-		    pressedKeys.push_back(std::pair<int, std::chrono::steady_clock::time_point>(((QKeyEvent*)event)->key(), begin));
-		}
-    }
-    else if ( event->type() == QEvent::KeyRelease )
-    {
-		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-		std::string actionType = mMC->GetNextAction();
-		Eigen::VectorXd params;
-		if(actionType=="Pivot" || actionType=="Dodge") {
-			params.resize(1);
-		} else if(actionType == "Kick" || actionType == "Punch") {
-			params.resize(2);
-		}
-		params.setZero();
-		for(int i = 0; i < pressedKeys.size(); i++) {
-			if(pressedKeys[i].first == Qt::Key_W) {
-				std::chrono::steady_clock::time_point begin = pressedKeys[i].second;
-				double elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()/1000.;
-			}
-			if(pressedKeys[i].first == Qt::Key_Left) {
-				if(actionType=="Dodge") {
-					params(0) = 0.9;
-				}
-				if(actionType=="Kick") {
-					params(0) = 0.2;
-				}
-			}
-			if(pressedKeys[i].first == Qt::Key_Down) {
-				if(actionType=="Pivot") {
-					if(params(0) != 0)
-						params(0) = 0.3;
-					else
-						params(0) = 0.6;
-				}
-				if(actionType=="Dodge") {
-					params(0) = 0.5;
-				}
-				if(actionType=="Kick") {
-					params(0) = 0.5;
-				}
-				if(actionType=="Punch") {
-					//force
-					params(0) = 0.8;
-				}
-			}
-			if(pressedKeys[i].first == Qt::Key_Right) {
-				if(actionType=="Pivot") {
-					if(params(0) != 0)
-						params(0) = 0.3;
-					else
-						params(0) = 0.1;
-				}
-				if(actionType=="Dodge") {
-					params(0) = 0.1;
-				}
-				if(actionType=="Kick") {
-					params(0) = 0.7;
-				}
-			}
-			if(pressedKeys[i].first == Qt::Key_Up) {
-				if(actionType=="Kick") {
-					params(1) = 0.6;
-				}
-				if(actionType=="Punch") {
-					//distance
-					params(1) = 0.8;
-				}
-			}
-		}
-		if(pressedKeys.size() != 0) {
-			mMC->SetAction(params);
-			pressedKeys.clear();
-		}
-    }
-
-
-    return false;
-}
 void
 SceneMotionWidget::
 keyPressEvent(QKeyEvent *event)
@@ -343,6 +236,32 @@ keyPressEvent(QKeyEvent *event)
 		else 
 			std::cout << "Pause." << std::endl;
 	}
+	if(event->key() == Qt::Key_D) {
+		std::cout << "D pressed" << std::endl;
+		mMC->SwitchController("Pivot", 5);
+	}
+	if(event->key() == Qt::Key_W) {
+		std::cout << "W pressed" << std::endl;
+		mMC->SwitchController("Punch");
+	}
+	if(event->key() == Qt::Key_A) {
+		std::cout << "A pressed" << std::endl;
+		mMC->SwitchController("Kick", 10);
+	}
+	if(event->key() == Qt::Key_S) {
+		std::cout << "S pressed" << std::endl;
+		mMC->SwitchController("Dodge");
+	}
+	if(event->key() == Qt::Key_1) {
+		std::cout << "Add new hitpoint" << std::endl;
+		mMC->AddNewRandomHitPoint();
+	}
+	if(event->key() == Qt::Key_2) {
+		std::cout << "Clear and add new hitpoint" << std::endl;
+		mMC->ClearHitPoints();
+		mMC->AddNewRandomHitPoint();
+	}
+
 }
 void
 SceneMotionWidget::

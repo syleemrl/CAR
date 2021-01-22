@@ -53,7 +53,7 @@ protected:
 	void mouseMoveEvent(QMouseEvent* event);
 	void mouseReleaseEvent(QMouseEvent* event);
 	void wheelEvent(QWheelEvent *event);
-	bool eventFilter(QObject * obj, QEvent * event);
+	// bool eventFilter(QObject * obj, QEvent * event);
 
 	void DrawGround();
 	void DrawSkeletons();

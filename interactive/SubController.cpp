@@ -308,7 +308,7 @@ GetState(Character* character) {
 PUNCH_Controller::PUNCH_Controller(std::string motion, std::string ppo)
 : SubController(std::string("Punch"), motion, ppo)
 {}
-bool PUNCH_Controller::Synchronizable(std::string) {
+bool PUNCH_Controller::Synchronizable(std::string next) {
 	if(mCurrentFrameOnPhase <= 10 || mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength() - 5)
 		return true;
 	return false;
@@ -327,7 +327,15 @@ void PUNCH_Controller::SetAction(Eigen::VectorXd tp) {
 IDLE_Controller::IDLE_Controller(std::string motion, std::string ppo)
 : SubController(std::string("Idle"),  motion, ppo)
 {}
-bool IDLE_Controller::Synchronizable(std::string) {
+bool IDLE_Controller::Synchronizable(std::string next) {
+	if(next == "Pivot") {
+		if((mCurrentFrameOnPhase >= 24 && mCurrentFrameOnPhase <= 28) ||
+			(mCurrentFrameOnPhase >= 52 && mCurrentFrameOnPhase <= 56) ||
+			(mCurrentFrameOnPhase >= 77 && mCurrentFrameOnPhase <= 80))
+			return true;
+		else
+			return false;
+	}
 	return true;
 }
 
@@ -336,7 +344,7 @@ bool IDLE_Controller::Synchronizable(std::string) {
 DODGE_Controller::DODGE_Controller(std::string motion, std::string ppo)
 : SubController(std::string("Dodge"),motion, ppo)
 {}
-bool DODGE_Controller::Synchronizable(std::string) {
+bool DODGE_Controller::Synchronizable(std::string next) {
 	if(mCurrentFrameOnPhase <= 5 || mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength() - 5)
 		return true;
 	return false;
@@ -356,7 +364,7 @@ void DODGE_Controller::SetAction(Eigen::VectorXd tp) {
 KICK_Controller::KICK_Controller(std::string motion, std::string ppo)
 : SubController(std::string("Kick"), motion, ppo)
 {}
-bool KICK_Controller::Synchronizable(std::string) {
+bool KICK_Controller::Synchronizable(std::string next) {
 	if(mCurrentFrameOnPhase <= 10 || mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength() - 5)
 		return true;
 	return false;
@@ -375,7 +383,7 @@ void KICK_Controller::SetAction(Eigen::VectorXd tp) {
 PIVOT_Controller::PIVOT_Controller(std::string motion, std::string ppo)
 : SubController(std::string("Pivot"), motion, ppo)
 {}
-bool PIVOT_Controller::Synchronizable(std::string) {
+bool PIVOT_Controller::Synchronizable(std::string next) {
 	if(mCurrentFrameOnPhase <= 10 || mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength() - 5)
 		return true;
 	return false;
