@@ -794,6 +794,7 @@ SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
 	mParamCur = mParamGoal;
+	std::cout << mParamGoal.transpose() << std::endl;
 	// this->SetSkeletonLength(1, sqrt(mParamGoal(0)), 1);
 	// this->SetSkeletonLength(1, sqrt(mParamGoal(1)), 2);
 	// this->SetSkeletonWeight(mParamGoal(0), 1);

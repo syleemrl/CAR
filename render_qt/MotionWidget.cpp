@@ -171,9 +171,9 @@ MotionWidget::
 UpdateRandomParam(const bool& pressed) {
 	// if(mRunReg) {
 		Eigen::VectorXd tp_cur = mReferenceManager->GetParamCur();
+		tp_cur << 1, 1, 1, 1;
+		v_param_record.push_back(tp_cur);
 		tp_cur = mRegressionMemory->Normalize(tp_cur);
-		v_param_record.push_back(mRegressionMemory->Denormalize(tp_cur));
-		std::cout << tp_cur.transpose() << std::endl;
 		int total = 0;
 		int flag = 0;
 		int flag_count = 0;
@@ -187,7 +187,7 @@ UpdateRandomParam(const bool& pressed) {
 						flag_count += 1;
 					} else {
 						tp_cur(1) += 0.02; // std::min(1.0, std::max(0.0, tp_cur(i) +  0.1 * (0.5 - mUniform(mMT))));
-						if(tp_cur(1) >= 0.9) {
+						if(tp_cur(1) >= 0.85) {
 							flag = 1;
 							flag_count = 0;
 							std::cout << "transition to 1" << std::endl;
@@ -197,8 +197,8 @@ UpdateRandomParam(const bool& pressed) {
 					if(flag_count < 2) {
 						flag_count += 1;
 					} else {
-						tp_cur(3) += 0.02; 
-						if(tp_cur(3) >= 0.9) {
+						tp_cur(0) += 0.02; 
+						if(tp_cur(0) >= 0.95) {
 							flag = 2;
 							flag_count = 0;
 							std::cout << "transition to 2" << std::endl;
@@ -209,20 +209,21 @@ UpdateRandomParam(const bool& pressed) {
 					if(flag_count < 4) {
 						flag_count += 1;
 					} else {
-						tp_cur(0) += 0.02; 
-						if(tp_cur(0) >= 0.9) {
+						tp_cur(3) += 0.02; 
+						if(tp_cur(3) >= 0.85) {
 							flag = 3;
 							flag_count = 0;
 							std::cout << "transition to 3" << std::endl;
 
 						}
+
 					}
 				} else if(flag == 3) {
 					if(flag_count < 4) {
 						flag_count += 1;
 					} else {
-						tp_cur(2) += 0.02; 
-						tp_cur(3) -= 0.02; 
+						tp_cur(2) += 0.015; 
+						tp_cur(3) -= 0.015; 
 
 						if(tp_cur(2) >= 0.85) {		
 							flag = 4;
@@ -371,7 +372,6 @@ UpdateRandomParam(const bool& pressed) {
 			}
 
 			v_param_record.push_back(mRegressionMemory->Denormalize(tp_cur));
-
 			int count = 0;
 			if(total > 0)
 				total -= 1;
