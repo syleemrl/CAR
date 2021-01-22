@@ -565,7 +565,7 @@ GetParamReward()
 			} else {
 				mParamCur(0) = -100;
 			}
-			r_param = exp_of_squared(dir_diff,0.2) * exp(-pow(h_diff,2)*100);
+			// r_param = exp_of_squared(dir_diff,0.2) * exp(-pow(h_diff,2)*100);
 			
 			mControlFlag[0] = 1;
 			if(mRecord) {
@@ -574,6 +574,29 @@ GetParamReward()
 							 "height: " <<  mTargetHead(1) << " #" << exp(-pow(h_diff,2)*100) << std::endl;
 			}
 		}
+	}
+	if(mCurrentFrameOnPhase >= 3 && mCurrentFrameOnPhase <= 17) {
+		Eigen::Vector3d curHead = skel->getBodyNode("Head")->getWorldTransform().translation();
+			
+		Eigen::Vector3d root_new = mRootZero.segment<3>(0);
+		root_new = projectToXZ(root_new);
+		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
+
+		Eigen::Vector3d head = curHead - mRootZero.segment<3>(3);
+		head(1) = 0;
+		Eigen::Vector3d dir =  aa.inverse() * head;
+		double norm = dir.norm();
+		dir.normalize();
+
+		double angle = -2.54 + mParamGoal(0);
+		if(angle < -M_PI)
+			angle + 2 * M_PI;
+
+		Eigen::Vector3d dir_goal = Eigen::Vector3d(cos(angle), 0, sin(angle));
+		
+		Eigen::Vector3d dir_diff = dir_goal - dir;
+		double h_diff = curHead(1) - 1.08;
+		r_param = exp_of_squared(dir_diff,0.4) * exp(-pow(h_diff,2)*50);
 	}
 	return r_param;
 }
@@ -596,13 +619,14 @@ UpdateAdaptiveReward()
 
 	double r_tot = r_tracking;
 
+	// Eigen::Vector3d root_new = skel->getPositions().segment<3>(0);
+	// root_new = projectToXZ(root_new);
+	// double r_diff = root_new(1) + 0.75;
+	// double r_root = exp(-pow(r_diff, 2) * 20);
 
-	Eigen::Vector3d root_new = skel->getPositions().segment<3>(0);
-	root_new = projectToXZ(root_new);
-	double r_diff = root_new(1) + 0.75;
-	double r_root = exp(-pow(r_diff, 2) * 20);
+	if(r_param != 0)
+		r_tot = 0.9 * r_tot + 0.1 * r_param;
 
-	r_tot = 0.9 * r_tot + 0.1 * r_root;
 	mRewardParts.clear();
 
 	if(dart::math::isNan(r_tot)){
@@ -610,7 +634,7 @@ UpdateAdaptiveReward()
 	}
 	else {
 		mRewardParts.push_back(r_tot);
-		mRewardParts.push_back(10 * r_param);
+		mRewardParts.push_back(0);
 		mRewardParts.push_back(accum_bvh);
 		mRewardParts.push_back(r_time);
 		mRewardParts.push_back(r_similarity);
