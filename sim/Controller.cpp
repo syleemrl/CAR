@@ -669,8 +669,14 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx) *=5;
 			p_diff(idx+3) *= 10; // x-axis
 
-			if(jump_phase == 2) p_diff.segment<3>(idx) *= 2;
-			if(jump_phase == 2) v_diff.segment<3>(idx) *= 2;
+			if(jump_phase == 0){
+				p_diff(idx+3) *= 2;
+				v_diff(idx+3) *= 10;
+			}
+			else if(jump_phase == 2) {
+				p_diff.segment<3>(idx) *= 2;
+				v_diff.segment<3>(idx) *= 2;
+			}
 			// y-axis (up)
 			p_diff(idx+4) *= 0;
 			v_diff(idx+4) *= 0;
