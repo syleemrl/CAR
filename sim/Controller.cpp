@@ -259,15 +259,7 @@ Step()
 	if(stickFoot){
 		Eigen::Vector3d leftToe = mCharacter->getBodyWorldTrans("LeftToe");
 		Eigen::Vector3d rightToe = mCharacter->getBodyWorldTrans("RightToe");
-
-		// Eigen::VectorXd toe_velocity (6);
-		// toe_velocity<<(leftToe-prevLeftToe), (rightToe-prevRightToe);
-		// double slide = exp_of_squared(toe_velocity, 0.05);
-		// mFitness.sum_slide+= slide;
-		// mFitness.slide_cnt++;
-		// if(mRecord) std::cout<<mCurrentFrameOnPhase<<" , slide: "<<slide<<std::endl;
-
-
+		
 		Eigen::VectorXd left_v= mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getCOMSpatialVelocity();
 		Eigen::VectorXd right_v= mCharacter->GetSkeleton()->getBodyNode("RightToe")->getCOMSpatialVelocity();
 	
@@ -898,6 +890,9 @@ UpdateTerminalInfo()
 	// }
 
 	if(mCurrentFrame <=25){
+		Eigen::Vector3d lt= mCharacter->getBodyWorldTrans("LeftToe");
+		Eigen::Vector3d rt= mCharacter->getBodyWorldTrans("RightToe");
+
 		Eigen::Vector3d lf= mCharacter->getBodyWorldTrans("LeftFoot");
 		Eigen::Vector3d rf= mCharacter->getBodyWorldTrans("RightFoot");
 
@@ -914,8 +909,9 @@ UpdateTerminalInfo()
 		bool c2 = (lf_v.norm()>1.0 || rf_v.norm()>1.0);
 		Eigen::Vector3d root_v = mCharacter->GetSkeleton()->getBodyNode("Hips")->getLinearVelocity();
 		bool c3= root_v.norm() > 1.0;
+		bool t_move = (lt[2] > -0.61 || rt[2] > -0.61 || lt[2] < -0.74 || rt[2] < -0.74 );
 
-		if (c1 || c2 || c3) v_count++;
+		if (c1 || c2 || c3 ||t_move) v_count++;
 		else v_count = 0;
 
 		bool c_once= (lf_v.norm()>3.5|| rf_v.norm()>3.5 || root_v.norm() > 3.5 || lh_v.norm() >3.5 || rh_v.norm()> 3.5);
@@ -925,6 +921,8 @@ UpdateTerminalInfo()
 				std::cout<<"------------------------------- foot violation -------------------------------"<<std::endl;
 				std::cout<<mCurrentFrame<<" / "<<(lf[1]-cur_obj_height)<<" "<<(rf[1]-cur_obj_height)<<std::endl;
 				std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
+				std::cout<<"toe: "<<lt.transpose()<<" / "<<rt.transpose()<<std::endl;
+				std::cout<<"foot: "<<lf.transpose()<<" / "<<rf.transpose()<<std::endl;
 			}else{
 				mIsTerminal = true;
 				terminationReason = 16;
