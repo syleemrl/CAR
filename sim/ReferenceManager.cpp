@@ -468,7 +468,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 		// mParamEnd << 1.3, 3.2;
 
 		mParamBase.resize(2);
-		mParamBase << -1.3, 1.3; 
+		mParamBase << -1.3, 1.35; 
 
 		mParamEnd.resize(2);
 		mParamEnd << 1.0, 3.0;

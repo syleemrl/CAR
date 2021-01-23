@@ -669,6 +669,8 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx) *=5;
 			p_diff(idx+3) *= 10; // x-axis
 
+			if(jump_phase == 2) p_diff.segment<3>(idx) *= 2;
+			if(jump_phase == 2) v_diff.segment<3>(idx) *= 2;
 			// y-axis (up)
 			p_diff(idx+4) *= 0;
 			v_diff(idx+4) *= 0;
@@ -966,8 +968,7 @@ UpdateTerminalInfo()
 		}
 	// }
 
-	int length_limit = mReferenceManager->GetPhaseLength();// + 25;
-	if(!isAdaptive) length_limit= mReferenceManager->GetPhaseLength()*2 + 25;
+	int length_limit = length_limit= mReferenceManager->GetPhaseLength()+ 25;
 
 	if(mCurrentFrame > length_limit) { // this->mBVH->GetMaxFrame() - 1.0){
 		mIsTerminal = true;
@@ -1387,11 +1388,11 @@ GetState()
 	double com_diff = 0;
 	if(isParametric) {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2+mParamGoal.rows());
-		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase, mParamGoal;
+		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrame, mParamGoal;
 	}
 	else {
 		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
-		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
+		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrame;
 	}
 
 
