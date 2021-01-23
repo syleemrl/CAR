@@ -455,20 +455,22 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mThresholdTracking = 0.8;
 
 	mParamCur.resize(4);
-	mParamCur << 0.7, 1.22, 1.13, 0.4;
+	mParamCur << 0.7, 1.22, 1.03, 0.4;
 
 	mParamGoal.resize(4);
-	mParamGoal << 0.7, 1.22, 1.13, 0.4;
+	mParamGoal << 0.7, 1.22, 1.03, 0.4;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.1, 0.2;
+		paramUnit<< 0.1, 0.1, 0.1, 0.4;
 
 		mParamBase.resize(4);
-		mParamBase << -0.2, 1.1, 0.9, 0.4;
+		// -0.2, 1.1, 0.4
+		mParamBase << 0.0, 1.15, 0.8, 0.4;
 
 		mParamEnd.resize(4);
-		mParamEnd << 1.0, 1.4, 1.4, 2.2;
+		// 1.0, 1.4
+		mParamEnd << 1.0, 1.25, 1.4, 2.2;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -621,7 +623,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_foot = exp(-std::get<2>(rewards).sum_contact*0.4); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
-	double r_slide = exp(- std::get<2>(rewards).sum_slide * 1.0);
+	double r_slide = exp(- std::get<2>(rewards).sum_slide * 0.6);
 	double reward_trajectory = r_pos * r_vel * r_slide * r_foot;
 	if(reward_trajectory < 0.4)
 		return;

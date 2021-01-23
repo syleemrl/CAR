@@ -210,18 +210,23 @@ Step()
 		}
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
-	if(isAdaptive && mCurrentFrameOnPhase >= 17.0 && mControlFlag[0] == 0) {
+	if(isAdaptive && mCurrentFrameOnPhase >= 16.5 && mControlFlag[0] == 0) {
 		mHandPosition = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
 
 
-		Eigen::Vector3d rot = 0.5 * QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightForeArm")->getWorldTransform().linear()))
-							+ 0.5 * QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
-		rot = projectToXZ(rot);		
-		Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
+		// Eigen::Vector3d rot = 0.5 * QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightForeArm")->getWorldTransform().linear()))
+		// 					+ 0.5 * QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().linear()));
+		// rot = projectToXZ(rot);		
+		// Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
 
 
 		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
-		Eigen::Vector3d delta(0.065 + 0.15 + 0.01, 0 , 0.01);
+		Eigen::Vector3d dir = obj_pos - mRootZero.segment<3>(3);
+		dir << 0, atan2(dir(2), -dir(0)), 0;
+		Eigen::AngleAxisd obj_dir(dir.norm(), dir.normalized());
+ 		Eigen::Vector3d delta(0.25, 0 , 0.0);
+		
+		// Eigen::Vector3d delta(0.065 + 0.15 + 0.01, 0 , 0.01);
 		delta = obj_dir * delta;
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 			
@@ -541,7 +546,7 @@ GetSimilarityReward()
 	Eigen::VectorXd p_diff = skel->getPositionDifferences(pos, p_aligned);
 	Eigen::VectorXd v_diff = skel->getVelocityDifferences(vel, v);
 
-	int num_body_nodes = skel->getNumBodyNodes();
+	int num_body_nodes= skel->getNumBodyNodes();
 	for(int i =0 ; i < vel.rows(); i++) {
 		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
 	}
@@ -551,12 +556,18 @@ GetSimilarityReward()
 		if(name.compare("Hips") == 0 ) {
 			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
-			v_diff.segment<3>(idx + 3) *= 5;
-		}	if(name.compare("RightArm") == 0 ||
-		   name.compare("RightForeArm") == 0 || 
-		   name.compare("RightHand") == 0) {
+			v_diff.segment<3>(idx + 3) *= 3;
+		} if(name.compare("RightArm") == 0 ||
+		     name.compare("RightForeArm") == 0 || 
+		     name.compare("RightHand") == 0) {
 				v_diff.segment<3>(idx) *= 3;
-		   }
+		} if(mCurrentFrameOnPhase >= 19 && mCurrentFrameOnPhase <= 30) {
+		    if(name.compare("RightArm") == 0 ||
+		       name.compare("RightForeArm") == 0 || 
+		       name.compare("RightHand") == 0) {
+				p_diff.segment<3>(idx) *= 3;
+			}
+		}
 	}
 
 	double footSlide = 0;
@@ -647,7 +658,6 @@ GetParamReward()
 		dir.normalize();
 		if(dir(0) > 0) {
 			mParamCur << dir(2), mHandPosition(1), norm, maxSpeedObj;
-
 		}
 		mControlFlag[0] = 4;
 		if(mRecord) {

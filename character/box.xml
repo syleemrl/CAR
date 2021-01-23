@@ -1,5 +1,5 @@
 <Skeleton name="Box">
-	<Joint type="FreeJoint" name="Ground" parent_name="None" size="0.3 0.1 0.3" mass="50">
+	<Joint type="FreeJoint" name="Ground" parent_name="None" size="0.3 0.1 0.3" mass="500">
 		<BodyPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></BodyPosition>
 		<JointPosition linear="1 0 0 0 1 0 0 0 1" translation="0 0 0"></JointPosition>
 	</Joint>
