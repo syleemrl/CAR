@@ -140,16 +140,23 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	prevLeftToe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
 	prevRightToe = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
 	
-	for(int i=1; i<mReferenceManager->GetPhaseLength();i++){
+	for(int i=0; i<mReferenceManager->GetPhaseLength();i++){
 		mSkel_bvh->setPositions(mMotion_bvh[i]);
 		mSkel_bvh->computeForwardKinematics(true, true, false);
 
 		Eigen::VectorXd left_v= mSkel_bvh->getBodyNode("LeftToe")->getCOMSpatialVelocity();
 		Eigen::VectorXd right_v= mSkel_bvh->getBodyNode("RightToe")->getCOMSpatialVelocity();
 	
-		Eigen::VectorXd toe_v(12);
-		toe_v<< left_v, right_v;
-		double slide = DPhy::exp_of_squared(toe_v, 0.05);		
+	Eigen::Vector3d lf = mSkel_bvh->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	Eigen::Vector3d rf = mSkel_bvh->getBodyNode("RightFoot")->getWorldTransform().translation();
+	Eigen::Vector3d mf = (lf+rf)/2.; 
+	Eigen::Vector3d root = mSkel_bvh->getBodyNode("Hips")->getWorldTransform().translation();
+
+	std::cout<<"@ "<<i<<"/ "<<mf[2]<<"/ root x:"<<root[0]<<std::endl;
+		// Eigen::VectorXd toe_v(12);
+		// toe_v<< left_v, right_v;
+		// double slide = DPhy::exp_of_squared(toe_v, 0.05);
+
 		// std::cout<<"@ "<<i<<"/ "<<slide<<"\t"<<toe_v.transpose()<<std::endl;
 
 		// Eigen::Vector3d leftToe = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
@@ -797,6 +804,7 @@ DrawSkeletons()
 	if(mDrawSim) {
 		glPushMatrix();
 		glTranslated(0.75, 0, 0);
+		GUI::DrawCoordinate();
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
 		if(this->mSkel_obj_s) {
 			GUI::DrawSkeleton(this->mSkel_obj_s, 0);

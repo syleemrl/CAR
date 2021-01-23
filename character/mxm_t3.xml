@@ -103,7 +103,7 @@
     </Joint>
     <Joint type="BallJoint" name="LeftToe" parent_name="LeftFoot" size="0.08 0.041531 0.0927814 " mass="0.3" bvh="LeftToeBase">
         <BodyPosition translation="0.0820778 -1.019144 0.110526 " />
-        <JointPosition translation="0.0820778 -1.04279 0.0641349 " />
+        <JointPosition translation="0.0820778 -1.04279 0.0641349 " lower="-2 -0.1  -0.1" upper="0.6 0.1 0.1"/>
         <TorqueLimit norm="60" />
         <!-- <TorqueLimit norm="45" /> -->
     </Joint>
@@ -128,7 +128,7 @@
     </Joint>
     <Joint type="BallJoint" name="RightToe" parent_name="RightFoot" size="0.08 0.041536 0.0927812 " mass="0.3" bvh="RightToeBase">
         <BodyPosition translation="-0.082078 -1.019142 0.110525 " />
-        <JointPosition translation="-0.082078 -1.04279 0.0641341 " />
+        <JointPosition translation="-0.082078 -1.04279 0.0641341 " lower="-2 -0.1  -0.1" upper="0.6 0.1 0.1"/>
         <TorqueLimit norm="60" />
         <!-- <TorqueLimit norm="45" /> -->
     </Joint>

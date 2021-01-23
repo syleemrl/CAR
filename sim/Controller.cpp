@@ -897,13 +897,16 @@ UpdateTerminalInfo()
 	// 	// std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<" "<<lt_v.norm()<<" "<<rt_v.norm()<<std::endl;
 	// }
 
-	if(mCurrentFrame <=30){
+	if(mCurrentFrame <=25){
 		Eigen::Vector3d lf= mCharacter->getBodyWorldTrans("LeftFoot");
 		Eigen::Vector3d rf= mCharacter->getBodyWorldTrans("RightFoot");
 
 		Eigen::Vector3d lf_v = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getLinearVelocity();
 		Eigen::Vector3d rf_v = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getLinearVelocity();
 		double cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
+
+		Eigen::Vector3d lh_v = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getLinearVelocity();
+		Eigen::Vector3d rh_v = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getLinearVelocity();
 
 		// if(mRecord) std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
 
@@ -915,7 +918,7 @@ UpdateTerminalInfo()
 		if (c1 || c2 || c3) v_count++;
 		else v_count = 0;
 
-		bool c_once= (lf_v.norm()>3.5|| rf_v.norm()>3.5 || root_v.norm() > 3.5);
+		bool c_once= (lf_v.norm()>3.5|| rf_v.norm()>3.5 || root_v.norm() > 3.5 || lh_v.norm() >3.5 || rh_v.norm()> 3.5);
 
 		if( c_once || (v_count > 3)){
 			if(mRecord){
