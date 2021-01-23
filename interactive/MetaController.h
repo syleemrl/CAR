@@ -24,7 +24,8 @@ public:
 	void ClearHitPoints() {mHitPoints.clear();}
 	std::vector<Eigen::Vector3d> GetHitPoints() {return mHitPoints; }
 	std::string GetNextAction();
-
+	void SaveAsBVH(std::string filename);
+	 
 	SubController* mPrevController;	
 	SubController* mCurrentController;
 	std::pair<std::string, double> mWaiting;	

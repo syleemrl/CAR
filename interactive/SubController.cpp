@@ -183,7 +183,8 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 	if(mReferenceManager->GetPhaseLength() <= mCurrentFrame) {
 		mEndofMotion = true;
 		mActionSelected = false;
-	}
+	} 
+
 
 }
 Eigen::VectorXd 
@@ -309,18 +310,19 @@ PUNCH_Controller::PUNCH_Controller(std::string motion, std::string ppo)
 : SubController(std::string("Punch"), motion, ppo)
 {}
 bool PUNCH_Controller::Synchronizable(std::string next) {
-	if(mCurrentFrameOnPhase <= 10 || mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength() - 5)
+	if(mCurrentFrameOnPhase <= 10 || mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength() - 10)
 		return true;
 	return false;
 }
 void PUNCH_Controller::SetAction(Eigen::VectorXd tp) {
 	mActionSelected = true;
 	
-	// Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
-	// mReferenceManager->SetParamGoal(tp_denorm);
+	tp = mRegressionMemory->ClipToParamSpace(tp);
+	mReferenceManager->SetParamGoal(tp);
+	std::cout << "Action set : " << tp.transpose() << std::endl;
 
-	// std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
-	// mReferenceManager->LoadAdaptiveMotion(cps);
+	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
+	mReferenceManager->LoadAdaptiveMotion(cps);
 }
 //////////////////////////////////// IDLE  ////////////////////////////////////
 
@@ -351,11 +353,11 @@ bool DODGE_Controller::Synchronizable(std::string next) {
 }
 void DODGE_Controller::SetAction(Eigen::VectorXd tp) {
 	mActionSelected = true;
-	
-	Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
-	mReferenceManager->SetParamGoal(tp_denorm);
+	tp = mRegressionMemory->ClipToParamSpace(tp);
+	mReferenceManager->SetParamGoal(tp);
+	std::cout << "Action set : " << tp.transpose() << std::endl;
 
-	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 	mReferenceManager->LoadAdaptiveMotion(cps);
 
 }
@@ -371,11 +373,10 @@ bool KICK_Controller::Synchronizable(std::string next) {
 }
 void KICK_Controller::SetAction(Eigen::VectorXd tp) {
 	mActionSelected = true;
-	
-	Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
-	mReferenceManager->SetParamGoal(tp_denorm);
-
-	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+	tp = mRegressionMemory->ClipToParamSpace(tp);
+	mReferenceManager->SetParamGoal(tp);
+	std::cout << "Action set : " << tp.transpose() << std::endl;
+	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 	mReferenceManager->LoadAdaptiveMotion(cps);
 }
 //////////////////////////////////// PIVOT  ////////////////////////////////////
@@ -393,6 +394,7 @@ void PIVOT_Controller::SetAction(Eigen::VectorXd tp) {
 	
 	Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
 	mReferenceManager->SetParamGoal(tp_denorm);
+	std::cout << "Action set : " << tp_denorm.transpose() << std::endl;
 
 	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
 	mReferenceManager->LoadAdaptiveMotion(cps);

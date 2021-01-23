@@ -560,6 +560,13 @@ RegressionMemory::
 Denormalize(Eigen::VectorXd p) {
 	return p.cwiseProduct(mParamScaleInv) + mParamMin;
 }
+Eigen::VectorXd
+RegressionMemory::
+ClipToParamSpace(Eigen::VectorXd tp_denorm){
+	for(int i = 0; i < mDim; i++)
+		tp_denorm(i) = std::min(mParamMax(i), std::max(mParamMin(i), tp_denorm(i)));
+	return tp_denorm;
+}
 void
 RegressionMemory::
 DeleteMappings(Eigen::VectorXd nearest, std::vector<Param*> ps) {

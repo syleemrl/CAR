@@ -103,6 +103,8 @@ public:
 		   std::vector<double>> GetParamSpaceSummary();
 	double GetFitness(Eigen::VectorXd p);
 	double GetFitnessMean();
+
+	Eigen::VectorXd ClipToParamSpace(Eigen::VectorXd tp_denorm);
 private:
 	std::map<Eigen::VectorXd, int> mParamActivated;
 	std::map<Eigen::VectorXd, int> mParamDeactivated;

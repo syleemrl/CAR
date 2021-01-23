@@ -48,7 +48,7 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> pos, std::vector<double> time) {
 		mTimeStep_adaptive.push_back(time[j]);
 	}
 	std::cout << mMotions_phase_adaptive.size() << " " << mTimeStep_adaptive.size() << std::endl;
-	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(std::max(1000, (int)mMotions_phase.size()), true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -77,7 +77,7 @@ LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement) {
 		mTimeStep_adaptive[i] = exp(d_time[i](0));
 	}
 
-	this->GenerateMotionsFromSinglePhase(1000, true, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(std::max(1000, (int)mMotions_phase.size()), true, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -111,7 +111,7 @@ LoadAdaptiveMotion(std::string postfix) {
 	}
 	is.close();
 
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(std::max(1000, (int)mMotions_phase.size()), false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 }
 void 
@@ -229,13 +229,13 @@ LoadMotionFromBVH(std::string filename)
 	 }
 
 	delete bvh;
-
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase, mMotions_gen);
+	std::cout << mPhaseLength << std::endl;
+	this->GenerateMotionsFromSinglePhase(std::max(1000, mPhaseLength), false, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
-	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+	this->GenerateMotionsFromSinglePhase(std::max(1000, mPhaseLength), false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -434,7 +434,7 @@ ResetOptimizationParameters(bool reset_displacement) {
 		for(int i = 0; i < this->GetPhaseLength(); i++) {
 			mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 		}
-		this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
+		this->GenerateMotionsFromSinglePhase(std::max(1000, (int)mMotions_phase.size()), false, mMotions_phase_adaptive, mMotions_gen_adaptive);
 
 	}
 
@@ -511,21 +511,37 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive, std::string 
  	}
  	if(ctrl_type == "Punch") {
 
+		// mParamCur.resize(4);
+		// mParamCur << 0.7, 1.22, 1.13, 0.4;
+
+		// mParamGoal.resize(4);
+		// mParamGoal << 0.7, 1.22, 1.13, 0.4;
+
+		// Eigen::VectorXd paramUnit(4);
+		// paramUnit<< 0.1, 0.1, 0.1, 0.2;
+
+		// mParamBase.resize(4);
+		// mParamBase << -0.2, 1.1, 0.9, 0.4;
+
+		// mParamEnd.resize(4);
+		// mParamEnd << 1.0, 1.4, 1.4, 2.2;
+		
 		mParamCur.resize(4);
-		mParamCur << 0.7, 1.22, 1.13, 0.4;
+		mParamCur << 0.7, 1.22, 1.03, 0.4;
 
 		mParamGoal.resize(4);
-		mParamGoal << 0.7, 1.22, 1.13, 0.4;
+		mParamGoal << 0.7, 1.22, 1.03, 0.4;
 
 		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.1, 0.2;
+		paramUnit<< 0.1, 0.1, 0.1, 0.4;
 
 		mParamBase.resize(4);
-		mParamBase << -0.2, 1.1, 0.9, 0.4;
+		mParamBase << 0.0, 1.15, 0.8, 0.4;
 
 		mParamEnd.resize(4);
-		mParamEnd << 1.0, 1.4, 1.4, 2.2;
-		
+		mParamEnd << 1.0, 1.25, 1.4, 2.2;
+
+	
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										paramUnit, mDOF + 1, mPhaseLength);
 		std::cout << "initial goal : " << mParamGoal.transpose() << std::endl;

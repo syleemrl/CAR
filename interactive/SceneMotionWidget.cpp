@@ -344,6 +344,5 @@ Save() {
 	time(&t);
 
 	std::string time_str = std::ctime(&t);
-
-	// mController->SaveDisplayedData(mPath + "record_" + time_str, true);
+	mMC->SaveAsBVH("record_"+time_str); 
 }

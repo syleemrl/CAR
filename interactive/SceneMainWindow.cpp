@@ -63,9 +63,9 @@ initLayoutSetting() {
     connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(NextFrame())); 
     buttonlayout->addWidget(button);    
 
-    // button = new QPushButton("save", this);
-    // connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Save())); 
-    // buttonlayout->addWidget(button);    
+    button = new QPushButton("save", this);
+    connect(button, SIGNAL(clicked(bool)), mMotionWidget, SLOT(Save())); 
+    buttonlayout->addWidget(button);    
     buttonlayout->addStretch(1);
 
     motionlayout->addLayout(buttonlayout);

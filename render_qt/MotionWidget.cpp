@@ -95,7 +95,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
     }
 
     phase = 0;
-    for(int i = 0; i < 1000; i++) {
+    for(int i = 0; i < std::max(1000, mReferenceManager->GetPhaseLength()); i++) {
         Eigen::VectorXd p = mReferenceManager->GetPosition(phase, false);
         p(3) -= 0.75; 
         pos.push_back(p);
