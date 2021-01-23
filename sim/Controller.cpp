@@ -256,6 +256,12 @@ Step()
 	
 	//32 , 54
 
+	// 1.4
+	// if(mCurrentFrame>=37 && mCurrentFrame<=38){
+	// 	Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+	// 	std::cout<<"@ "<<mCurrentFrame<<" / "<<com_v[2]<<std::endl;
+	// }
+
 	if(stickFoot){
 		Eigen::Vector3d leftToe = mCharacter->getBodyWorldTrans("LeftToe");
 		Eigen::Vector3d rightToe = mCharacter->getBodyWorldTrans("RightToe");
@@ -379,6 +385,7 @@ Step()
 
 	prevLeftToe = mCharacter->getBodyWorldTrans("LeftToe");
 	prevRightToe = mCharacter->getBodyWorldTrans("RightToe");
+	prev_com_v= mCharacter->GetSkeleton()->getCOMLinearVelocity();
 
 	if(isAdaptive && mIsTerminal)
 		data_raw.clear();
@@ -727,18 +734,62 @@ GetParamReward()
 {
 	double r_param = 0;
 
+	// if(jumpStart){
+		// Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+		// Eigen::Vector3d mass = mCharacter->GetSkeleton()->getMass();
+		// double air_time_left = com_v[1]/mBaseGravity;
+		// r_param =;
+
+		// jumpStart = false;
+	// }
+
+	if(mCurrentFrame >=37 && !gotParamReward_z_v){
+		Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+		double z_v = com_v[2];
+		mParamCur[1]= z_v;
+		double r_param = std::exp(-std::pow((mParamGoal[1]-mParamCur[1])/0.2, 2.0));
+		gotParamReward_z_v = true;
+	}
+
+	if(mCurrentFrame>=37 && !placedObject){
+		Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+		if(prev_com_v[1] >0 && com_v[1]<0 ){
+
+			// Eigen::Vector3d lt= mCharacter->getBodyWorldTrans("LeftToe");
+			// Eigen::Vector3d rt= mCharacter->getBodyWorldTrans("RightToe");
+			Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
+			Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
+
+			// if(lf[1] < mParamGoal[0] || rf[1]< mParamGoal[0])
+			double expected_z = (lf[2]+rf[2])/2.0 + com_v[2]*(50.-mCurrentFrame)*0.033;
+			// std::cout<<"expected_z: "<<((lf[2]+rf[2])/2.0)<<" "<<com_v[2]<<" "<<expected_z<<std::endl;
+
+			Eigen::VectorXd obj_pos(mObject_end->GetSkeleton()->getNumDofs());
+			obj_pos.setZero(); 
+			obj_pos[5] = expected_z + 0.6;
+			if(mParamGoal[0] > 0) obj_pos[6] = mParamGoal[0];
+
+			this->mObject_end->GetSkeleton()->setPositions(obj_pos);
+			this->mObject_end->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject_end->GetSkeleton()->getNumDofs()));
+			this->mObject_end->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject_end->GetSkeleton()->getNumDofs()));
+			this->mObject_end->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+			placedObject = true;
+		}
+	}
+
 	if(mCurrentFrameOnPhase >= 74 && !gotParamReward)
 	{
-		mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
-
-		r_param = std::exp(- std::pow((mParamCur[1]- mParamGoal[1])/0.2, 2.0));
+		mParamCur[0] = mParamGoal[0];
+		// mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
+		// r_param = std::exp(- std::pow((mParamCur[1]- mParamGoal[1])/0.2, 2.0));
 		
 		double r_slide= mFitness.sum_slide/mFitness.slide_cnt;
-		r_param = r_param * r_slide;
+		r_param = r_slide;
 		
 		// std::cout<<"r_slide: "<<r_slide<<std::endl;
 		gotParamReward = true;
-	}	
+	}
 
 	return r_param;
 }
@@ -927,6 +978,16 @@ UpdateTerminalInfo()
 				mIsTerminal = true;
 				terminationReason = 16;
 			}
+		}
+	}
+
+	Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
+	if(mParamGoal[0]>0 && mCurrentFrame>=37 && prev_com_v[1] >0 && com_v[1]<0 ){
+		Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
+		Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
+		if(lf[1] < mParamGoal[0] && rf[1] < mParamGoal[0]){
+			mIsTerminal = true;
+			terminationReason = 16;
 		}
 	}
 
@@ -1180,6 +1241,7 @@ Reset(bool RSI)
 	land_foot_cnt = 0;
 
 	gotParamReward = false;
+	gotParamReward_z_v = false;
 	placedObject= false;
 
 	v_count=0;

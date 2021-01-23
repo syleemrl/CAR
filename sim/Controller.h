@@ -211,6 +211,7 @@ protected:
 	// double min_land_foot;
 
 	bool gotParamReward;	
+	bool gotParamReward_z_v;	
 
 	bool placedObject; 
 
@@ -223,6 +224,7 @@ protected:
 	double stickFoot_right_max;
 
 	int v_count = 0;
+	Eigen::Vector3d prev_com_v;
 };
 }
 #endif
