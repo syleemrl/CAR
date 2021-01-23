@@ -152,7 +152,11 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	Eigen::Vector3d mf = (lf+rf)/2.; 
 	Eigen::Vector3d root = mSkel_bvh->getBodyNode("Hips")->getWorldTransform().translation();
 
-	std::cout<<"@ "<<i<<"/ "<<mf[2]<<"/ root x:"<<root[0]<<std::endl;
+	Eigen::Vector3d lt = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
+	Eigen::Vector3d rt = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
+	
+	std::cout<<"@ "<<i<<"/ foot z; "<<lf[2]<<" / "<<rf[2]<<"/ toe: "<<lt[2]<<" "<<rt[2]<<std::endl;
+	// <<mf[2]<<"/ root x:"<<root[0]<<std::endl;
 		// Eigen::VectorXd toe_v(12);
 		// toe_v<< left_v, right_v;
 		// double slide = DPhy::exp_of_squared(toe_v, 0.05);
@@ -812,13 +816,25 @@ DrawSkeletons()
 		if(this->mSkel_obj_e) {
 			GUI::DrawSkeleton(this->mSkel_obj_e, 0);
 		}
-
-		// if(this->mSkel_obj) {
-		// 	GUI::DrawSkeleton(this->mSkel_obj, 0);
-		// 	GUI::DrawRuler(Eigen::Vector3d(0.25, 0.47, 0), Eigen::Vector3d(0.25, 0.47, 1.5), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
-		// }
 		glPopMatrix();
 	}
+
+	if(mDrawSim || mDrawReg) {
+		double ruler_y = (mDrawSim)? 0.47 : 0.01;
+		glPushMatrix();
+		glTranslated(0.75, 0, 0);
+		GUI::DrawRuler(Eigen::Vector3d(0.25, ruler_y, -0.78), Eigen::Vector3d(0.25, ruler_y, -0.78+3.0), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
+		glPopMatrix();
+
+		Eigen::VectorXd paramGoal = mReferenceManager->GetParamGoal();
+		double goal_y = paramGoal[0];
+		if(goal_y <0){
+			// GUI::DrawRuler(Eigen::Vector3d(0.25, 0, 0), Eigen::Vector3d(0.25, goal_y, paramGoal[1]), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
+		}else{
+			GUI::DrawRuler(Eigen::Vector3d(0.25, 0, -0.78+paramGoal[1]), Eigen::Vector3d(0.25, 1.0, -0.78+paramGoal[1]), Eigen::Vector3d(0.1, 0, 0)); //p0, p1, gaugeDirection
+		}
+	}
+
 	if(mDrawReg) {
 		glPushMatrix();
 		glTranslated(0.75, 0, 0);
