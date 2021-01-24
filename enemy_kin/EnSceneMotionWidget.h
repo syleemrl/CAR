@@ -1,0 +1,98 @@
+#ifndef __SCENE_MOTION_WIDGET_H__
+#define __SCENE_MOTION_WIDGET_H__
+#include <vector>
+#include <QOpenGLWidget>
+#include <QTimerEvent>
+#include <QKeyEvent>
+#include <QSet>
+#include <QEvent>
+#pragma push_macro("slots")
+#undef slots
+#include <boost/python.hpp>
+#include <boost/python/numpy.hpp>
+#include "Camera.h"
+#include "ReferenceManager.h"
+#include "RegressionMemory.h"
+#include "GLfunctions.h"
+#include "DART_interface.h"
+#include "Controller.h"
+#include "EnemyKinController.h"
+#pragma pop_macro("slots")
+namespace p = boost::python;
+namespace np = boost::python::numpy;
+class SceneMotionWidget : public QOpenGLWidget
+{
+	Q_OBJECT
+
+public:
+	SceneMotionWidget();
+	
+	void togglePlay();
+	void Step();
+	void Record();
+
+public slots:
+	void NextFrame();
+	void PrevFrame();
+	void Reset();
+	void Save();
+
+	void toggleDrawSim();
+	void toggleDrawReg();
+	void RE();
+protected:
+	void initializeGL() override;	
+	void resizeGL(int w,int h) override;
+	void paintGL() override;
+	void initLights();
+
+	void timerEvent(QTimerEvent* event);
+	void keyPressEvent(QKeyEvent *event);
+
+	void mousePressEvent(QMouseEvent* event);
+	void mouseMoveEvent(QMouseEvent* event);
+	void mouseReleaseEvent(QMouseEvent* event);
+	void wheelEvent(QWheelEvent *event);
+	bool eventFilter(QObject * obj, QEvent * event);
+
+	void DrawGround();
+	void DrawSkeletons();
+	void SetFrame(int n);
+ 	void initNetworkSetting(std::string motion, std::string network);
+
+	Camera* 						mCamera;
+	int								mPrevX,mPrevY;
+	Qt::MouseButton 				mButton;
+	bool 							mIsDrag;
+	
+	bool 							mPlay;
+	int 							mCurFrame;
+	int 							mTotalFrame;
+	std::string						mPath;
+
+	std::vector<double>				mTiming; // Controller->GetCurrentLength()
+
+
+	bool							mTrackCamera;
+
+	bool 							mRunSim;
+	bool 							mRunReg;
+
+	bool 							mDrawSim;
+	bool 							mDrawReg;
+
+	std::random_device mRD;
+	std::mt19937 mMT;
+	std::uniform_real_distribution<double> mUniform;
+
+	DPhy::EnemyKinController* mKC;
+	std::vector<std::pair<int, std::chrono::steady_clock::time_point>> pressedKeys;
+
+	dart::dynamics::SkeletonPtr mSkel_main;
+	std::vector<Eigen::VectorXd> mMotion_main;
+
+	dart::dynamics::SkeletonPtr mSkel_en;
+	std::vector<Eigen::VectorXd> mMotion_en;
+
+};
+#endif
