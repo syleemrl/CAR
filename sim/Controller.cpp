@@ -941,44 +941,44 @@ UpdateTerminalInfo()
 	// }
 
 	if(mCurrentFrame <=25){
-		Eigen::Vector3d lt= mCharacter->getBodyWorldTrans("LeftToe");
-		Eigen::Vector3d rt= mCharacter->getBodyWorldTrans("RightToe");
+		// Eigen::Vector3d lt= mCharacter->getBodyWorldTrans("LeftToe");
+		// Eigen::Vector3d rt= mCharacter->getBodyWorldTrans("RightToe");
 
-		Eigen::Vector3d lf= mCharacter->getBodyWorldTrans("LeftFoot");
-		Eigen::Vector3d rf= mCharacter->getBodyWorldTrans("RightFoot");
+		// Eigen::Vector3d lf= mCharacter->getBodyWorldTrans("LeftFoot");
+		// Eigen::Vector3d rf= mCharacter->getBodyWorldTrans("RightFoot");
 
-		Eigen::Vector3d lf_v = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getLinearVelocity();
-		Eigen::Vector3d rf_v = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getLinearVelocity();
-		double cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
+		// Eigen::Vector3d lf_v = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getLinearVelocity();
+		// Eigen::Vector3d rf_v = mCharacter->GetSkeleton()->getBodyNode("RightFoot")->getLinearVelocity();
+		// double cur_obj_height = mObject_start->GetSkeleton()->getBodyNode("Jump_Box")->getWorldTransform().translation()[1]+0.235;
 
-		Eigen::Vector3d lh_v = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getLinearVelocity();
-		Eigen::Vector3d rh_v = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getLinearVelocity();
+		// Eigen::Vector3d lh_v = mCharacter->GetSkeleton()->getBodyNode("LeftHand")->getLinearVelocity();
+		// Eigen::Vector3d rh_v = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getLinearVelocity();
 
-		// if(mRecord) std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
+		// // if(mRecord) std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
 
-		bool c1= ((lf[1]-cur_obj_height)> 0.1 && lf_v.norm()>0.15) || (((rf[1]-cur_obj_height) >0.1) && rf_v.norm()> 0.15);
-		bool c2 = (lf_v.norm()>1.0 || rf_v.norm()>1.0);
-		Eigen::Vector3d root_v = mCharacter->GetSkeleton()->getBodyNode("Hips")->getLinearVelocity();
-		bool c3= root_v.norm() > 1.0;
-		bool t_move = (lt[2] > -0.61 || rt[2] > -0.61 || lt[2] < -0.74 || rt[2] < -0.74 );
+		// bool c1= ((lf[1]-cur_obj_height)> 0.1 && lf_v.norm()>0.15) || (((rf[1]-cur_obj_height) >0.1) && rf_v.norm()> 0.15);
+		// bool c2 = (lf_v.norm()>1.0 || rf_v.norm()>1.0);
+		// Eigen::Vector3d root_v = mCharacter->GetSkeleton()->getBodyNode("Hips")->getLinearVelocity();
+		// bool c3= root_v.norm() > 1.0;
+		// bool t_move = (lt[2] > -0.61 || rt[2] > -0.61 || lt[2] < -0.74 || rt[2] < -0.74 );
 
-		if (c1 || c2 || c3 ||t_move) v_count++;
-		else v_count = 0;
+		// if (c1 || c2 || c3 ||t_move) v_count++;
+		// else v_count = 0;
 
-		bool c_once= (lf_v.norm()>3.5|| rf_v.norm()>3.5 || root_v.norm() > 3.5 || lh_v.norm() >3.5 || rh_v.norm()> 3.5);
+		// bool c_once= (lf_v.norm()>3.5|| rf_v.norm()>3.5 || root_v.norm() > 3.5 || lh_v.norm() >3.5 || rh_v.norm()> 3.5);
 
-		if( c_once || (v_count > 3)){
-			if(mRecord){
-				std::cout<<"------------------------------- foot violation -------------------------------"<<std::endl;
-				std::cout<<mCurrentFrame<<" / "<<(lf[1]-cur_obj_height)<<" "<<(rf[1]-cur_obj_height)<<std::endl;
-				std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
-				std::cout<<"toe: "<<lt.transpose()<<" / "<<rt.transpose()<<std::endl;
-				std::cout<<"foot: "<<lf.transpose()<<" / "<<rf.transpose()<<std::endl;
-			}else{
-				mIsTerminal = true;
-				terminationReason = 16;
-			}
-		}
+		// if( c_once || (v_count > 3)){
+		// 	if(mRecord){
+		// 		std::cout<<"------------------------------- foot violation -------------------------------"<<std::endl;
+		// 		std::cout<<mCurrentFrame<<" / "<<(lf[1]-cur_obj_height)<<" "<<(rf[1]-cur_obj_height)<<std::endl;
+		// 		std::cout<<lf_v.norm()<<" "<<rf_v.norm()<<std::endl;
+		// 		std::cout<<"toe: "<<lt.transpose()<<" / "<<rt.transpose()<<std::endl;
+		// 		std::cout<<"foot: "<<lf.transpose()<<" / "<<rf.transpose()<<std::endl;
+		// 	}else{
+		// 		mIsTerminal = true;
+		// 		terminationReason = 16;
+		// 	}
+		// }
 	}
 
 	Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
@@ -995,7 +995,11 @@ UpdateTerminalInfo()
 	if(mParamGoal[0] >= 0.1 &&  mCurrentFrame >= 60){
 		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
 		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
-		if(lf_ground || rf_ground) {
+
+		Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
+		Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
+		
+		if(lf_ground || rf_ground || lf[1]<0.05 || rf[1]<0.05) {
 			mIsTerminal = true;
 			terminationReason = 15;
 			if(mRecord) 
