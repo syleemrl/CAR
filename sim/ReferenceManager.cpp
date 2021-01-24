@@ -285,7 +285,6 @@ LoadMotionFromBVH(std::string filename)
 		mMotions_phase_adaptive.push_back(new Motion(mMotions_phase[i]));
 	}
 	this->GenerateMotionsFromSinglePhase(1000, false, mMotions_phase_adaptive, mMotions_gen_adaptive);
-	mEndPos = mMotions_phase[0]->GetPosition();
 }
 std::vector<Eigen::VectorXd> 
 ReferenceManager::
@@ -438,6 +437,8 @@ GetPosition(double t , bool adaptive)
 	
 	int k0 = (int) std::floor(t);
 	int k1 = (int) std::ceil(t);	
+	
+
 	if (k0 == k1)
 		return (*p_gen)[k0]->GetPosition();
 	else
@@ -465,29 +466,65 @@ GetMotion(double t, bool adaptive)
 	int k0 = (int) std::floor(t);
 	int k1 = (int) std::ceil(t);	
 
-	if(k1 < 8) {
-		Eigen::VectorXd p0, p1;
-		p0 = (*p_gen)[k0]->GetPosition();
-		p1 = (*p_gen)[k1]->GetPosition();
-		double w0 = (k0+1) / 9.0;
-		double w1 = (k1+1) / 9.0;
+	// double k0_p = std::fmod(k0, mPhaseLength);
+	// double k1_p = std::fmod(k1, mPhaseLength);
 
-		p0 = BlendPosition(mEndPos, p0, w0, true);
-		p1 = BlendPosition(mEndPos, p1, w1, true);
-		if (k0 == k1)
-			return new Motion(p0, (*p_gen)[k1]->GetVelocity());
-		else {
-			return new Motion(DPhy::BlendPosition(p0, p1, 1 - (t-k0)), 
-					DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
-		}
-	} else {
+	// if(k0_p < 7) {
+	// 	Eigen::VectorXd p0, p1;
+	// 	p0 = (*p_gen)[k0]->GetPosition();
+	// 	p1 = (*p_gen)[k1]->GetPosition();
+	// 	double w0 = (k0_p+1) / 8.0;
+	// 	double w1 = (k1_p+1) / 8.0;
+
+	// 	p0 = BlendPosition(mMotions_gen[k0]->GetPosition(), p0, 1-w0, true);
+	// 	p1 = BlendPosition(mMotions_gen[k1]->GetPosition(), p1, 1-w1, true);
+	// 	p0(1) = (*p_gen)[k0]->GetPosition()(1);
+	// 	p0(3) = (*p_gen)[k0]->GetPosition()(3);
+	// 	p0(5) = (*p_gen)[k0]->GetPosition()(5);
+
+	// 	p1(1) = (*p_gen)[k1]->GetPosition()(1);
+	// 	p1(3) = (*p_gen)[k1]->GetPosition()(3);
+	// 	p1(5) = (*p_gen)[k1]->GetPosition()(5);
+
+	// 	if (k0 == k1)
+	// 		return new Motion(p0, (*p_gen)[k1]->GetVelocity());
+	// 	else {
+	// 		return new Motion(DPhy::BlendPosition(p0, p1, 1 - (t-k0)), 
+	// 				DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+	// 	}
+	// } else if(k0_p > mPhaseLength - 7) {
+
+	// 	Eigen::VectorXd p0, p1;
+	// 	p0 = (*p_gen)[k0]->GetPosition();
+	// 	p1 = (*p_gen)[k1]->GetPosition();
+	// 	double w0 = (mPhaseLength - k0_p+1) / 8.0;
+	// 	double w1 = (mPhaseLength - k1_p+1) / 8.0;
+
+	// 	p0 = BlendPosition(mMotions_gen[k0]->GetPosition(), p0, w0, true);
+	// 	p1 = BlendPosition(mMotions_gen[k1]->GetPosition(), p1, w1, true);
+	// 	p0(1) = (*p_gen)[k0]->GetPosition()(1);
+	// 	p0(3) = (*p_gen)[k0]->GetPosition()(3);
+	// 	p0(5) = (*p_gen)[k0]->GetPosition()(5);
+
+	// 	p1(1) = (*p_gen)[k1]->GetPosition()(1);
+	// 	p1(3) = (*p_gen)[k1]->GetPosition()(3);
+	// 	p1(5) = (*p_gen)[k1]->GetPosition()(5);
+
+
+	// 	if (k0 == k1)
+	// 		return new Motion(p0, (*p_gen)[k1]->GetVelocity());
+	// 	else {
+	// 		return new Motion(DPhy::BlendPosition(p0, p1, 1 - (t-k0)), 
+	// 				DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
+	// 	}
+	// } else {
 		if (k0 == k1)
 			return new Motion((*p_gen)[k0]);
 		else {
 			return new Motion(DPhy::BlendPosition((*p_gen)[k1]->GetPosition(), (*p_gen)[k0]->GetPosition(), 1 - (t-k0)), 
 					DPhy::BlendVelocity((*p_gen)[k1]->GetVelocity(), (*p_gen)[k0]->GetVelocity(), 1 - (t-k0)));		
 		}
-	}
+	// }
 
 }
 void
@@ -681,6 +718,22 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 
 	for(int i = 0; i < mPhaseLength; i++) {
 		Eigen::VectorXd d_t(mDOF + 1);
+		Eigen::Vector6d root;
+		if(i < 7) {
+			double w = i / 7.0;
+			root = w * displacement[i].first.segment<6>(0);
+			root(1) = displacement[i].first(1);
+			root(3) = displacement[i].first(3);
+			root(5) = displacement[i].first(5);
+			displacement[i].first.segment<6>(0) = root;
+		} else if(i > mPhaseLength - 7) {
+			double w = (mPhaseLength - i) / 7.0;
+			root = w * displacement[i].first.segment<6>(0);
+			root(1) = displacement[i].first(1);
+			root(3) = displacement[i].first(3);
+			root(5) = displacement[i].first(5);
+			displacement[i].first.segment<6>(0) = root;
+		}
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
 	}
@@ -769,14 +822,4 @@ SelectReference(){
 		LoadAdaptiveMotion(mCPS_exp);
 	}
 }
-void
-ReferenceManager::
-AddNewNoise() {
-	int idx = (int)std::floor(mUniform(mMT) * 50);
-	mEndPos = mMotions_idle[idx];
-	mEndPos.segment<6>(0) = mMotions_phase_adaptive[0]->GetPosition().segment<6>(0);
-	mEndPos(3) += 0.4 * (mUniform(mMT) - 0.5);
-	mEndPos(5) += 0.4 * (mUniform(mMT) - 0.5);
-
-}	
 };

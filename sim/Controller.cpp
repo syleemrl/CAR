@@ -852,9 +852,16 @@ Reset(bool RSI)
 	this->mPDTargetPositions = mTargetPositions;
 	this->mPDTargetVelocities = mTargetVelocities;
 	
+	// Eigen::VectorXd target_modified = mTargetPositions;
+	// for(int i = 0; i < target_modified.rows(); i++) {
+	// 	if(i==4)
+	// 		continue;
+	// 	target_modified(i) += 0.4 * (mUniform(mMT) - 0.5);
+	// }
 	skel->setPositions(mTargetPositions);
 	skel->setVelocities(mTargetVelocities);
 	skel->computeForwardKinematics(true,true,false);
+
 
 	mPrevContactInfo.clear();
 	for(int i = 0; i < 2; i++) {
