@@ -19,6 +19,7 @@ SubController::SubController(std::string type, std::string motion, std::string p
     }
     else{
     	mReferenceManager->InitOptimization(1, path, false, mType);
+    	mBlendInterval = 20;
     }
 
 	mEndEffectors.clear();
@@ -111,6 +112,18 @@ Synchronize(Character* character, Eigen::VectorXd endPosition, double frame) {
 	else
 		mPrevEndPos = endPosition;
 	mEndofMotion = false;
+
+	Motion* p_v_target = mReferenceManager->GetMotion(frame, true);
+	Eigen::VectorXd vel = p_v_target->GetVelocity();
+
+	delete p_v_target;
+
+	Eigen::VectorXd ac(vel.rows());
+	ac.setZero();
+	character->GetSkeleton()->setAccelerations(ac);
+	character->GetSkeleton()->setVelocities(vel);
+	character->GetSkeleton()->computeForwardKinematics(false,true,true);
+
 }
 bool
 SubController::
@@ -142,8 +155,10 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 	if(mCurrentFrame < mBlendInterval - 1) {
 		double weight = (mCurrentFrame+1) / mBlendInterval;
 		this->mTargetPositions = BlendPosition(mPrevEndPos, mTargetPositions, weight, true);
+		// std::cout << weight << " " << mTargetPositions.segment<6>(0).transpose() << " "<< mPrevEndPos.segment<6>(0).transpose() << std::endl;
 	}
 	Eigen::VectorXd TargetVelocities = character->GetSkeleton()->getPositionDifferences(mTargetPositions, mPrevTargetPositions) / 0.033 * (mCurrentFrame - mPrevFrame);
+	Eigen::VectorXd vel = p_v_target->GetVelocity();
 	delete p_v_target;
 
 	p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
@@ -160,7 +175,12 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 		PDTargetPositions.block(idx, 0, dof, 1) += action.block(count_dof, 0, dof, 1);
 		count_dof += dof;
 	}
-	
+
+	// if(mCurrentFrameOnPhase <= 2) {
+	// 	character->GetSkeleton()->setVelocities(vel);
+	// 	character->GetSkeleton()->computeForwardKinematics(false,true,false);
+	// }
+
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		for(int j = 0; j < 2; j++) {
 			Eigen::VectorXd torque = character->GetSkeleton()->getSPDForces(PDTargetPositions, 600, 49, world->getConstraintSolver());
@@ -252,7 +272,7 @@ GetEndEffectorStatePosAndVel(Character* character, Eigen::VectorXd pos, Eigen::V
 }
 Eigen::VectorXd 
 SubController::
-GetState(Character* character) {
+GetState(Character* character, int debug) {
 
 	auto& skel = character->GetSkeleton();
 	
@@ -302,6 +322,9 @@ GetState(Character* character) {
 
 	} else {
  		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
+ 		if(debug && mCurrentFrameOnPhase <= 10) {
+ 			std::cout <<mCurrentFrameOnPhase << " / " << v.segment<6>(0).transpose()  << std::endl;
+ 		}
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
  	}
 

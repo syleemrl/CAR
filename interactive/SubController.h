@@ -51,7 +51,7 @@ public:
 	bool virtual Synchronizable(std::string next)=0;
 	void virtual SetAction(Eigen::VectorXd tp)=0;
 
-	Eigen::VectorXd GetState(Character* character);
+	Eigen::VectorXd GetState(Character* character, int debug=0);
 	Eigen::VectorXd GetEndEffectorStatePosAndVel(Character* character, Eigen::VectorXd pos, Eigen::VectorXd vel);
 	Eigen::VectorXd GetCurrentRefPositions() { return mTargetPositions; }
 	bool IsEnd() { return mEndofMotion; }

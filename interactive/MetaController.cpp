@@ -104,8 +104,12 @@ void MetaController::Step()
 	mTargetPositions = mCurrentController->GetCurrentRefPositions();
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mTotalSteps += 1;
+	if(mCurrentController->mType == "Idle" && mPrevAction == "Pivot"){
+		mCurrentController->GetState(mCharacter, 1);
+	}
 	if(mIsWaiting && mCurrentController->Synchronizable(mWaiting.first)) {
 		std::cout << "make transition to : " << mWaiting.first << " , " << mWaiting.second << std::endl;
+		mPrevAction = mCurrentController->mType;
 		Eigen::VectorXd prevTargetPos = mCurrentController->GetCurrentRefPositions();
 
 		mCurrentController = mSubControllers[mWaiting.first];
@@ -116,6 +120,7 @@ void MetaController::Step()
 
 	} else if(mCurrentController->mType != "Idle" && mCurrentController->IsEnd()) {
 		std::cout << "make transition to : Idle " << std::endl;
+		mPrevAction = mCurrentController->mType;
 		Eigen::VectorXd prevTargetPos = mCurrentController->GetCurrentRefPositions();
 
 		mCurrentController = mSubControllers["Idle"];

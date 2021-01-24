@@ -55,6 +55,8 @@ public:
 	std::random_device mRD;
 	std::mt19937 mMT;
 	std::uniform_real_distribution<double> mUniform;
+
+	std::string mPrevAction="";
 };
 } 
 
