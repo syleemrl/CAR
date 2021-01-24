@@ -19,7 +19,7 @@ SubController::SubController(std::string type, std::string motion, std::string p
     }
     else{
     	mReferenceManager->InitOptimization(1, path, false, mType);
-    	mBlendInterval = 20;
+    	mBlendInterval = 10;
     }
 
 	mEndEffectors.clear();
@@ -176,12 +176,13 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 		count_dof += dof;
 	}
 
-	// if(mCurrentFrameOnPhase <= 2) {
-	// 	character->GetSkeleton()->setVelocities(vel);
-	// 	character->GetSkeleton()->computeForwardKinematics(false,true,false);
-	// }
+
 
 	for(int i = 0; i < this->mSimPerCon; i += 2){
+		if(mCurrentFrame <= 5 && mType=="Idle") {
+			character->GetSkeleton()->setVelocities(vel);
+			character->GetSkeleton()->computeForwardKinematics(false,true,false);
+		}
 		for(int j = 0; j < 2; j++) {
 			Eigen::VectorXd torque = character->GetSkeleton()->getSPDForces(PDTargetPositions, 600, 49, world->getConstraintSolver());
 			character->GetSkeleton()->setForces(torque);
@@ -200,6 +201,10 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 		mCurrentFrameOnPhase -= mAdaptiveStep;
 	} 
 
+	if(mType == "Dodge" && mReferenceManager->GetPhaseLength()-15 <= mCurrentFrame) {
+		mEndofMotion = true;
+		mActionSelected = false;
+	} 
 	if(mReferenceManager->GetPhaseLength() <= mCurrentFrame) {
 		mEndofMotion = true;
 		mActionSelected = false;
@@ -322,9 +327,6 @@ GetState(Character* character, int debug) {
 
 	} else {
  		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
- 		if(debug && mCurrentFrameOnPhase <= 10) {
- 			std::cout <<mCurrentFrameOnPhase << " / " << v.segment<6>(0).transpose()  << std::endl;
- 		}
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
  	}
 
@@ -380,6 +382,7 @@ bool DODGE_Controller::Synchronizable(std::string next) {
 }
 void DODGE_Controller::SetAction(Eigen::VectorXd tp) {
 	mActionSelected = true;
+	tp(0) = 0.5;
 	tp = mRegressionMemory->ClipToParamSpace(tp);
 	mReferenceManager->SetParamGoal(tp);
 	std::cout << "Action set : " << tp.transpose() << std::endl;
