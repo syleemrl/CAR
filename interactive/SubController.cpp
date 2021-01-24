@@ -62,7 +62,7 @@ SubController::SubController(std::string type, std::string motion, std::string p
 void
 SubController::
 Synchronize(Character* character, Eigen::VectorXd endPosition, double frame) {
-	Eigen::VectorXd pos = character->GetSkeleton()->getPositions();
+	Eigen::VectorXd pos = endPosition;
 	Eigen::VectorXd pos_not_aligned = mReferenceManager->GetPosition(frame, true);
 
 	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(pos_not_aligned.head<6>());
@@ -184,6 +184,10 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 		mEndofMotion = true;
 		mActionSelected = false;
 	} 
+	// else if(mType == "Pivot" && 36 <= mCurrentFrame) {
+	// 	mEndofMotion = true;
+	// 	mActionSelected = false;
+	// }
 
 
 }

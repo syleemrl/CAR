@@ -36,13 +36,15 @@ SceneMotionWidget::
 Record() {
 	mMotion_reg.push_back(this->mMC->GetCurrentRefPositions());
     mMotion_sim.push_back(this->mMC->GetCurrentSimPositions());
+	mTiming.push_back(mMC->GetCurrentPhase());	
+
     this->mTotalFrame++;
 }
 void
 SceneMotionWidget::
 Step() {
 	for(int i = 0 ; i <= 2; i++) {
-		this->mMC->Step();		
+		this->mMC->Step();	
 		Record();
 	}
 }
@@ -144,7 +146,7 @@ paintGL()
 
 	DrawGround();
 	DrawSkeletons();
-	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame)+" / "+std::to_string(mTotalFrame), true, Eigen::Vector3d::Zero());
+	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mTotalFrame), true, Eigen::Vector3d::Zero());
 	// GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mMC->mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 	// else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
@@ -218,8 +220,7 @@ toggleDrawReg() {
 void
 SceneMotionWidget::
 toggleDrawSim() {
-	if(mRunSim)
-		mDrawSim = !mDrawSim;
+	mDrawSim = !mDrawSim;
 
 }
 void
@@ -238,7 +239,7 @@ keyPressEvent(QKeyEvent *event)
 	}
 	if(event->key() == Qt::Key_D) {
 		std::cout << "D pressed" << std::endl;
-		mMC->SwitchController("Pivot", 5);
+		mMC->SwitchController("Pivot", 0);
 	}
 	if(event->key() == Qt::Key_W) {
 		std::cout << "W pressed" << std::endl;

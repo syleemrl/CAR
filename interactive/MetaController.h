@@ -12,6 +12,7 @@ public:
 	
 	Eigen::VectorXd GetCurrentRefPositions() {return mTargetPositions;}
 	Eigen::VectorXd GetCurrentSimPositions() {return mCharacter->GetSkeleton()->getPositions();}
+	double GetCurrentPhase();
 	Eigen::Vector3d GetCOM() {return mCharacter->GetSkeleton()->getCOM(); }
 
 	void SwitchController(std::string type, int frame=0);
@@ -25,9 +26,9 @@ public:
 	std::vector<Eigen::Vector3d> GetHitPoints() {return mHitPoints; }
 	std::string GetNextAction();
 	void SaveAsBVH(std::string filename);
-	 
+
 	SubController* mPrevController;	
-	SubController* mCurrentController;
+	SubController* mCurrentController=nullptr;
 	std::pair<std::string, double> mWaiting;	
 
 	std::map<std::string, SubController*> mSubControllers;

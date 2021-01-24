@@ -119,7 +119,7 @@ void MetaController::Step()
 		Eigen::VectorXd prevTargetPos = mCurrentController->GetCurrentRefPositions();
 
 		mCurrentController = mSubControllers["Idle"];
-		mCurrentController->Synchronize(mCharacter, prevTargetPos, 22);
+		mCurrentController->Synchronize(mCharacter, prevTargetPos, 0);
 	}
 }
 void MetaController::SetAction(){
@@ -167,7 +167,7 @@ void MetaController::SetAction(){
 		action.resize(4);
 		action.setZero();
 		if(mHitPoints.size() != 0) {
-			Eigen::Vector6d root = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+			Eigen::Vector6d root = mTargetPositions.segment<6>(0); // mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 			Eigen::Vector3d root_ori = root.segment<3>(0);
 			root_ori = projectToXZ(root_ori);
 			Eigen::AngleAxisd root_aa(root_ori.norm(), root_ori.normalized());
@@ -204,11 +204,11 @@ void MetaController::SetAction(){
 			Eigen::Vector3d dir = root_aa.inverse() * hand;
 			double norm = dir.norm();
 			dir.normalize();
-			action << dir(2), mHitPoints[idx](1), norm, 0.4;
+			action << dir(2), 1.22, norm, 0.8;
 		}
 	} else if(mWaiting.first == "Pivot"){
 		action.resize(1);
-		action(0) = 0.0;
+		action(0) = 0.2;
 		if(mHitPoints.size() != 0) {
 			Eigen::Vector6d root = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 			Eigen::Vector3d root_ori = mCharacter->GetSkeleton()->getPositions().segment<3>(0);
@@ -252,6 +252,13 @@ void MetaController::SetAction(){
 	mCurrentController->SetAction(action);
 
 }
+double MetaController::GetCurrentPhase(){
+	if(!mCurrentController) 
+		return 0;
+
+	return mCurrentController->mCurrentFrameOnPhase;
+}
+
 void MetaController::SwitchController(std::string type, int frame)
 {
 	mIsWaiting = true;
