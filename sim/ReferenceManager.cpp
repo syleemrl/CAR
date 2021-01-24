@@ -654,7 +654,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	
 	}
 	double r_foot =  exp(-std::get<2>(rewards).sum_contact); 
-	double r_slide = std::get<2>(rewards).sum_slide; // exp(- pow(std::get<2>(rewards).sum_slide/0.4, 2.0));
+	double r_slide = exp(- pow(std::get<2>(rewards).sum_slide/0.2, 2.0));
+	// double r_slide = std::get<2>(rewards).sum_slide; // exp(- pow(std::get<2>(rewards).sum_slide/0.4, 2.0));
 	double r_vel = exp_of_squared(std::get<2>(rewards).sum_vel, 5);
 	double r_pos = exp_of_squared(std::get<2>(rewards).sum_pos, 0.4);
 	double reward_trajectory = r_foot * r_pos * r_vel *r_slide;

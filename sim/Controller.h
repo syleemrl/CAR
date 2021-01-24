@@ -223,6 +223,9 @@ protected:
 	double stickFoot_right_min;
 	double stickFoot_right_max;
 
+	Eigen::Vector3d stickLeftFoot; 
+	Eigen::Vector3d stickRightFoot; 
+
 	int v_count = 0;
 	Eigen::Vector3d prev_com_v;
 };

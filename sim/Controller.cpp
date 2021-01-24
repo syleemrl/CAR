@@ -261,19 +261,30 @@ Step()
 	// 	Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
 	// 	std::cout<<"@ "<<mCurrentFrame<<" / "<<com_v[2]<<std::endl;
 	// }
-
 	if(stickFoot){
-		Eigen::Vector3d leftToe = mCharacter->getBodyWorldTrans("LeftToe");
-		Eigen::Vector3d rightToe = mCharacter->getBodyWorldTrans("RightToe");
+		Eigen::Vector3d lf = (mCharacter->getBodyWorldTrans("LeftToe")+mCharacter->getBodyWorldTrans("LeftFoot"))/2.0;
+		Eigen::Vector3d rf = (mCharacter->getBodyWorldTrans("RightToe")+mCharacter->getBodyWorldTrans("RightFoot"))/2.0;
 		
-		Eigen::VectorXd left_v= mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getCOMSpatialVelocity();
-		Eigen::VectorXd right_v= mCharacter->GetSkeleton()->getBodyNode("RightToe")->getCOMSpatialVelocity();
-	
-		Eigen::VectorXd toe_v(12);
-		toe_v<< left_v, right_v;
-		double slide = DPhy::exp_of_squared(toe_v, 1.2);
+		Eigen::VectorXd foot_diff (6);
+		foot_diff << (lf-stickLeftFoot), (rf- stickRightFoot);
+		foot_diff(1) = 0;
+		foot_diff(4) = 0;
 
-		mFitness.sum_slide+= slide;
+		mFitness.sum_slide+= foot_diff.segment<3>(0).norm() + foot_diff.segment<3>(3).norm();
+
+		// std::cout<<"@ "<<mCurrentFrame<<" / "<<(foot_diff.segment<3>(0).norm() + foot_diff.segment<3>(3).norm())<<std::endl;
+
+		// Eigen::Vector3d leftToe = mCharacter->getBodyWorldTrans("LeftToe");
+		// Eigen::Vector3d rightToe = mCharacter->getBodyWorldTrans("RightToe");
+		
+		// Eigen::VectorXd left_v= mCharacter->GetSkeleton()->getBodyNode("LeftToe")->getCOMSpatialVelocity();
+		// Eigen::VectorXd right_v= mCharacter->GetSkeleton()->getBodyNode("RightToe")->getCOMSpatialVelocity();
+	
+		// Eigen::VectorXd toe_v(12);
+		// toe_v<< left_v, right_v;
+		// double slide = DPhy::exp_of_squared(toe_v, 1.2);
+
+		// mFitness.sum_slide+= slide;
 		mFitness.slide_cnt++;		
 
 		// if(mRecord) std::cout<<"@ "<<mCurrentFrame<<"/ "<<slide<<"/\t"<<toe_v.transpose()<<std::endl;
@@ -289,6 +300,9 @@ Step()
 	if((mCurrentFrameOnPhase >= 55) || ((mCurrentFrameOnPhase>50) &&  (min_foot < 0.05))) {
 		if(!stickFoot){
 			stickFoot = true;
+			stickLeftFoot = (mCharacter->getBodyWorldTrans("LeftToe")+mCharacter->getBodyWorldTrans("LeftFoot"))/2.0;
+			stickRightFoot = (mCharacter->getBodyWorldTrans("RightToe")+mCharacter->getBodyWorldTrans("RightFoot"))/2.0;
+
 			jump_phase= 2;
 			if(mRecord) std::cout<<"stickFoot @ "<<mCurrentFrameOnPhase<<std::endl;
 		}
@@ -341,6 +355,10 @@ Step()
 			mLanded= false;
 			mean_land_foot = 0;
 			land_foot_cnt = 0;
+		}else if(mRecord){
+			mFitness.sum_slide/= mFitness.slide_cnt;
+			double r_slide = exp(- pow(mFitness.sum_slide/0.2, 2.0));
+			std::cout<<"sum_slide; "<<mFitness.sum_slide<<"/ r_slide: "<<r_slide<<std::endl;
 		}
 
 		this->mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
@@ -783,8 +801,10 @@ GetParamReward()
 		mParamCur[0] = mParamGoal[0];
 		// mParamCur << mParamGoal[0], (mean_land_foot/land_foot_cnt - mStartFoot[2]);
 		// r_param = std::exp(- std::pow((mParamCur[1]- mParamGoal[1])/0.2, 2.0));
+		double slide_avg= mFitness.sum_slide/mFitness.slide_cnt;
+		double r_slide = exp(- pow(slide_avg/0.2, 2.0));
 		
-		double r_slide= mFitness.sum_slide/mFitness.slide_cnt;
+		// double r_slide= mFitness.sum_slide/mFitness.slide_cnt;
 		r_param = r_slide;
 		
 		// std::cout<<"r_slide: "<<r_slide<<std::endl;
@@ -992,7 +1012,7 @@ UpdateTerminalInfo()
 	}
 
 	// mRecord = true;
-	if(mParamGoal[0] >= 0.1 &&  mCurrentFrame >= 60){
+	if(mParamGoal[0] >= 0.05 &&  mCurrentFrame >= 60){
 		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
 		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
 
@@ -1250,6 +1270,9 @@ Reset(bool RSI)
 
 	v_count=0;
 	
+	stickLeftFoot = (mCharacter->getBodyWorldTrans("LeftToe")+mCharacter->getBodyWorldTrans("LeftFoot"))/2.0;
+	stickRightFoot = (mCharacter->getBodyWorldTrans("RightToe")+mCharacter->getBodyWorldTrans("RightFoot"))/2.0;
+
 	//0: -8.63835e-05      1.04059     0.016015 / 41 : 0.00327486    1.34454   0.378879 / 81 : -0.0177552    1.48029   0.614314
 }
 int
