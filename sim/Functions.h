@@ -74,6 +74,12 @@ Eigen::Vector3d projectToXZ(Eigen::Vector3d v);
 
 std::vector<std::string> split(const std::string &s, char delim);
 Eigen::MatrixXd getPseudoInverse(Eigen::MatrixXd m);
+
+double getTheta(Eigen::Vector2d basis, Eigen::Vector2d direction);
+double getXZTheta(Eigen::Vector3d basis, Eigen::Vector3d direction);
+Eigen::Vector2d getLocalCoord_XZ(Eigen::Vector3d origin, Eigen::Vector3d x, Eigen::Vector3d point);
+Eigen::VectorXd MultiplyRootTransform(Eigen::VectorXd position, Eigen::Isometry3d rt, bool change_height);
+
 }
 
 #endif

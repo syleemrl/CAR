@@ -986,4 +986,41 @@ Eigen::MatrixXd getPseudoInverse(Eigen::MatrixXd m){
 	Eigen::MatrixXd inv = svd.matrixV()*inv_singular_value*svd.matrixU().transpose();
 	return inv;
 }
+
+double getTheta(Eigen::Vector2d basis, Eigen::Vector2d direction){
+	basis.normalize();
+	direction.normalize();
+
+	double cos = basis.dot(direction);
+
+	Eigen::Vector2d basis_y( -basis[1], basis[0]);
+	basis_y.normalize();
+	double sin = basis_y.dot(direction);
+
+	std::cout<<basis.transpose()<<" / "<<direction.transpose()<<"/ sc: "<<sin<<" "<<cos<<std::endl;
+	return std::atan2(sin, cos);
+}
+double getXZTheta(Eigen::Vector3d basis, Eigen::Vector3d direction){
+	Eigen::Vector2d basis_xz(basis[2], basis[0]);
+	Eigen::Vector2d direction_xz(direction[2], direction[0]);
+	return getTheta(basis_xz, direction_xz);
+}
+
+Eigen::Vector2d getLocalCoord_XZ(Eigen::Vector3d origin, Eigen::Vector3d x, Eigen::Vector3d point){
+	Eigen::Vector3d offset= point-origin;
+	double theta = getXZTheta(x, offset);
+	std::cout<<"getLocalCoord_XZ: "<<theta<<std::endl;
+	double l = std::sqrt(offset[0]*offset[0] + offset[2]*offset[2]);
+	return Eigen::Vector2d(l*std::cos(theta), l*std::sin(theta));
+}
+
+Eigen::VectorXd MultiplyRootTransform(Eigen::VectorXd position, Eigen::Isometry3d rt, bool change_height){
+	if(!change_height) rt.translation()[1]= 0;
+	Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(position.head<6>());
+
+	T_current = rt*T_current;	
+	position.head<6>() = dart::dynamics::FreeJoint::convertToPositions(T_current);
+	return position;
+}
+
 }
