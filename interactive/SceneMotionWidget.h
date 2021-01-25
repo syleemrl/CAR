@@ -81,6 +81,7 @@ protected:
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
 
 	std::vector<dart::dynamics::SkeletonPtr> 	mSkel_enemy;
+	std::vector<std::vector<int>> 	mRecord_activeEnermy;
 
 	dart::dynamics::SkeletonPtr 	mSkel_obj;
 

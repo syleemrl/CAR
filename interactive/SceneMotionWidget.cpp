@@ -94,8 +94,8 @@ DrawSkeletons()
 
 	for(int i =0 ; i < mMotion_enemy.size(); i++) {
 		int startFrame = this->mMotion_enemy[i].first;
-		int endFrame = this->mMotion_enemy[i].first + this->mMotion_enemy[i].second.size();
-		if(mCurFrame >= startFrame)
+		int endFrame = this->mMotion_enemy[i].first + this->mMotion_enemy[i].second.size() + 1;
+		if(mCurFrame >= startFrame && mCurFrame <= endFrame)
 			GUI::DrawSkeleton(this->mSkel_enemy[i], 0);
 	}
 }	
@@ -268,7 +268,7 @@ keyPressEvent(QKeyEvent *event)
 		mMC->SwitchController("Dodge");
 	}
 
-	if(event->key() == Qt::Key_1) {
+	if(event->key() == Qt::Key_7) {
 		std::cout << "Add new enemy" << std::endl;
 		int i = mMC->AddNewEnemy();
 		Eigen::VectorXd pos = this->mMC->GetEnemyPositions(i);
@@ -278,15 +278,15 @@ keyPressEvent(QKeyEvent *event)
     	mMotion_enemy.push_back(std::pair<int, std::vector<Eigen::VectorXd>>(mCurFrame, poslist));
     	mSkel_enemy.push_back(DPhy::SkeletonBuilder::BuildFromFile(path).first);
 	}
-	if(event->key() == Qt::Key_2) {
+	if(event->key() == Qt::Key_8) {
 		this->mMC->ToggleTargetPhysicsMode();
 	}
-	if(event->key() == Qt::Key_3) {
+	if(event->key() == Qt::Key_9) {
 		this->mMC->SwitchMainTarget();
 	}
 	if(event->key() == Qt::Key_I) {
 		std::cout << "I pressed" << std::endl;
-		mMC->SwitchController("Punch", 0, true);
+		mMC->SwitchController("Punch_enemy", 0, true);
 	}
 }
 void

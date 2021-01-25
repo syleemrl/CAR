@@ -11,7 +11,7 @@ SubController::SubController(std::string type, std::string motion, std::string p
 	mReferenceManager->LoadMotionFromBVH(std::string("/motion/") + motion);
     path = std::string(CAR_DIR)+ std::string("/network/output/") + DPhy::split(ppo, '/')[0] + std::string("/");
     mRegressionMemory = new DPhy::RegressionMemory();
-
+	    
     if(mType.compare("Idle") != 0){
 		mReferenceManager->SetRegressionMemory(mRegressionMemory);
 		mReferenceManager->InitOptimization(1, path, true, mType);
@@ -61,7 +61,8 @@ SubController::SubController(std::string type, std::string motion, std::string p
 }
 void
 SubController::
-Synchronize(Character* character, Eigen::VectorXd endPosition, double frame) {
+Synchronize(Character* character, Eigen::VectorXd endPosition, double frame, int debug) {
+
 	Eigen::VectorXd pos = endPosition;
 	Eigen::VectorXd pos_not_aligned = mReferenceManager->GetPosition(frame, true);
 
@@ -78,7 +79,7 @@ Synchronize(Character* character, Eigen::VectorXd endPosition, double frame) {
 
 	Eigen::Isometry3d T0_gen = T01*T0_phase;
 	Eigen::Isometry3d T0_gen_projected = T01_projected*T0_phase;
-
+	
 	std::vector<Eigen::VectorXd> p;
 	std::vector<double> t;
 	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
@@ -105,13 +106,13 @@ Synchronize(Character* character, Eigen::VectorXd endPosition, double frame) {
 	mAdaptiveStep = mReferenceManager->GetTimeStep(frame, true);
 	mTargetPositions = mReferenceManager->GetPosition(frame, true);
 	mPrevTargetPositions = mTargetPositions;
-
+	
 	if(endPosition.norm() < 1e-3)
 		mPrevEndPos = mTargetPositions;
 	else
 		mPrevEndPos = endPosition;
 	mEndofMotion = false;
-
+	
 	Motion* p_v_target = mReferenceManager->GetMotion(frame, true);
 	Eigen::VectorXd vel = p_v_target->GetVelocity();
 
@@ -180,17 +181,16 @@ bool
 SubController::
 Step() {
 
-
 	if(mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength()){
 		mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 	}
 	mPrevTargetPositions = mTargetPositions;
 	mPrevFrame = mCurrentFrame;
 
-	if(mType != "Idle" && !mActionSelected && mCurrentFrameOnPhase >= 4) {
-		mCurrentFrame -= mAdaptiveStep;
-		mCurrentFrameOnPhase -= mAdaptiveStep;
-	} 
+	// if(mType != "Idle" && !mActionSelected && mCurrentFrameOnPhase >= 4) {
+	// 	mCurrentFrame -= mAdaptiveStep;
+	// 	mCurrentFrameOnPhase -= mAdaptiveStep;
+	// } 
 
 	if(mType == "Dodge" && mReferenceManager->GetPhaseLength()-15 <= mCurrentFrame) {
 		mEndofMotion = true;

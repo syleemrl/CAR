@@ -46,7 +46,7 @@ public:
 
 	bool Step();
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetPDTarget(Character* character);
-	void Synchronize(Character* character, Eigen::VectorXd endPosition, double frame);
+	void Synchronize(Character* character, Eigen::VectorXd endPosition, double frame, int debug=0);
 	bool virtual Synchronizable(std::string next)=0;
 	void virtual SetAction(Eigen::VectorXd tp)=0;
 

@@ -107,6 +107,9 @@ void MetaController::Reset()
 	mIsWaiting = false;
 
 }
+bool MetaController::IsEnemyPhysics() {
+	return mEnemyController.size() > mTargetEnemyIdx && mEnemyController[mTargetEnemyIdx]->mPhysicsMode;
+}
 void MetaController::Step()
 {
 	std::pair<Eigen::VectorXd, Eigen::VectorXd> PDTarget = mCurrentController->GetPDTarget(mCharacter);
@@ -118,7 +121,7 @@ void MetaController::Step()
 		mCharacter->GetSkeleton()->computeForwardKinematics(false,true,false);
 	}
 
-	if(mEnemyController.size() > mTargetEnemyIdx && mEnemyController[mTargetEnemyIdx]->mPhysicsMode) {
+	if(IsEnemyPhysics()) {
 		// mCurrentEnemyController->GetState(mEnemyController[mTargetEnemyIdx]->mCharacter, 1);
 		std::pair<Eigen::VectorXd, Eigen::VectorXd> PDTargetEnemy = mCurrentEnemyController->GetPDTarget(mEnemyController[mTargetEnemyIdx]->mCharacter);
 		posEnemy = PDTargetEnemy.first;
@@ -128,7 +131,7 @@ void MetaController::Step()
 		for(int j = 0; j < 2; j++) {
 			mCharacter->GetSkeleton()->setSPDTarget(pos, 600, 49);
 
-			if(mEnemyController.size() > mTargetEnemyIdx && mEnemyController[mTargetEnemyIdx]->mPhysicsMode) {
+			if(IsEnemyPhysics()) {
 				mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 600, 49);
 			}
 			mWorld->step(false);
@@ -137,9 +140,11 @@ void MetaController::Step()
 	}
 
 	mCurrentController->Step();
-
-	for(int i = 0; i < mEnemyController.size(); i++)
-		mEnemyController[i]->Step(mCharacter->GetSkeleton()->getPositions());
+	if(IsEnemyPhysics()) {
+		mCurrentEnemyController->Step();
+	}
+	for(int i = 0; i < curEnemyList.size(); i++)
+		mEnemyController[curEnemyList[i]]->Step(mCharacter->GetSkeleton()->getPositions());
 
 	mTargetPositions = mCurrentController->GetCurrentRefPositions();
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
@@ -165,6 +170,15 @@ void MetaController::Step()
 		mCurrentController = mSubControllers["Idle"];
 		mCurrentController->Synchronize(mCharacter, prevTargetPos, 0);
 	}
+	if(IsEnemyPhysics() && mCurrentEnemyController->mType != "Idle_enemy" && mCurrentEnemyController->IsEnd()) {
+		std::cout << "make transition to : Idle Enemy" << std::endl;
+		mPrevAction = mCurrentEnemyController->mType;
+		Eigen::VectorXd prevTargetPos = mEnemyController[mTargetEnemyIdx]->GetPosition();
+
+		mCurrentEnemyController = mSubControllersEnemy["Idle_enemy"];
+		mCurrentEnemyController->Synchronize(mEnemyController[mTargetEnemyIdx]->mCharacter, prevTargetPos, 0, 1);
+	}
+	ClearFallenEnemy();
 }
 void MetaController::SetAction(){
 	mActionSelected = true;
@@ -326,7 +340,21 @@ AddNewEnemy() {
 }
 void
 MetaController::
+ClearFallenEnemy() {
+	std::vector<int> newlist;
+	for(int i = 0; i < curEnemyList.size(); i++) {
+		if(mEnemyController[curEnemyList[i]]->GetPosition()(4) < 0.1) {
+			std::cout << "clear enemy : " << curEnemyList[i] << std::endl;
+		} else {
+			newlist.push_back(curEnemyList[i]);
+		}
+	}
+	curEnemyList = newlist;
+}
+void
+MetaController::
 ToggleTargetPhysicsMode() {
+	std::cout << 1 << std::endl;
 	bool prevMode = mEnemyController[mTargetEnemyIdx]->mPhysicsMode;
 	if(prevMode == false) {
 		auto& skel = mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton();
@@ -344,6 +372,7 @@ ToggleTargetPhysicsMode() {
 
 	}
 	mEnemyController[mTargetEnemyIdx]->mPhysicsMode = !prevMode;
+	std::cout << 2 << std::endl;
 
 }
 void

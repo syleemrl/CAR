@@ -29,7 +29,10 @@ public:
 	std::vector<int> GetCurrentEnemyIdxs() {return curEnemyList;}
 	Eigen::VectorXd GetEnemyPositions(int i);
 	void ToggleTargetPhysicsMode();
+	void IsActive();
 	void SwitchMainTarget();
+	bool IsEnemyPhysics();
+	void ClearFallenEnemy();
 
 	SubController* mPrevController;	
 	SubController* mCurrentController=nullptr;
