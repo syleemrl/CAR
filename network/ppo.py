@@ -146,19 +146,19 @@ class PPO(object):
 	def createCriticNetwork(self, name, input, TD, clip=True):
 		critic = Critic(self.sess, name, input)
 			
-		with tf.variable_scope(name+'_Optimize'):
-			value_loss = tf.reduce_mean(tf.square(critic.value - TD))
-			loss = value_loss
+		# with tf.variable_scope(name+'_Optimize'):
+		# 	value_loss = tf.reduce_mean(tf.square(critic.value - TD))
+		# 	loss = value_loss
 
-		critic_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
-		grads, params = zip(*critic_trainer.compute_gradients(loss))
-		if clip:
-			grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
+		# critic_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_critic)
+		# grads, params = zip(*critic_trainer.compute_gradients(loss))
+		# if clip:
+		# 	grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
 		
-		grads_and_vars = list(zip(grads, params))
-		critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
+		# grads_and_vars = list(zip(grads, params))
+		# critic_train_op = critic_trainer.apply_gradients(grads_and_vars)
 			
-		return critic, critic_train_op, loss
+		return critic, 1, 2
 
 	def buildOptimize(self, name):
 		self.state = tf.placeholder(tf.float32, shape=[None, self.num_state], name=name+'_state')
@@ -177,25 +177,26 @@ class PPO(object):
 			surrogate = -tf.reduce_mean(tf.minimum(self.ratio*self.GAE, clipped_ratio*self.GAE))
 			self.loss_actor = surrogate
 
-		actor_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
-		grads, params = zip(*actor_trainer.compute_gradients(self.loss_actor));
-		grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
+
+		# actor_trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
+		# grads, params = zip(*actor_trainer.compute_gradients(self.loss_actor));
+		# grads, _grad_norm = tf.clip_by_global_norm(grads, 0.5)
 		
-		grads_and_vars = list(zip(grads, params))
-		self.actor_train_op = actor_trainer.apply_gradients(grads_and_vars)
+		# grads_and_vars = list(zip(grads, params))
+		# self.actor_train_op = actor_trainer.apply_gradients(grads_and_vars)
 
 		self.critic, self.critic_train_op, self.loss_critic = self.createCriticNetwork(name, self.state, self.TD)
 
-		if self.adaptive:
-			if self.parametric:
-				self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_param], name=name+'_state_target')
+		# if self.adaptive:
+		# 	if self.parametric:
+		# 		self.state_target = tf.placeholder(tf.float32, shape=[None, self.env.dim_param], name=name+'_state_target')
 
-			with tf.variable_scope(name+'_Optimize'):
-				if self.parametric:
-					self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
+		# 	with tf.variable_scope(name+'_Optimize'):
+		# 		if self.parametric:
+		# 			self.TD_target = tf.placeholder(tf.float32, shape=[None], name='TD_target')
 
-			if self.parametric:
-				self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
+		# 	if self.parametric:
+		# 		self.critic_target, self.critic_target_train_op, self.loss_critic_target = self.createCriticNetwork(name+'_target', self.state_target, self.TD_target, False)
 
 		var_list = tf.trainable_variables()
 		save_list = []

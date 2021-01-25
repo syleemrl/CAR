@@ -42,18 +42,12 @@ EnemyKinController::EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_
 	Eigen::AngleAxisd rotate_y = Eigen::AngleAxisd(theta, Eigen::Vector3d(0, 1, 0));
 	rotate_y = rotate_y * root_aa;
 	p.segment<3>(0) = rotate_y.axis() * rotate_y.angle();
-	std::cout << p.segment<3>(0).transpose()<< std::endl;
 
 	mCharacter->GetSkeleton()->setPositions(p);
 	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
 	calculateAlign();
 
     mTotalFrame = 0;
-}
-
-void EnemyKinController::Step(){
-	//
-
 }
 
 void EnemyKinController::Reset(){
@@ -81,7 +75,12 @@ void EnemyKinController::calculateAlign(){
 }
 
 void EnemyKinController::Step(Eigen::VectorXd main_p){
+	if(mPhysicsMode) {
+		mCurrentFrameOnPhase++;
+		mTotalFrame++;
 
+		return;
+	}
 	mCharacter_main_tmp->GetSkeleton()->setPositions(main_p);
 	mCharacter_main_tmp->GetSkeleton()->computeForwardKinematics(true, true, false);
 
@@ -115,25 +114,28 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	double theta = DPhy::getXZTheta(my_body_dir, look_dir);
 
 	
-	if(local_coord.norm() > 1.6){
+	if(local_coord.norm() > 1.4){
 		mNextMotion = "box_move_front";
-		std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}else if(local_coord.norm() < 1.0){
+		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
+	}else if(local_coord.norm() < 0.7){
 		mNextMotion = "box_move_back";
-		std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}else if(local_coord[1] > 1.0){
-		std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
+		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
+	}
+	else if(local_coord[1] > 1.0){
+		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
 		mNextMotion = "box_move_left";
 	}else if(local_coord[1] < -1.0){
 		mNextMotion = "box_move_right";
-		std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}else if(theta > 0.1){
-		mNextMotion= "right_pivot_mxm";
-		std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}else if(theta < - 0.3 ){
-		mNextMotion = "pivot_mxm";
-		std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}else{
+		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
+	}
+	// else if(theta > 0.1){
+	// 	mNextMotion= "right_pivot_mxm";
+	// 	std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
+	// }else if(theta < - 0.3 ){
+	// 	mNextMotion = "pivot_mxm";
+	// 	std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
+	// }
+	else{
 		mNextMotion = "box_idle";
 	}
 
@@ -143,9 +145,9 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 		// transition
 		mCurrentMotion = mNextMotion;
 		mNextMotion= "box_idle";
-		std::cout<<mTotalFrame<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-		std::cout<<mTotalFrame<<" / "<<mCurrentMotion<<" / "<<mNextMotion<<std::endl;
-		std::cout<<" ======================= "<<mCurrentMotion<<" / "<<mCurrentFrameOnPhase<<" ======================= "<<std::endl;
+		//std::cout<<mTotalFrame<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
+		//std::cout<<mTotalFrame<<" / "<<mCurrentMotion<<" / "<<mNextMotion<<std::endl;
+		//std::cout<<" ======================= "<<mCurrentMotion<<" / "<<mCurrentFrameOnPhase<<" ======================= "<<std::endl;
 		calculateAlign();
 	}
 

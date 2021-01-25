@@ -16,7 +16,7 @@ public:
 	double GetCurrentPhase();
 	Eigen::Vector3d GetCOM() {return mCharacter->GetSkeleton()->getCOM(); }
 
-	void SwitchController(std::string type, int frame=0);
+	void SwitchController(std::string type, int frame=0, bool isEnemy=false);
 	void SetAction();
 	void LoadControllers();
 	void AddSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
@@ -28,12 +28,17 @@ public:
 	int AddNewEnemy();
 	std::vector<int> GetCurrentEnemyIdxs() {return curEnemyList;}
 	Eigen::VectorXd GetEnemyPositions(int i);
+	void ToggleTargetPhysicsMode();
+	void SwitchMainTarget();
 
 	SubController* mPrevController;	
 	SubController* mCurrentController=nullptr;
+	SubController* mCurrentEnemyController=nullptr;
+
 	std::pair<std::string, double> mWaiting;	
 
 	std::map<std::string, SubController*> mSubControllers;
+	std::map<std::string, SubController*> mSubControllersEnemy;
 
 	//World-related stuff
 	dart::simulation::WorldPtr mWorld;
@@ -63,8 +68,6 @@ public:
 	std::vector<EnemyKinController*> mEnemyController;
 
 	int mTargetEnemyIdx=0;
-	int mCommandCount=0;
-
 };
 } 
 

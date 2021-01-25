@@ -997,7 +997,7 @@ double getTheta(Eigen::Vector2d basis, Eigen::Vector2d direction){
 	basis_y.normalize();
 	double sin = basis_y.dot(direction);
 
-	std::cout<<basis.transpose()<<" / "<<direction.transpose()<<"/ sc: "<<sin<<" "<<cos<<std::endl;
+	// std::cout<<basis.transpose()<<" / "<<direction.transpose()<<"/ sc: "<<sin<<" "<<cos<<std::endl;
 	return std::atan2(sin, cos);
 }
 double getXZTheta(Eigen::Vector3d basis, Eigen::Vector3d direction){
@@ -1009,7 +1009,7 @@ double getXZTheta(Eigen::Vector3d basis, Eigen::Vector3d direction){
 Eigen::Vector2d getLocalCoord_XZ(Eigen::Vector3d origin, Eigen::Vector3d x, Eigen::Vector3d point){
 	Eigen::Vector3d offset= point-origin;
 	double theta = getXZTheta(x, offset);
-	std::cout<<"getLocalCoord_XZ: "<<theta<<std::endl;
+	// std::cout<<"getLocalCoord_XZ: "<<theta<<std::endl;
 	double l = std::sqrt(offset[0]*offset[0] + offset[2]*offset[2]);
 	return Eigen::Vector2d(l*std::cos(theta), l*std::sin(theta));
 }

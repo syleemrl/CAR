@@ -25,7 +25,7 @@ class Actor(object):
 		return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / self.std), axis=-1) + 0.5 * np.log(2.0 * np.pi) * tf.to_float(tf.shape(x)[-1]) + tf.reduce_sum(self.logstd, axis=-1)
 
 	def createNetwork(self, state, num_actions, reuse, is_training):
-		with tf.variable_scope(self.scope, reuse=reuse):
+		with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
 			L1 = tf.layers.dense(state,actor_layer_size,activation=activ,name='L1',
 	            kernel_initializer=kernel_initialize_func,
 	            kernel_regularizer=regularizer
@@ -82,7 +82,7 @@ class Critic(object):
 
 		self.state = state
 	def createNetwork(self, state, reuse, is_training, critic_layer_size):	
-		with tf.variable_scope(self.scope, reuse=reuse):
+		with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
 			L1 = tf.layers.dense(state,critic_layer_size,activation=activ,name='L1',
 	            kernel_initializer=kernel_initialize_func,
 	            kernel_regularizer=regularizer
@@ -118,7 +118,7 @@ class RegressionNet(object):
 
 		self.input = input
 	def createNetwork(self, input, output, reuse):	
-		with tf.variable_scope(self.scope, reuse=reuse):
+		with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE):
 			L1 = tf.layers.dense(input, regression_layer_size, activation=activ,name='L1',
 	            kernel_initializer=kernel_initialize_func,
 	            kernel_regularizer=regularizer

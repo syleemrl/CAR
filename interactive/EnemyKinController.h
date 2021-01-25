@@ -40,7 +40,8 @@ class EnemyKinController
 public:
 	EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_ch);
 
-	void Step();
+	// void SetNextAction(std::sting action);
+	void StepPhysics(dart::simulation::WorldPtr world);
 	void Reset();
 	Character* mCharacter;	
 	std::vector<Eigen::VectorXd> mRecordPosition;
@@ -60,11 +61,14 @@ public:
 	Eigen::VectorXd GetPosition();
 	Eigen::Vector3d GetCOM() {return mCharacter->GetSkeleton()->getCOM(); }
 	void Step(Eigen::VectorXd main_p);
+	void SetPhysicsMode(bool on) { mPhysicsMode = on; }
 
 	Eigen::Isometry3d mAlign;
 	void calculateAlign();
 
 	int mTotalFrame;
+	bool mWaiting=false;
+	bool mPhysicsMode=false;
 };
 } 
 

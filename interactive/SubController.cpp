@@ -124,9 +124,9 @@ Synchronize(Character* character, Eigen::VectorXd endPosition, double frame) {
 	character->GetSkeleton()->computeForwardKinematics(false,true,true);
 
 }
-bool
+std::pair<Eigen::VectorXd, Eigen::VectorXd>
 SubController::
-Step(dart::simulation::WorldPtr world, Character* character) {
+GetPDTarget(Character* character) {
 	Eigen::VectorXd state = GetState(character);
 	p::object a = mPPO.attr("run")(DPhy::toNumPyArray(state));
 	np::ndarray na = np::from_object(a);
@@ -174,21 +174,13 @@ Step(dart::simulation::WorldPtr world, Character* character) {
 		PDTargetPositions.block(idx, 0, dof, 1) += action.block(count_dof, 0, dof, 1);
 		count_dof += dof;
 	}
+	return std::pair<Eigen::VectorXd, Eigen::VectorXd>(PDTargetPositions, vel);
+}
+bool
+SubController::
+Step() {
 
 
-
-	for(int i = 0; i < this->mSimPerCon; i += 2){
-		if(mCurrentFrame <= 5 && mType=="Idle") {
-			character->GetSkeleton()->setVelocities(vel);
-			character->GetSkeleton()->computeForwardKinematics(false,true,false);
-		}
-		for(int j = 0; j < 2; j++) {
-			Eigen::VectorXd torque = character->GetSkeleton()->getSPDForces(PDTargetPositions, 600, 49, world->getConstraintSolver());
-			character->GetSkeleton()->setForces(torque);
-			world->step(false);
-		}
-
-	}
 	if(mCurrentFrameOnPhase >= mReferenceManager->GetPhaseLength()){
 		mCurrentFrameOnPhase -= mReferenceManager->GetPhaseLength();
 	}
@@ -327,6 +319,15 @@ GetState(Character* character, int debug) {
 	} else {
  		state.resize(p.rows()+v.rows()+1+1+p_next.rows()+ee.rows()+2);
 		state<< p, v, up_vec_angle, root_height, p_next, mAdaptiveStep, ee, mCurrentFrameOnPhase;
+		if(debug && mCurrentFrame <= 5) {
+			std::cout << "p : " << p.transpose() << std::endl;
+			std::cout << "v : " << v.transpose() << std::endl;
+			std::cout << "p next : " << p_next.transpose() << std::endl;
+			std::cout <<  "ee : " << ee.transpose() << std::endl;
+			std::cout << up_vec_angle << " " << root_height << " " <<mAdaptiveStep << " " <<  mCurrentFrameOnPhase << std::endl;
+			std::cout <<  "==============================" << std::endl;
+
+		}
  	}
 
 
@@ -352,6 +353,7 @@ void PUNCH_Controller::SetAction(Eigen::VectorXd tp) {
 	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 	mReferenceManager->LoadAdaptiveMotion(cps);
 }
+
 //////////////////////////////////// IDLE  ////////////////////////////////////
 
 IDLE_Controller::IDLE_Controller(std::string motion, std::string ppo)
@@ -420,12 +422,10 @@ bool PIVOT_Controller::Synchronizable(std::string next) {
 }
 void PIVOT_Controller::SetAction(Eigen::VectorXd tp) {
 	mActionSelected = true;
-	
-	Eigen::VectorXd tp_denorm = mRegressionMemory->Denormalize(tp);
-	mReferenceManager->SetParamGoal(tp_denorm);
-	std::cout << "Action set : " << tp_denorm.transpose() << std::endl;
-
-	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp_denorm);
+	tp = mRegressionMemory->ClipToParamSpace(tp);
+	mReferenceManager->SetParamGoal(tp);
+	std::cout << "Action set : " << tp.transpose() << std::endl;
+	std::vector<Eigen::VectorXd> cps = mRegressionMemory->GetCPSFromNearestParams(tp);
 	mReferenceManager->LoadAdaptiveMotion(cps);
 }
 } // end namespace DPhy

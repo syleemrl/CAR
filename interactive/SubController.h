@@ -44,7 +44,8 @@ public:
 	bool mIsParametric;
 	Eigen::VectorXd mParamGoal;
 
-	bool Step(dart::simulation::WorldPtr world, Character* character);
+	bool Step();
+	std::pair<Eigen::VectorXd, Eigen::VectorXd> GetPDTarget(Character* character);
 	void Synchronize(Character* character, Eigen::VectorXd endPosition, double frame);
 	bool virtual Synchronizable(std::string next)=0;
 	void virtual SetAction(Eigen::VectorXd tp)=0;
@@ -88,6 +89,15 @@ public:
 	void virtual SetAction(Eigen::VectorXd tp);
 };
 
+class PUNCH_ENEMY_Controller : public SubController
+{
+public:
+	PUNCH_ENEMY_Controller(){}
+	PUNCH_ENEMY_Controller(std::string motion, std::string ppo);
+
+	bool virtual Synchronizable(std::string next);
+	void virtual SetAction(Eigen::VectorXd tp);
+};
 
 class IDLE_Controller : public SubController
 {
