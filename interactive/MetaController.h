@@ -1,6 +1,7 @@
 #ifndef __META_CONTROLLER_H
 #define __META_CONTROLLER_H
 #include "SubController.h"
+#include "EnemyKinController.h"
 
 namespace DPhy
 {
@@ -21,11 +22,12 @@ public:
 	void AddSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
 	void Reset();
 	void Step();
-	void AddNewRandomHitPoint();
-	void ClearHitPoints() {mHitPoints.clear();}
-	std::vector<Eigen::Vector3d> GetHitPoints() {return mHitPoints; }
 	std::string GetNextAction();
 	void SaveAsBVH(std::string filename);
+
+	int AddNewEnemy();
+	std::vector<int> GetCurrentEnemyIdxs() {return curEnemyList;}
+	Eigen::VectorXd GetEnemyPositions(int i);
 
 	SubController* mPrevController;	
 	SubController* mCurrentController=nullptr;
@@ -57,6 +59,12 @@ public:
 	std::uniform_real_distribution<double> mUniform;
 
 	std::string mPrevAction="";
+	std::vector<int> curEnemyList;
+	std::vector<EnemyKinController*> mEnemyController;
+
+	int mTargetEnemyIdx=0;
+	int mCommandCount=0;
+
 };
 } 
 

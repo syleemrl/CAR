@@ -4,6 +4,7 @@
 
 #include "Character.h"
 #include "MultilevelSpline.h"
+
 #include <boost/filesystem.hpp>
 #include <Eigen/QR>
 #include <fstream>
@@ -14,11 +15,8 @@
 #undef slots
 #include <boost/python.hpp>
 #include <boost/python/numpy.hpp>
-#include "Camera.h"
-#include "ReferenceManager.h"
 #include "RegressionMemory.h"
-#include "GLfunctions.h"
-#include "DART_interface.h"
+#include "ReferenceManager.h"
 #include "Controller.h"
 #include "Functions.h"
 #pragma pop_macro("slots")

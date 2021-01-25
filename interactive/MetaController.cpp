@@ -101,6 +101,8 @@ void MetaController::Reset()
 void MetaController::Step()
 {
 	mCurrentController->Step(mWorld, mCharacter);
+	for(int i = 0; i < mEnemyController.size(); i++)
+		mEnemyController[i]->Step(mCharacter->GetSkeleton()->getPositions());
 	mTargetPositions = mCurrentController->GetCurrentRefPositions();
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
 	mTotalSteps += 1;
@@ -209,7 +211,7 @@ void MetaController::SetAction(){
 			Eigen::Vector3d dir = root_aa.inverse() * hand;
 			double norm = dir.norm();
 			dir.normalize();
-			action << dir(2), 1.22, norm, 0.8;
+			action << dir(2), 1.22, norm, 0.6;
 		}
 	} else if(mWaiting.first == "Pivot"){
 		action.resize(1);
@@ -254,6 +256,12 @@ void MetaController::SetAction(){
 		action(0) = mUniform(mMT);
 	}
 
+	mCommandCount += 1;
+	if(mCommandCount >= 3 && mTargetEnemyIdx == 0)
+		mTargetEnemyIdx = 1;
+	if(mCommandCount >= 5 && mTargetEnemyIdx == 0)
+		mTargetEnemyIdx = 2;
+	
 	mCurrentController->SetAction(action);
 
 }
@@ -278,21 +286,37 @@ std::string MetaController::GetNextAction()
 	else
 		return mCurrentController->mType;
 }
-void 
+int 
 MetaController::
-AddNewRandomHitPoint() {
-	Eigen::Vector3d p = GetCOM();	
-	double distance = mUniform(mMT);
-	double dir = 2 * (mUniform(mMT) - 0.5);
-	Eigen::Vector3d dir3d;
-	if(mUniform(mMT) > 0.5) {
-		dir3d = Eigen::Vector3d(dir, 0, sqrt(1-dir*dir));
-	} else {
-		dir3d = Eigen::Vector3d(dir, 0, -sqrt(1-dir*dir));
+AddNewEnemy() {
+	int i = mEnemyController.size();
+	Eigen::Vector3d p_ch = mCharacter->GetSkeleton()->getPositions().segment<3>(3);
+	Eigen::Vector3d d_ch = mCharacter->GetSkeleton()->getPositions().segment<3>(0);
+
+	Eigen::Vector3d p_em;
+	Eigen::AngleAxisd aa = Eigen::AngleAxisd(d_ch.norm(), d_ch.normalized());
+	if(i == 0) {
+		Eigen::Vector3d dir = Eigen::Vector3d(sin(1.5*M_PI), 0, cos(1.5*M_PI));
+		dir = aa * dir;
+		p_em += dir;
+	} else if(i == 1) {
+		Eigen::Vector3d dir = Eigen::Vector3d(sin(0.5*M_PI), 0, cos(0.5*M_PI));
+		dir = aa * dir;
+		p_em += dir;
+	} else if(i == 2) {
+		Eigen::Vector3d dir = Eigen::Vector3d(sin(M_PI), 0, cos(M_PI));
+		dir = aa * dir;
+		p_em += dir;
 	}
-	p += (distance * 0.5 + 0.5) * dir3d;
-	p(1) = 0.5 + mUniform(mMT);
-	mHitPoints.push_back(p);
+	mEnemyController.push_back(new EnemyKinController(p_em, p_ch));
+	curEnemyList.push_back(i);
+
+	return i;
+}
+Eigen::VectorXd
+MetaController::
+GetEnemyPositions(int i) {
+	return mEnemyController[i]->GetPosition();
 }
 void
 MetaController::

@@ -37,7 +37,10 @@ Record() {
 	mMotion_reg.push_back(this->mMC->GetCurrentRefPositions());
     mMotion_sim.push_back(this->mMC->GetCurrentSimPositions());
 	mTiming.push_back(mMC->GetCurrentPhase());	
-
+	std::vector<int> elist = mMC->GetCurrentEnemyIdxs();
+	for(int i =0 ; i < elist.size(); i++) {
+		mMotion_enemy[elist[i]].second.push_back(this->mMC->GetEnemyPositions(elist[i]));
+	}
     this->mTotalFrame++;
 }
 void
@@ -71,6 +74,14 @@ SetFrame(int n)
 {
 	if(mDrawReg && n < mMotion_reg.size()) mSkel_reg->setPositions(mMotion_reg[n]);
 	if(mDrawSim && n < mMotion_sim.size()) mSkel_sim->setPositions(mMotion_sim[n]);
+	std::vector<int> elist = mMC->GetCurrentEnemyIdxs();
+	for(int i =0 ; i < elist.size(); i++) {
+		int startFrame = this->mMotion_enemy[elist[i]].first;
+		std::vector<Eigen::VectorXd> motions = this->mMotion_enemy[elist[i]].second;
+		// std::cout << motions.size() << " "<<n << " " << n-startFrame << " "<< motions[n-startFrame].size() << std::endl;
+		if(n-startFrame < motions.size() && n-startFrame > 0) this->mSkel_enemy[elist[i]]->setPositions(motions[n-startFrame]);
+	}
+
 }
 void
 SceneMotionWidget::
@@ -80,6 +91,13 @@ DrawSkeletons()
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
 	if(mDrawReg)
 		GUI::DrawSkeleton(this->mSkel_reg, 0);
+
+	for(int i =0 ; i < mMotion_enemy.size(); i++) {
+		int startFrame = this->mMotion_enemy[i].first;
+		int endFrame = this->mMotion_enemy[i].first + this->mMotion_enemy[i].second.size();
+		if(mCurFrame >= startFrame)
+			GUI::DrawSkeleton(this->mSkel_enemy[i], 0);
+	}
 }	
 void 
 SceneMotionWidget::
@@ -121,10 +139,6 @@ paintGL()
 	initLights();
 	glEnable(GL_LIGHTING);
 
-	std::vector<Eigen::Vector3d> hpoints = mMC->GetHitPoints();
-	for(int i = 0; i < hpoints.size(); i++) {
-		GUI::DrawPoint(hpoints[i], Eigen::Vector3d(1.0, 0.0, 0.0), 10);
-	}
 	// if(mTrackCamera){
 	// 	Eigen::Vector3d com = mMC->GetCOM();
 	// 	// Eigen::Vector6d rootpos = mMC->GetCurrentSimPositions().segment<6>(0);
@@ -254,13 +268,14 @@ keyPressEvent(QKeyEvent *event)
 		mMC->SwitchController("Dodge");
 	}
 	if(event->key() == Qt::Key_1) {
-		std::cout << "Add new hitpoint" << std::endl;
-		mMC->AddNewRandomHitPoint();
-	}
-	if(event->key() == Qt::Key_2) {
-		std::cout << "Clear and add new hitpoint" << std::endl;
-		mMC->ClearHitPoints();
-		mMC->AddNewRandomHitPoint();
+		std::cout << "Add new enemy" << std::endl;
+		int i = mMC->AddNewEnemy();
+		Eigen::VectorXd pos = this->mMC->GetEnemyPositions(i);
+		std::vector<Eigen::VectorXd> poslist;
+		poslist.push_back(pos);
+		std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+    	mMotion_enemy.push_back(std::pair<int, std::vector<Eigen::VectorXd>>(mCurFrame, poslist));
+    	mSkel_enemy.push_back(DPhy::SkeletonBuilder::BuildFromFile(path).first);
 	}
 
 }
@@ -345,5 +360,6 @@ Save() {
 	time(&t);
 
 	std::string time_str = std::ctime(&t);
+	// BVHs + start frame information
 	mMC->SaveAsBVH("record_"+time_str); 
 }

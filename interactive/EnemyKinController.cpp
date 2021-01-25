@@ -4,7 +4,7 @@
 namespace DPhy
 {
 
-EnemyKinController::EnemyKinController()
+EnemyKinController::EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_ch)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
@@ -22,10 +22,32 @@ EnemyKinController::EnemyKinController()
 	mNextMotion = "box_idle";
 	mCurrentFrameOnPhase= 0;
 
-    mReferenceManager = new DPhy::ReferenceManager(mCharacter);
+    mReferenceManager = new DPhy::ReferenceManager(new DPhy::Character(path));
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/")+ mCurrentMotion + std::string(".bvh"));
 
-    mAlign = Eigen::Isometry3d::Identity();
+    Eigen::VectorXd p = mReferenceManager->GetPosition(0, false);
+
+    p(3) = pos(0);
+    p(5) = pos(2);
+
+	Eigen::Vector3d dir =  pos_ch - p.segment<3>(3);
+	
+	Eigen::Vector3d ls 	= mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
+	Eigen::Vector3d rs 	= mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
+	Eigen::Vector3d my_body_dir= (ls-rs).cross(Eigen::Vector3d::UnitY());
+
+	double theta = DPhy::getXZTheta(my_body_dir, dir);
+
+	Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(p.segment<3>(0).norm(), p.segment<3>(0).normalized());
+	Eigen::AngleAxisd rotate_y = Eigen::AngleAxisd(theta, Eigen::Vector3d(0, 1, 0));
+	rotate_y = rotate_y * root_aa;
+	p.segment<3>(0) = rotate_y.axis() * rotate_y.angle();
+	std::cout << p.segment<3>(0).transpose()<< std::endl;
+
+	mCharacter->GetSkeleton()->setPositions(p);
+	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
+	calculateAlign();
+
     mTotalFrame = 0;
 }
 

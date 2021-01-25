@@ -72,11 +72,15 @@ protected:
 
 	std::vector<Eigen::VectorXd> 	mMotion_reg;
 	std::vector<Eigen::VectorXd> 	mMotion_sim;
+	// start point, motion
+	std::vector<std::pair<int, std::vector<Eigen::VectorXd>>> mMotion_enemy;
 
 	std::vector<double>				mTiming; // Controller->GetCurrentLength()
 
 	dart::dynamics::SkeletonPtr 	mSkel_reg;
 	dart::dynamics::SkeletonPtr 	mSkel_sim;
+
+	std::vector<dart::dynamics::SkeletonPtr> 	mSkel_enemy;
 
 	dart::dynamics::SkeletonPtr 	mSkel_obj;
 
