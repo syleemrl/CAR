@@ -508,9 +508,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 	com_diff -= skel->getCOM();
 
-	Eigen::VectorXd foot_x(2); 
+	Eigen::VectorXd foot_x(3); 
 	foot_x.setZero();
-
 
 	auto p_v_target = mReferenceManager->GetMotion(mCurrentFrame, false);
 	Eigen::VectorXd pos = p_v_target->GetPosition();
@@ -533,6 +532,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	foot_x[0] = std::max(0.0, left_foot_x-ref_left_foot_x);
 	foot_x[1] = std::min(0.0, right_foot_x-ref_right_foot_x);
+	foot_x[2] = std::min(0.0, left_foot_x - right_foot_x);
 
 	double scale = 1.0;
 
@@ -692,7 +692,7 @@ GetSimilarityReward()
 			}
 			else if(jump_phase == 2) {
 				p_diff.segment<3>(idx) *= 2;
-				v_diff.segment<3>(idx) *= 2;
+				// v_diff.segment<3>(idx) *= 2;
 			}
 			// y-axis (up)
 			p_diff(idx+4) *= 0;
@@ -716,7 +716,7 @@ GetSimilarityReward()
 
 		if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
 			// std::cout<<mCurrentFrameOnPhase<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
-			p_diff(idx+2)*= 15;
+			p_diff(idx+2)*= 10;
 		}
 	}
 
@@ -902,14 +902,15 @@ UpdateTerminalInfo()
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
 
-	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
-	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
-	Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
-	Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
-	Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
-	right_vector[1]= 0;
-	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
-	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
+	// Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
+	// Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
+	
+	// Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
+	// Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
+	// Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
+	// right_vector[1]= 0;
+	// Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
+	// double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
 
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
@@ -1001,10 +1002,17 @@ UpdateTerminalInfo()
 		// }
 	}
 
+	Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
+	Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
+
+	if((lf[0]+0.03)< rf[0]){
+		mIsTerminal = true;
+		terminationReason = 17;
+		if(mRecord) std::cout<<"lf: "<<lf[0]<<"/ rf: "<<rf[0]<<std::endl;
+	}
+
 	Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
-	if(mParamGoal[0]>0 && mCurrentFrame>=50 && prev_com_v[1] >0 && com_v[1]<0 ){
-		Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
-		Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
+	if(mParamGoal[0]>0 && mCurrentFrame>=37 && prev_com_v[1] >0 && com_v[1]<0 ){
 		if(lf[1] < mParamGoal[0] && rf[1] < mParamGoal[0]){
 			mIsTerminal = true;
 			terminationReason = 16;
@@ -1015,10 +1023,7 @@ UpdateTerminalInfo()
 	if(mParamGoal[0] >= 0.05 &&  mCurrentFrame >= 60){
 		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
 		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
-
-		Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
-		Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
-		
+	
 		if(lf_ground || rf_ground || lf[1]<0.05 || rf[1]<0.05) {
 			mIsTerminal = true;
 			terminationReason = 15;

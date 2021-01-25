@@ -470,10 +470,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 		// 1.406
 		mParamBase.resize(2);
-		mParamBase << -0.5, 1.4; 
+		mParamBase << -1.0, 1.4; 
 
 		mParamEnd.resize(2);
-		mParamEnd << 0.5, 2.8;
+		mParamEnd << 1.0, 3.0;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
@@ -550,7 +550,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(mRecord) std::cout<<"1 ; "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).sum_slide<<std::endl;
 
 	if(std::get<0>(rewards) < mThresholdTracking) {
-		std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
+		if(mRecord) std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
 
