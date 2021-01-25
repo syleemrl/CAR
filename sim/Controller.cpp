@@ -779,12 +779,12 @@ GetParamReward()
 			Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
 
 			// if(lf[1] < mParamGoal[0] || rf[1]< mParamGoal[0])
-			double expected_z = (lf[2]+rf[2])/2.0 + com_v[2]*(50.-mCurrentFrame)*0.033;
+			double expected_z = (lf[2]+rf[2])/2.0;// + com_v[2]*(50.-mCurrentFrame)*0.033;
 			// std::cout<<"expected_z: "<<((lf[2]+rf[2])/2.0)<<" "<<com_v[2]<<" "<<expected_z<<std::endl;
 
 			Eigen::VectorXd obj_pos(mObject_end->GetSkeleton()->getNumDofs());
 			obj_pos.setZero(); 
-			obj_pos[5] = expected_z + 0.6;
+			obj_pos[5] = expected_z + 0.35;
 			if(mParamGoal[0] > 0) obj_pos[6] = mParamGoal[0];
 
 			this->mObject_end->GetSkeleton()->setPositions(obj_pos);
@@ -1002,7 +1002,7 @@ UpdateTerminalInfo()
 	}
 
 	Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
-	if(mParamGoal[0]>0 && mCurrentFrame>=37 && prev_com_v[1] >0 && com_v[1]<0 ){
+	if(mParamGoal[0]>0 && mCurrentFrame>=50 && prev_com_v[1] >0 && com_v[1]<0 ){
 		Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
 		Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
 		if(lf[1] < mParamGoal[0] && rf[1] < mParamGoal[0]){

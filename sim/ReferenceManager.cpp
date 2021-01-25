@@ -550,7 +550,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(mRecord) std::cout<<"1 ; "<<std::get<0>(rewards)<<" "<<std::get<2>(rewards).sum_slide<<std::endl;
 
 	if(std::get<0>(rewards) < mThresholdTracking) {
-		// std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
+		std::cout<<"tracking fail : "<<std::get<0>(rewards)<<std::endl;
 		return;
 	}
 
@@ -575,11 +575,13 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
 
 	if(std::abs(forward_angle) > 0.3*M_PI) {
-		// std::cout<<"forward_angle : "<<forward_angle<<std::endl;
+		if(mRecord)std::cout<<"forward_angle : "<<forward_angle<<std::endl;
 		return;
 	}
-	if (std::abs(data_raw[0].second) > 1e-8) return ;
-
+	if (std::abs(data_raw[0].second) > 1e-8) {
+		if(mRecord)std::cout<<"cycle:"<<(std::abs(data_raw[0].second))<<std::endl;
+		return ;
+	}
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 	std::vector<Eigen::VectorXd> trajectory;
 	for(int i = 0; i < data_raw.size(); i++) {
