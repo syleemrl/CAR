@@ -336,7 +336,7 @@ GenerateMotionsFromSinglePhase(int frames, bool blend, std::vector<Motion*>& p_p
 				// skel->setPositions(p);
 				// skel->computeForwardKinematics(true,false,false);
 				// pos = solveMCIKRoot(skel, constraints);
-				// pos(4) = mMotions_phase[phase]->GetPosition()(4);
+				p(4) = mMotions_phase[phase]->GetPosition()(4);
 				pos = p;
 				T0_gen = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
 			} else {
@@ -454,10 +454,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 	mThresholdTracking = 0.8;
 	mParamGoal.resize(3);
-	mParamGoal << 0.7, 1.2, 0.6;
+	mParamGoal << 0.7, 1.2, 0.4;
 
 	mParamCur.resize(3);
-	mParamCur << 0.7, 1.2, 0.6;
+	mParamCur << 0.7, 1.2, 0.4;
 
 	if(isParametric) {
 		Eigen::VectorXd paramUnit(3);
@@ -465,11 +465,11 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 		mParamBase.resize(3);
 		// -0.2, 1.1, 0.4
-		mParamBase << 0.0, 1.1, 0.6;
+		mParamBase << 0.0, 1.2, 0.4;
 
 		mParamEnd.resize(3);
 		// 1.0, 1.4
-		mParamEnd << 0.7, 1.4, 2.8;
+		mParamEnd << 0.8, 1.4, 2.8;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -619,11 +619,11 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		d_t << displacement[i].first, data_uniform[i].first.tail<1>();
 		d.push_back(d_t);
 	}
-	double r_foot = exp(-std::get<2>(rewards).sum_contact*0.4); 
+	double r_foot = exp(-std::get<2>(rewards).sum_contact * 0.4); 
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 	double r_slide = exp(- std::get<2>(rewards).sum_slide * 0.6);
-	double reward_trajectory = r_pos * r_vel * r_foot;
+	double reward_trajectory = r_pos * r_vel * r_foot * r_slide;
 	
 	if(reward_trajectory < 0.4)
 		return;

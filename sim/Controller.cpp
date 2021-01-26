@@ -189,15 +189,15 @@ Step()
 		for(int j = 0; j < 2; j++) {
 			//mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			// for(int j = 0; j < num_body_nodes; j++) {
-			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-			// 	double torquelim = mCharacter->GetTorqueLimit(name)*1.5;
-			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			for(int j = 0; j < num_body_nodes; j++) {
+				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+				double torquelim = mCharacter->GetTorqueLimit(name)*1.5;
+				double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
-			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			// }
+				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			}
 
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
@@ -210,7 +210,7 @@ Step()
 		}
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
-	if(isAdaptive && mCurrentFrameOnPhase >= 16.5 && mControlFlag[0] == 0) {
+	if(isAdaptive && mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
 		mFootPosition = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 
 
@@ -224,7 +224,7 @@ Step()
 		Eigen::Vector3d dir = obj_pos - mRootZero.segment<3>(3);
 		dir << 0, atan2(dir(2), -dir(0)), 0;
 		Eigen::AngleAxisd obj_dir(dir.norm(), dir.normalized());
- 		Eigen::Vector3d delta(0.25, 0 , 0.0);
+ 		Eigen::Vector3d delta(0.18, 0 , 0.0);
 		
 		// Eigen::Vector3d delta(0.065 + 0.15 + 0.01, 0 , 0.01);
 		delta = obj_dir * delta;
@@ -255,8 +255,6 @@ Step()
 		mControlFlag[0] = 1;
 
 	} else if(isAdaptive && mControlFlag[0] == 1) {
-		mControlFlag[0] = 2;
-	} else if(mControlFlag[0] == 2) {
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		p_obj.setZero();
 		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
@@ -264,6 +262,9 @@ Step()
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
+
+		mControlFlag[0] = 2;
+	} else if(mControlFlag[0] == 2) {
 		mControlFlag[0] = 3;
 	}
 	if(mCountHead < 5 && mCurrentFrame > mCurrentFrameOnPhase) {
@@ -570,23 +571,23 @@ GetSimilarityReward()
 	// rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
 	// rf /= 2.0;
 		
-	// if(mCurrentFrameOnPhase <= 12.5) {
-	// 	Eigen::Vector3d	f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// 	f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-	// 	f /= 2.0;
-	// 	bool contact_now = f(1) < 0.07;
+	if(mCurrentFrameOnPhase <= 13) {
+		Eigen::Vector3d	f = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		f += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		f /= 2.0;
+		bool contact_now = f(1) < 0.07;
 
-	// 	mPrevContactInfo[0] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
-	// }
-	// else if(mCurrentFrameOnPhase <= 32) {
-	// 	Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	// 	lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-	// 	lf /= 2.0;
+		mPrevContactInfo[1] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
+	}
+	else if(mCurrentFrameOnPhase <= 33) {
+		Eigen::Vector3d rf = skel->getBodyNode("RightFoot")->getWorldTransform().translation();
+		rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
+		rf /= 2.0;
 
-	// 	Eigen::Vector3d v_slide = mPrevContactInfo[0].second - lf;
-	// 	v_slide(1) = 0;
-	// 	footSlide += v_slide.dot(v_slide);
-	// }
+		Eigen::Vector3d v_slide = mPrevContactInfo[1].second - rf;
+		v_slide(1) = 0;
+		footSlide += v_slide.dot(v_slide);
+	}
 
 	// for(int i = 0; i < 2; i++) {
 	// 	Eigen::Vector3d f; 
