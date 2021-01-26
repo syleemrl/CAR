@@ -524,11 +524,11 @@ class PPO(object):
 		epi_info_iter = []
 		epi_info_iter_hind = []
 
-		self.env.mode = 1
-		self.env.sampler.resetExploit()
-		self.env.sampler.updateGoalDistribution(1, self.critic_target)
+		# self.env.mode = 1
+		# self.env.sampler.resetExploit()
+		# self.env.sampler.updateGoalDistribution(1, self.critic_target)
 
-		# self.env.sampler.resetExplore()
+		self.env.sampler.resetExplore()
 		it_cur = 0
 
 		for it in range(num_iteration):

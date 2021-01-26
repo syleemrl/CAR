@@ -190,7 +190,8 @@ protected:
 	Eigen::Vector6d mHeadRoot;
 	int mCountHead;
 
-	Eigen::Vector3d mHandPosition;
+	Eigen::Vector3d mFootPosition;
+
 	Eigen::Vector3d mPivotFoot;
 
 	Eigen::VectorXd mStickLeftfoot;

@@ -453,24 +453,23 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	mPath = save_path;
 
 	mThresholdTracking = 0.8;
+	mParamGoal.resize(3);
+	mParamGoal << 0.7, 1.2, 0.6;
 
-	mParamCur.resize(4);
-	mParamCur << 0.7, 1.22, 1.03, 0.4;
-
-	mParamGoal.resize(4);
-	mParamGoal << 0.7, 1.22, 1.03, 0.4;
+	mParamCur.resize(3);
+	mParamCur << 0.7, 1.2, 0.6;
 
 	if(isParametric) {
-		Eigen::VectorXd paramUnit(4);
-		paramUnit<< 0.1, 0.1, 0.1, 0.4;
+		Eigen::VectorXd paramUnit(3);
+		paramUnit<< 0.1, 0.1, 0.4;
 
-		mParamBase.resize(4);
+		mParamBase.resize(3);
 		// -0.2, 1.1, 0.4
-		mParamBase << 0.0, 1.15, 0.8, 0.4;
+		mParamBase << 0.0, 1.1, 0.6;
 
-		mParamEnd.resize(4);
+		mParamEnd.resize(3);
 		// 1.0, 1.4
-		mParamEnd << 1.0, 1.25, 1.4, 2.2;
+		mParamEnd << 0.7, 1.4, 2.8;
 
 		
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
@@ -537,16 +536,16 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}
-	if( abs(data_raw[data_raw.size()-1].first(0) + 0.1) >= 0.1 ||
-		abs(data_raw[data_raw.size()-1].first(2)) >= 0.1)
+
+	if( abs(data_raw[data_raw.size()-1].first(0) - 0.16) >= 0.1 ||
+		abs(data_raw[data_raw.size()-1].first(2) - 0.04) >= 0.1)
 		return;
+	if(std::get<0>(rewards) < mThresholdTracking) {
+		return;
+	}
 
 	mMeanTrackingReward = 0.99 * mMeanTrackingReward + 0.01 * std::get<0>(rewards);
 	mMeanParamReward = 0.99 * mMeanParamReward + 0.01 * std::get<1>(rewards);
-
-	if(std::get<2>(rewards).sum_slide > 0.5) {
-		return;
-	}
 
 	double start_phase = std::fmod(data_raw[0].second, mPhaseLength);
 
@@ -624,7 +623,8 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 	double r_vel = exp(-std::get<2>(rewards).sum_vel*0.01);
 	double r_pos = exp(-std::get<2>(rewards).sum_pos*8);
 	double r_slide = exp(- std::get<2>(rewards).sum_slide * 0.6);
-	double reward_trajectory = r_pos * r_vel * r_slide * r_foot;
+	double reward_trajectory = r_pos * r_vel * r_foot;
+	
 	if(reward_trajectory < 0.4)
 		return;
 	// std::cout << r_pos_th << " " << r_vel_th << " " << r_slide << " " <<std::get<2>(rewards).sum_reward << " / " <<reward_trajectory_th << std::endl;

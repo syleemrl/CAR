@@ -211,7 +211,7 @@ Step()
 		mTimeElapsed += 2 * mAdaptiveStep;
 	}
 	if(isAdaptive && mCurrentFrameOnPhase >= 16.5 && mControlFlag[0] == 0) {
-		mHandPosition = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
+		mFootPosition = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 
 
 		// Eigen::Vector3d rot = 0.5 * QuaternionToDARTPosition(Eigen::Quaterniond( mCharacter->GetSkeleton()->getBodyNode("RightForeArm")->getWorldTransform().linear()))
@@ -220,7 +220,7 @@ Step()
 		// Eigen::AngleAxisd obj_dir(rot.norm(), rot.normalized());
 
 
-		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform().translation();
+		Eigen::Vector3d obj_pos = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation();
 		Eigen::Vector3d dir = obj_pos - mRootZero.segment<3>(3);
 		dir << 0, atan2(dir(2), -dir(0)), 0;
 		Eigen::AngleAxisd obj_dir(dir.norm(), dir.normalized());
@@ -255,6 +255,8 @@ Step()
 		mControlFlag[0] = 1;
 
 	} else if(isAdaptive && mControlFlag[0] == 1) {
+		mControlFlag[0] = 2;
+	} else if(mControlFlag[0] == 2) {
 		Eigen::VectorXd p_obj(mObject->GetSkeleton()->getNumDofs());
 		p_obj.setZero();
 		p_obj.segment<3>(3) = Eigen::Vector3d(-2.0, 0.0, -2.0);
@@ -262,8 +264,6 @@ Step()
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->setAccelerations(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
 		mObject->GetSkeleton()->computeForwardKinematics(true,false,false);
-		mControlFlag[0] = 2;
-	} else if(mControlFlag[0] == 2) {
 		mControlFlag[0] = 3;
 	}
 	if(mCountHead < 5 && mCurrentFrame > mCurrentFrameOnPhase) {
@@ -557,16 +557,10 @@ GetSimilarityReward()
 			p_diff.segment<3>(idx) *= 3;
 			p_diff.segment<3>(idx + 3) *= 5;
 			v_diff.segment<3>(idx + 3) *= 3;
-		} if(name.compare("RightArm") == 0 ||
-		     name.compare("RightForeArm") == 0 || 
-		     name.compare("RightHand") == 0) {
-				v_diff.segment<3>(idx) *= 3;
-		} if(mCurrentFrameOnPhase >= 19 && mCurrentFrameOnPhase <= 30) {
-		    if(name.compare("RightArm") == 0 ||
-		       name.compare("RightForeArm") == 0 || 
-		       name.compare("RightHand") == 0) {
-				p_diff.segment<3>(idx) *= 3;
-			}
+		} else if(name.compare("LeftLeg") == 0 ||
+				  name.compare("LeftUpLeg") == 0) {
+			p_diff.segment<3>(idx) *= 3;
+			v_diff.segment<3>(idx) *= 1.5;	
 		}
 	}
 
@@ -576,23 +570,24 @@ GetSimilarityReward()
 	// rf += skel->getBodyNode("RightToe")->getWorldTransform().translation();
 	// rf /= 2.0;
 		
-	if(mCurrentFrameOnPhase <= 12.5) {
-		Eigen::Vector3d	f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-		f /= 2.0;
-		bool contact_now = f(1) < 0.07;
+	// if(mCurrentFrameOnPhase <= 12.5) {
+	// 	Eigen::Vector3d	f = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 	f += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+	// 	f /= 2.0;
+	// 	bool contact_now = f(1) < 0.07;
 
-		mPrevContactInfo[0] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
-	}
-	else if(mCurrentFrameOnPhase <= 32) {
-		Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-		lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
-		lf /= 2.0;
+	// 	mPrevContactInfo[0] = std::pair<bool, Eigen::Vector3d>(contact_now, f);
+	// }
+	// else if(mCurrentFrameOnPhase <= 32) {
+	// 	Eigen::Vector3d lf = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
+	// 	lf += skel->getBodyNode("LeftToe")->getWorldTransform().translation();
+	// 	lf /= 2.0;
 
-		Eigen::Vector3d v_slide = mPrevContactInfo[0].second - lf;
-		v_slide(1) = 0;
-		footSlide += v_slide.dot(v_slide);
-	}
+	// 	Eigen::Vector3d v_slide = mPrevContactInfo[0].second - lf;
+	// 	v_slide(1) = 0;
+	// 	footSlide += v_slide.dot(v_slide);
+	// }
+
 	// for(int i = 0; i < 2; i++) {
 	// 	Eigen::Vector3d f; 
 	// 	if(i == 0) {
@@ -632,39 +627,45 @@ GetParamReward()
 {
 	double r_param = 0;
 	auto& skel = this->mCharacter->GetSkeleton();
-	if(mCurrentFrameOnPhase >= 13 && mControlFlag[1] == 0) {
-		mControlFlag[1] = 1;
-		mPivotFoot = skel->getBodyNode("LeftFoot")->getWorldTransform().translation();
-	}
+
 	if(mControlFlag[0] == 3) {
 		Eigen::Vector3d root_new = mHeadRoot.segment<3>(0);
 		root_new = projectToXZ(root_new);
 		Eigen::AngleAxisd aa(root_new.norm(), root_new.normalized());
-		Eigen::Vector3d dir = Eigen::Vector3d(sqrt(1 - mParamGoal(0)*mParamGoal(0)), 0, mParamGoal(0));
-		dir.normalize();
-		dir *= mParamGoal(2);
-		Eigen::Vector3d goal_hand = aa * dir + mHeadRoot.segment<3>(3);
-		goal_hand(1) = mParamGoal(1);
-		Eigen::Vector3d hand_diff = goal_hand - mHandPosition;
-		double v_diff = mParamGoal(3) - maxSpeedObj;
 
-		r_param = exp_of_squared(hand_diff,0.12) * exp(-pow(v_diff, 2)*150);
-		
-		Eigen::Vector3d hand = mHandPosition;
-		hand = hand - mHeadRoot.segment<3>(3);
-		hand(1) = 0;
-		dir = aa.inverse() * hand;
-		double norm = dir.norm();
+		Eigen::Vector3d foot = mFootPosition;
+		foot = foot - mHeadRoot.segment<3>(3);
+		double norm = foot.norm();
+
+		foot(1) = 0;
+
+		Eigen::Vector3d dir = aa.inverse() * foot;
 		dir.normalize();
-		if(dir(0) > 0) {
-			mParamCur << dir(2), mHandPosition(1), norm, maxSpeedObj;
+
+		Eigen::Vector3d dirGoal = Eigen::Vector3d(sqrt(1 - mParamGoal(0)*mParamGoal(0)), 0, mParamGoal(0));
+
+		Eigen::Vector3d d_diff = dir - dirGoal;
+		double r_d = exp_of_squared(d_diff, 0.12);
+
+		double h_diff = mParamGoal(1) - mFootPosition(1);
+		double r_h = exp(-pow(h_diff, 2)*150);
+
+		double v_diff = mParamGoal(2) - maxSpeedObj;
+		double r_v =  exp(-pow(v_diff, 2)*100);
+
+		r_param = (0.5 * r_d + 0.5 * r_h ) * r_v;
+		
+		mControlFlag[0] = 4;
+
+		if(dir(0) > 0 && norm > 0.85) {
+			mParamCur << dir(2), mFootPosition(1), maxSpeedObj;
 		} else {
 			mParamCur(0) = -2;
 		}
-		mControlFlag[0] = 4;
 		if(mRecord) {
-			std::cout << "hand position : " << hand_diff.transpose() << " / "<< exp_of_squared(hand_diff,0.1) << std::endl;
-			std::cout << "force : " << v_diff << " "<< exp(-pow(v_diff, 2)*150) << std::endl;
+			std::cout << "dir : " << d_diff.transpose() << " / "<< r_d << std::endl;
+			std::cout << "height : " << h_diff << " / "<< r_h  << std::endl;
+			std::cout << "force : " << v_diff << " / "<< r_v  << std::endl;
 			std::cout << "parameter: " << mParamCur.transpose() << std::endl;
 		}
 	}
