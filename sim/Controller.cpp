@@ -658,6 +658,8 @@ GetParamReward()
 		dir.normalize();
 		if(dir(0) > 0) {
 			mParamCur << dir(2), mHandPosition(1), norm, maxSpeedObj;
+		} else {
+			mParamCur(0) = -2;
 		}
 		mControlFlag[0] = 4;
 		if(mRecord) {
