@@ -459,7 +459,7 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 	if(adaptive) {
 
 		Eigen::VectorXd paramUnit(2);
-		paramUnit << 0.1, 0.1;
+		paramUnit << 0.1, 0.2;
 
 		// mParamBase.resize(2);
 		// mParamBase << -1.3, 1.35; 
@@ -470,10 +470,10 @@ InitOptimization(int nslaves, std::string save_path, bool adaptive) {
 
 		// 1.406
 		mParamBase.resize(2);
-		mParamBase << -0.5, 1.4; 
+		mParamBase << -0.9, 1.4; 
 
 		mParamEnd.resize(2);
-		mParamEnd << 0.5, 2.8;
+		mParamEnd << 0.9, 3.2;
 
 		mRegressionMemory->InitParamSpace(mParamCur, std::pair<Eigen::VectorXd, Eigen::VectorXd> (mParamBase, mParamEnd), 
 										  paramUnit, mDOF + 1, mPhaseLength);
