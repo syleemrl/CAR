@@ -716,8 +716,16 @@ GetSimilarityReward()
 
 		if((name.compare("LeftUpLeg")==0) || (name.compare("RightUpLeg")==0)){
 			// std::cout<<mCurrentFrameOnPhase<<" "<<p_diff.segment<3>(idx).transpose()<<std::endl;
-			p_diff(idx+2)*= 10;
+			p_diff(idx+2)*= 15;
 		}
+
+		if(jump_phase == 1){
+			if((name.compare("LeftLeg")==0) || (name.compare("RightLeg")==0)){
+				p_diff.segment<3>(idx) *= 0;
+				v_diff.segment<3>(idx) *= 0;
+			}
+		}
+
 	}
 
 	// if(mCurrentFrameOnPhase>=115) {
