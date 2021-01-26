@@ -189,15 +189,15 @@ Step()
 		for(int j = 0; j < 2; j++) {
 			//mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			for(int j = 0; j < num_body_nodes; j++) {
-				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-				double torquelim = mCharacter->GetTorqueLimit(name)*1.5;
-				double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			// for(int j = 0; j < num_body_nodes; j++) {
+			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			// 	double torquelim = mCharacter->GetTorqueLimit(name)*1.5;
+			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
-				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			}
+			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			// }
 
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);

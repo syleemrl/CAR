@@ -55,9 +55,9 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mParamGoalCur = paramBvh;
 
 	mNumElite = 5;
-	mRadiusNeighbor = 0.35;
-	mThresholdInside = 0.6;
-	mRangeExplore = 0.4;
+	mRadiusNeighbor = 0.26;
+	mThresholdInside = 0.8;
+	mRangeExplore = 0.6;
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 2; i++) {
