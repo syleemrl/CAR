@@ -1,9 +1,17 @@
 <Scenario>
-	<Take frame="5" type="add_enemy"/> 
+	<Take frame="5" type="add_enemy" param="1.5 1.3"/> 
 	<Take frame="10" type="pivot" param="1.3"/> 
 	<Take frame="99" type="physics_on_enemy"/> 
 	<Take frame="102" type="punch_enemy"/> 
 	<Take frame="104" type="dodge"/> 
-	<Take frame="140" type="punch"/> 
+	<Take frame="135" type="punch"/> 
+
+	<Take frame="220" type="add_enemy" param="1.0 2.0"/> 
+	<Take frame="221" type="physics_on_enemy"/> 
+	<Take frame="222" type="switch_enemy"/> 
+	<Take frame="240" type="pivot" param="2.4"/> 
+	<Take frame="300" type="punch"/> 
+	<Take frame="301" type="physics_on_enemy"/> 
+	<Take frame="350" type="save_all"/> 
 
 </Scenario>

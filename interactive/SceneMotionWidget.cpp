@@ -161,7 +161,7 @@ paintGL()
 
 	DrawGround();
 	DrawSkeletons();
-	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mTiming[mCurFrame])+" / "+std::to_string(mTotalFrame), true, Eigen::Vector3d::Zero());
+	GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame)+" / "+std::to_string(mTotalFrame), true, Eigen::Vector3d::Zero());
 	// GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mMC->mTiming[mCurFrame])+" / "+std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 	// else GUI::DrawStringOnScreen(0.8, 0.9, std::to_string(mCurFrame), true, Eigen::Vector3d::Zero());
 }
@@ -275,7 +275,9 @@ keyPressEvent(QKeyEvent *event)
 
 	if(event->key() == Qt::Key_7) {
 		std::cout << "Add new enemy" << std::endl;
-		int i = mMC->AddNewEnemy();
+		Eigen::VectorXd target(2);
+		target << -1, 1;
+		int i = mMC->AddNewEnemy(target);
 		Eigen::VectorXd pos = this->mMC->GetEnemyPositions(i);
 		std::vector<Eigen::VectorXd> poslist;
 		poslist.push_back(pos);
@@ -314,7 +316,7 @@ StepScenario() {
 		} else if(std::get<1>(curAction) == "add_enemy") {
 			std::cout << "scenario: add_enemy" << std::endl;
 
-			int i = mMC->AddNewEnemy();
+			int i = mMC->AddNewEnemy(std::get<2>(curAction));
 			Eigen::VectorXd pos = this->mMC->GetEnemyPositions(i);
 			std::vector<Eigen::VectorXd> poslist;
 			poslist.push_back(pos);
@@ -328,6 +330,16 @@ StepScenario() {
 		}  else if(std::get<1>(curAction) == "punch_enemy") {
 			std::cout << "scenario: punch enemy" << std::endl;
 			mMC->SwitchController("Punch_enemy", std::get<2>(curAction), 0, true);		
+		} else if(std::get<1>(curAction) == "switch_enemy") {
+			std::cout << "scenario: switch enemy" << std::endl;
+			this->mMC->SwitchMainTarget();
+		} else if(std::get<1>(curAction) == "save_all") {
+			std::cout << "scenario: save all" << std::endl;
+			time_t t;
+			time(&t);
+
+			std::string time_str = std::ctime(&t);
+			mMC->SaveAll("record_"+time_str); 
 		}
 		mScenarioCount += 1;
 	}
@@ -435,10 +447,10 @@ togglePlay() {
 void 
 SceneMotionWidget::
 Save() {
-	time_t t;
-	time(&t);
+	// time_t t;
+	// time(&t);
 
-	std::string time_str = std::ctime(&t);
-	// BVHs + start frame information
-	mMC->SaveAsBVH("record_"+time_str); 
+	// std::string time_str = std::ctime(&t);
+	// // BVHs + start frame information
+	// mMC->SaveAsBVH("record_"+time_str); 
 }

@@ -23,9 +23,9 @@ public:
 	void Reset();
 	void Step();
 	std::string GetNextAction();
-	void SaveAsBVH(std::string filename);
+	void SaveAsBVH(std::string filename, std::vector<Eigen::VectorXd> record);
 
-	int AddNewEnemy();
+	int AddNewEnemy(Eigen::VectorXd d);
 	std::vector<int> GetCurrentEnemyIdxs() {return curEnemyList;}
 	Eigen::VectorXd GetEnemyPositions(int i);
 	void ToggleTargetPhysicsMode();
@@ -33,7 +33,7 @@ public:
 	void SwitchMainTarget();
 	bool IsEnemyPhysics();
 	void ClearFallenEnemy();
-
+	void SaveAll(std::string filename);
 	SubController* mPrevController;	
 	SubController* mCurrentController=nullptr;
 	SubController* mCurrentEnemyController=nullptr;
@@ -57,6 +57,8 @@ public:
 	
 	Eigen::VectorXd mTargetPositions;
 	std::vector<Eigen::VectorXd> mRecordPosition;
+	std::vector<std::vector<Eigen::VectorXd>> mRecordEnemyPosition;
+	std::vector<double> mRecordEnemyTiming;
 	std::vector<Eigen::Vector3d> mHitPoints;
 	bool mIsWaiting=false;
 	bool mActionSelected;

@@ -132,7 +132,13 @@ void MetaController::Step()
 			mCharacter->GetSkeleton()->setSPDTarget(pos, 600, 49);
 
 			if(IsEnemyPhysics()) {
-				mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 600, 49);
+				if(mCurrentController->mType=="punch" && mCurrentController->mCurrentFrameOnPhase >= 16)
+					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 300, 30);
+				else if(mCurrentController->mType=="punch" && mCurrentController->mCurrentFrameOnPhase >= 18)
+					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 100, 10);
+				else
+					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 600, 49);
+
 			}
 			mWorld->step(false);
 		}
@@ -148,7 +154,8 @@ void MetaController::Step()
 
 	mTargetPositions = mCurrentController->GetCurrentRefPositions();
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
-
+	for(int i = 0; i < curEnemyList.size(); i++)
+		mRecordEnemyPosition[curEnemyList[i]].push_back(mEnemyController[curEnemyList[i]]->mCharacter->GetSkeleton()->getPositions());
 	mTotalSteps += 1;
 
 	if(mIsWaiting && mCurrentController->Synchronizable(mWaiting.first)) {
@@ -228,7 +235,7 @@ void MetaController::SetAction(){
 	} else if(mWaiting.first == "Punch"){
 		action.resize(4);
 
-		Eigen::Vector6d root = mTargetPositions.segment<6>(0); // mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+		Eigen::Vector6d root =  mCharacter->GetSkeleton()->getPositions().segment<6>(0);
 		Eigen::Vector3d root_ori = root.segment<3>(0);
 		root_ori = projectToXZ(root_ori);
 		Eigen::AngleAxisd root_aa(root_ori.norm(), root_ori.normalized());
@@ -239,7 +246,7 @@ void MetaController::SetAction(){
 		Eigen::Vector3d dir = root_aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-		action << dir(2), 1.22, norm, 1.4;
+		action << dir(2), 1.22, norm, 0.6;
 
 		// this->mWorld->addSkeleton(mEnemyController[mTargetEnemyIdx]->mCharacter);
 		// mEnemyController[i]->SetPhysicsMode(true);
@@ -317,28 +324,31 @@ std::string MetaController::GetNextAction()
 }
 int 
 MetaController::
-AddNewEnemy() {
+AddNewEnemy(Eigen::VectorXd d) {
+
 	int i = mEnemyController.size();
 	Eigen::Vector3d p_ch = mCharacter->GetSkeleton()->getPositions().segment<3>(3);
 	Eigen::Vector3d d_ch = mCharacter->GetSkeleton()->getPositions().segment<3>(0);
 
 	Eigen::Vector3d p_em;
 	Eigen::AngleAxisd aa = Eigen::AngleAxisd(d_ch.norm(), d_ch.normalized());
-	if(i == 0) {
-		Eigen::Vector3d dir = Eigen::Vector3d(sin(1.5*M_PI), 0, cos(1.5*M_PI));
+	if(d(0) >= 0) {
+		Eigen::Vector3d dir = Eigen::Vector3d(sin(d(0)*M_PI), 0, cos(d(0)*M_PI));
+		dir = aa * dir*d(1);
+		p_em += dir;
+	}
+	else {
+		d(0) = mUniform(mMT) * 2;
+		Eigen::Vector3d dir = Eigen::Vector3d(sin(d(0)*M_PI), 0, cos(d(0)*M_PI));
 		dir = aa * dir*1.3;
-		p_em += dir;
-	} else if(i == 1) {
-		Eigen::Vector3d dir = Eigen::Vector3d(sin(0.5*M_PI), 0, cos(0.5*M_PI));
-		dir = aa * dir;
-		p_em += dir;
-	} else if(i == 2) {
-		Eigen::Vector3d dir = Eigen::Vector3d(sin(M_PI), 0, cos(M_PI));
-		dir = aa * dir;
 		p_em += dir;
 	}
 	mEnemyController.push_back(new EnemyKinController(p_em, p_ch));
 
+	std::vector<Eigen::VectorXd> record;
+	record.clear();
+	mRecordEnemyPosition.push_back(record);
+	mRecordEnemyTiming.push_back(mRecordPosition.size());
 	curEnemyList.push_back(i);
 
 	return i;
@@ -348,7 +358,7 @@ MetaController::
 ClearFallenEnemy() {
 	std::vector<int> newlist;
 	for(int i = 0; i < curEnemyList.size(); i++) {
-		if(mEnemyController[curEnemyList[i]]->GetPosition()(4) < 0.1) {
+		if(mEnemyController[curEnemyList[i]]->GetPosition()(4) < 0.15) {
 			std::cout << "clear enemy : " << curEnemyList[i] << std::endl;
 		} else {
 			newlist.push_back(curEnemyList[i]);
@@ -393,9 +403,10 @@ GetEnemyPositions(int i) {
 }
 void
 MetaController::
-SaveAsBVH(std::string filename) {
+SaveAsBVH(std::string filename, std::vector<Eigen::VectorXd> record) {
 	std::string path = std::string(CAR_DIR)+ std::string("/build/interactive/")+filename;
 	std::cout << "save results to" << path << std::endl;
+	std::vector<std::string> HIERARCHY = mCurrentController->mReferenceManager->GetHierarchyStr();
 
 	std::ofstream ofs(path);
 	std::vector<std::string> bvh_order;
@@ -422,11 +433,16 @@ SaveAsBVH(std::string filename) {
 	bvh_order.push_back("RightFoot");
 	bvh_order.push_back("RightToe");
 	
+	ofs << "HIERARCHY" << std::endl;
+	ofs << "ROOT Hips" << std::endl;
+	for(int i = 0; i < HIERARCHY.size(); i++) {
+		ofs << HIERARCHY[i] << std::endl;
+	}
 	ofs << "MOTION" << std::endl;
-	ofs << "Frames: " << std::to_string(mRecordPosition.size()) << std::endl;
+	ofs << "Frames: " << std::to_string(record.size()) << std::endl;
 	ofs << "Frame Time:	0.0333333" << std::endl;
 	
-	for(auto t: mRecordPosition) {
+	for(auto t: record) {
 		ofs << t.segment<3>(3).transpose() * 100 << " ";
 
 		for(int i = 0; i < bvh_order.size(); i++) {
@@ -439,7 +455,25 @@ SaveAsBVH(std::string filename) {
 		}
 		ofs << std::endl;
 	}
-	std::cout << "saved position: " << mRecordPosition.size() << std::endl;
+	std::cout << "saved position: " << record.size() << std::endl;
 	ofs.close();
+}
+void
+MetaController::
+SaveAll(std::string filename) {
+	SaveAsBVH(filename+std::string("_main"), mRecordPosition);
+	for(int i = 0; i < mEnemyController.size(); i++) {
+		SaveAsBVH(filename+std::string("_enemy")+std::to_string(i), mRecordEnemyPosition[i]);
+	}
+
+	//save timing
+	std::string path = std::string(CAR_DIR)+ std::string("/build/interactive/")+filename+std::string("_enemyTiming");
+	std::ofstream ofs(path);
+
+	for(int i = 0; i < mRecordEnemyTiming.size(); i++) {
+		ofs << i << " "<< mRecordEnemyTiming[i] << std::endl;
+	}
+	ofs.close();
+
 }
 } //end of namespace DPhy

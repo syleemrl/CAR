@@ -2,7 +2,7 @@
 	<SubController type="Idle"	bvh="idle_mxm.bvh"  ppo="idle_mxm/network-0" /> 
 	<SubController type="Pivot"	bvh="pivot_mxm.bvh"  ppo="pivot_mxm_t3/network-0" /> 
 	<SubController type="Dodge"	bvh="dodge_mxm.bvh"  ppo="dodge_mxm_t2/network-0" /> 
-	<SubController type="Kick"	bvh="sidekick2_mxm.bvh"  ppo="sidekick2_mxm_d1/network-0" />
+	<SubController type="Kick"	bvh="sidesidekick_mxm.bvh"  ppo="sidesidekick_mxm/network-0" />
 	<SubController type="Punch"	bvh="punch_long_mxm.bvh"  ppo="punch_long_mxm_t3/network-0" /> 
 	<SubController type="Punch_enemy"	bvh="punch_long_mxm.bvh"  ppo="punch_long_mxm/network-0" /> 
 	<SubController type="Idle_enemy"	bvh="idle_enemy_mxm.bvh"  ppo="idle_enemy_mxm/network-0" /> 
