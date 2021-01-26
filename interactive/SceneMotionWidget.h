@@ -28,6 +28,8 @@ public:
 	SceneMotionWidget();
 	
 	void togglePlay();
+	void StepScenario();
+	void LoadScenario();
 	void Step();
 	void Record();
 
@@ -99,6 +101,10 @@ protected:
 
 	DPhy::MetaController* mMC;
 	std::vector<std::pair<int, std::chrono::steady_clock::time_point>> pressedKeys;
+
+
+	int mScenarioCount;
+	std::vector<std::tuple<int, std::string, Eigen::VectorXd>> mScenario;
 
 };
 #endif

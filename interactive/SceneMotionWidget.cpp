@@ -9,6 +9,8 @@
 #include <chrono>
 #include <algorithm>
 #include <ctime>
+#include <tinyxml.h>
+
 SceneMotionWidget::
 SceneMotionWidget()
   :mCamera(new Camera(1000, 650)),mCurFrame(0),mPlay(false),
@@ -22,6 +24,7 @@ SceneMotionWidget()
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
     mSkel_sim = DPhy::SkeletonBuilder::BuildFromFile(path).first;
     mSkel_reg = DPhy::SkeletonBuilder::BuildFromFile(path).first;
+	LoadScenario();
 
 	DPhy::SetSkeletonColor(mSkel_sim, Eigen::Vector4d(235./255., 235./255., 235./255., 1.0));
 	DPhy::SetSkeletonColor(mSkel_reg, Eigen::Vector4d(235./255., 235./255., 0./255., 1.0));
@@ -46,10 +49,8 @@ Record() {
 void
 SceneMotionWidget::
 Step() {
-	for(int i = 0 ; i <= 2; i++) {
-		this->mMC->Step();	
-		Record();
-	}
+	this->mMC->Step();	
+	Record();
 }
 void
 SceneMotionWidget::
@@ -216,7 +217,9 @@ SceneMotionWidget::
 timerEvent(QTimerEvent* event)
 {
 	if(mPlay && this->mCurFrame == this->mTotalFrame - 1) {
+		StepScenario();
 		Step();
+
 		mCurFrame += 1;
 	} else if(mPlay){
 		mCurFrame += 1;
@@ -241,6 +244,8 @@ void
 SceneMotionWidget::
 keyPressEvent(QKeyEvent *event)
 {
+	Eigen::VectorXd dummy(1);
+	dummy(0) = -10000;
 	if(event->key() == Qt::Key_Escape){
 		exit(0);
 	}
@@ -253,19 +258,19 @@ keyPressEvent(QKeyEvent *event)
 	}
 	if(event->key() == Qt::Key_D) {
 		std::cout << "D pressed" << std::endl;
-		mMC->SwitchController("Pivot");
+		mMC->SwitchController("Pivot", dummy);
 	}
 	if(event->key() == Qt::Key_W) {
 		std::cout << "W pressed" << std::endl;
-		mMC->SwitchController("Punch");
+		mMC->SwitchController("Punch", dummy);
 	}
 	if(event->key() == Qt::Key_A) {
 		std::cout << "A pressed" << std::endl;
-		mMC->SwitchController("Kick", 10);
+		mMC->SwitchController("Kick", dummy, 10);
 	}
 	if(event->key() == Qt::Key_S) {
 		std::cout << "S pressed" << std::endl;
-		mMC->SwitchController("Dodge");
+		mMC->SwitchController("Dodge", dummy);
 	}
 
 	if(event->key() == Qt::Key_7) {
@@ -286,7 +291,71 @@ keyPressEvent(QKeyEvent *event)
 	}
 	if(event->key() == Qt::Key_I) {
 		std::cout << "I pressed" << std::endl;
-		mMC->SwitchController("Punch_enemy", 0, true);
+		mMC->SwitchController("Punch_enemy", dummy, 0, true);
+	}
+}
+void
+SceneMotionWidget::
+StepScenario() {
+	if(mScenario.size() > mScenarioCount && mCurFrame >= std::get<0>(mScenario[mScenarioCount])) {
+		std::tuple<int, std::string, Eigen::VectorXd> curAction = mScenario[mScenarioCount];
+		if(std::get<1>(curAction) == "pivot") {
+			std::cout << "scenario: pivot" << std::endl;
+			mMC->SwitchController("Pivot", std::get<2>(curAction));
+		} else if(std::get<1>(curAction) == "punch") {
+			std::cout << "scenario: punch" << std::endl;
+			mMC->SwitchController("Punch", std::get<2>(curAction));
+		} else if(std::get<1>(curAction) == "kick") {
+			std::cout << "scenario: kick" << std::endl;
+			mMC->SwitchController("Kick", std::get<2>(curAction));
+		} else if(std::get<1>(curAction) == "dodge") {
+			std::cout << "scenario: dodge" << std::endl;
+			mMC->SwitchController("Dodge", std::get<2>(curAction));
+		} else if(std::get<1>(curAction) == "add_enemy") {
+			std::cout << "scenario: add_enemy" << std::endl;
+
+			int i = mMC->AddNewEnemy();
+			Eigen::VectorXd pos = this->mMC->GetEnemyPositions(i);
+			std::vector<Eigen::VectorXd> poslist;
+			poslist.push_back(pos);
+			std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(REF_CHARACTER_TYPE) + std::string(".xml");
+	    	
+	    	mMotion_enemy.push_back(std::pair<int, std::vector<Eigen::VectorXd>>(mCurFrame, poslist));
+	    	mSkel_enemy.push_back(DPhy::SkeletonBuilder::BuildFromFile(path).first);
+		} else if(std::get<1>(curAction) == "physics_on_enemy") {
+			std::cout << "scenario: physics on enemy" << std::endl;
+			this->mMC->ToggleTargetPhysicsMode();
+		}  else if(std::get<1>(curAction) == "punch_enemy") {
+			std::cout << "scenario: punch enemy" << std::endl;
+			mMC->SwitchController("Punch_enemy", std::get<2>(curAction), 0, true);		
+		}
+		mScenarioCount += 1;
+	}
+}
+void
+SceneMotionWidget::
+LoadScenario() {
+	mScenarioCount = 0;
+	Eigen::VectorXd dummy(1);
+	dummy(0) = -10000;
+
+	std::string path = std::string(CAR_DIR)+ std::string("/scene/s1_scenario.xml");
+	std::cout<<"load scenario: "<<path<<std::endl;
+	TiXmlDocument doc;
+	if(!doc.LoadFile(path)){
+		std::cout << "Can't open scene file : " << path << std::endl;
+	}
+
+	TiXmlElement *skeldoc = doc.FirstChildElement("Scenario");
+	
+	for(TiXmlElement *body = skeldoc->FirstChildElement("Take"); body != nullptr; body = body->NextSiblingElement("Take")){
+		
+		int frame = std::stoi(body->Attribute("frame"));
+		std::string type = body->Attribute("type");
+		Eigen::VectorXd param = (body->Attribute("param")!=nullptr)? (DPhy::string_to_vectorXd(body->Attribute("param"))) : dummy;
+
+		std::cout<< "================ ADD SCENARIO: "<<frame<<" :: "<<type<<" , "<<param.transpose()<<std::endl;
+		mScenario.push_back(std::tuple<int, std::string, Eigen::VectorXd>(frame, type, param));
 	}
 }
 void

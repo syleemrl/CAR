@@ -1,0 +1,9 @@
+<Scenario>
+	<Take frame="5" type="add_enemy"/> 
+	<Take frame="10" type="pivot" param="1.3"/> 
+	<Take frame="99" type="physics_on_enemy"/> 
+	<Take frame="102" type="punch_enemy"/> 
+	<Take frame="104" type="dodge"/> 
+	<Take frame="140" type="punch"/> 
+
+</Scenario>

@@ -16,7 +16,7 @@ public:
 	double GetCurrentPhase();
 	Eigen::Vector3d GetCOM() {return mCharacter->GetSkeleton()->getCOM(); }
 
-	void SwitchController(std::string type, int frame=0, bool isEnemy=false);
+	void SwitchController(std::string type, Eigen::VectorXd target, int frame=0, bool isEnemy=false);
 	void SetAction();
 	void LoadControllers();
 	void AddSubController(SubController* new_sc){mSubControllers[new_sc->mType]= new_sc;}
@@ -60,7 +60,7 @@ public:
 	std::vector<Eigen::Vector3d> mHitPoints;
 	bool mIsWaiting=false;
 	bool mActionSelected;
-	Eigen::VectorXd mNextAction;
+	Eigen::VectorXd mNextTarget;
 
 	std::random_device mRD;
 	std::mt19937 mMT;

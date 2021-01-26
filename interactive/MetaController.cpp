@@ -182,6 +182,10 @@ void MetaController::Step()
 }
 void MetaController::SetAction(){
 	mActionSelected = true;
+	if(mNextTarget(0) != -10000) {
+		mCurrentController->SetAction(mNextTarget);
+		return;
+	}
 	Eigen::VectorXd action;
 	if(mWaiting.first == "Kick"){
 		action.resize(2);
@@ -235,7 +239,7 @@ void MetaController::SetAction(){
 		Eigen::Vector3d dir = root_aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-		action << dir(2), 1.22, norm, 0.6;
+		action << dir(2), 1.22, norm, 1.4;
 
 		// this->mWorld->addSkeleton(mEnemyController[mTargetEnemyIdx]->mCharacter);
 		// mEnemyController[i]->SetPhysicsMode(true);
@@ -289,8 +293,9 @@ double MetaController::GetCurrentPhase(){
 	return mCurrentController->mCurrentFrameOnPhase;
 }
 
-void MetaController::SwitchController(std::string type, int frame, bool isEnemy)
+void MetaController::SwitchController(std::string type, Eigen::VectorXd target, int frame, bool isEnemy)
 {
+	mNextTarget = target;
 	if(!isEnemy) {
 		mIsWaiting = true;
 		mActionSelected = false;
