@@ -508,7 +508,7 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 	}
 	com_diff -= skel->getCOM();
 
-	Eigen::VectorXd foot_x(2); 
+	Eigen::VectorXd foot_x(3); 
 	foot_x.setZero();
 
 
@@ -533,7 +533,8 @@ GetTrackingReward(Eigen::VectorXd position, Eigen::VectorXd position2,
 
 	foot_x[0] = std::max(0.0, left_foot_x-ref_left_foot_x);
 	foot_x[1] = std::min(0.0, right_foot_x-ref_right_foot_x);
-
+	foot_x[2] = std::min(0.0, left_foot_x - right_foot_x);
+	
 	double scale = 1.0;
 
 	double sig_p = 0.4 * scale; 
@@ -677,7 +678,12 @@ GetSimilarityReward()
 	int num_body_nodes = skel->getNumBodyNodes();
 	for(int i =0 ; i < vel.rows(); i++) {
 		v_diff(i) = v_diff(i) / std::max(0.5, vel(i));
+		// if(vel(i) > 0.5) std::cout<<i<<" th : "<<vel(i)<<" diff:"<<v_diff(i)<<std::endl;
 	}
+
+	// for(int i=0 ;i<vel.rows(); i+=10){
+	// 	std::cout<<v_diff.segment<10>(i).transpose()<<std::endl;
+	// }
 	
 	for(int i = 0; i < num_body_nodes; i++) {
 		std::string name = mCharacter->GetSkeleton()->getBodyNode(i)->getName();
@@ -739,11 +745,25 @@ GetSimilarityReward()
 	mPrevFrame2 = mPrevFrame;
 	mPrevFrame = mCurrentFrame;
 
+
 	mFitness.sum_pos += p_diff.cwiseAbs(); 
 	mFitness.sum_vel += v_diff.cwiseAbs();
 	mFitness.sum_contact += abs(con_diff);
 
-	if(mRecord) std::cout<<"@ "<<mCurrentFrame<<" / "<<r_con<<" , "<<r_ee<<" , "<<r_p<<std::endl;
+	// if(mRecord) std::cout<<"@ "<<mCurrentFrame<<" / "<<r_con<<" , "<<r_ee<<" , "<<r_p<<std::endl;
+	// std::cout<<"p_diff: "<<p_diff.cwiseAbs().transpose()<< "/ v_diff: "<<v_diff.cwiseAbs().transpose()<<std::endl;
+
+	// std::cout<<"@ "<<mCurrentFrame<<"p_diff: "<<p_diff.norm()<< "/ v_diff: "<<v_diff.norm()<<" / con_diff: "<<std::abs(con_diff)<<std::endl;
+
+	// double r_foot =  std::exp(-mFitness.sum_contact/(mCountTracking+1));
+	// double r_slide = std::exp(- std::pow(mFitness.sum_slide/mFitness.slide_cnt/0.2, 2.0));
+	
+	// Eigen::VectorXd tmp_vel = mFitness.sum_vel/(mCountTracking+1);
+	// Eigen::VectorXd tmp_pos = mFitness.sum_pos/(mCountTracking+1);
+	// double r_vel = DPhy::exp_of_squared(tmp_vel, 5);
+	// double r_pos = DPhy::exp_of_squared(tmp_pos, 0.4);
+
+	// std::cout<<"@ "<<mCurrentFrame<<" f,s,p,v: "<<r_foot<<" "<<r_slide<<" "<<r_pos<<" "<<r_vel<<std::endl;
 	return r_con  * r_p * r_ee;
 }
 double 
@@ -902,14 +922,14 @@ UpdateTerminalInfo()
 	Eigen::Isometry3d cur_root_inv = skel->getRootBodyNode()->getWorldTransform().inverse();
 	double root_y = skel->getBodyNode(0)->getTransform().translation()[1];
 
-	Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
-	Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
-	Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
-	Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
-	Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
-	right_vector[1]= 0;
-	Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
-	double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
+	// Eigen::Vector3d lf = mCharacter->GetSkeleton()->getBodyNode("LeftUpLeg")->getWorldTransform().translation();
+	// Eigen::Vector3d rf = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getWorldTransform().translation();
+	// Eigen::Vector3d ls = mCharacter->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
+	// Eigen::Vector3d rs = mCharacter->GetSkeleton()->getBodyNode("RightShoulder")->getWorldTransform().translation();
+	// Eigen::Vector3d right_vector = ((rf-lf)+(rs-ls))/2.;
+	// right_vector[1]= 0;
+	// Eigen::Vector3d forward_vector=  Eigen::Vector3d::UnitY().cross(right_vector);
+	// double forward_angle= std::atan2(forward_vector[0], forward_vector[2]);
 
 	Eigen::VectorXd p_save = skel->getPositions();
 	Eigen::VectorXd v_save = skel->getVelocities();
@@ -1001,10 +1021,17 @@ UpdateTerminalInfo()
 		// }
 	}
 
+	Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
+	Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
+
+	if((lf[0]+0.03)< rf[0]){
+		mIsTerminal = true;
+		terminationReason = 17;
+		if(mRecord) std::cout<<"lf: "<<lf[0]<<"/ rf: "<<rf[0]<<std::endl;
+	}
+
 	Eigen::Vector3d com_v = mCharacter->GetSkeleton()->getCOMLinearVelocity();
 	if(mParamGoal[0]>0 && mCurrentFrame>=37 && prev_com_v[1] >0 && com_v[1]<0 ){
-		Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
-		Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
 		if(lf[1] < mParamGoal[0] && rf[1] < mParamGoal[0]){
 			mIsTerminal = true;
 			terminationReason = 16;
@@ -1015,9 +1042,6 @@ UpdateTerminalInfo()
 	if(mParamGoal[0] >= 0.05 &&  mCurrentFrame >= 60){
 		bool lf_ground = CheckCollisionWithGround("LeftFoot") ;//||CheckCollisionWithGround("LeftToe"); 
 		bool rf_ground = CheckCollisionWithGround("RightFoot") ;//;|| CheckCollisionWithGround("RightToe");
-
-		Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
-		Eigen::Vector3d rf = mCharacter->getBodyWorldTrans("RightFoot");
 		
 		if(lf_ground || rf_ground || lf[1]<0.05 || rf[1]<0.05) {
 			mIsTerminal = true;
