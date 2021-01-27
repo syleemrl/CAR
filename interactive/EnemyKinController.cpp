@@ -170,7 +170,7 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	point_local = root_temp.inverse() * look_dir; 
 	theta = atan2(point_local(0), point_local(2));
 
-	if(local_coord.norm() > 1.4){
+	if(local_coord.norm() > 1.5){
 		mNextMotion = "box_move_front";
 		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
 	} else if(local_coord.norm() < 0.7){
@@ -211,8 +211,7 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	}
 
     Eigen::VectorXd p = mReferenceManager->GetPosition(mCurrentFrameOnPhase, true);
-  	if(mCurrentMotion == "box_idle" && mCurrentFrameOnPhase % 5 == 0 && abs(theta) > 0.3 && local_coord.norm() <1.4) {
-  		std::cout << theta << std::endl;
+  	if(mCurrentMotion == "box_idle" && mCurrentFrameOnPhase % 5 == 0 && abs(theta) > 0.3 && local_coord.norm() <1.5) {
   		Eigen::Vector6d root_old = mCharacter->GetSkeleton()->getPositions().head<6>();
 
 		double to_rotate = std::min(0.05, std::max(-0.05, theta));
@@ -228,6 +227,28 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 		Eigen::Isometry3d T_new = dart::dynamics::FreeJoint::convertToTransform(root_new);
    		mAlign =  (T_new * T_old.inverse()) * mAlign;
 	}
+	// if(mCurrentMotion == "box_idle" && mCurrentFrameOnPhase % 5 == 4 && local_coord.norm() < 1.5) {
+	//   	std::cout << local_coord.norm() << std::endl;
+	//   	if(local_coord.norm() <= 0.8 || local_coord.norm() >= 1.05) {
+
+	//   		Eigen::Vector6d root_old = mCharacter->GetSkeleton()->getPositions().head<6>();
+	//   		Eigen::Vector3d dx;
+	//   		if(local_coord.norm() <= 0.8)
+	//   			dx << 0, 0, 0.02;
+	//   		else
+	//   			dx << 0, 0, -0.02;
+
+	// 		Eigen::AngleAxisd root_old_aa(root_old.head<3>().norm(), root_old.head<3>().normalized());
+	// 		dx = root_old_aa.inverse() * dx;
+	// 		Eigen::Vector6d root_new = root_old;
+	// 		root_new.segment<3>(3) += dx;
+
+	// 		Eigen::Isometry3d T_old = dart::dynamics::FreeJoint::convertToTransform(root_old.head<6>());
+	// 		Eigen::Isometry3d T_new = dart::dynamics::FreeJoint::convertToTransform(root_new);
+	//    		mAlign =  (T_new * T_old.inverse()) * mAlign;
+	//   	}
+	// }
+
     if(!mActionSet)
    	 	p = DPhy::MultiplyRootTransform(p, mAlign, true);
 	mCharacter->GetSkeleton()->setPositions(p);
