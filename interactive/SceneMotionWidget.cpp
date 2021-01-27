@@ -351,7 +351,7 @@ LoadScenario() {
 	Eigen::VectorXd dummy(1);
 	dummy(0) = -10000;
 
-	std::string path = std::string(CAR_DIR)+ std::string("/scene/s2_scenario.xml");
+	std::string path = std::string(CAR_DIR)+ std::string("/scene/s1_scenario.xml");
 	std::cout<<"load scenario: "<<path<<std::endl;
 	TiXmlDocument doc;
 	if(!doc.LoadFile(path)){

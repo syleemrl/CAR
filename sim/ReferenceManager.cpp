@@ -120,6 +120,7 @@ LoadMotionFromBVH(std::string filename)
 {
 	mMotions_raw.clear();
 	mMotions_phase.clear();
+	mMotions_phase_adaptive.clear();
 	
 	this->mCharacter->LoadBVHMap();
 
@@ -229,7 +230,6 @@ LoadMotionFromBVH(std::string filename)
 	 }
 
 	delete bvh;
-	std::cout << mPhaseLength << std::endl;
 	this->GenerateMotionsFromSinglePhase(std::max(1000, mPhaseLength), false, mMotions_phase, mMotions_gen);
 
 	for(int i = 0; i < this->GetPhaseLength(); i++) {

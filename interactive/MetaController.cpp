@@ -209,7 +209,7 @@ void MetaController::Step()
 }
 void MetaController::SetAction(){
 	mActionSelected = true;
-	if(mNextTarget(0) != -10000) {
+	if(mNextTarget(0) != -10000 && mWaiting.first != "Kick" && mWaiting.first != "Punch") {
 		mCurrentController->SetAction(mNextTarget);
 		return;
 	}
@@ -229,8 +229,10 @@ void MetaController::SetAction(){
 		Eigen::Vector3d dir = root_aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-		
-		action <<  dir(2), 1.3, 1.4;
+		if(mNextTarget(0) != -10000)
+			action <<  dir(2), 1.35, mNextTarget(0);
+		else
+			action <<  dir(2), 1.35, 1.0;
 	
 	} else if(mWaiting.first == "Punch"){
 		action.resize(4);
@@ -246,7 +248,10 @@ void MetaController::SetAction(){
 		Eigen::Vector3d dir = root_aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-		action << dir(2), 1.2, norm, 1.4;
+		if(mNextTarget(0) != -10000)
+			action << dir(2), 1.2, norm, mNextTarget(0);
+		else
+			action << dir(2), 1.2, norm, 1.4;
 
 		// this->mWorld->addSkeleton(mEnemyController[mTargetEnemyIdx]->mCharacter);
 		// mEnemyController[i]->SetPhysicsMode(true);

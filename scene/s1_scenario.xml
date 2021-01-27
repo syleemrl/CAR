@@ -6,12 +6,12 @@
 	<Take frame="104" type="dodge"/> 
 	<Take frame="135" type="punch"/> 
 
-	<Take frame="220" type="add_enemy" param="1.0 2.2"/> 
+<!-- 	<Take frame="220" type="add_enemy" param="1.0 2.2"/> 
 	<Take frame="221" type="physics_on_enemy"/> 
 	<Take frame="222" type="switch_enemy"/> 
 	<Take frame="240" type="pivot" param="2.4"/> 
 	<Take frame="310" type="punch"/> 
-	<Take frame="310" type="physics_on_enemy"/> 
+	<Take frame="310" type="physics_on_enemy"/>  -->
 <!-- 	<Take frame="350" type="save_all"/> 
  -->
 </Scenario>

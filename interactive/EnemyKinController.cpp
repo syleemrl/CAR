@@ -163,8 +163,13 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 
 
 	double theta = DPhy::getXZTheta(my_body_dir, look_dir);
-
 	
+	Eigen::AngleAxisd root_temp(mCharacter->GetSkeleton()->getPositions().head<3>().norm(), mCharacter->GetSkeleton()->getPositions().head<3>().normalized());	
+	Eigen::Vector3d point_local = look_dir;
+	point_local(1) = 0;
+	point_local = root_temp.inverse() * look_dir; 
+	theta = atan2(point_local(0), point_local(2));
+
 	if(local_coord.norm() > 1.4){
 		mNextMotion = "box_move_front";
 		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
@@ -190,20 +195,39 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	}
 
 	mCurrentFrameOnPhase++;
-	if(mCurrentFrameOnPhase >= mMotionFrames[mCurrentMotion]) mCurrentFrameOnPhase = 0;
+	if(mCurrentFrameOnPhase >= mMotionFrames[mCurrentMotion]) {
+		mActionSet = false;
+		mCurrentFrameOnPhase = 0;
+	} 
 	if(mCurrentFrameOnPhase == 0){// && mNextMotion != mCurrentMotion){
 		// transition
 		mCurrentMotion = mNextMotion;
 		mNextMotion= "box_idle";
-		mActionSet = false;
+
 		//std::cout<<mTotalFrame<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
 		//std::cout<<mTotalFrame<<" / "<<mCurrentMotion<<" / "<<mNextMotion<<std::endl;
 		//std::cout<<" ======================= "<<mCurrentMotion<<" / "<<mCurrentFrameOnPhase<<" ======================= "<<std::endl;
 		calculateAlign();
 	}
 
-
     Eigen::VectorXd p = mReferenceManager->GetPosition(mCurrentFrameOnPhase, true);
+  	if(mCurrentMotion == "box_idle" && mCurrentFrameOnPhase % 5 == 0 && abs(theta) > 0.3 && local_coord.norm() <1.4) {
+  		std::cout << theta << std::endl;
+  		Eigen::Vector6d root_old = mCharacter->GetSkeleton()->getPositions().head<6>();
+
+		double to_rotate = std::min(0.05, std::max(-0.05, theta));
+		Eigen::AngleAxisd root_y_rotate(to_rotate, Eigen::Vector3d(0, 1, 0));
+
+		Eigen::AngleAxisd root_old_aa(root_old.head<3>().norm(), root_old.head<3>().normalized());
+		Eigen::AngleAxisd root_new_aa;
+		root_new_aa = root_y_rotate * root_old_aa;
+		Eigen::Vector3d orientation_new =root_new_aa.axis() * root_new_aa.angle();
+		Eigen::Vector6d root_new = root_old;
+		root_new.head<3>() = orientation_new;
+		Eigen::Isometry3d T_old = dart::dynamics::FreeJoint::convertToTransform(root_old.head<6>());
+		Eigen::Isometry3d T_new = dart::dynamics::FreeJoint::convertToTransform(root_new);
+   		mAlign =  (T_new * T_old.inverse()) * mAlign;
+	}
     if(!mActionSet)
    	 	p = DPhy::MultiplyRootTransform(p, mAlign, true);
 	mCharacter->GetSkeleton()->setPositions(p);
