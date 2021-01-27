@@ -41,7 +41,7 @@ public:
 	EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_ch);
 
 	// void SetNextAction(std::sting action);
-	void StepPhysics(dart::simulation::WorldPtr world);
+	void SetAction(std::string action);
 	void Reset();
 	Character* mCharacter;	
 	std::vector<Eigen::VectorXd> mRecordPosition;
@@ -69,6 +69,7 @@ public:
 	int mTotalFrame;
 	bool mWaiting=false;
 	bool mPhysicsMode=false;
+	bool mActionSet=false;
 };
 } 
 

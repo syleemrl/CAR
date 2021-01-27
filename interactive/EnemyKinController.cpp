@@ -25,7 +25,7 @@ EnemyKinController::EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_
     mReferenceManager = new DPhy::ReferenceManager(new DPhy::Character(path));
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/")+ mCurrentMotion + std::string(".bvh"));
 
-    Eigen::VectorXd p = mReferenceManager->GetPosition(0, false);
+    Eigen::VectorXd p = mReferenceManager->GetPosition(0, true);
 
     p(3) = pos(0);
     p(5) = pos(2);
@@ -60,7 +60,7 @@ void EnemyKinController::calculateAlign(){
 
 	Eigen::Isometry3d prev_cycle_end= T_current;
     mReferenceManager->LoadMotionFromBVH(std::string("/motion/")+ mCurrentMotion + std::string(".bvh"));
-    Eigen::VectorXd cycle_start_pos = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false);
+    Eigen::VectorXd cycle_start_pos = mReferenceManager->GetPosition(mCurrentFrameOnPhase, true);
     Eigen::Isometry3d cycle_start = dart::dynamics::FreeJoint::convertToTransform(cycle_start_pos.head<6>());
 
     mAlign = prev_cycle_end* cycle_start.inverse();
@@ -73,7 +73,58 @@ void EnemyKinController::calculateAlign(){
 	// return align;
 	// mAlign = align;
 }
+void EnemyKinController::SetAction(std::string action) {
+	int blendingInterval = 10;
+	mCurrentMotion = action;
+    mReferenceManager->LoadMotionFromBVH(std::string("/motion/")+ mCurrentMotion + std::string(".bvh"));
 
+	Eigen::VectorXd pos = mCharacter->GetSkeleton()->getPositions(); // endPosition;
+	Eigen::VectorXd pos_not_aligned = mReferenceManager->GetPosition(0, true);
+	std::cout << pos.segment<3>(0).transpose() << std::endl;
+
+	Eigen::Isometry3d T0_phase = dart::dynamics::FreeJoint::convertToTransform(pos_not_aligned.head<6>());
+	Eigen::Isometry3d T1_phase = dart::dynamics::FreeJoint::convertToTransform(pos.head<6>());
+
+	Eigen::Isometry3d T01 = T1_phase*T0_phase.inverse();
+	T01.translation()[1] = 0;
+
+	Eigen::Isometry3d T01_projected = T01;
+
+	Eigen::Vector3d p01 = dart::math::logMap(T01.linear());			
+	T01_projected.linear() =  dart::math::expMapRot(DPhy::projectToXZ(p01));
+
+	Eigen::Isometry3d T0_gen = T01*T0_phase;
+	Eigen::Isometry3d T0_gen_projected = T01_projected*T0_phase;
+	
+	std::vector<Eigen::VectorXd> p;
+	std::vector<double> t;
+	for(int i = 0; i < mReferenceManager->GetPhaseLength(); i++) {
+
+		Eigen::VectorXd p_tmp = mReferenceManager->GetPosition(i, true);
+
+
+		Eigen::Isometry3d T_current = dart::dynamics::FreeJoint::convertToTransform(p_tmp.head<6>());
+		T_current = T0_phase.inverse()*T_current;
+		Eigen::Isometry3d T_current_projected = T0_gen_projected*T_current;
+		T_current = T0_gen*T_current;
+		p_tmp.head<3>() = dart::dynamics::FreeJoint::convertToPositions(T_current_projected).segment<3>(0);
+		p_tmp.segment<3>(3) = dart::dynamics::FreeJoint::convertToPositions(T_current).segment<3>(3);
+
+		// p_tmp(4) = mReferenceManager->GetPosition(i, true)(4);
+
+		if(i < blendingInterval-1) {
+			double weight = (i+1) / (double)blendingInterval;
+			p_tmp = DPhy::BlendPosition(pos, p_tmp, weight, true);
+		}
+		p.push_back(p_tmp);
+		t.push_back(1);
+
+	}
+
+	mReferenceManager->LoadAdaptiveMotion(p, t);
+	mCurrentFrameOnPhase = 0;
+	mActionSet = true;
+}
 void EnemyKinController::Step(Eigen::VectorXd main_p){
 	if(mPhysicsMode) {
 		mCurrentFrameOnPhase++;
@@ -82,7 +133,7 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 		return;
 	}
 	mCharacter_main_tmp->GetSkeleton()->setPositions(main_p);
-	mCharacter_main_tmp->GetSkeleton()->computeForwardKinematics(true, true, false);
+	mCharacter_main_tmp->GetSkeleton()->computeForwardKinematics(true, false, false);
 
 	Eigen::Vector3d main_root	= mCharacter_main_tmp->GetSkeleton()->getRootBodyNode()->getWorldTransform().translation();
 	Eigen::Vector3d main_ls 	= mCharacter_main_tmp->GetSkeleton()->getBodyNode("LeftShoulder")->getWorldTransform().translation();
@@ -117,17 +168,16 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	if(local_coord.norm() > 1.4){
 		mNextMotion = "box_move_front";
 		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}else if(local_coord.norm() < 0.7){
+	} else if(local_coord.norm() < 0.7){
 		mNextMotion = "box_move_back";
 		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}
-	else if(local_coord[1] > 1.0){
+	} else if(local_coord[1] > 1.0){
 		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
 		mNextMotion = "box_move_left";
-	}else if(local_coord[1] < -1.0){
+	} else if(local_coord[1] < -1.0){
 		mNextMotion = "box_move_right";
 		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
-	}
+	} 
 	// else if(theta > 0.1){
 	// 	mNextMotion= "right_pivot_mxm";
 	// 	std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
@@ -145,6 +195,7 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 		// transition
 		mCurrentMotion = mNextMotion;
 		mNextMotion= "box_idle";
+		mActionSet = false;
 		//std::cout<<mTotalFrame<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
 		//std::cout<<mTotalFrame<<" / "<<mCurrentMotion<<" / "<<mNextMotion<<std::endl;
 		//std::cout<<" ======================= "<<mCurrentMotion<<" / "<<mCurrentFrameOnPhase<<" ======================= "<<std::endl;
@@ -152,8 +203,9 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	}
 
 
-    Eigen::VectorXd p = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false);
-    p = DPhy::MultiplyRootTransform(p, mAlign, true);
+    Eigen::VectorXd p = mReferenceManager->GetPosition(mCurrentFrameOnPhase, true);
+    if(!mActionSet)
+   	 	p = DPhy::MultiplyRootTransform(p, mAlign, true);
 	mCharacter->GetSkeleton()->setPositions(p);
 	mCharacter->GetSkeleton()->computeForwardKinematics(true, false, false);
 

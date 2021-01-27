@@ -116,10 +116,6 @@ void MetaController::Step()
 	Eigen::VectorXd pos = PDTarget.first;
 	Eigen::VectorXd vel = PDTarget.second;
 	Eigen::VectorXd posEnemy;
-	if(mCurrentController->mCurrentFrameOnPhase <= 5) {
-		mCharacter->GetSkeleton()->setVelocities(vel);
-		mCharacter->GetSkeleton()->computeForwardKinematics(false,true,false);
-	}
 
 	if(IsEnemyPhysics()) {
 		// mCurrentEnemyController->GetState(mEnemyController[mTargetEnemyIdx]->mCharacter, 1);
@@ -127,19 +123,42 @@ void MetaController::Step()
 		posEnemy = PDTargetEnemy.first;
 
 	}
+	int num_body_nodes = (mCharacter->GetSkeleton()->getNumDofs() - 6)  / 3;
+
+	if(mCurrentController->mCurrentFrameOnPhase <= 5 || mCurrentController->mCurrentFrameOnPhase >= mCurrentController->mReferenceManager->GetPhaseLength()) {
+		mCharacter->GetSkeleton()->setVelocities(vel);
+		mCharacter->GetSkeleton()->computeForwardKinematics(false,true,false);
+	}
+
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		for(int j = 0; j < 2; j++) {
-			mCharacter->GetSkeleton()->setSPDTarget(pos, 600, 49);
-
 			if(IsEnemyPhysics()) {
-				if(mCurrentController->mType=="punch" && mCurrentController->mCurrentFrameOnPhase >= 16)
-					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 300, 30);
-				else if(mCurrentController->mType=="punch" && mCurrentController->mCurrentFrameOnPhase >= 18)
-					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 100, 10);
-				else
+				if((mCurrentController->mType=="Punch" && mCurrentController->mCurrentFrameOnPhase >= 16) ||
+					(mCurrentController->mType=="Kick" && mCurrentController->mCurrentFrameOnPhase >= 18)) {
+					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 300, 16);
+				}
+				else {
 					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 600, 49);
+				}
+			}
+			if(mCurrentController->mType=="Punch" || mCurrentController->mType=="Kick") {
+				Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(pos, 600, 49, mWorld->getConstraintSolver());
+				for(int j = 0; j < num_body_nodes; j++) {
+					int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+					int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+					std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+					double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+					double torque_norm = torque.block(idx, 0, dof, 1).norm();
+				
+					torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+				}
+
+				mCharacter->GetSkeleton()->setForces(torque);
+			} else {
+				mCharacter->GetSkeleton()->setSPDTarget(pos, 600, 49);
 
 			}
+
 			mWorld->step(false);
 		}
 
@@ -149,8 +168,9 @@ void MetaController::Step()
 	if(IsEnemyPhysics()) {
 		mCurrentEnemyController->Step();
 	}
-	for(int i = 0; i < curEnemyList.size(); i++)
+	for(int i = 0; i < curEnemyList.size(); i++) {
 		mEnemyController[curEnemyList[i]]->Step(mCharacter->GetSkeleton()->getPositions());
+	}
 
 	mTargetPositions = mCurrentController->GetCurrentRefPositions();
 	mRecordPosition.push_back(mCharacter->GetSkeleton()->getPositions());
@@ -195,43 +215,23 @@ void MetaController::SetAction(){
 	}
 	Eigen::VectorXd action;
 	if(mWaiting.first == "Kick"){
-		action.resize(2);
+		action.resize(3);
 		action.setZero();
-		if(mHitPoints.size() != 0) {
-			Eigen::Vector6d root = mCharacter->GetSkeleton()->getPositions().segment<6>(0);
-			Eigen::Vector3d root_ori = mCharacter->GetSkeleton()->getPositions().segment<3>(0);
-			root_ori = projectToXZ(root_ori);
-			Eigen::AngleAxisd root_aa(root_ori.norm(), root_ori.normalized());
-			double angle = 0;
-			double distance = 0;
-			int idx = 0;
-			for(int i = 0; i < mHitPoints.size(); i++) {
-				Eigen::Vector3d point_local = mHitPoints[i] - root.segment<3>(3);
-				point_local(1) = 0;
-				point_local = root_aa.inverse() * point_local; 
-				double angle_cur = atan2(point_local(2), point_local(0));
-
-				angle_cur = 0.5 * M_PI - angle_cur;
-				if(angle_cur < 0)
-					angle_cur += 2 * M_PI;
-
-				if(i == 0) {
-					angle = angle_cur;
-					distance = point_local.norm();
-				} else if(distance > 1.5 && point_local.norm() <= 1.5) {
-					angle = angle_cur;
-					distance = point_local.norm();
-					idx = i;
-				} else if( angle > angle_cur && point_local.norm() <= 1.5) {
-					angle = angle_cur;
-					distance = point_local.norm();
-					idx = i;
-
-				}
-			}
-			action(0) = angle / 6.0 * 2;
-			action(1) = mHitPoints[idx](1) - 0.2;
-		}
+		
+		Eigen::Vector6d root =  mCharacter->GetSkeleton()->getPositions().segment<6>(0);
+		Eigen::Vector3d root_ori = root.segment<3>(0);
+		root_ori = projectToXZ(root_ori);
+		Eigen::AngleAxisd root_aa(root_ori.norm(), root_ori.normalized());
+			
+		Eigen::Vector3d hand = mEnemyController[mTargetEnemyIdx]->GetCOM();
+		hand = hand - root.segment<3>(3);
+		hand(1) = 0;
+		Eigen::Vector3d dir = root_aa.inverse() * hand;
+		double norm = dir.norm();
+		dir.normalize();
+		
+		action <<  dir(2), 1.3, 1.4;
+	
 	} else if(mWaiting.first == "Punch"){
 		action.resize(4);
 
@@ -246,7 +246,7 @@ void MetaController::SetAction(){
 		Eigen::Vector3d dir = root_aa.inverse() * hand;
 		double norm = dir.norm();
 		dir.normalize();
-		action << dir(2), 1.22, norm, 0.6;
+		action << dir(2), 1.2, norm, 1.4;
 
 		// this->mWorld->addSkeleton(mEnemyController[mTargetEnemyIdx]->mCharacter);
 		// mEnemyController[i]->SetPhysicsMode(true);
@@ -369,7 +369,6 @@ ClearFallenEnemy() {
 void
 MetaController::
 ToggleTargetPhysicsMode() {
-	std::cout << 1 << std::endl;
 	bool prevMode = mEnemyController[mTargetEnemyIdx]->mPhysicsMode;
 	if(prevMode == false) {
 		auto& skel = mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton();
@@ -384,11 +383,10 @@ ToggleTargetPhysicsMode() {
 		mWorld->addSkeleton(mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton());
 	} else {
 		mWorld->removeSkeleton(mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton());
+		mEnemyController[mTargetEnemyIdx]->SetAction("box_idle");
 
 	}
 	mEnemyController[mTargetEnemyIdx]->mPhysicsMode = !prevMode;
-	std::cout << 2 << std::endl;
-
 }
 void
 MetaController::
