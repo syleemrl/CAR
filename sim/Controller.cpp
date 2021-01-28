@@ -396,7 +396,7 @@ Step()
 		}
 	}
 
-	int end_frame = mReferenceManager->GetPhaseLength()-4;
+	int end_frame = mReferenceManager->GetPhaseLength()- 5;
 	int start_frame = 5;
 
 	if(mCycle == 5) end_frame = mReferenceManager->GetPhaseLength()+5;
@@ -465,7 +465,7 @@ Step()
 		this->SetGoalParameters(mSceneParams[mCycle]);
 
 		std::cout<<"mCycleTranslate : "<<mCycleTranslate.transpose()<<std::endl;
-		std::cout<<"mParamGoal : "<<mParamGoal.transpose()<<std::endl;
+		std::cout<<mCurrentFrame<<" / "<<mCycle<<"/ "<<start_frame<<" / mParamGoal : "<<mParamGoal.transpose()<<std::endl;
 
 		/// load motion for mReferenceManager
 	   	std::vector<Eigen::VectorXd> cps = mReferenceManager->getRegressionMemory()->GetCPSFromNearestParams(mParamGoal);
@@ -1113,6 +1113,19 @@ UpdateTerminalInfo()
 		// 		terminationReason = 16;
 		// 	}
 		// }
+	}
+
+	if(mRecord){
+
+		// int length_limit = length_limit= (mSceneParams.size() -1)* mReferenceManager->GetPhaseLength()+ 10;
+
+		if(mCycle == (mSceneParams.size()-1) && mCurrentFrameOnPhase > 10) { // this->mBVH->GetMaxFrame() - 1.0){
+			mIsTerminal = true;
+			terminationReason =  8;
+			if(mRecord) 
+				std::cout << mCurrentFrame<<", terminate Reason : "<<terminationReason <<std::endl;
+		}
+		return;
 	}
 
 	Eigen::Vector3d lf = mCharacter->getBodyWorldTrans("LeftFoot");
@@ -1763,10 +1776,19 @@ void Controller::loadScene(){
 	mSceneObjects = std::vector<DPhy::Character*>();
 	// mSceneObjects = std::vector<dart::dynamics::SkeletonPtr>();
 	SkeletonBuilder::loadScene(scene_path, mSceneObjects, mSceneParams, mScenePlace);
-	for(auto obj: mSceneObjects) this->mWorld->addSkeleton(obj->GetSkeleton());
-
+	
+	int obj_idx = 0;
+	for(auto obj: mSceneObjects) {
+		this->mWorld->addSkeleton(obj->GetSkeleton());
+		if(obj_idx != 0){
+			Eigen::VectorXd pos(obj->GetSkeleton()->getNumDofs());
+			pos[5] = 100 *obj_idx;
+			obj->GetSkeleton()->setPositions(pos);
+		}
+		obj_idx++;
+	}
 	std::cout<<"load Scene :: "<<mSceneObjects.size()<<std::endl;
-
+	
 	this->mLoadScene = true;
 }
 
