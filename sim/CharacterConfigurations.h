@@ -19,7 +19,8 @@
 #define CHARACTER_TYPE "mxm_t3"
 #define REF_CHARACTER_TYPE "mxm_t3"
 
-#define OBJECT_TYPE "j2_box"
-#define OBJECT_TYPE_2 "hindsight_box"
+// #define OBJECT_TYPE "j2_box"
+// #define OBJECT_TYPE_2 "hindsight_box"
 
+#define SCENE "box_map1"
 #endif

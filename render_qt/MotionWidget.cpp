@@ -155,7 +155,7 @@ MotionWidget(std::string motion, std::string ppo, std::string reg)
 	Eigen::Vector3d lt = mSkel_bvh->getBodyNode("LeftToe")->getWorldTransform().translation();
 	Eigen::Vector3d rt = mSkel_bvh->getBodyNode("RightToe")->getWorldTransform().translation();
 	
-	std::cout<<"@ "<<i<<"/ foot z; "<<lf[2]<<" / "<<rf[2]<<"/ toe: "<<lt[2]<<" "<<rt[2]<<std::endl;
+	// std::cout<<"@ "<<i<<"/ foot z; "<<lf[2]<<" / "<<rf[2]<<"/ toe: "<<lt[2]<<" "<<rt[2]<<std::endl;
 	// <<mf[2]<<"/ root x:"<<root[0]<<std::endl;
 		// Eigen::VectorXd toe_v(12);
 		// toe_v<< left_v, right_v;
@@ -810,12 +810,22 @@ DrawSkeletons()
 		glTranslated(0.75, 0, 0);
 		GUI::DrawCoordinate();
 		GUI::DrawSkeleton(this->mSkel_sim, 0);
+
+		#ifdef SCENE
+			for(auto obj: this->mController->GetSceneObjects()){
+				GUI::DrawSkeleton(obj->GetSkeleton(), 0);
+			}
+		#endif
+
+		#ifdef OBJECT_TYPE
 		if(this->mSkel_obj_s) {
 			GUI::DrawSkeleton(this->mSkel_obj_s, 0);
 		}
 		if(this->mSkel_obj_e) {
 			GUI::DrawSkeleton(this->mSkel_obj_e, 0);
 		}
+		#endif
+
 		glPopMatrix();
 	}
 

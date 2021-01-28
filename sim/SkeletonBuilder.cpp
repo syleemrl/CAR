@@ -765,4 +765,56 @@ BodyNode* SkeletonBuilder::MakeWeldJointBody(
 
 	return bn;
 }
+
+void 
+SkeletonBuilder::
+loadScene(std::string scene_path, std::vector<DPhy::Character*>& sceneObjects, std::vector<Eigen::VectorXd>& sceneParams, std::map<int, Eigen::VectorXd>& mScenePlace){
+	TiXmlDocument doc;
+	if(!doc.LoadFile(scene_path)){
+		std::cout << "Can't open scene file : " << scene_path << std::endl;
+	}
+
+	TiXmlElement *skeldoc = doc.FirstChildElement("Scene");
+	
+	int obj_index = 0;
+	for(TiXmlElement *body = skeldoc->FirstChildElement("Skeleton"); body != nullptr; body = body->NextSiblingElement("Skeleton")){
+		std::string object_type = body->Attribute("xml");
+		std::string object_path = std::string(CAR_DIR)+std::string("/character/") + std::string(object_type) + std::string(".xml");
+
+		std::cout<<"object_type: "<<std::endl;
+		DPhy::Character* obj = new DPhy::Character(object_path);	
+		// std::pair<SkeletonPtr, std::map<std::string, double>*> p = SkeletonBuilder::BuildFromFile(object_path);
+		// SkeletonPtr obj = p.first;
+
+		if(body->Attribute("pos") !=nullptr){
+			Eigen::VectorXd pos = string_to_vectorXd(body->Attribute("pos"));
+			obj->GetSkeleton()->setPositions(pos);
+			obj->GetSkeleton()->computeForwardKinematics(true, false, false);			
+			std::cout<<object_type<<" , pos : "<<pos.transpose()<<std::endl;
+		}
+		if(body->Attribute("xz") !=nullptr){
+			Eigen::VectorXd pos(obj->GetSkeleton()->getNumDofs()); pos.setZero();
+			Eigen::VectorXd xz = string_to_vectorXd(body->Attribute("xz"));
+			pos[5] = xz[1]; //z
+			pos[6] = xz[0]; //x
+			obj->GetSkeleton()->setPositions(pos);
+			obj->GetSkeleton()->computeForwardKinematics(true, false, false);			
+		}
+		if(body->Attribute("z") !=nullptr){
+			Eigen::VectorXd pos(obj->GetSkeleton()->getNumDofs()); pos.setZero();
+			Eigen::VectorXd z = string_to_vectorXd(body->Attribute("z"));
+			mScenePlace[obj_index] = z;
+		}
+
+		if(body->Attribute("goal_param") !=nullptr){
+			Eigen::VectorXd gp = string_to_vectorXd(body->Attribute("goal_param"));
+			sceneParams.push_back(gp);
+		}
+		
+		sceneObjects.push_back(obj);
+
+		obj_index++;
+	}
+}
+
 }

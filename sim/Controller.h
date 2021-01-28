@@ -92,6 +92,8 @@ Controller(ReferenceManager* ref, bool adaptive=true, bool parametric=true, bool
 	Eigen::Isometry3d getLocalSpaceTransform(const dart::dynamics::SkeletonPtr& Skel);
 
 	Eigen::VectorXd GetGoalParameters(){return mParamGoal;}
+	std::vector<DPhy::Character*> GetSceneObjects(){return mSceneObjects;}
+
 protected:
 	dart::simulation::WorldPtr mWorld;
 	double w_p,w_v,w_com,w_ee;
@@ -228,6 +230,18 @@ protected:
 
 	int v_count = 0;
 	Eigen::Vector3d prev_com_v;
+
+	std::vector<Eigen::VectorXd> mSceneParams;
+	// std::vector<dart::dynamics::SkeletonPtr> mSceneObjects;
+	std::vector<DPhy::Character*> mSceneObjects;
+
+	std::map<int, Eigen::VectorXd> mScenePlace;
+
+	void loadScene();
+	bool mLoadScene;
+
+	int mCycle;
+	Eigen::Vector3d mCycleTranslate;
 };
 }
 #endif

@@ -2,11 +2,14 @@
 #define __DEEP_PHYSICS_SKELETON_BUILDER_H__
 #include "dart/dart.hpp"
 
+#include "Character.h"
 namespace DPhy
 {
 class SkeletonBuilder
 {
 public:
+	static void loadScene(std::string scene_path, std::vector<DPhy::Character*>& sceneObjects, std::vector<Eigen::VectorXd>& sceneParams, std::map<int, Eigen::VectorXd>& scenePlace);
+
 	static std::pair<dart::dynamics::SkeletonPtr, std::map<std::string, double>*> BuildFromFile(const std::string& filename);
 	//static void WriteSkeleton(std::string filename, dart::dynamics::SkeletonPtr& skel);
 	static void DeformBodyNode(

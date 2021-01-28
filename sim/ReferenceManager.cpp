@@ -37,6 +37,37 @@ SaveAdaptiveMotion(std::string postfix) {
 	ofs.close();
 
 }
+
+// void
+// ReferenceManager::
+// LoadAdaptiveMotion_connect(int cycle, std::vector<Eigen::VectorXd> displacement, int end, int start)
+// {
+// 	// TODO
+// 	std::vector<Eigen::VectorXd> d_space;
+// 	std::vector<Eigen::VectorXd> d_time;
+
+// 	for(int i = 0 ; i < displacement.size(); i++) {
+// 		d_space.push_back(displacement[i].head(displacement[i].rows()-1));
+// 		d_time.push_back(displacement[i].tail(1));
+// 	}
+
+// 	std::vector<Eigen::VectorXd> newpos;
+// 	this->AddDisplacementToBVH(d_space, newpos);
+// 	std::vector<Eigen::VectorXd> newvel = this->GetVelocityFromPositions(newpos);
+
+// 	for(int j = 0; j < mPhaseLength; j++) {
+// 		mMotions_phase_adaptive[j]->SetPosition(newpos[j]);
+// 		mMotions_phase_adaptive[j]->SetVelocity(newvel[j]);
+// 	}
+
+// 	for(int i = 0; i < mPhaseLength; i++) {
+// 		mTimeStep_adaptive[i] = exp(d_time[i](0));
+// 	}
+
+// 	this->ConnectSinglePhaseMotion(cycle, mMotions_phase_adaptive, mMotions_gen_adaptive, trimLength);
+// }
+
+
 void 
 ReferenceManager::
 LoadAdaptiveMotion(std::vector<Eigen::VectorXd> displacement, double shift_height) {

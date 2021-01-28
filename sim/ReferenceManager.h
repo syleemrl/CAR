@@ -83,6 +83,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
 
+	RegressionMemory* getRegressionMemory(){return mRegressionMemory;}
 	Eigen::Isometry3d getBodyGlobalTransform(Character* character, std::string bodyName, double t); //, Eigen::Vector3d mDefaultRootZero, Eigen::Vector3d mRootZero);
 
 	// Eigen::Vector3d tmp_debug= Eigen::Vector3d::Zero();
