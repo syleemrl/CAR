@@ -1119,7 +1119,7 @@ UpdateTerminalInfo()
 
 		// int length_limit = length_limit= (mSceneParams.size() -1)* mReferenceManager->GetPhaseLength()+ 10;
 
-		if(mCycle == (mSceneParams.size()-1) && mCurrentFrameOnPhase > 10) { // this->mBVH->GetMaxFrame() - 1.0){
+		if(mCycle == (mSceneParams.size()-1) && mCurrentFrameOnPhase > 25) { // this->mBVH->GetMaxFrame() - 1.0){
 			mIsTerminal = true;
 			terminationReason =  8;
 			if(mRecord) 

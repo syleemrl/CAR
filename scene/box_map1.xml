@@ -1,5 +1,5 @@
 <Scene>
-	<Skeleton xml = "j2_box" goal_param = "0.0  1.56"/> 
+	<Skeleton xml = "j2_box" goal_param = "0.0  1.5"/> 
 	<Skeleton xml = "j2_box" goal_param = "0.3 1.6"	/> 
 	<Skeleton xml = "j2_box" goal_param = "-0.3 1.6"/> 
 	<Skeleton xml = "j2_box" goal_param = "0.0 3.0"/> 
@@ -7,8 +7,8 @@
 	<Skeleton xml = "j2_box" goal_param = "0.4 2.5"/> 
 	<Skeleton xml = "j2_box" goal_param = "-0.8 3.0" z= "1.8"/> 
 	<Skeleton xml = "j2_box" goal_param = "0.5 2.0"/> 
-	<Skeleton xml = "j2_box" goal_param = "1.2 2.2"/> 
-	<Skeleton xml = "j2_box" goal_param = "0.0 2.2"/> 
+	<Skeleton xml = "j2_box" goal_param = "1.2 2.2" z= "1.25"/> 
+	<Skeleton xml = "j2_box" goal_param = "0.0 3.2"/> 
 </Scene>
 <!-- 	
 	<Skeleton xml = "jump_box_long" pos = "0 0 0 0 0 0.8 0.45"/> 
