@@ -4,7 +4,7 @@
 namespace DPhy
 {
 
-EnemyKinController::EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_ch)
+EnemyKinController::EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_ch, int idx)
 {
 	std::string path = std::string(CAR_DIR)+std::string("/character/") + std::string(CHARACTER_TYPE) + std::string(".xml");
 	this->mCharacter = new DPhy::Character(path);
@@ -37,7 +37,14 @@ EnemyKinController::EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_
 	Eigen::Vector3d my_body_dir= (ls-rs).cross(Eigen::Vector3d::UnitY());
 
 	double theta = DPhy::getXZTheta(my_body_dir, dir);
-
+	mIdx = idx;
+	if(idx == 0)	
+		theta -= 0.1;
+	std::cout << idx << std::endl;
+	if(idx == 4){	
+		theta -= 0.3;
+		std::cout << "theta: " << theta <<  std::endl;
+	}
 	Eigen::AngleAxisd root_aa = Eigen::AngleAxisd(p.segment<3>(0).norm(), p.segment<3>(0).normalized());
 	Eigen::AngleAxisd rotate_y = Eigen::AngleAxisd(theta, Eigen::Vector3d(0, 1, 0));
 	rotate_y = rotate_y * root_aa;
@@ -170,7 +177,7 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	point_local = root_temp.inverse() * look_dir; 
 	theta = atan2(point_local(0), point_local(2));
 
-	if(local_coord.norm() > 1.5){
+	if(local_coord.norm() > 1.5 && mIdx != 3){
 		mNextMotion = "box_move_front";
 		//std::cout<<"@ "<<mTotalFrame<<" / "<<mNextMotion<<" // theta : "<<theta<<"/ local_coord: "<<local_coord.transpose()<<std::endl;
 	} else if(local_coord.norm() < 0.7){
@@ -211,7 +218,8 @@ void EnemyKinController::Step(Eigen::VectorXd main_p){
 	}
 
     Eigen::VectorXd p = mReferenceManager->GetPosition(mCurrentFrameOnPhase, true);
-  	if(mCurrentMotion == "box_idle" && mCurrentFrameOnPhase % 5 == 0 && abs(theta) > 0.3 && local_coord.norm() <1.5) {
+  	if((mCurrentMotion == "box_idle" && mCurrentFrameOnPhase % 5 == 0 && abs(theta) > 0.3 && local_coord.norm() <1.5) ||
+  		(mCurrentMotion == "box_idle" && mCurrentFrameOnPhase % 5 == 0 && abs(theta) > 0.3 && mIdx == 3)) {
   		Eigen::Vector6d root_old = mCharacter->GetSkeleton()->getPositions().head<6>();
 
 		double to_rotate = std::min(0.05, std::max(-0.05, theta));

@@ -257,7 +257,8 @@ void MetaController::SetAction(){
 			action << dir(2), 1.2, norm, mNextTarget(0);
 		else
 			action << dir(2), 1.2, norm, 1.4;
-
+		if(mTargetEnemyIdx == 3)
+			action(1) = 1.3;
 		// this->mWorld->addSkeleton(mEnemyController[mTargetEnemyIdx]->mCharacter);
 		// mEnemyController[i]->SetPhysicsMode(true);
 	
@@ -346,6 +347,10 @@ AddNewEnemy(Eigen::VectorXd d) {
 		Eigen::Vector3d dir = Eigen::Vector3d(sin(d(0)*M_PI), 0, cos(d(0)*M_PI));
 		dir = aa * dir*d(1);
 		p_em += dir;
+		if(i == 4) {
+			p_em(0) += 1.3;
+			p_em(2) -= 0.3;
+		}
 	}
 	else {
 		d(0) = mUniform(mMT) * 2;
@@ -353,7 +358,7 @@ AddNewEnemy(Eigen::VectorXd d) {
 		dir = aa * dir*1.3;
 		p_em += dir;
 	}
-	mEnemyController.push_back(new EnemyKinController(p_em, p_ch));
+	mEnemyController.push_back(new EnemyKinController(p_em, p_ch, i));
 
 	std::vector<Eigen::VectorXd> record;
 	record.clear();
@@ -368,7 +373,7 @@ MetaController::
 ClearFallenEnemy() {
 	std::vector<int> newlist;
 	for(int i = 0; i < curEnemyList.size(); i++) {
-		if(mEnemyController[curEnemyList[i]]->GetPosition()(4) < 0.15) {
+		if(mEnemyController[curEnemyList[i]]->GetPosition()(4) < 0.13) {
 			std::cout << "clear enemy : " << curEnemyList[i] << std::endl;
 		} else {
 			newlist.push_back(curEnemyList[i]);

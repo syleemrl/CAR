@@ -38,7 +38,7 @@ namespace DPhy
 class EnemyKinController
 {
 public:
-	EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_ch);
+	EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_ch, int idx);
 
 	// void SetNextAction(std::sting action);
 	void SetAction(std::string action);
@@ -70,6 +70,7 @@ public:
 	bool mWaiting=false;
 	bool mPhysicsMode=false;
 	bool mActionSet=false;
+	int mIdx;
 };
 } 
 

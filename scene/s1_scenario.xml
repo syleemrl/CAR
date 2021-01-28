@@ -1,10 +1,10 @@
 <Scenario>
 	<Take frame="5" type="add_enemy" param="1.5 1.35"/> 
-	<Take frame="10" type="pivot" param="1.21"/> 
+	<Take frame="10" type="pivot" param="1.25"/> 
 	<Take frame="99" type="physics_on_enemy"/> 
 	<Take frame="102" type="punch_enemy"/> 
 	<Take frame="104" type="dodge"/> 
-	<Take frame="130" type="add_enemy" param="0.45 1.65"/> 
+	<Take frame="130" type="add_enemy" param="0.45 2.2"/> 
 	<Take frame="135" type="punch" param="1.0"/> 
 	<Take frame="190" type="physics_on_enemy"/> 
 	<Take frame="192" type="switch_enemy"/> 
@@ -13,25 +13,26 @@
  	<Take frame="222" type="punch_enemy"/> 
 	<Take frame="230" type="dodge"/> 
 	<Take frame="248" type="physics_on_enemy"/> 
-	<Take frame="270" type="kick" param="1.0"/> 
+	<Take frame="270" type="kick" param="1.8"/> 
 	<Take frame="280" type="physics_on_enemy"/> 
 	<Take frame="330" type="physics_on_enemy"/> 
 	<Take frame="331" type="switch_enemy"/> 
-	<Take frame="332" type="kick" param="1.8"/> 
+	<Take frame="332" type="kick" param="1.4"/> 
 	<Take frame="340" type="physics_on_enemy"/> 
-	<Take frame="360" type="add_enemy" param="1.3 1.3"/> 
+	<Take frame="360" type="add_enemy" param="1.3 2.4"/> 
 	<Take frame="380" type="physics_on_enemy"/> 
 	<Take frame="381" type="switch_enemy"/> 
 	<Take frame="380" type="pivot" param="2.4"/> 
-	<Take frame="440" type="punch" param="1.2"/> 
 	<Take frame="441" type="add_enemy" param="1.7 3.0"/> 
-	<Take frame="450" type="physics_on_enemy"/> 
+	<Take frame="445" type="punch" param="1.6"/> 
+	<Take frame="446" type="physics_on_enemy"/> 
+	<Take frame="447" type="punch_enemy"/> 
 	<Take frame="500" type="physics_on_enemy"/> 
 	<Take frame="501" type="switch_enemy"/>
 	<Take frame="502" type="pivot" param="1.0"/> 
-	<Take frame="565" type="punch" param="0.8"/> 
-	<Take frame="575" type="physics_on_enemy"/> 
-	<Take frame="590" type="pivot" param="0.8"/> 
-	<Take frame="620" type="kick" param="2.8"/> 
-	<Take frame="660" type="save_all"/> 
+	<Take frame="570" type="punch" param="0.6"/> 
+	<Take frame="580" type="physics_on_enemy"/> 
+<!-- 	<Take frame="590" type="pivot" param="0.8"/> 
+ -->	<Take frame="600" type="kick" param="2.8"/> 
+	<Take frame="700" type="save_all"/> 
 </Scenario>
