@@ -39,8 +39,8 @@ EnemyKinController::EnemyKinController(Eigen::Vector3d pos, Eigen::Vector3d pos_
 	double theta = DPhy::getXZTheta(my_body_dir, dir);
 	mIdx = idx;
 	if(idx == 0)	
-		theta -= 0.1;
-	std::cout << idx << std::endl;
+		theta += 0.7;
+	// std::cout << idx << std::endl;
 	if(idx == 4){	
 		theta -= 0.3;
 		std::cout << "theta: " << theta <<  std::endl;

@@ -133,14 +133,15 @@ void MetaController::Step()
 	for(int i = 0; i < this->mSimPerCon; i += 2){
 		for(int j = 0; j < 2; j++) {
 			if(IsEnemyPhysics()) {
-				if( !(mTotalSteps >= 550 && mTotalSteps <= 600) &&  
-					((mCurrentController->mType=="Punch" && mCurrentController->mCurrentFrameOnPhase >= 20) ||
-					(mCurrentController->mType=="Kick" && mCurrentController->mCurrentFrameOnPhase >= 22))) {
-					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 50, 5);
-				} if(!(mTotalSteps >= 550 && mTotalSteps <= 600) &&  
+				// if( !(mTotalSteps >= 550 && mTotalSteps <= 600) &&  
+				// 	((mCurrentController->mType=="Punch" && mCurrentController->mCurrentFrameOnPhase >= 20) ||
+				// 	(mCurrentController->mType=="Kick" && mCurrentController->mCurrentFrameOnPhase >= 22))) {
+				// 	mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 100, 10);
+				// } 
+				if(!(mTotalSteps >= 550 && mTotalSteps <= 600) &&  
 					((mCurrentController->mType=="Punch" && mCurrentController->mCurrentFrameOnPhase >= 16) ||
 					(mCurrentController->mType=="Kick" && mCurrentController->mCurrentFrameOnPhase >= 18))) {
-					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 150, 10);
+					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 300, 30);
 				} else {
 					mEnemyController[mTargetEnemyIdx]->mCharacter->GetSkeleton()->setSPDTarget(posEnemy, 600, 49);
 				}
@@ -234,9 +235,9 @@ void MetaController::SetAction(){
 		double norm = dir.norm();
 		dir.normalize();
 		if(mNextTarget(0) != -10000)
-			action <<  dir(2), 1.25, mNextTarget(0);
+			action <<  dir(2), 1.2, mNextTarget(0);
 		else
-			action <<  dir(2), 1.25, 1.0;
+			action <<  dir(2), 1.2, 1.0;
 		if(mTotalSteps >= 550)
 			action(1) = 1.35;
 	} else if(mWaiting.first == "Punch"){
