@@ -1,4 +1,4 @@
-from network import RegressionNet
+from network2 import RegressionNet
 import random
 import numpy as np
 import tensorflow as tf

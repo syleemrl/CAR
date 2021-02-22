@@ -1,6 +1,5 @@
 import numpy as np
 import math
-from regression import Regression
 from IPython import embed
 from copy import copy
 
