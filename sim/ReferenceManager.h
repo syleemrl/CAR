@@ -83,7 +83,7 @@ public:
 	std::vector<Eigen::VectorXd> GetCPSexp() { return mCPS_exp; }
 	void SelectReference();
 	std::vector<std::string> GetHierarchyStr() {return mHierarchyStr; }
-
+	void SetEvalMode(bool on) {mEvalMode = on; }
 protected:
 	Character* mCharacter;
 	double mTimeStep;
@@ -127,6 +127,7 @@ protected:
 	std::uniform_real_distribution<double> mUniform;
 	std::vector<std::string> mHierarchyStr;
 
+	bool mEvalMode;
 };
 }
 

@@ -317,6 +317,11 @@ UniformSampleWithConstraints(double d0, double d1) {
 }
 void
 SimEnv::
+SetEvalMode(bool on) {
+	mReferenceManager->SetEvalMode(on);
+}
+void
+SimEnv::
 SaveParamSpace(int n) {
 	if(n != -1) {
 		mRegressionMemory->SaveParamSpace(mPath + "param_space" + std::to_string(n));
@@ -436,6 +441,7 @@ BOOST_PYTHON_MODULE(simEnv)
 		.def("UpdateReference",&SimEnv::UpdateReference)
 		.def("GetVisitedRatio",&SimEnv::GetVisitedRatio)
 		.def("GetFitnessMean",&SimEnv::GetFitnessMean)
+		.def("SetEvalMode",&SimEnv::SetEvalMode)
 		.def("GetDensity",&SimEnv::GetDensity);
 
 }

@@ -19,7 +19,7 @@ class Sampler(object):
 		self.total_iter = 0
 
 		# 0: uniform 1: adaptive
-		self.type_exploit = 0
+		self.type_exploit = 1
 		# 0: uniform 1 :adaptive
 		self.type_explore = 0
 	
@@ -47,7 +47,7 @@ class Sampler(object):
 		self.progress_cur_new = 0
 		self.progress_cur_update = 0
 
-		self.use_table = True
+		self.use_table = False
 		self.delta = 0
 		print('=======================================')
 		print('curriculum option')
@@ -130,7 +130,7 @@ class Sampler(object):
 
 	def updateCurrentStatus(self, mode, results, info):
 		if mode == 0 or mode == 2:
-			if len(self.progress_queue_explore) >= 10:
+			if len(self.progress_queue_explore) >= 5:
 				self.progress_queue_explore = self.progress_queue_explore[1:]
 			self.progress_queue_explore.append(self.progress_cur)
 
@@ -157,9 +157,9 @@ class Sampler(object):
 			self.progress_cur_list = []
 			self.sample_counter = 0
 
-			if mode == 2 and self.n_evaluation == 3:
+			if mode == 2 and self.n_evaluation == 2:
 				self.evaluation_done = True
-				self.printExplorationRateData()
+				# self.printExplorationRateData()
 			if len(self.progress_queue_explore) < 5 and self.v_mean != 0:
 				if len(self.progress_queue_explore) == 1:
 					self.delta = self.v_mean - np.array(results).mean()
@@ -321,33 +321,22 @@ class Sampler(object):
 			return False
 
 		if self.use_table:
-			max_mean = 0
 			v_key = math.floor((self.v_mean - self.delta) * 1 / self.unit)
-			it = 0
-			while v_key in self.vp_dict:
-				count = 0
-				mean = 0
+			count = 0
+			mean = 0
+			if v_key in self.vp_dict:
 				for i in range(len(self.vp_dict[v_key])):
-					if self.total_iter - self.vp_dict[v_key][i][2] < 50:
-						mean += self.vp_dict[v_key][i][1]
-						count += 1
-					
+					mean += self.vp_dict[v_key][i][1]
+					count += 1
+				
 				if count != 0:
-					mean /= count	
-
-				if max_mean < mean:
-					max_mean = mean
-				v_key -= 1
-				it += 1
-				if it >= 3:
-					break
-
-			print((self.v_mean - self.delta), p_mean, max_mean)
-			if p_mean <= max_mean or p_mean <= 0.2:
+					mean /= count			
+			print((self.v_mean - self.delta), p_mean, mean)
+			if p_mean <= mean:
 				return True
 		else:
-			print(p_mean, p_mean_prev, (p_mean + 1e-3) - p_mean_prev * 0.9 < 0)
-			if (p_mean + 1e-3) - p_mean_prev * 0.9 < 0:
+			print(p_mean, self.progress_queue_explore, p_mean_prev, p_mean - p_mean_prev <= 0)
+			if p_mean - p_mean_prev <= 0:
 				return True
 
 		return False

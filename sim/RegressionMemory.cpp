@@ -680,7 +680,7 @@ UniformSample(int visited) {
 		if(visited == -1) 
 			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true);
 		double d = GetDensity(p, true);
-
+	
 		if(!visited) {
 			if((abs(p(0) - 1) < 1e-2 || abs(p(0)) < 1e-2) && d > (mThresholdInside - 0.2)){
 				continue;
@@ -802,7 +802,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	if(n_compare == 0) {
 		mRecordLog.push_back("new parameter: " + vectorXd_to_string(nearest) + ", " + std::to_string(std::get<2>(candidate)));
 	}
-
+	// if(!flag) {
+	// 	std::cout << std::get<2>(candidate)  << std::endl;
+	// }
 	if(flag) {
 		// std::cout << "insert" << std::endl;
 

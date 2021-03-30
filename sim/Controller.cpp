@@ -573,7 +573,7 @@ GetParamReward()
 		mMomentum(1) = 0;
 		mMomentum /= mCount;
 	
-		Eigen::Vector3d momentumBVH = Eigen::Vector3d(-38, 0, -14);
+		Eigen::Vector3d momentumBVH = Eigen::Vector3d(-37, 0, -9);
 		Eigen::Vector3d m_diff = mMomentum - momentumBVH;
 		m_diff(2) *= 0.5;
 
@@ -583,7 +583,7 @@ GetParamReward()
 		double v_diff = velocity - mParamGoal(0);
 		
 		mTotalLength(1) = 0;
-		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(-3.94, 0, 0.26);
+		Eigen::Vector3d totalLengthBVH = Eigen::Vector3d(-3.78, 0, 0.2);
 		Eigen::Vector3d l_diff = mTotalLength - totalLengthBVH;
 
 		double r_m = exp_of_squared(m_diff, 3);
@@ -593,14 +593,14 @@ GetParamReward()
 		double r_h = exp(-pow(h_diff, 2)*150);
 
 		r_param = r_v * r_h * r_m * r_l;
-
 		if(r_m > 0.3 && r_l > 0.3) {
 			mParamCur(0) = velocity;
 			mParamCur(1) = mJumpHeight / 1.45;
 		} else {
 			mParamCur(0) = -1;
 		}
-
+		// std::cout << "momentum : " << mMomentum.transpose() << " " << r_m << std::endl;
+		// std::cout << "totallength : " << mTotalLength.transpose() << " " <<r_l << std::endl;
 		mControlFlag[0] = 2;		
 		mFitness.sum_reward = r_m * r_l;
 		if(mRecord) {
@@ -655,29 +655,29 @@ UpdateAdaptiveReward()
 
 	double r_tot = r_tracking;
 	
-	if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 38) {
-		Eigen::VectorXd pos_diff;
-		pos_diff.resize(3);
+	// if(mCurrentFrameOnPhase >= 27 && mCurrentFrameOnPhase <= 38) {
+	// 	Eigen::VectorXd pos_diff;
+	// 	pos_diff.resize(3);
 
-		Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
-		Eigen::Vector3d pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
-		pos_diff.segment<3>(0) = pos_diff_joint;
+	// 	Eigen::Vector3d posRootBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(0);
+	// 	Eigen::Vector3d pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(0), posRootBVH);
+	// 	pos_diff.segment<3>(0) = pos_diff_joint;
 
-		// int idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
-		// Eigen::Vector3d posRUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
-		// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
-		// pos_diff_joint(0) = 0;
-		// pos_diff.segment<3>(3) = pos_diff_joint;
+	// 	// int idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
+	// 	// Eigen::Vector3d posRUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
+	// 	// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
+	// 	// pos_diff_joint(0) = 0;
+	// 	// pos_diff.segment<3>(3) = pos_diff_joint;
 
-		// idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
-		// Eigen::Vector3d posLUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
-		// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
-		// pos_diff_joint(0) = 0;
-		// pos_diff.segment<3>(6) = pos_diff_joint;
+	// 	// idx = mCharacter->GetSkeleton()->getBodyNode("RightUpLeg")->getParentJoint()->getIndexInSkeleton(0);
+	// 	// Eigen::Vector3d posLUpLegBVH = mReferenceManager->GetPosition(mCurrentFrameOnPhase, false).segment<3>(idx);
+	// 	// pos_diff_joint = JointPositionDifferences(mCharacter->GetSkeleton()->getPositions().segment<3>(idx), posRootBVH);
+	// 	// pos_diff_joint(0) = 0;
+	// 	// pos_diff.segment<3>(6) = pos_diff_joint;
 
-		double r_pos = exp_of_squared(pos_diff, 0.3);
-		r_tot = 0.9 * r_tot + 0.1 * r_pos;
-	}
+	// 	double r_pos = exp_of_squared(pos_diff, 0.3);
+	// 	r_tot = 0.9 * r_tot + 0.1 * r_pos;
+	// }
 	
 	mRewardParts.clear();
 
@@ -816,7 +816,6 @@ Controller::
 SetGoalParameters(Eigen::VectorXd tp)
 {
 	mParamGoal = tp;
-	std::cout << mParamGoal.transpose() << std::endl;
 	// this->mWorld->setGravity(mParamGoal(0)*mBaseGravity);
 	// this->SetSkeletonWeight(mParamGoal(1)*mBaseMass);
 }

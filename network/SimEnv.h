@@ -57,7 +57,8 @@ public:
 	void UpdateReference();
 	void SaveParamSpace(int n);
 	void SaveParamSpaceLog(int n);
-
+	void SetEvalMode(bool on);
+	
 	double GetVisitedRatio();
 	double GetDensity(np::ndarray np_array);
 
