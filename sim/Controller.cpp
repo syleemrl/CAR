@@ -624,9 +624,9 @@ UpdateAdaptiveReward()
 	// double r_diff = root_new(1) + 0.75;
 	// double r_root = exp(-pow(r_diff, 2) * 20);
 
-	if(r_param != 0)
+	if(r_param != 0) {
 		r_tot = 0.9 * r_tot + 0.1 * r_param;
-
+	}
 	mRewardParts.clear();
 
 	if(dart::math::isNan(r_tot)){

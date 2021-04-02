@@ -252,10 +252,10 @@ class PPO(object):
 			advantages = np.zeros(size)
 			ad_t = 0
 			for i in reversed(range(len(data))):
-				if i == size - 1:
+				if i == size - 1 or (i == size - 2 and times[i+1] == 0):
 					timestep = 0
 				elif times[i] > times[i+1]:
-					timestep = self.env.phaselength - times[i]
+					timestep = times[i+1] + self.env.phaselength - times[i]
 				else:
 					timestep = times[i+1]  - times[i]
 
@@ -351,7 +351,7 @@ class PPO(object):
 			# get values
 			states, actions, rewards, values, neglogprobs, times, param, param_info = zip(*data)
 
-			if len(times) == self.env.phaselength * 5 + 10 + 1:
+			if len(times) == self.env.phaselength * 3 + 10 + 1:
 				if times[-1] < self.env.phaselength - 1.8:
 					for i in reversed(range(len(times))):
 						if i != len(times) - 1 and times[i] > times[i + 1]:
@@ -387,7 +387,7 @@ class PPO(object):
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
 				delta = t * rewards[i][0] + values[i+1] * pow(self.gamma, timestep) - values[i]
-				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
 				if rewards[i][1] != 0:
 					delta += rewards[i][1]
 
@@ -402,7 +402,6 @@ class PPO(object):
 						param_info_batch.append(param_info[i])
 						state_target_batch.append(param[i])
 						TD_target_batch.append(sum_V / count_V)
-
 					count_V = 0
 					sum_V = 0
 					V = 0
@@ -443,7 +442,7 @@ class PPO(object):
 					timestep = times[i+1]  - times[i]
 				
 				t = integrate.quad(lambda x: pow(self.gamma, x), 0, timestep)[0]
-				V = t * rewards[i][0] + 4 * rewards[i][1] + V * pow(self.gamma, timestep)
+				V = t * rewards[i][0] + rewards[i][1] + V * pow(self.gamma, timestep)
 
 
 				sum_V += V
@@ -523,15 +522,14 @@ class PPO(object):
 	def train(self, num_iteration):
 		epi_info_iter = []
 		epi_info_iter_hind = []
-		# self.env.mode = 1
-		# self.env.sampler.resetExploit()
-		# self.env.sampler.updateGoalDistribution(1, self.critic_target)
 		self.env.sampler.resetExplore()
 		it_cur = 0
 
 		for it in range(num_iteration):
+
 			for i in range(self.num_slaves):
 				self.env.reset(i)
+
 			states = self.env.getStates()
 			local_step = 0
 			last_print = 0
@@ -592,8 +590,8 @@ class PPO(object):
 					elif t == 1:
 						it_cur = 0
 					
-					# if self.env.needEvaluation():
-					# 	self.eval(30)
+					if self.env.needEvaluation():
+						self.eval(30)
 				elif self.adaptive:
 					self.updateAdaptive(epi_info_iter)
 					self.env.updateReference()
@@ -619,40 +617,42 @@ class PPO(object):
 				epi_info_iter = []
 
 	def eval(self, num_samples):
-		tuples = []
-		for it in range(num_samples):
-			for i in range(self.num_slaves):
-				self.env.reset(i)
-			states = self.env.getStates()
-			local_step = 0
-			tuples_iter = [[] for _ in range(self.num_slaves)]	
+		# tuples = []
+		# self.env.sim_env.SetEvalMode(True)
+		# for it in range(num_samples):
+		# 	for i in range(self.num_slaves):
+		# 		self.env.reset(i)
+		# 	states = self.env.getStates()
+		# 	local_step = 0
+		# 	tuples_iter = [[] for _ in range(self.num_slaves)]	
 	
-			self.env.updateGoal(self.critic_target, False)
-			while True:
-				# set action
-				actions, neglogprobs = self.actor.getAction(states)
-				values = self.critic.getValue(states)
+		# 	self.env.updateGoal(self.critic_target, False)
+		# 	while True:
+		# 		# set action
+		# 		actions, neglogprobs = self.actor.getAction(states)
+		# 		values = self.critic.getValue(states)
 
-				rewards, dones, times, params = self.env.step(actions, False)
-				for j in range(self.num_slaves):
-					if not self.env.getTerminated(j):
-						if rewards[j][0] is not None:
-							tuples_iter[j].append([rewards[j], times[j]])
-							local_step += 1
-						if dones[j]:
-							if len(tuples_iter[j]) != 0:
-								tuples.append(deepcopy(tuples_iter[j]))
+		# 		rewards, dones, times, params = self.env.step(actions, False)
+		# 		for j in range(self.num_slaves):
+		# 			if not self.env.getTerminated(j):
+		# 				if rewards[j][0] is not None:
+		# 					tuples_iter[j].append([rewards[j], times[j]])
+		# 					local_step += 1
+		# 				if dones[j]:
+		# 					if len(tuples_iter[j]) != 0:
+		# 						tuples.append(deepcopy(tuples_iter[j]))
 							
-							if local_step < 1000:
-								tuples_iter[j] = []
-								self.env.reset(j)
-							else:
-								self.env.setTerminated(j)
-				if self.env.getAllTerminated():
-					break
-				states = self.env.getStates()
-		marginal_vs = self.computeValue(tuples)
-		self.env.saveEvaluation(marginal_vs)
+		# 					if local_step < 1000:
+		# 						tuples_iter[j] = []
+		# 						self.env.reset(j)
+		# 					else:
+		# 						self.env.setTerminated(j)
+		# 		if self.env.getAllTerminated():
+		# 			break
+		# 		states = self.env.getStates()
+		# marginal_vs = self.computeValue(tuples)
+		# self.env.sim_env.SetEvalMode(False)
+		self.env.saveEvaluation([])
 	def run(self, state):
 		state = np.reshape(state, (1, self.num_state))
 		state = self.RMS.apply(state)
@@ -669,7 +669,7 @@ if __name__=="__main__":
 	parser.add_argument("--ref", type=str, default="")
 	parser.add_argument("--test_name", type=str, default="")
 	parser.add_argument("--pretrain", type=str, default="")
-	parser.add_argument("--nslaves", type=int, default=4)
+	parser.add_argument("--nslaves", type=int, default=8)
 	parser.add_argument("--adaptive", dest='adaptive', action='store_true')
 	parser.add_argument("--parametric", dest='parametric', action='store_true')
 	parser.add_argument("--save", type=bool, default=True)
