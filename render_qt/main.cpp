@@ -120,11 +120,8 @@ int main(int argc,char** argv)
 	glutInit(&argc,argv);
 	QApplication a(argc, argv);
     MainWindow* main_window;
-    if(bvhs.compare("") != 0){
-		std::vector<std::string> motions = DPhy::split(bvhs, ',');
-    	main_window = new MainWindow(motions);
-	} else
-    	main_window = new MainWindow(bvh, ppo, reg);
+  
+    main_window = new MainWindow(bvh, ppo, reg);
  
     main_window->resize(2560,1440);
     main_window->show();

@@ -59,7 +59,7 @@ InitParamSpace(Eigen::VectorXd paramBvh, std::pair<Eigen::VectorXd, Eigen::Vecto
 	mRadiusNeighbor = 0.15;
 	mThresholdInside = 0.7;
 	mRangeExplore = 0.4;
-	mUpdateInterval = 2;
+	mUpdateInterval = 5;
 	mThresholdActivate = 3;
 
 	for(int i = 0; i < 5; i++) {
@@ -634,7 +634,7 @@ GetDensity(Eigen::VectorXd p, bool old) {
 }
 std::pair<Eigen::VectorXd , bool>
 RegressionMemory::
-UniformSample(bool visited) {
+UniformSample(int visited) {
 	int count = 0;
 	while(1) {
 		Eigen::VectorXd p(mDim);
@@ -671,6 +671,9 @@ UniformSample(bool visited) {
 		// 		p(i) = std::min(1.0, std::max(0.0, p(i)));
 		// 	} 
 		// }
+		if(visited == -1) {
+			return std::pair<Eigen::VectorXd, bool>(Denormalize(p), true); 
+		}
 		double d = GetDensity(p, true);
 		if(!visited) {
 			if((p-Eigen::VectorXd::Zero(mDim)).norm() < 0.02)
@@ -818,9 +821,9 @@ UpdateParamSpace(std::tuple<std::vector<Eigen::VectorXd>, Eigen::VectorXd, doubl
 	 	AddMapping(nearest, p);
 		mParamNew.insert(std::pair<Eigen::VectorXd, Param*>(p->param_normalized, p));
 	
-		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && to_be_deleted.size() == 0) {
+		if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.5 && to_be_deleted.size() == 0) {
 			mNewSamplesNearGoal += 1;
-		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 2.0 && p->reward >= prev_max + 0.01) {
+		} else if(GetDistanceNorm(candidate_scaled, Normalize(mParamGoalCur)) < 1.5 && p->reward >= prev_max + 0.01) {
 			mUpdatedSamplesNearGoal += 1;
 		}
 

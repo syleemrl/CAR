@@ -66,7 +66,6 @@ class Monitor(object):
 		self.v_ratio = 0
 		self.mode = 0
 		self.mode_eval = False
-		self.eval_mean = 0
 
 		if self.plot:
 			plt.ion()
@@ -139,19 +138,19 @@ class Monitor(object):
 			self.sim_env.TrainRegressionNetwork()
 	
 	def saveEvaluation(self, li):
-		self.eval_mean = np.array(li).mean()
-		self.sampler.v_mean_boundary = 0.6 * self.sampler.v_mean_boundary + 0.4 * self.eval_mean
-		print('evaluation mean: ', self.eval_mean)
-		if self.mode == 0:
-			if len(self.sampler.progress_queue_explore) == 0:
-				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
-			else:
-				update_rate = np.array(self.sampler.progress_queue_explore).mean()
-		else:
-			if len(self.sampler.progress_queue_exploit) == 0:
-				update_rate = np.array(self.sampler.progress_queue_explore).mean()
-			else:
-				update_rate = np.array(self.sampler.progress_queue_exploit).mean()
+		mean = np.array(li).mean()
+		# self.sampler.v_mean_boundary = 0.6 * self.sampler.v_mean_boundary + 0.4 * mean
+		# print('evaluation mean: ', mean)
+		# if self.mode == 0:
+		# 	if len(self.sampler.progress_queue_explore) == 0:
+		# 		update_rate = np.array(self.sampler.progress_queue_exploit).mean()
+		# 	else:
+		# 		update_rate = np.array(self.sampler.progress_queue_explore).mean()
+		# else:
+		# 	if len(self.sampler.progress_queue_exploit) == 0:
+		# 		update_rate = np.array(self.sampler.progress_queue_explore).mean()
+		# 	else:
+		# 		update_rate = np.array(self.sampler.progress_queue_exploit).mean()
 
 		self.v_ratio = self.sim_env.GetVisitedRatio()
 		f_mean = self.sim_env.GetFitnessMean()
@@ -159,12 +158,12 @@ class Monitor(object):
 		if not os.path.isfile(self.directory+"curriculum_info") :
 			out = open(self.directory+"curriculum_info", "w")
 			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
-			out.write(str(self.eval_mean)+':'+str(update_rate)+':'+str(self.v_ratio)+':'+str(f_mean)+'\n')
+			out.write(str(self.v_ratio)+':'+str(f_mean)+'\n')
 			out.close()
 		else:
 			out = open(self.directory+"curriculum_info", "a")
 			out.write(str(self.num_evaluation)+':'+str(self.num_episodes)+':'+str(self.mode)+'\n')
-			out.write(str(self.eval_mean)+':'+str(update_rate)+':'+str(self.v_ratio)+':'+str(f_mean)+'\n')
+			out.write(str(self.v_ratio)+':'+str(f_mean)+'\n')
 			out.close()			
 
 	def saveVPtable(self):
@@ -190,7 +189,7 @@ class Monitor(object):
 			out.close()	
 
 	def saveParamSpaceSummary(self, v_func):
-		#self.sim_env.SaveParamSpace(self.num_evaluation)
+		self.sim_env.SaveParamSpace(self.num_evaluation)
 		li = self.sim_env.GetParamSpaceSummary()
 		grids = li[0]
 		grids_norm = li[1]
@@ -220,42 +219,42 @@ class Monitor(object):
 		mode_change = 0
 		if not self.mode_eval:
 			self.mode_counter += 1
-	
-		if self.num_evaluation % 20 == 19:
-			self.sim_env.SaveParamSpace(-1)
+		
+		#self.sim_env.UpdateParamState()
 
-		# if self.mode == 0:
-		# 	if self.mode_counter >= 30:
-		# 		self.mode = 1
-		# 		self.mode_counter = 0
-		# 		self.sampler.resetExploit()
-		# 		mode_change = 1
-		# elif self.mode == 1:
-		# 	if self.sampler.isEnough():
-		# 		self.mode = 0
-		# 		self.mode_counter = 0
-		# 		self.sampler.resetExplore()
-		# 		mode_change = 1
+		if self.num_evaluation % 500 == 499:
+			self.sim_env.SaveParamSpace(-1)
+		
+		# if not self.mode_eval and self.mode_counter >= 20 and self.mode == 0:
+		# 	self.mode = 1
+		# 	self.mode_counter = 0
+		# 	self.sampler.resetExploit()
+		# 	mode_change = 1	
+		# elif not self.mode_eval and self.mode == 1 and self.mode_counter >= 20:
+		# 	self.mode = 0
+		# 	self.mode_counter = 0
+		# 	self.sampler.resetExplore()
+		# 	mode_change = 1	
 
 		if self.mode == 0:
-			if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
-				self.saveVPtable()
+			# if self.mode_counter % 5 == 0 and self.num_evaluation > 3:
+			# 	self.saveVPtable()
 			print(self.sampler.progress_queue_explore)
 			print(np.array(self.sampler.progress_queue_explore).mean(), np.array(self.sampler.progress_queue_exploit).mean())
-			if self.num_evaluation >= 20 and self.sampler.n_explore >= 10 and \
-			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean() * 0.9:
+			if (self.num_evaluation >= 20 and self.sampler.n_explore >= 10 and \
+			   np.array(self.sampler.progress_queue_explore).mean() <= np.array(self.sampler.progress_queue_exploit).mean()):
 				self.mode = 1
 				self.mode_counter = 0
 				self.sampler.resetExploit()
-				if self.mode_counter % 5 != 0:
-					self.saveVPtable()
+				# if self.mode_counter % 5 != 0:
+				# 	self.saveVPtable()
 				mode_change = 1
 			elif self.mode_counter % 30 == 29:
 				self.mode = 1
 				self.mode_eval = True
 				self.sampler.resetExploit()
 		elif self.mode == 1:
-			if self.mode_eval and len(self.sampler.progress_queue_exploit) >= 2:
+			if self.mode_eval and len(self.sampler.progress_queue_exploit) >= 1:
 				self.mode = 0
 				self.mode_eval = False
 				if self.sampler.prev_progress_ex > np.array(self.sampler.progress_queue_exploit).mean():
@@ -265,7 +264,7 @@ class Monitor(object):
 				self.mode_counter = 0
 				self.sampler.resetExplore()
 				mode_change = 1
-			elif not self.mode_eval and self.mode_counter % 30 == 29:
+			elif not self.mode_eval and self.mode_counter % 20 == 19:
 				self.sampler.resetEvaluation()
 				self.mode = 2
 				self.mode_eval = True
@@ -273,15 +272,10 @@ class Monitor(object):
 		elif self.mode == 2 and self.sampler.evaluation_done:
 			self.mode_eval = False
 			self.mode = 1
-			self.saveVPtable()
+			# self.saveVPtable()
 
-		if self.v_ratio == 1 and self.mode == 0:
-			self.mode = 1
-			self.mode_counter = 0
-			self.sampler.resetExploit()
-			mode_change = 1
-		elif self.v_ratio == 1 and self.eval_mean > 16:
-			mode_change = -1	
+		# if self.v_ratio == 1:
+		# 	mode_change = -1	
 
 		self.sampler.updateGoalDistribution(self.mode, v_func)
 
@@ -293,9 +287,11 @@ class Monitor(object):
 
 	def updateGoal(self, v_func, record=True):
 		if record:
+			# t = self.sampler.randomSample(-1)
+			# idx = -1
 			t, idx = self.sampler.adaptiveSample(self.mode, v_func)
 		else:
-			t = self.sampler.randomSample(1)
+			t = self.sampler.randomSample(-1)
 			idx = -1
 		
 		t = np.array(t, dtype=np.float32) 
@@ -304,8 +300,6 @@ class Monitor(object):
 		if record:		
 			t = np.reshape(t, (-1, self.dim_param))
 			v = v_func.getValue(t)[0]
-
-			print(t[0], v)
 		return idx
 
 	def plotFig(self, y_list, title, num_fig=1, ylim=True, path=None):

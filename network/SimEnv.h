@@ -44,7 +44,7 @@ public:
 	np::ndarray GetRewards();
 	np::ndarray GetRewardsByParts();
 	np::ndarray GetParamGoal();
-	np::ndarray UniformSample(bool visited);
+	np::ndarray UniformSample(int visited);
 	np::ndarray UniformSampleWithConstraints(double d0, double d1);
 
 	void LoadAdaptiveMotion();
