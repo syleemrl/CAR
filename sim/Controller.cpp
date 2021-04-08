@@ -139,13 +139,13 @@ Step()
 	if(mActions[mInterestedDof] < 0)
 		sign = -1;
 
-	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof]*1.5, -3.0, 1.0);
+	mActions[mInterestedDof] = dart::math::clip(mActions[mInterestedDof], -3.0, 1.0);
 	mActions[mInterestedDof] = exp(mActions[mInterestedDof]);
 	mAdaptiveStep = mActions[mInterestedDof];
 	// /////BASELINE
 	// mAdaptiveStep = 1;
 	// if(!isAdaptive)
-	// 	mAdaptiveStep = 1;
+		// mAdaptiveStep = 1;
 
 	mPrevFrameOnPhase = this->mCurrentFrameOnPhase;
 	this->mCurrentFrame += mAdaptiveStep;
@@ -181,26 +181,26 @@ Step()
 	Eigen::Vector3d d = Eigen::Vector3d(0, 0, 1);
 	double end_f_sum = 0;	
 	
-	for(int i = 0; i < this->mSimPerCon; i += 2){
+	for(int i = 0; i < this->mSimPerCon; i++){
 
-		for(int j = 0; j < 2; j++) {
+	//for(int j = 0; j < 2; j++) {
 	//		mCharacter->GetSkeleton()->setSPDTarget(mPDTargetPositions, 600, 49);
 			Eigen::VectorXd torque = mCharacter->GetSkeleton()->getSPDForces(mPDTargetPositions, 600, 49, mWorld->getConstraintSolver());
-			for(int j = 0; j < num_body_nodes; j++) {
-				int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
-				int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
-				std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
-				double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
-				double torque_norm = torque.block(idx, 0, dof, 1).norm();
+			// for(int j = 0; j < num_body_nodes; j++) {
+			// 	int idx = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getIndexInSkeleton(0);
+			// 	int dof = mCharacter->GetSkeleton()->getBodyNode(j)->getParentJoint()->getNumDofs();
+			// 	std::string name = mCharacter->GetSkeleton()->getBodyNode(j)->getName();
+			// 	double torquelim = mCharacter->GetTorqueLimit(name) * 1.5;
+			// 	double torque_norm = torque.block(idx, 0, dof, 1).norm();
 			
-				torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
-			}
+			// 	torque.block(idx, 0, dof, 1) = std::max(-torquelim, std::min(torquelim, torque_norm)) * torque.block(idx, 0, dof, 1).normalized();
+			// }
 
 			mCharacter->GetSkeleton()->setForces(torque);
 			mWorld->step(false);
 			//mSumTorque += torque.cwiseAbs();
 
-		}
+	//}
 		if(mCurrentFrameOnPhase >= 18 && mControlFlag[0] == 0) {
 			Eigen::Vector3d c_vel = mCharacter->GetSkeleton()->getCOMLinearVelocity();
 			double rf = mCharacter->GetSkeleton()->getBodyNode("LeftFoot")->getWorldTransform().translation()(1);
@@ -627,18 +627,21 @@ GetParamReward()
 			}
 		}
 	}
+
 	if(mCurrentFrameOnPhase >= 26 && mControlFlag[0] == 0) {
 		Eigen::Vector3d momentumGoal = Eigen::Vector3d(0, 165, 0);
-		momentumGoal(1) *= mParamGoal(1);
 		Eigen::Vector3d m_diff = momentumGoal - mMomentum;
 		m_diff *= 0.1;
 		m_diff(1) *= 4;
 
 
 		double r_m = exp_of_squared(m_diff, 2); 
+		if(r_m > 0.6) {
+			mParamCur(0) = mParamGoal(0);
+		} else {
+			mParamCur(0) = -5;
 
-		mParamCur(0) = mParamGoal(0);
-		mParamCur(1) = mMomentum(1) / 165;
+		}
 	
 		r_param = 0.8 * r_m;
 
@@ -665,7 +668,7 @@ GetParamReward()
 
 		if(mCurrentFrameOnPhase >= 44) {
 
-			double r_c = exp(-mCondiff * 7.5);
+			double r_c = exp(-mCondiff * 7);
 			double r_c_abs = exp(-mCondiff_abs);
 
 			if(r_c < 0.5) {
@@ -673,13 +676,13 @@ GetParamReward()
 			} 
 
 			r_param = r_c;
-			mFitness.sum_reward *= r_c;
+			mFitness.sum_reward *= 1.5 * r_c;
 
 
 			mControlFlag[0] = 2;
 
 			if(mRecord) {
-				std::cout << "contact: " << mCondiff << " / " << r_c << " " << r_c_abs << std::endl;
+				std::cout << "contact: " << mCondiff << " / " << r_c << std::endl;
 				std::cout << "final parameter: " <<  mParamCur.transpose() << std::endl;
 			}
 		}
@@ -741,12 +744,11 @@ UpdateReward()
 	double accum_bvh = std::accumulate(tracking_rewards_bvh.begin(), tracking_rewards_bvh.end(), 0.0) / tracking_rewards_bvh.size();
 
 	double r_time = exp(-pow((mActions[mInterestedDof] - 1),2)*40);
-
 	mSumTorque /= mSimPerCon;
 	double r_torque = exp_of_squared(mSumTorque, 50);
 
 	mRewardParts.clear();
-	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.1 * tracking_rewards_bvh[1] + 0.3 * tracking_rewards_bvh[2] + 0.1 * tracking_rewards_bvh[3] ) + 0.1 * r_time;
+	double r_tot = 0.9 * (0.5 * tracking_rewards_bvh[0] + 0.3 * tracking_rewards_bvh[2] + 0.2 * tracking_rewards_bvh[3]) + 0.1 * r_time;
 	// r_tot = 0.99 * r_tot + 0.01 * r_torque;
 	if(dart::math::isNan(r_tot)){
 		mRewardParts.resize(mRewardLabels.size(), 0.0);
@@ -757,7 +759,7 @@ UpdateReward()
 		mRewardParts.push_back(tracking_rewards_bvh[1]);
 		mRewardParts.push_back(tracking_rewards_bvh[2]);
 		mRewardParts.push_back(tracking_rewards_bvh[3]);
-		mRewardParts.push_back(r_torque);
+		mRewardParts.push_back(r_time);
 	}
 }
 void
