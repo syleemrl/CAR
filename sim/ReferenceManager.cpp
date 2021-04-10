@@ -531,7 +531,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
 
-	if(abs(std::get<2>(rewards).sum_fall) > 0.15)
+	if(abs(std::get<2>(rewards).sum_fall) > 0.2)
 		return;
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
@@ -643,7 +643,7 @@ SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw,
 		reward_trajectory = 0.8 * reward_trajectory + 0.2 * std::get<2>(rewards).sum_reward;
 	}
 
-	if(reward_trajectory < 0.4) 
+	if(reward_trajectory < 0.1) 
 		return;
 
 	mLock.lock();

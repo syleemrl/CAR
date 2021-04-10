@@ -207,6 +207,10 @@ initNetworkSetting(std::string ppo, std::string reg) {
     Py_Initialize();
     np::initialize();
     try {
+
+			p::object sys_module = p::import("sys");
+			p::str module_dir = (std::string(CAR_DIR)+"/network").c_str();
+			sys_module.attr("path").attr("insert")(1, module_dir);
     	if(reg != "") {
 			p::object reg_main = p::import("regression");
 	        this->mRegression = reg_main.attr("Regression")();
