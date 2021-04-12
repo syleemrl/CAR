@@ -222,7 +222,7 @@ class Monitor(object):
 		
 		#self.sim_env.UpdateParamState()
 
-		if self.num_evaluation % 500 == 499:
+		if self.num_evaluation % 20 == 19:
 			self.sim_env.SaveParamSpace(-1)
 		
 		# if not self.mode_eval and self.mode_counter >= 20 and self.mode == 0:

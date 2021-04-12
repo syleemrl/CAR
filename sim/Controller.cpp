@@ -173,6 +173,18 @@ Step()
 	Eigen::Vector3d rh_end = mCharacter->GetSkeleton()->getBodyNode("RightHand")->getWorldTransform()* Eigen::Vector3d(-0.06, -0.025, 0);
 	double box_end_z = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2] - 0.5;
 
+	if(mCurrentFrameOnPhase >= 16 && mCurrentFrameOnPhase <= 200 && !obj_set) {
+		this->mObject->GetSkeleton()->setPositions(mObjTargetPos);
+		obj_set = true;
+	}
+	if(mCurrentFrameOnPhase >= 210 && obj_set) {
+		Eigen::VectorXd pos = this->mObject->GetSkeleton()->getPositions();
+		pos[3] += 5;
+		pos[5] += 5;
+
+		this->mObject->GetSkeleton()->setPositions(pos);	
+		obj_set = false;
+	}
 	if(mCurrentFrameOnPhase >=21 && !left_detached && !leftHandConstraint) attachHandToBar(true, Eigen::Vector3d(0.06, -0.025, 0));
 	else if(mCurrentFrameOnPhase >=190 && leftHandConstraint) { removeHandFromBar(true); left_detached= true; }
 
@@ -360,6 +372,7 @@ Step()
 		obj_pos.setZero();
 		obj_pos[box_dof-1]= root_diff[2]; // z-direction
 		obj_pos[box_dof-3] = root_diff[0];
+		mObjTargetPos = obj_pos;
 
 		mObject->GetSkeleton()->setPositions(obj_pos);
 		mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -368,6 +381,12 @@ Step()
 		this->mObjectStartPosition = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2];
 		left_detached = false;
 		right_detached = false;
+
+		obj_pos[box_dof-1]= root_diff[2] + 5; // z-direction
+		obj_pos[box_dof-3] = root_diff[0] + 5;
+		mObject->GetSkeleton()->setPositions(obj_pos);
+	
+		obj_set = false;
 		#endif
 
 	}
@@ -711,7 +730,7 @@ GetParamReward()
 	if(mCurrentFrameOnPhase >= 200 && !pr_calculated){
 		double cur_obj_z= mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2];
 		double travel_distance = cur_obj_z - mObjectStartPosition;
-		double distance_diff= travel_distance - (4-0.7);
+		double distance_diff = travel_distance - (4-0.7);
 		r_param = exp_of_squared(distance_diff, 0.65);
 
 		if(abs(distance_diff) < 0.5) {
@@ -1051,6 +1070,7 @@ Reset(bool RSI)
 	
 	Eigen::VectorXd obj_pos(mObject->GetSkeleton()->getNumDofs());
 	obj_pos.setZero();
+	mObjTargetPos = obj_pos;
 
 	this->mObject->GetSkeleton()->setPositions(obj_pos);
 	this->mObject->GetSkeleton()->setVelocities(Eigen::VectorXd::Zero(mObject->GetSkeleton()->getNumDofs()));
@@ -1065,7 +1085,11 @@ Reset(bool RSI)
 	Eigen::Vector3d mf = (lf+rf)/2.; 
 	this->mStartFoot = Eigen::Vector3d(mf[0], std::min(lf[1], rf[1]), mf[2]);
 	this->mObjectStartPosition = mObject->GetSkeleton()->getBodyNode("Box")->getWorldTransform().translation()[2];
-
+	
+	obj_pos[3] += 5;
+	obj_pos[5] += 5;
+	this->mObject->GetSkeleton()->setPositions(obj_pos);
+	obj_set = false;
 	#endif
 
 	foot_diff.clear();

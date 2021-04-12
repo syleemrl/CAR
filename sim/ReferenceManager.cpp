@@ -530,9 +530,8 @@ ReferenceManager::
 SaveTrajectories(std::vector<std::pair<Eigen::VectorXd,double>> data_raw, 
 				 std::tuple<double, double, Fitness> rewards,
 				 Eigen::VectorXd parameters) {
-
-	if(abs(std::get<2>(rewards).sum_fall) > 0.2)
-		return;
+	// if(abs(std::get<2>(rewards).sum_fall) > 0.2)
+	// 	return;
 	if(dart::math::isNan(std::get<0>(rewards)) || dart::math::isNan(std::get<1>(rewards))) {
 		return;
 	}

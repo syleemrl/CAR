@@ -525,6 +525,11 @@ class PPO(object):
 		self.env.sampler.resetExplore()
 		it_cur = 0
 
+		# self.env.mode = 1
+		# self.env.sampler.resetExploit()
+		# self.env.sampler.updateGoalDistribution(self.env.mode, self.critic_target)
+
+
 		for it in range(num_iteration):
 
 			for i in range(self.num_slaves):

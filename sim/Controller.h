@@ -222,7 +222,8 @@ protected:
 	void removeHandFromBar(bool left);
 
 	Eigen::VectorXd mSumTorque;
-
+	Eigen::VectorXd mObjTargetPos;
+	bool obj_set = false;
 };
 }
 #endif
