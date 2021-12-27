@@ -1,4 +1,4 @@
-# Learning a family of motor skills from a single motion clip
+# Learning a family of motor skills from a single motion clip (refactoring not done)
 
 ### install 
 
